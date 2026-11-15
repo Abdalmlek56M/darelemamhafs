@@ -45,7 +45,7 @@
 - **Phase 2.1:** New .NET solution — ✅ Done.
 - **Phase 2.3:** Identity — 🟡 First slice (Email OTP, Google path, password fallback, sessions).
 - **Next:** migration CLI + first business module + Next.js shell.
-- **Backend:** .NET 10 + Npgsql/Dapper.
+- **Backend:** .NET 10 + Npgsql/Dapper — **final** (TypeScript rejected).
 - **Frontend:** Next.js 16 (target).
 - **Database:** PostgreSQL 17+ on the same server, `public` schema initially.
 - **Domain:** `darelemamhaf.rigxhardware.com`.

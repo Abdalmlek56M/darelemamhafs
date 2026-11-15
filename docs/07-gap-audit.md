@@ -277,6 +277,8 @@ Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; a
 | **D-04** | Emails for existing users/teachers (OTP/Google) | Resolved: manual emails + Google; temporary password fallback until emails are collected. Credentials are never stored in docs/repo. | Auth migration |
 | **D-05** | Keep any desktop features? | No; web only | Remove desktop |
 | **D-06** | Launch priority after core: payroll, billing, or reports? | Payroll first | Roadmap |
+| **D-07** | Backend stack: .NET or TypeScript/NestJS? | .NET final; TypeScript rejected | Architecture |
+| **D-08** | Google login now or later? | Deferred; password + sessions now | Auth |
 
 ---
 

@@ -130,6 +130,8 @@
 
 ## Phase 2 — Backend Foundation (.NET)
 
+> **Backend decision:** .NET is final. TypeScript/NestJS is rejected. Do not build a second backend.
+
 ### 2.1 Solution structure
 - [x] `Dar.slnx`
 - [x] `src/Host/Dar.Api`

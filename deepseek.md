@@ -61,7 +61,7 @@
 - **Phase 2.3:** Identity — 🟡 first slice done (Email OTP, Google path, password fallback, sessions, logout; SMTP/Google config pending).
 - **Phase 2.4:** Migration runner — ✅ done (checksums, advisory lock, 13 migrations, idempotent).
 - **Phase 3.1:** Secretariat — 🟡 students list/get/create done.
-- **TypeScript backend:** ⏳ decision pending; do not build a second backend until confirmed.
+- **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.
 - **Git:** local repo initialized; commit `bac94fa` on `main`; remote/push pending `gh auth login` + remote URL.
 - **Legacy stack:** .NET 10 minimal API + React 19/Vite + PostgreSQL 17 + WPF/WebView2 + PowerShell Test Center. No `.bat` files remain.
@@ -270,15 +270,19 @@ Date: DD Mon YYYY
 2. **D-04:** إيميلات مانويل + Google؛ Password Fallback مؤقتًا. بيانات الدخول لا تُكتب في أي ملف.
 
 **Pending (non-blocking):**
-3. **Stack:** TypeScript/NestJS backend أم .NET؟ لا نبني الاثنين. قرار واحد فقط.
-4. سياسة خصم أيام الإيقاف وسط الشهر.
-5. مزود البريد/واتساب.
-6. Step-up scope.
-7. Double-entry ledger from day one?
-8. أولوية الإطلاق: الأجور أم مالية الطالبات؟ — بعد Audit.
-9. أكثر من فرع؟
-10. بيانات قديمة تحتاج استيراد؟
-11. GitHub remote URL + `gh auth login` للـpush.
+3. سياسة خصم أيام الإيقاف وسط الشهر.
+4. مزود البريد/واتساب.
+5. Step-up scope.
+6. Double-entry ledger from day one?
+7. أولوية الإطلاق: الأجور أم مالية الطالبات؟ — بعد Audit.
+8. أكثر من فرع؟
+9. بيانات قديمة تحتاج استيراد؟
+10. GitHub remote URL + `gh auth login` للـpush.
+
+**Resolved:**
+- Backend: .NET final. TypeScript rejected.
+- Google: deferred. Password + session is the current path.
+- File size: 200–300 target, 400 hard max; legacy exceptions listed in `docs/04-engineering-standards.md`.
 
 ---
 

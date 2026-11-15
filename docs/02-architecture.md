@@ -455,6 +455,9 @@ flowchart TB
 | 18 | Remove WPF/WebView2/desktop | web-only product; `darelemamhaf.rigxhardware.com` |
 | 19 | No purge of financial history | corrections via reversal/archive only |
 | 20 | Arabic + English | next-intl; Arabic default |
+| 21 | .NET is the final backend | owner decision; TypeScript/NestJS rejected to avoid a second rewrite |
+| 22 | Google login deferred | temporary password + sessions is the current path |
+| 23 | File size budget 200–400 lines | split every use case; legacy exceptions documented |
 
 ---
 
