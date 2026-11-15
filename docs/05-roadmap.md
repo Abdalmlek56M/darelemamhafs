@@ -153,8 +153,9 @@
 
 **Checkpoint:** `docs/checkpoints/legacy-split-1.1.md`
 
-### 1.5.2 Frontend split — ⏳ Pending
-- [ ] `useDarApplication` → feature hooks.
+### 1.5.2 Frontend split — 🟡 Started
+- [x] Pure selectors → `application/selectors.ts`.
+- [ ] `useDarApplication` → notification/loader/CRUD hooks.
 - [ ] `SystemAdminView` → tabs.
 - [ ] `ManagementReportBuilder` → report types.
 - [ ] `App.tsx` → shell/sidebar/topbar.

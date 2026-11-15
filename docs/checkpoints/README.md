@@ -20,6 +20,7 @@
 | 1.5.1 | [Legacy backend split — first slice](legacy-split-0.1.md) | ✅ |
 | 1.5.2 | [DomainEndpoints split](legacy-split-1.1.md) | ✅ |
 | 1.5.3 | [SystemAdminEndpoints split](legacy-split-1.2.md) | 🟡 partial |
+| 1.5.4 | [Frontend selectors](legacy-split-2.1.md) | ✅ |
 
 ## Next in order
 

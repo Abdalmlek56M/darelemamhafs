@@ -10,6 +10,21 @@ import { request, requestForm } from '../services/apiClient'
 import { saveDesktopCredential } from '../services/desktopCredentialBridge'
 import { navItems } from '../domain/navigation'
 import { playNotificationSound, readNotificationSound, saveNotificationSound, readNotificationDuration, saveNotificationDuration, stopNotificationSound as stopNotificationAudio, type NotificationSound, type NotificationDuration } from '../lib/notificationSounds'
+import {
+  getNextSessions,
+  getMonthSessions,
+  getMonthlyTeacherPay,
+  getSuggestedFirstMonthCharge as suggestedFirstMonthCharge,
+  getFilteredStudents,
+  getFilteredTeachers,
+  getCurrentMonthTotals,
+  getMonthlyTeacherPayTotal,
+  getMonthlyAdvertisingTotal,
+  getMonthlyOperatingExpenseTotal,
+  getDashboardProfit,
+  getTeacherPaySummary,
+  getCircleProfitSummary,
+} from './selectors'
 
 export default function useDarApplication() {
 
@@ -392,64 +407,9 @@ export default function useDarApplication() {
     if (notificationPermission !== 'granted') await enableNotifications()
     else setToast({ tone: 'success', text: 'تم تفعيل تنبيهات مواعيد الحلقات.' })
   }, [scheduleNotificationsEnabled, notificationPermission, enableNotifications])
-  const nextSessions = useMemo(() => {
-    const todayKey = localDateKey(new Date(clockNow))
-    return scheduleSlots
-      .filter(slot => slot.isActive)
-      .map(slot => {
-        const [hour, minute] = timeLabel(slot.startsAt).split(':').map(Number)
-        const circleStart = circles.find(circle => circle.id === slot.circleId)?.startsOn
-        // Start from the later of today and the circle's declared start date.
-        // This avoids skipping or miscalculating weekdays when the start date is in the future.
-        const baselineKey = circleStart && circleStart > todayKey ? circleStart : todayKey
-        const target = new Date(`${baselineKey}T12:00:00`)
-        const offset = (slot.dayOfWeek - target.getDay() + 7) % 7
-        target.setDate(target.getDate() + offset)
-        target.setHours(hour, minute, 0, 0)
-        let endsAt = new Date(target.getTime() + slot.durationMinutes * 60_000)
-        const isRunning = localDateKey(target) === todayKey && target.getTime() <= clockNow && clockNow < endsAt.getTime()
-        if (target.getTime() <= clockNow && !isRunning) {
-          target.setDate(target.getDate() + 7)
-          endsAt = new Date(target.getTime() + slot.durationMinutes * 60_000)
-        }
-        return { ...slot, target, endsAt, isRunning }
-      })
-      .sort((a, b) => a.target.getTime() - b.target.getTime())
-  }, [scheduleSlots, circles, clockNow])
-  const monthSessions = useMemo(() => {
-    const [year, month] = currentMonthValue.split('-').map(Number)
-    if (!year || !month) return []
-    const count = new Date(year, month, 0).getDate()
-    const indexed = new Map<string, {slot:ScheduleSlot; date:string; target:Date; attendance?:AttendanceRow}>()
-    const slotById = new Map<string, ScheduleSlot>(scheduleSlots.map(slot => [slot.id, slot] as const))
-    const attendanceIndex = new Map<string, AttendanceRow>(attendanceRows.filter(a => a.scheduleSlotId).map(a => [`${a.scheduleSlotId}|${a.sessionDate.slice(0,10)}`, a] as [string, AttendanceRow]))
-    // Active slots create the expected weekly occurrences for the selected month.
-    for (let day=1; day<=count; day++) {
-      const dateObj = new Date(year, month - 1, day)
-      const date = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`
-      for (const slot of scheduleSlots) {
-        if (!slot.isActive || slot.dayOfWeek !== dateObj.getDay()) continue
-        // Include recurring dates before startsOn as clearly marked historical candidates.
-        // Administrators may need to enter backdated attendance; the UI labels these rows.
-        const key = `${slot.id}|${date}`
-        const item = { slot, date, target: sessionDateTime(date, slot.startsAt), attendance: attendanceIndex.get(key) }
-        indexed.set(key, item)
-      }
-    }
-    // An inactive slot appears only on dates that already have saved teacher attendance; it does not generate future or phantom sessions.
-    for (const attendance of attendanceRows) {
-      if (!attendance.scheduleSlotId || !attendance.sessionDate.startsWith(`${currentMonthValue}-`)) continue
-      const slot = slotById.get(attendance.scheduleSlotId)
-      if (!slot) continue
-      const date = attendance.sessionDate.slice(0,10)
-      const key = `${slot.id}|${date}`
-      const existing = indexed.get(key)
-      if (existing) existing.attendance = attendance
-      else indexed.set(key, { slot, date, target: sessionDateTime(date, attendance.startsAt || slot.startsAt), attendance })
-    }
-    return [...indexed.values()].sort((a,b) => b.target.getTime() - a.target.getTime())
-  }, [scheduleSlots, attendanceRows, circles, currentMonthValue])
-  const monthlyTeacherPay = useMemo(() => { const acc = new Map<string,{teacherId:string;teacherName:string;present:number;hours:number;payable:number}>(); for(const row of attendanceRows){if(row.status!=='present')continue;const item=acc.get(row.teacherId)??{teacherId:row.teacherId,teacherName:row.teacherName,present:0,hours:0,payable:0};item.present++;item.hours+=row.durationMinutes/60;item.payable+=(row.payableAmount ?? 0);acc.set(row.teacherId,item)} return Array.from(acc.values()).sort((a,b)=>a.teacherName.localeCompare(b.teacherName,'ar')) }, [attendanceRows])
+  const nextSessions = useMemo(() => getNextSessions(scheduleSlots, circles, clockNow), [scheduleSlots, circles, clockNow])
+  const monthSessions = useMemo(() => getMonthSessions(scheduleSlots, attendanceRows, currentMonthValue), [scheduleSlots, attendanceRows, currentMonthValue])
+  const monthlyTeacherPay = useMemo(() => getMonthlyTeacherPay(attendanceRows), [attendanceRows])
 
   const openEnrollmentCreate = (studentId = '', circleId = '', fee: number | null = 0) => { setHistory(null); setSelectedStudent(null); setSelectedCircle(null); setEnrollmentForm(blankEnrollment(studentId, circleId, fee)); setEnrollmentModal(true) }
   const saveEnrollment = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSaving(true); try { const canEditFinancials = has('finance.read') && has('finance.edit'); const payload = { studentId: enrollmentForm.studentId, circleId: enrollmentForm.circleId, startsOn: enrollmentForm.startsOn, ...(canEditFinancials ? { agreedMonthlyFee: Number(enrollmentForm.agreedMonthlyFee) } : {}), allowClosedCircle: Boolean(enrollmentForm.allowClosedCircle) }; await request('/api/enrollments', { method: 'POST', body: JSON.stringify(payload) }); setEnrollmentModal(false); await Promise.all([loadStudents(), loadCircles(), loadCollections()]); if (selectedStudent) await openHistory(selectedStudent.id); if (selectedCircle) await openCircleDetails(selectedCircle); setToast({ tone: 'success', text: 'تم إلحاق الطالب بالحلقة وحفظ تاريخ الالتحاق.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر تسجيل الالتحاق.' }) } finally { setSaving(false) } }
@@ -502,19 +462,6 @@ export default function useDarApplication() {
     finally { setSaving(false) }
   }
 
-  const suggestedFirstMonthCharge = (row: CollectionRow, monthValue: string) => {
-    const [year, month] = monthValue.split('-').map(Number)
-    if (!year || !month) return row.agreedMonthlyFee
-    const monthStart = new Date(year, month - 1, 1, 12)
-    const monthEnd = new Date(year, month, 0, 12)
-    const toLocalDate = (value: Date) => `${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,'0')}-${String(value.getDate()).padStart(2,'0')}`
-    const start = [row.circleStartsOn, row.enrollmentStartsOn, toLocalDate(monthStart)].sort().at(-1)!
-    const end = row.enrollmentEndsOn && row.enrollmentEndsOn < toLocalDate(monthEnd) ? row.enrollmentEndsOn : toLocalDate(monthEnd)
-    if (start > end || start > toLocalDate(monthEnd)) return 0
-    const startDay = Number(start.slice(8,10)), endDay = Number(end.slice(8,10)), daysInMonth = monthEnd.getDate()
-    const activeDays = Math.max(0, endDay - startDay + 1)
-    return Math.round(row.agreedMonthlyFee * activeDays / daysInMonth * 100) / 100
-  }
   const openChargeCreate = (row: CollectionRow) => { closeDetailLayers(); setEditingChargeId(null); setChargeForm(blankCharge(row.enrollmentId, currentMonthValue, suggestedFirstMonthCharge(row, currentMonthValue))); setChargeModal(true) }
   const saveCharge = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSaving(true); try { if (editingChargeId) await request(`/api/charges/${editingChargeId}`, { method: 'PUT', body: JSON.stringify({ amountDue: Number(chargeForm.amountDue), note: chargeForm.note.trim() || null }) }); else await request('/api/charges', { method: 'POST', body: JSON.stringify({ ...chargeForm, amountDue: Number(chargeForm.amountDue) }) }); setChargeModal(false); setEditingChargeId(null); await loadCollections(); setToast({ tone: 'success', text: editingChargeId ? 'تم تعديل الاستحقاق.' : 'تم تسجيل استحقاق الشهر للحلقة والطالب.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ الاستحقاق.' }) } finally { setSaving(false) } }
   const deleteCharge = async (row: CollectionRow) => { if (!row.chargeId || !await moveRecordToTrash('monthly-charge', row.chargeId, `استحقاق ${row.studentName} · ${row.circleName} · ${currentMonthValue}`)) return; await Promise.all([loadCollections(), loadStudents()]) }
@@ -556,50 +503,16 @@ export default function useDarApplication() {
   const saveUser = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSaving(true); try { const payload = { ...userForm, password: userForm.password || null }; if (editingUser) await request(`/api/admin/users/${editingUser.id}`, { method: 'PUT', body: JSON.stringify(payload) }); else await request('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) }); setUserModal(false); await loadUsers(); setToast({ tone: 'success', text: editingUser ? 'تم تحديث الحساب وصلاحياته.' : 'تم إنشاء الحساب بالصلاحيات المحددة.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ الحساب.' }) } finally { setSaving(false) } }
   const deactivateUser = async (user: AdminUser) => { if (!window.confirm(`تعطيل حساب «${user.displayName}»؟ لن يستطيع تسجيل الدخول بعد ذلك.`)) return; try { await request(`/api/admin/users/${user.id}`, { method: 'DELETE' }); await loadUsers(); setToast({ tone: 'success', text: 'تم تعطيل الحساب.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر تعطيل الحساب.' }) } }
 
-  const filteredStudents = useMemo(() => students.filter(student => { const term = query.trim().toLocaleLowerCase('ar'); const matches = !term || [student.fullName,student.studentCode,student.phone??'',student.guardianName??'',student.guardianPhone??'',student.circleNames].some(x=>x.toLocaleLowerCase('ar').includes(term)); return matches && (statusFilter==='all'||student.status===statusFilter) }), [students,query,statusFilter])
-  const filteredTeachers = useMemo(() => teachers.filter(t => { const term=query.trim().toLocaleLowerCase('ar'); return (!term||[t.fullName,t.teacherCode,t.phone??'',t.circleNames].some(x=>x.toLocaleLowerCase('ar').includes(term)))&&(teacherFilter==='all'||t.status===teacherFilter) }),[teachers,query,teacherFilter])
+  const filteredStudents = useMemo(() => getFilteredStudents(students, query, statusFilter), [students, query, statusFilter])
+  const filteredTeachers = useMemo(() => getFilteredTeachers(teachers, query, teacherFilter), [teachers, query, teacherFilter])
   const currentTitle = navItems.find(item=>item.id===page)?.label ?? 'لوحة التحكم'
-  const currentMonthTotals = useMemo(()=>collections.reduce((acc,row)=>({due:acc.due+row.amountDue,paid:acc.paid+row.paidAmount,balance:acc.balance+row.balance}),{due:0,paid:0,balance:0}),[collections])
-  const monthlyTeacherPayTotal = useMemo(() => attendanceRows.filter(row => row.status === 'present').reduce((sum, row) => sum + (row.payableAmount ?? 0), 0), [attendanceRows])
-  const monthlyAdvertisingTotal = useMemo(() => advertisingExpenses.reduce((sum, row) => sum + row.monthAmount, 0), [advertisingExpenses])
-  const monthlyOperatingExpenseTotal = useMemo(() => operatingExpenses.reduce((sum, row) => sum + row.amount, 0), [operatingExpenses])
-  const dashboardProfit = useMemo(() => ({
-    billed: currentMonthTotals.due, collected: currentMonthTotals.paid, balance: currentMonthTotals.balance,
-    advertising: monthlyAdvertisingTotal, teacherPay: monthlyTeacherPayTotal, otherExpenses: monthlyOperatingExpenseTotal,
-    net: currentMonthTotals.due - monthlyAdvertisingTotal - monthlyTeacherPayTotal - monthlyOperatingExpenseTotal,
-    withoutChargeCount: collections.filter(row => !row.chargeId).length,
-    unmarkedPastSessions: monthSessions.filter(item => item.target.getTime() <= clockNow && !item.attendance).length,
-  }), [currentMonthTotals, monthlyAdvertisingTotal, monthlyTeacherPayTotal, monthlyOperatingExpenseTotal, collections, monthSessions, clockNow])
-  const teacherPaySummary = useMemo(() => {
-    const byId = new Map<string, TeacherPaySummary>()
-    for (const row of attendanceRows) {
-      if (row.status !== 'present') continue
-      let item = byId.get(row.teacherId)
-      if (!item) { item = { teacherId: row.teacherId, teacherName: row.teacherName, sessions: 0, hours: 0, payable: 0, avgHourlyRate: 0 }; byId.set(row.teacherId, item) }
-      item.sessions += 1
-      item.hours += row.durationMinutes / 60
-      item.payable += row.payableAmount ?? 0
-    }
-    const rows = Array.from(byId.values())
-    for (const row of rows) row.avgHourlyRate = row.hours > 0 ? row.payable / row.hours : 0
-    return rows.sort((a,b) => b.payable-a.payable || a.teacherName.localeCompare(b.teacherName,'ar'))
-  }, [attendanceRows])
-  const circleProfitSummary = useMemo(() => {
-    const byId = new Map<string, CircleProfitSummary>()
-    const ensure = (circleId: string, circleName: string) => {
-      let row = byId.get(circleId)
-      if (!row) { row = { circleId, circleName, billed: 0, collected: 0, advertising: 0, teacherPay: 0, linkedExpenses: 0, uncharged: 0, net: 0 }; byId.set(circleId, row) }
-      return row
-    }
-    for (const circle of circles) if (circle.isActive) ensure(circle.id, circle.name)
-    for (const row of collections) { const target = ensure(row.circleId, row.circleName); target.billed += row.amountDue; target.collected += row.paidAmount; if (!row.chargeId) target.uncharged++ }
-    for (const row of advertisingExpenses) ensure(row.circleId, row.circleName).advertising += row.monthAmount
-    for (const row of attendanceRows) if (row.status === 'present') ensure(row.circleId, row.circleName).teacherPay += row.payableAmount ?? 0
-    for (const row of operatingExpenses) if (row.circleId) ensure(row.circleId, row.circleName || 'حلقة غير معروفة').linkedExpenses += row.amount
-    const rows = Array.from(byId.values())
-    for (const row of rows) row.net = row.billed - row.advertising - row.teacherPay - row.linkedExpenses
-    return rows.sort((a,b) => b.net-a.net || a.circleName.localeCompare(b.circleName,'ar'))
-  }, [circles, collections, advertisingExpenses, attendanceRows, operatingExpenses])
+  const currentMonthTotals = useMemo(() => getCurrentMonthTotals(collections), [collections])
+  const monthlyTeacherPayTotal = useMemo(() => getMonthlyTeacherPayTotal(attendanceRows), [attendanceRows])
+  const monthlyAdvertisingTotal = useMemo(() => getMonthlyAdvertisingTotal(advertisingExpenses), [advertisingExpenses])
+  const monthlyOperatingExpenseTotal = useMemo(() => getMonthlyOperatingExpenseTotal(operatingExpenses), [operatingExpenses])
+  const dashboardProfit = useMemo(() => getDashboardProfit({ currentMonthTotals, monthlyAdvertisingTotal, monthlyTeacherPayTotal, monthlyOperatingExpenseTotal, collections, monthSessions, clockNow }), [currentMonthTotals, monthlyAdvertisingTotal, monthlyTeacherPayTotal, monthlyOperatingExpenseTotal, collections, monthSessions, clockNow])
+  const teacherPaySummary = useMemo(() => getTeacherPaySummary(attendanceRows), [attendanceRows])
+  const circleProfitSummary = useMemo(() => getCircleProfitSummary({ circles, collections, advertisingExpenses, attendanceRows, operatingExpenses }), [circles, collections, advertisingExpenses, attendanceRows, operatingExpenses])
   const downloadProfitSummary = () => {
     const rows: [string, string | number][] = [
       ['الدار', branding.brandName], ['الشهر', currentMonthValue],

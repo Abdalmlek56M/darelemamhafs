@@ -182,7 +182,8 @@ Split shell, sidebar, topbar, auth gate, theme, dialogs.
 - [ ] Build + relevant tests after each file.
 
 ### L2 — Frontend feature split
-- [ ] `useDarApplication` hooks.
+- [x] Pure selectors extracted to `application/selectors.ts`.
+- [ ] `useDarApplication` notification/loader/CRUD hooks.
 - [ ] `SystemAdminView` tabs.
 - [ ] `ManagementReportBuilder`.
 - [ ] `App.tsx` shell.

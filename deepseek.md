@@ -63,7 +63,8 @@
 - **Phase 2.5:** OpenAPI + generated TS client — ✅ done (12 paths, 10 schemas, `openapi-typescript` + `openapi-fetch`, typecheck passes).
 - **Phase 2.6:** CI baseline — ✅ done (backend/frontend/api-client/security jobs).
 - **Phase 3.1:** Secretariat — 🟡 students list/get/create done.
-- **Phase 1.5.1:** Legacy backend split — 🟡 `DomainEndpoints` fully split (13 files, max 376); `SystemAdminEndpoints` partial (main 304 + Export/Trash/Helpers); Test Center GUI archived. Next: frontend `useDarApplication` / `SystemAdminView` split.
+- **Phase 1.5.1:** Legacy backend split — 🟡 `DomainEndpoints` fully split (13 files, max 376); `SystemAdminEndpoints` partial (main 304 + Export/Trash/Helpers); Test Center GUI archived.
+- **Phase 1.5.2:** Frontend split — 🟡 selectors extracted (`selectors.ts`); `useDarApplication` 889 → 807 lines. Next: notifications/loaders/CRUD hooks + `SystemAdminView` tabs.
 - **UI gate:** no UI implementation before the owner approves a visual sample.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.
@@ -194,9 +195,35 @@ git push origin main
 
 Remote: `https://github.com/Abdalmlek56M/darelemamhafs.git`
 
+### Pre-Push Build Gate (mandatory)
+
+Before **every** commit/push:
+
+```bash
+dotnet build backend/DarEltahfeez.Api/DarEltahfeez.Api.csproj
+dotnet build Dar.slnx
+dotnet test Dar.slnx
+npm run build --prefix frontend
+```
+
+When `apps/web` exists, run its build too:
+
+```bash
+npm run build --prefix apps/web
+```
+
+Rules:
+
+- If any build or test fails: **do not commit, do not push.**
+- Record the build/test result in the checkpoint.
+- Never push generated output, `node_modules`, `bin`, `obj`, `dist`, or secrets.
+- Every completed phase gets its own commit; do not mix unrelated phases.
+- Push `origin/main` after each completed phase.
+- No force-push or shared-history rewrite.
+
 **لا `.bat`.**
 **لا تشغيل migrations على الإنتاج بدون نسخة.**
-**كل Checkpoint مكتمل = Commit + Push.**
+**كل Checkpoint مكتمل = Build + Commit + Push.**
 **لا force-push ولا إعادة كتابة تاريخ مشترك.**
 
 ---
