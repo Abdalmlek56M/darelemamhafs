@@ -19,13 +19,14 @@
 | 3.1 | [Secretariat — students](3.1-secretariat.md) | 🟡 first slice |
 | 1.5.1 | [Legacy backend split — first slice](legacy-split-0.1.md) | ✅ |
 | 1.5.2 | [DomainEndpoints split](legacy-split-1.1.md) | ✅ |
+| 1.5.3 | [SystemAdminEndpoints split](legacy-split-1.2.md) | 🟡 partial |
 
 ## Next in order
 
 | Phase | Step | Checkpoint to create |
 |---|---|---|
-| 1.5.1b | SystemAdmin / Auth / Program / Audit / AdminService split | `legacy-split-1.2.md` |
-| 1.5.2 | Frontend feature split | `legacy-split-1.3.md` |
+| 1.5.2 | Frontend `useDarApplication` / `SystemAdminView` split | `legacy-split-2.1.md` |
+| 1.5.3 | Auth / Program / Audit / AdminService split | `legacy-split-2.2.md` |
 | 1.5.3 | Test migration | `legacy-split-1.3.md` |
 | 2.7 | Security gate | `2.7-security-gate.md` |
 | 2.8 | DB hardening | `2.8-db-hardening.md` |

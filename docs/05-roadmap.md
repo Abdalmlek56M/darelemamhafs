@@ -145,7 +145,7 @@
 - [x] `DomainEndpoints.History.cs`
 - [x] `DomainEndpoints.Validation.cs`
 - [x] `DomainEndpoints.EnrollmentLifecycle.cs`
-- [ ] `SystemAdminEndpoints` split.
+- [~] `SystemAdminEndpoints` partial (Export/Trash/Helpers extracted; main 304 lines).
 - [ ] `AuthEndpoints` split.
 - [ ] `Program.cs` composition extraction.
 - [ ] `AuditMiddleware` split.

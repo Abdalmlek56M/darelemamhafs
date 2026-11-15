@@ -174,7 +174,7 @@ Split shell, sidebar, topbar, auth gate, theme, dialogs.
 
 ### L1 — Backend partial split
 - [x] `DomainEndpoints` fully split (13 files; max 376 lines).
-- [ ] `SystemAdminEndpoints`.
+- [~] `SystemAdminEndpoints` partial (4 files; main 304 lines).
 - [ ] `AuthEndpoints`.
 - [ ] `Program.cs` composition extraction.
 - [ ] `AuditMiddleware`.
