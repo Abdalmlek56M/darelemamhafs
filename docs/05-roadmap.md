@@ -179,12 +179,12 @@
 **Checkpoint:** `docs/checkpoints/2.4-database.md`
 
 ### 2.5 OpenAPI + client
-- [ ] OpenAPI 3.1.
-- [ ] Commit `openapi.v1.json`.
+- [x] OpenAPI 3.1.
+- [x] Commit `openapi.v1.json`.
 - [ ] Contract test.
-- [ ] Generate TS types.
-- [ ] `openapi-fetch` wrapper.
-- [ ] Same-origin `/api` proxy.
+- [x] Generate TS types (`openapi-typescript`).
+- [x] `openapi-fetch` wrapper.
+- [ ] Same-origin `/api` proxy (Next.js next).
 
 **Checkpoint:** `docs/checkpoints/2.5-contract.md`
 

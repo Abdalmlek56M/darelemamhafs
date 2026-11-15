@@ -27,6 +27,8 @@ public static class GetStudentEndpoint
                 return Results.Ok(student);
             })
             .RequireAuthorization("students.read")
+            .Produces<StudentResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
             .WithName("GetStudent")
             .WithTags("secretariat");
 

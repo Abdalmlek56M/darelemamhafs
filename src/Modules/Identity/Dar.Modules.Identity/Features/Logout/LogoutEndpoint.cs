@@ -13,6 +13,8 @@ public static class LogoutEndpoint
                 return Results.Ok(new { success = true });
             })
             .RequireAuthorization()
+            .Produces(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .WithName("Logout")
             .WithTags("identity");
 

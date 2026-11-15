@@ -1,3 +1,4 @@
+using Dar.Modules.Identity.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace Dar.Modules.Identity.Features.PasswordSignIn;
@@ -17,6 +18,8 @@ public static class PasswordSignInEndpoint
             })
             .AllowAnonymous()
             .RequireRateLimiting("auth")
+            .Produces<UserSessionResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .WithName("PasswordSignIn")
             .WithTags("identity");
 

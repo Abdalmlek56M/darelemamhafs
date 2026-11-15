@@ -22,6 +22,8 @@ public static class RequestEmailOtpEndpoint
             })
             .AllowAnonymous()
             .RequireRateLimiting("auth")
+            .Produces(StatusCodes.Status202Accepted)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .WithName("RequestEmailOtp")
             .WithTags("identity");
 

@@ -490,6 +490,7 @@ src/Host/Dar.Api              minimal API host, health, OpenAPI, ProblemDetails,
 src/Common/Dar.Common         AppException, PagedResult, Money, PermissionCodes
 src/Modules/Identity          Email OTP, Google ID token, password fallback, sessions, /me, logout, set email
 src/Modules/Secretariat       students list/get/create, paged search, audit
+packages/api-client           OpenAPI 3.1 spec + generated TS types + openapi-fetch client
 tests/Dar.UnitTests           xUnit domain/identity tests (12 passing)
 tests/Dar.IntegrationTests    WebApplicationFactory health tests (3 passing)
 database/013_auth_email_otp.sql

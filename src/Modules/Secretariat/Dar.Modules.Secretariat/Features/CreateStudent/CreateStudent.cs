@@ -107,6 +107,9 @@ public static class CreateStudentEndpoint
                 return Results.Created($"/api/v1/students/{created.Id}", created);
             })
             .RequireAuthorization("students.create")
+            .Produces<StudentResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .WithName("CreateStudent")
             .WithTags("secretariat");
 

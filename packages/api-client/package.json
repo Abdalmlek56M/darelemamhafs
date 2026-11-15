@@ -1,0 +1,23 @@
+{
+  "name": "@dar/api-client",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "generate": "openapi-typescript openapi.v1.json -o src/schema.d.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
+  },
+  "private": true
+}

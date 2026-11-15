@@ -10,6 +10,8 @@ public static class GetCurrentUserEndpoint
         group.MapGet("/me", (ClaimsPrincipal principal) =>
                 Results.Ok(AuthSession.FromPrincipal(principal)))
             .RequireAuthorization()
+            .Produces<UserSessionResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .WithName("GetCurrentUser")
             .WithTags("identity");
 

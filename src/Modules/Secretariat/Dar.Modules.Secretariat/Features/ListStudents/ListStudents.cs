@@ -42,6 +42,9 @@ public static class ListStudentsEndpoint
                 return Results.Ok(result);
             })
             .RequireAuthorization("students.read")
+            .Produces<PagedResult<StudentResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .WithName("ListStudents")
             .WithTags("secretariat");
 

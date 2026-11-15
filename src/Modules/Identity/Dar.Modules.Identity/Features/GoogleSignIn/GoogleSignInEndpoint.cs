@@ -1,3 +1,4 @@
+using Dar.Modules.Identity.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace Dar.Modules.Identity.Features.GoogleSignIn;
@@ -17,6 +18,9 @@ public static class GoogleSignInEndpoint
             })
             .AllowAnonymous()
             .RequireRateLimiting("auth")
+            .Produces<UserSessionResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
             .WithName("GoogleSignIn")
             .WithTags("identity");
 

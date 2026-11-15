@@ -50,6 +50,10 @@ public static class SetUserEmailEndpoint
                 return Results.Ok(new { id, email = request.Email.Trim().ToLowerInvariant() });
             })
             .RequireAuthorization("users.manage")
+            .Produces(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("SetUserEmail")
             .WithTags("identity");
 
