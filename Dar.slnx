@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Common/">
+    <Project Path="src/Common/Dar.Common/Dar.Common.csproj" />
+  </Folder>
+  <Folder Name="/src/Host/">
+    <Project Path="src/Host/Dar.Api/Dar.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/Dar.Modules.Identity/Dar.Modules.Identity.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Secretariat/">
+    <Project Path="src/Modules/Secretariat/Dar.Modules.Secretariat/Dar.Modules.Secretariat.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Dar.IntegrationTests/Dar.IntegrationTests.csproj" />
+    <Project Path="tests/Dar.UnitTests/Dar.UnitTests.csproj" />
+  </Folder>
+</Solution>

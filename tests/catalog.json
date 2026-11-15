@@ -1,0 +1,391 @@
+﻿{
+  "version": "0.8.25.0",
+  "entrypoint": "RUN_TESTS.bat",
+  "tests": [
+    {
+      "id": "SYS-TEST-01",
+      "name_ar": "فحص مصدر System Center",
+      "path": "runners/Verify-SystemCenterSource.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "read-only source inspection"
+    },
+    {
+      "id": "SYS-TEST-02",
+      "name_ar": "اختبار FileSystemWatcher في مجلد مؤقت",
+      "path": "runners/Verify-SystemCenterWatcher.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "creates and removes only a unique temporary folder under %TEMP%",
+      "name": "Live FileSystemWatcher regression test"
+    },
+    {
+      "id": "LOG-TEST-01",
+      "name_ar": "اختبار Logger",
+      "path": "runners/Verify-LoggingPipeline.ps1",
+      "requires": [
+        "Dar API running"
+      ],
+      "impact": "unauthenticated GET expected to return 401/403; no business data mutation",
+      "name": "API logger pipeline smoke test"
+    },
+    {
+      "id": "FIN-TEST-01",
+      "name_ar": "اختبار Snapshot أجر الحصة",
+      "path": "runners/Run-TeacherAttendanceSnapshotTest.ps1",
+      "sql": "regression/sql/teacher_attendance_rate_snapshot.test.sql",
+      "requires": [
+        "Local Dar PostgreSQL running",
+        "Local DB secret file"
+      ],
+      "impact": "creates and drops only its uniquely named temporary test database",
+      "name": "Teacher hourly-rate snapshot regression test"
+    },
+    {
+      "id": "BKP-TEST-01",
+      "name_ar": "فحص مصدر النسخ المجدول",
+      "name": "Backup scheduler source & payload verification",
+      "path": "runners/Verify-BackupSchedulerSource.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "read-only source inspection; does not register a scheduled task or access database files"
+    },
+    {
+      "id": "BKP-TEST-02",
+      "name_ar": "اختبار تخطيط الاحتفاظ بالنسخ",
+      "name": "Backup retention plan and integrity test",
+      "path": "runners/Verify-BackupRetention.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "creates and removes only a unique temporary directory containing dummy files; no real backups are touched"
+    },
+    {
+      "id": "SYS-TEST-03",
+      "name_ar": "فحص الترميز ورسم واجهة مركز النظام",
+      "name": "Launch encoding & System Center drawing regression test",
+      "path": "runners/Verify-LaunchEncodingAndDrawString.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "read-only checks of JSON/BAT encodings and System.Drawing overload; no application or database changes"
+    },
+    {
+      "id": "BKP-TEST-03",
+      "name": "Backup restore isolation, integrity and rollback",
+      "name_ar": "اختبار الاستعادة المعزولة وسلامة البيانات والتراجع",
+      "path": "runners/Verify-BackupRestoreIsolation.ps1",
+      "requires": [
+        "Prepared local PostgreSQL cluster (runner starts it if offline)",
+        "Local DB secrets",
+        "Dar API closed",
+        "Full-scope PostgreSQL Custom backup from the active Dar backup folder with its matching .backup.json sidecar manifest"
+      ],
+      "impact": "Creates/restores/drops uniquely named temporary databases only; may start the existing local PostgreSQL cluster with the shared mutex; never runs initdb; reads production database for before/after signature; does not rename, write to, or replace the production database",
+      "interactive": true,
+      "run_all": "skipped by design; run individually because a backup file must be selected",
+      "description": "Selects a full backup created by System Center, Backup Scheduler or API all-scope backup with a verified SHA-256 sidecar manifest; restores to a unique temporary database, compares every public table row count and required schema object with production, rejects an invalid archive, and tests swap rollback using disposable databases only."
+    },
+    {
+      "id": "BKP-TEST-04",
+      "name": "Backup restore safety source checks",
+      "name_ar": "فحوص مصدر الاستعادة الآمنة",
+      "path": "runners/Verify-BackupRestoreSource.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "read-only source inspection; does not connect to PostgreSQL or touch backups"
+    },
+    {
+      "id": "10",
+      "name": "Migration rehearsal: restored database API smoke test",
+      "runner": "Invoke-MigrationRehearsal.ps1",
+      "interactive": true,
+      "runAll": "SKIP",
+      "requires": [
+        "PostgreSQL local cluster prepared",
+        "API port 5080 closed",
+        "built API DLL and frontend wwwroot",
+        "user-selected same manifest-backed full backup accepted by Test 8",
+        "API port 5081 free",
+        "selected backup archive with supported migration history",
+        "Run BUILD_DAR_FOR_REHEARSAL.bat to compile API and React assets without starting Dar or touching PostgreSQL"
+      ],
+      "impact": "Restores the selected archive into a uniquely named disposable database; starts the API against that database with PostgreSQL default_transaction_read_only=on; verifies the health endpoint, React entry and assets; compares table row counts, applied migrations and validated schema objects before/after. Physical database size is logged separately because PostgreSQL background maintenance may change it without changing business data. Production database is checked logically and is never intentionally written."
+    },
+    {
+      "id": "11",
+      "name": "Migration rehearsal safety source",
+      "runner": "Verify-MigrationRehearsalSource.ps1",
+      "interactive": false,
+      "runAll": "RUN",
+      "requires": [
+        "PowerShell 5.1"
+      ]
+    },
+    {
+      "id": "HLT-TEST-01",
+      "name": "System Health source & read-only guards",
+      "name_ar": "فحوص مصدر صحة النظام وحواجز القراءة فقط",
+      "path": "runners/Verify-HealthChecksSource.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "read-only source inspection; no PostgreSQL connection or business data changes"
+    },
+    {
+      "id": "HLT-TEST-02",
+      "name": "Storage metrics regression",
+      "name_ar": "اختبار قياس مساحات التخزين",
+      "path": "runners/Verify-HealthStorageMetrics.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "creates and removes only a unique temporary folder under %TEMP%; never reads or changes Dar data"
+    },
+    {
+      "id": "STR-TEST-01",
+      "name": "Storage Center inventory & safety regression",
+      "name_ar": "اختبار جرد التخزين وحواجز الأمان",
+      "path": "runners/Verify-StorageCenter.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "creates and removes only a unique temporary directory under %TEMP%; verifies independent file/directory bounds, recursive size/count, largest files, missing/partial lower-bound reporting, path overlap, volume metrics, masked UNC roots, sanitized JSON and reparse-point ancestor safety; never accesses Dar LocalAppData or production database"
+    },
+    {
+      "id": "STR-TEST-02",
+      "name": "Backup folder relocation safety",
+      "name_ar": "اختبار أمان نقل مجلد النسخ الاحتياطية",
+      "path": "runners/Verify-StoragePathManager.ps1",
+      "requires": [
+        "Windows PowerShell 5.1",
+        "temporary local NTFS volume under %TEMP%"
+      ],
+      "impact": "creates and removes only unique temporary folders under %TEMP%; performs an isolated end-to-end copy/config/scheduler-payload test with synthetic files and a private Local mutex; tests collision and rollback; never reads or changes real Dar backups, PostgreSQL data, secrets, scheduled tasks or production database. End-to-end phase may SKIP only when less than 128 MiB is available on the temporary volume."
+    },
+    {
+      "id": "DB-TEST-01",
+      "name": "Database Studio source & read-only guards",
+      "name_ar": "فحوص مصدر Database Studio وحواجز القراءة فقط",
+      "path": "runners/Verify-DatabaseStudioSource.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "read-only source and AST inspection; no database connection or business data changes"
+    },
+    {
+      "id": "DB-TEST-02",
+      "name": "Database Studio live catalog regression",
+      "name_ar": "اختبار استعراض كتالوج PostgreSQL للقراءة فقط",
+      "path": "runners/Verify-DatabaseStudioRegression.ps1",
+      "requires": [
+        "Prepared local PostgreSQL 17 on 127.0.0.1:55432",
+        "Local database secrets",
+        "Verified PostgreSQL client binaries"
+      ],
+      "impact": "read-only catalog SELECT statements in bounded READ ONLY transactions; no business table rows, SQL text, DDL/DML or service operations are read or changed"
+    },
+    {
+      "id": "PGM-TEST-01",
+      "name_ar": "فحوص مصدر صيانة PostgreSQL وحواجز القراءة فقط",
+      "name": "PostgreSQL maintenance source & read-only guards",
+      "path": "runners/Verify-PostgresMaintenanceSource.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "read-only source and AST inspection; no database connection or maintenance command execution"
+    },
+    {
+      "id": "PGM-TEST-02",
+      "name_ar": "اختبار إحصاءات صيانة PostgreSQL للقراءة فقط",
+      "name": "PostgreSQL maintenance live statistics regression",
+      "path": "runners/Verify-PostgresMaintenanceRegression.ps1",
+      "requires": [
+        "Prepared local PostgreSQL 17 on 127.0.0.1:55432",
+        "Local validated database secrets",
+        "Verified PostgreSQL client binaries"
+      ],
+      "impact": "bounded SELECT-only reads from pg_settings, pg_stat_database, pg_stat_user_tables and pg_stat_progress_vacuum inside READ ONLY transactions; never runs VACUUM, ANALYZE, REINDEX, DDL or DML"
+    },
+    {
+      "id": "FIN-TEST-02",
+      "name": "Financial payment rounding regression",
+      "name_ar": "اختبار دقة تقريب مبالغ التحصيل وحدود الاستحقاق",
+      "path": "runners/Verify-FinancialRounding.ps1",
+      "requires": [
+        ".NET 10 SDK"
+      ],
+      "impact": "builds and runs an isolated console regression against the exact MoneyRules.cs linked from the API; no database connection, business rows, files outside the test build output or production data are accessed"
+    },
+    {
+      "id": "FIN-TEST-03",
+      "name": "Currency input normalization regression",
+      "name_ar": "اختبار توحيد دقة جميع المدخلات المالية",
+      "path": "runners/Verify-CurrencyInputNormalization.ps1",
+      "requires": [
+        ".NET 10 SDK for executable regression; Windows PowerShell 5.1 for static API guards"
+      ],
+      "impact": "isolated console regression against the exact MoneyRules.cs linked from the API plus read-only endpoint source guards; no database connection or business data changes"
+    },
+    {
+      "id": "SEC-TEST-01",
+      "name": "Financial read permission redaction",
+      "name_ar": "اختبار حجب البيانات المالية حسب الصلاحية",
+      "path": "runners/Verify-FinanceReadRedactionSource.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "read-only source inspection of API response masking, audit/trash JSON redaction, permission-gated UI, schedule attendance totals, hidden enrollment fee defaults and enrollment request payload; no database connection or business data changes"
+    },
+    {
+      "id": "FIN-TEST-04",
+      "name_ar": "فحص دورة حالات الالتحاق وصلاحية إنشاء الحركات المالية",
+      "name": "Enrollment lifecycle & create-only finance source checks",
+      "path": "runners/Verify-EnrollmentLifecycleAndCreateOnlyFinanceSource.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "read-only source inspection; no API, PostgreSQL, or business data changes"
+    },
+    {
+      "id": "ENR-TEST-01",
+      "name": "Enrollment billing lifecycle regression",
+      "name_ar": "اختبار أهلية الاستحقاق الشهري وفق سجل حالة الالتحاق",
+      "path": "runners/Verify-EnrollmentBillingLifecycleRegression.ps1",
+      "requires": [
+        "Prepared Dar PostgreSQL 17 cluster on 127.0.0.1:55432",
+        "Validated local database secrets"
+      ],
+      "impact": "Creates a uniquely named disposable database, applies all 12 SQL migrations, tests pause/resume, full-month pause, later withdrawal, legacy rows, inclusive active end dates and ending an already-paused enrollment using synthetic rows inside a rolled-back transaction, then drops only that disposable database; never connects to or changes production Dar rows."
+    },
+    {
+      "id": "SCH-TEST-01",
+      "name": "Teacher schedule overlap source guards",
+      "name_ar": "فحوص مصدر منع تداخل مواعيد المعلمات",
+      "path": "runners/Verify-TeacherScheduleOverlapSource.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "read-only source checks; does not connect to PostgreSQL or change timetable data"
+    },
+    {
+      "id": "SCH-TEST-02",
+      "name": "Teacher schedule overlap database regression",
+      "name_ar": "اختبار تداخل مواعيد المعلمات على قاعدة مؤقتة",
+      "path": "runners/Verify-TeacherScheduleOverlapRegression.ps1",
+      "requires": [
+        "Prepared local PostgreSQL 17 cluster on 127.0.0.1:55432",
+        "Local validated database secrets",
+        "Verified PostgreSQL client binaries"
+      ],
+      "impact": "creates a unique disposable database, applies the current 12 SQL migrations, runs synthetic timetable cases inside a rolled-back transaction, then drops only that database; never connects to or changes the production Dar database"
+    },
+    {
+      "id": "SCH-TEST-03",
+      "name": "Teacher schedule overlap production preflight",
+      "name_ar": "فحص تمهيدي للجدول الحالي قبل ترحيل منع التداخل",
+      "path": "runners/Verify-TeacherScheduleOverlapPreflight.ps1",
+      "requires": [
+        "Prepared local PostgreSQL 17 cluster on 127.0.0.1:55432",
+        "Local validated database secrets"
+      ],
+      "impact": "must run before launching candidate r6.2 or applying Migration 012; starts only the prepared existing PostgreSQL service if needed, then runs a SELECT-only diagnostic inside a PostgreSQL READ ONLY transaction against the current Dar database. the SQL removes PostgreSQL base64 MIME line wraps (76-character wrapping) so each conflict is one complete ASCII row; psql writes rows to a unique temporary file, then the runner decodes UTF-8 JSON and removes the file. It never changes business rows, schema, or backups"
+    },
+    {
+      "id": "SCH-TEST-04",
+      "name": "Inspect affected teacher timetable and audit trail",
+      "name_ar": "فحص مواعيد حلقة جزء تبارك وسجلها التاريخي",
+      "path": "runners/Inspect-TeacherScheduleSlots.ps1",
+      "requires": [
+        "Prepared existing local PostgreSQL 17 cluster on 127.0.0.1:55432",
+        "Local validated database secrets"
+      ],
+      "impact": "read-only SELECT against the current Dar database. Lists every schedule row for the affected circle plus active schedules for the same teacher across other circles. Shows exact stored TIME, seconds after midnight, duration, active/trash state, created_at in Africa/Cairo, attendance counts, legacy circle schedule text and available audit events. Runs in a PostgreSQL READ ONLY transaction; does not apply migrations, alter rows, create databases, or delete anything."
+    },
+    {
+      "id": "BKP-TEST-05",
+      "name": "Backup manifest, rehearsal build & PostgreSQL native process source",
+      "name_ar": "فحص Manifest النسخ وبناء بروفة الاستعادة ومعالجة أخطاء PostgreSQL الخارجية",
+      "path": "runners/Verify-BackupManifestAndRehearsalBuildSource.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "Read-only source inspection. Confirms the System Center, Backup Scheduler and API all-scope full-backup paths write SHA-256 sidecar manifests; API failure cleanup cannot delete a prior backup on a filename collision; Test 8/10 default to the active verified backup folder; the build-only .NET/React workflow prepares Test 10 without starting PostgreSQL or applying migrations; and the shared PostgreSQL process wrapper safely captures native STDERR under ErrorActionPreference=Stop."
+    },
+    {
+      "id": "PG-TEST-01",
+      "name": "PostgreSQL native STDERR / AllowFailure handling regression",
+      "name_ar": "اختبار التقاط أخطاء PostgreSQL الخارجية دون كسر AllowFailure",
+      "path": "runners/Verify-PostgresNativeErrorHandling.ps1",
+      "requires": [
+        "Windows PowerShell 5.1",
+        "Windows cmd.exe"
+      ],
+      "impact": "Creates a unique temporary directory and a disposable copy of cmd.exe named psql.exe. Verifies native STDERR capture, non-zero exit codes, -AllowFailure behavior and ErrorActionPreference restoration. Does not start PostgreSQL, read local DB secrets, or access Dar data."
+    },
+    {
+      "id": "API-TEST-01",
+      "name": "Functional API acceptance — isolated database",
+      "name_ar": "اختبار القبول الوظيفي عبر API على قاعدة معزولة",
+      "path": "runners/Verify-FunctionalApiAcceptance.ps1",
+      "requires": [
+        "Prepared PostgreSQL 17 cluster on 127.0.0.1:55432",
+        "Validated local Dar database secrets",
+        "Built .NET 10 API DLL and React wwwroot assets",
+        "Ports 5080, 5081 and 5082 free"
+      ],
+      "impact": "Creates a unique dar_functional_test_* database, applies all 12 SQL migrations, starts a narrowly gated API child on 127.0.0.1:5082 connected only to that disposable database, exercises student/enrollment/attendance/finance API workflows and permissions, reads production only for a before/after logical signature, stops the exact API child, verifies port release, then drops only the allow-listed disposable database. Run individually; it is skipped by Run All.",
+      "interactive": true
+    },
+    {
+      "id": "API-SRC-01",
+      "name": "Functional API acceptance source & isolation guards",
+      "name_ar": "فحوص مصدر القبول الوظيفي وحواجز عزل قاعدة الاختبار",
+      "path": "runners/Verify-FunctionalApiAcceptanceSource.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "Read-only source/PowerShell AST inspection. Verifies the API test mode is restricted to loopback port 5082, PostgreSQL 17 port 55432, dar_app and dar_functional_test_* databases; verifies the runner uses a unique disposable database, all 12 migrations, production before/after signatures, guarded cleanup and expected API/finance scenarios. Does not start services or connect to PostgreSQL."
+    },
+    {
+      "id": "OPS-SRC-02",
+      "name": "Build output & stale Dar API recovery source",
+      "name_ar": "فحص نافذة البناء والتشخيص/الإغلاق الآمن لواجهة API العالقة",
+      "path": "runners/Verify-BuildAndDarPortRecoverySource.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "Read-only source/PowerShell AST checks. Confirms the build launcher pauses on success and failure, records a durable transcript with the exact project root and artifact paths, Test 32 reports port owners and missing artifact paths, and the port 5080 cleanup helper revalidates the exact Dar API process and requires typed PID confirmation. Does not start or stop services and does not access the database."
+    },
+    {
+      "id": "FIN-ART-SRC-01",
+      "name": "Financial artifacts UI/API source guards",
+      "name_ar": "فحوص مصدر الإيصالات والمصروفات والتقارير المحفوظة وواجهاتها",
+      "path": "runners/Verify-FinancialArtifactsAcceptanceSource.ps1",
+      "requires": [
+        "Windows PowerShell 5.1"
+      ],
+      "impact": "Read-only source and PowerShell AST inspection. Checks receipt upload/download security, operating and advertising expense API permissions/validation, immutable collection snapshots, UI permission gating, report print/export helpers and Test 36 isolation. Does not start services or access PostgreSQL."
+    },
+    {
+      "id": "FIN-ART-API-01",
+      "name": "Financial artifacts API acceptance — isolated database",
+      "name_ar": "اختبار الإيصالات والمصروفات والتقارير على قاعدة معزولة",
+      "path": "runners/Verify-FinancialArtifactsApiAcceptance.ps1",
+      "requires": [
+        "Prepared PostgreSQL 17 cluster on 127.0.0.1:55432",
+        "Validated local Dar database secrets",
+        "Built .NET 10 API DLL and runtime wwwroot in this exact project folder",
+        "Ports 5080, 5081 and 5082 free"
+      ],
+      "impact": "Creates only a strict dar_functional_test_<16 hex> database, applies all 12 migrations, starts a gated child API on 127.0.0.1:5082, tests valid/invalid receipt upload and authorized receipt retrieval, finance.create-only redaction, operating and advertising expense permissions and month proration, collection-report snapshot immutability after a later payment, and production before/after logical signature equality. Stops only its child API and drops only the allow-listed disposable database after confirmed port release. Run individually; skipped by Run All.",
+      "interactive": true,
+      "run_all": "skipped by design; isolated API listener and database acceptance must run individually"
+    }
+  ],
+  "ui": "English Test Center; System Center current WinForms UI retained for this release; full Cairo typography and visual redesign is deferred to a dedicated UX session.; Database Studio first delivery is a fixed-query read-only catalog explorer; no arbitrary SQL editor or mutation controls are exposed."
+}

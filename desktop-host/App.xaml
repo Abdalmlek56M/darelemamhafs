@@ -1,0 +1,66 @@
+<Application x:Class="DarEltahfeez.Desktop.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+             StartupUri="MainWindow.xaml">
+  <Application.Resources>
+    <SolidColorBrush x:Key="AppBackground" Color="#080E18" />
+    <SolidColorBrush x:Key="AppForeground" Color="#E7EEF7" />
+    <SolidColorBrush x:Key="AppAccent" Color="#149783" />
+    <SolidColorBrush x:Key="TitleBarBackground" Color="#080E18" />
+    <SolidColorBrush x:Key="TitleBarPrimaryForeground" Color="#E9EFF7" />
+    <SolidColorBrush x:Key="TitleBarSecondaryForeground" Color="#8493A7" />
+    <SolidColorBrush x:Key="TitleBarDividerBrush" Color="#29364A" />
+    <SolidColorBrush x:Key="TitleBarActionForeground" Color="#BCC8D8" />
+    <SolidColorBrush x:Key="TitleBarHoverBackground" Color="#1C293A" />
+    <SolidColorBrush x:Key="TitleBarPressedBackground" Color="#26364B" />
+    <SolidColorBrush x:Key="TitleBarHoverForeground" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="TitleBarCloseHoverBackground" Color="#C92A3A" />
+    <SolidColorBrush x:Key="TitleBarClosePressedBackground" Color="#9F1D2B" />
+    <Style x:Key="TitleBarActionButton" TargetType="Button">
+      <Setter Property="shell:WindowChrome.IsHitTestVisibleInChrome" Value="True" />
+      <Setter Property="Foreground" Value="{DynamicResource TitleBarActionForeground}" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="Margin" Value="2,0" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource TitleBarHoverBackground}" /><Setter Property="Foreground" Value="{DynamicResource TitleBarHoverForeground}" /></Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource TitleBarPressedBackground}" /></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5" /></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="TitleBarWindowButton" TargetType="Button" BasedOn="{StaticResource TitleBarActionButton}">
+      <Setter Property="Width" Value="38" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="FontSize" Value="17" />
+    </Style>
+    <Style x:Key="TitleBarCloseButton" TargetType="Button" BasedOn="{StaticResource TitleBarWindowButton}">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="ButtonBorder" Background="Transparent" CornerRadius="6">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource TitleBarCloseHoverBackground}" /><Setter Property="Foreground" Value="{DynamicResource TitleBarHoverForeground}" /></Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource TitleBarClosePressedBackground}" /></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Application.Resources>
+</Application>

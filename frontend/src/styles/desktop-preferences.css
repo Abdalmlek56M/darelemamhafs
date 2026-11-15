@@ -1,0 +1,67 @@
+.desktop-preferences-panel{padding:22px;margin:0 0 22px;border-radius:18px;display:grid;gap:18px}
+.desktop-preferences-panel .system-panel-heading{margin-bottom:0}
+.desktop-preferences-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.desktop-preference-item{min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:15px;padding:17px;border:1px solid var(--line);border-radius:15px;background:color-mix(in srgb,var(--surface) 85%,transparent);transition:border-color .2s ease,transform .2s ease,box-shadow .2s ease}
+.desktop-preference-item:hover{border-color:color-mix(in srgb,var(--accent) 42%,var(--line));box-shadow:0 9px 24px color-mix(in srgb,var(--accent) 7%,transparent);transform:translateY(-1px)}
+.desktop-preference-copy{display:grid;gap:7px;min-width:0}
+.desktop-preference-copy>strong{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text)}
+.desktop-preference-copy>strong svg{color:var(--accent);flex:none}
+.desktop-preference-copy p{margin:0;color:var(--muted);font-size:11px;line-height:1.8}
+.desktop-preference-copy small{color:var(--muted);font-size:10px;line-height:1.7}
+.desktop-setting-action{align-self:flex-start;min-height:38px}
+.desktop-setting-action.is-enabled{border-color:color-mix(in srgb,#23866f 48%,var(--line));color:color-mix(in srgb,#23866f 78%,var(--text))}
+.desktop-sound-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end}
+.desktop-sound-controls .form-field{margin:0;min-width:0}
+.desktop-sound-controls select{width:100%;min-height:39px}
+.desktop-preferences-note{display:flex;align-items:flex-start;gap:9px;padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--accent) 7%,var(--surface));color:var(--muted);font-size:10px;line-height:1.9}
+.desktop-preferences-note svg{color:var(--accent);margin-top:3px;flex:none}
+.schedule-alert-toggle{display:inline-flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap;user-select:none}
+.schedule-alert-toggle input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.schedule-alert-toggle-track{position:relative;width:33px;height:19px;border-radius:999px;background:color-mix(in srgb,var(--muted) 40%,var(--surface));border:1px solid var(--line);transition:background .22s ease,border-color .22s ease;flex:none}
+.schedule-alert-toggle-track::after{content:"";position:absolute;top:2px;right:2px;width:13px;height:13px;border-radius:50%;background:var(--text);opacity:.8;box-shadow:0 1px 3px #0002;transition:transform .22s cubic-bezier(.2,.8,.2,1),background .22s ease}
+.schedule-alert-toggle input:checked+.schedule-alert-toggle-track{background:color-mix(in srgb,var(--accent) 74%,#218a77);border-color:color-mix(in srgb,var(--accent) 70%,transparent)}
+.schedule-alert-toggle input:checked+.schedule-alert-toggle-track::after{transform:translateX(-14px);background:#fff;opacity:1}
+.schedule-alert-toggle input:focus-visible+.schedule-alert-toggle-track{outline:2px solid var(--accent);outline-offset:3px}
+.schedule-alert-toggle-label{font-size:10px;color:var(--muted)}
+.schedule-alert-toggle input:checked~.schedule-alert-toggle-label{color:var(--accent);font-weight:700}
+.schedule-alert-state{display:inline-flex;align-items:center;gap:5px;margin-top:11px;font-size:10px;padding:5px 8px;border-radius:999px;align-self:flex-start}
+.schedule-alert-state.is-alert-enabled{color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.schedule-alert-state.is-alert-disabled{color:var(--muted);background:color-mix(in srgb,var(--muted) 9%,transparent)}
+@media(max-width:850px){.desktop-preferences-grid{grid-template-columns:1fr}.desktop-preferences-panel{padding:16px}}
+@media(max-width:500px){.desktop-sound-controls{grid-template-columns:1fr}.desktop-setting-action{align-self:stretch;justify-content:center}.schedule-alert-toggle{gap:5px}}
+
+/* Keep alert preferences orderly when the user chooses a stronger alarm and repeat duration. */
+.desktop-sound-controls-stacked{grid-template-columns:minmax(0,1fr) minmax(130px,.62fr) auto auto;align-items:end}
+.desktop-sound-controls-stacked .form-field{display:grid;gap:6px}
+.desktop-sound-controls-stacked .form-field small{font-size:10px;line-height:1.7;color:var(--muted)}
+@media(max-width:760px){.desktop-sound-controls-stacked{grid-template-columns:repeat(2,minmax(0,1fr))}.desktop-sound-controls-stacked .desktop-setting-action{grid-column:auto;justify-self:stretch}}
+@media(max-width:500px){.desktop-sound-controls-stacked{grid-template-columns:1fr}.desktop-sound-controls-stacked .desktop-setting-action{grid-column:auto;justify-self:stretch}}
+
+
+/* v0.8.11: profile and connection controls live in settings, not the header/sidebar. */
+.account-settings-profile{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:13px;background:color-mix(in srgb,var(--surface-strong) 55%,transparent)}
+.account-settings-profile>div{display:grid;gap:4px;min-width:0}
+.account-settings-profile strong{font-size:13px;overflow-wrap:anywhere}
+.account-settings-profile small{font-size:11px;color:var(--muted)}
+.account-settings-avatar{width:48px;height:48px;border-radius:15px;overflow:hidden;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--accent) 18%,var(--surface));color:var(--accent);font-size:18px;font-weight:700}
+.account-settings-avatar img{width:100%;height:100%;object-fit:cover}
+.connection-state-label{display:inline-flex;align-self:flex-start;padding:5px 9px;border-radius:8px;border:1px solid var(--line)}
+.connection-state-label.is-connected{color:#4cc7a6;border-color:#4cc7a655;background:#2b9e7d12}
+.connection-state-label.is-checking{color:#d6b46c}
+.connection-state-label.is-down{color:#ef8989;border-color:#d75f5f55;background:#d75f5f10}
+.desktop-connection-actions{display:flex;gap:8px;flex-wrap:wrap}
+.top-actions{gap:9px;align-items:center}
+.top-actions .icon-button,.top-actions .reminder-center-button{width:39px;height:39px;min-width:39px;border-radius:12px;display:inline-grid;place-items:center;flex:0 0 39px}
+@media(max-width:760px){.desktop-connection-actions{display:grid;grid-template-columns:1fr 1fr}.desktop-connection-actions .desktop-setting-action{align-self:stretch}.top-actions{gap:5px}.top-actions .icon-button,.top-actions .reminder-center-button{width:34px;height:34px;min-width:34px;flex-basis:34px}}
+
+/* v0.8.15: align sound selectors and actions on a predictable two-column grid. */
+.desktop-sound-controls-stacked{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:14px}
+.desktop-sound-controls-stacked .form-field{display:flex;flex-direction:column;gap:7px;min-width:0;align-self:stretch}
+.desktop-sound-controls-stacked .form-field select{width:100%;min-width:0;min-height:42px;appearance:none;padding-inline-end:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237b8aa1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:left 12px center}
+.desktop-sound-controls-stacked .form-field small{display:block;min-height:2.8em;line-height:1.65;overflow-wrap:anywhere}
+.desktop-sound-controls-stacked .desktop-setting-action{align-self:stretch;justify-content:center;min-height:40px;margin-top:0}
+.desktop-sound-controls-stacked .desktop-setting-action:nth-of-type(1){grid-column:1}
+.desktop-sound-controls-stacked .desktop-setting-action:nth-of-type(2){grid-column:2}
+.schedule-notifications-toggle.is-enabled{color:var(--success);border-color:color-mix(in srgb,var(--success) 36%,var(--line));background:color-mix(in srgb,var(--success) 9%,var(--surface))}
+.schedule-notifications-toggle.is-disabled{color:var(--muted);background:var(--surface)}
+@media(max-width:760px){.desktop-sound-controls-stacked{grid-template-columns:1fr}.desktop-sound-controls-stacked .desktop-setting-action:nth-of-type(1),.desktop-sound-controls-stacked .desktop-setting-action:nth-of-type(2){grid-column:1}.desktop-sound-controls-stacked .form-field small{min-height:0}}

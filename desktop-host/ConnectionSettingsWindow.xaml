@@ -1,0 +1,23 @@
+<Window x:Class="DarEltahfeez.Desktop.ConnectionSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="إعداد اتصال الدار" Width="610" Height="330" MinWidth="560" MinHeight="300"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize" Background="#F1F5F9">
+  <Grid Margin="24">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <TextBlock Text="إعداد اتصال الدار" FontSize="24" FontWeight="SemiBold" Foreground="#142238" Margin="0,0,0,8" />
+    <TextBlock Grid.Row="1" Text="أدخل عنوان الخادم. في الاستخدام المحلي اترك العنوان الافتراضي كما هو." FontSize="13" Foreground="#62728A" TextWrapping="Wrap" Margin="0,0,0,14" />
+    <StackPanel Grid.Row="2">
+      <TextBlock Text="عنوان الخادم" FontWeight="SemiBold" Margin="0,0,0,7" />
+      <TextBox x:Name="ServerUrlTextBox" Height="40" FontSize="15" Padding="10,7" FlowDirection="LeftToRight" />
+      <TextBlock x:Name="StatusText" TextWrapping="Wrap" Margin="0,10,0,0" Foreground="#62728A" />
+    </StackPanel>
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+      <Button Content="إلغاء" IsCancel="True" MinWidth="90" Padding="14,8" Margin="0,0,8,0" />
+      <Button x:Name="TestButton" Content="اختبار الاتصال" MinWidth="120" Padding="14,8" Margin="0,0,8,0" Click="TestConnection_Click" />
+      <Button x:Name="SaveButton" Content="حفظ" MinWidth="90" Padding="14,8" Background="#149783" Foreground="White" BorderThickness="0" Click="Save_Click" />
+    </StackPanel>
+  </Grid>
+</Window>

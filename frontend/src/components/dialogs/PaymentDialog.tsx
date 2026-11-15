@@ -1,0 +1,11 @@
+import Modal from '../common/Modal'
+import Field from '../common/Field'
+import ModalActions from '../common/ModalActions'
+import type { DarApplicationContext } from '../../application/useDarApplication'
+
+
+type Props = { ctx: DarApplicationContext }
+
+export default function PaymentDialog({ ctx }: Props) {
+  return <Modal title="تسجيل تحصيل" subtitle="يمكن تسجيل دفعة جزئية؛ يمنع النظام تحصيل مبلغ أكبر من المتبقي." close={()=>{if(!ctx.saving){ctx.setPaymentModal(false);ctx.setPaymentReceipt(null);ctx.setPaymentReceiptPreview(null)}}}><form onSubmit={ctx.savePayment}><div className="form-grid"><Field label="المبلغ المدفوع *"><input type="number" min="0.01" step="0.01" required value={ctx.paymentForm.amount} onChange={e=>ctx.setPaymentForm(f=>({...f,amount:e.target.value}))}/></Field><Field label="طريقة الدفع"><select value={ctx.paymentForm.method} onChange={e=>ctx.setPaymentForm(f=>({...f,method:e.target.value}))}><option value="cash">نقدي</option><option value="transfer">تحويل</option><option value="instapay">إنستاباي</option><option value="wallet">محفظة إلكترونية</option><option value="other">أخرى</option></select></Field><Field label="مرجع / رقم إيصال"><input maxLength={120} value={ctx.paymentForm.reference} onChange={e=>ctx.setPaymentForm(f=>({...f,reference:e.target.value}))}/></Field><Field label="ملاحظات"><input value={ctx.paymentForm.note} onChange={e=>ctx.setPaymentForm(f=>({...f,note:e.target.value}))}/></Field><Field label="صورة إيصال التحصيل (اختياري)" wide><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>{const file=e.target.files?.[0]??null;if(file&&file.size>8*1024*1024){ctx.setToast({tone:'error',text:'حجم صورة الإيصال يجب ألا يتجاوز 8 ميجابايت.'});e.target.value='';return}ctx.setPaymentReceipt(file);ctx.setPaymentReceiptPreview(file?URL.createObjectURL(file):null)}}/><small className="sub-cell">JPG أو PNG أو WebP، بحد أقصى 8 ميجابايت. تُحفظ الصورة داخل قاعدة البيانات، وتظهر في التفاصيل المالية فقط.</small>{ctx.paymentReceiptPreview&&<img className="payment-receipt-preview" src={ctx.paymentReceiptPreview} alt="معاينة إيصال التحصيل"/>}</Field></div><ModalActions saving={ctx.saving} onCancel={()=>{ctx.setPaymentModal(false);ctx.setPaymentReceipt(null);ctx.setPaymentReceiptPreview(null)}} saveLabel="حفظ التحصيل"/></form></Modal>
+}

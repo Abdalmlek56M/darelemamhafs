@@ -1,0 +1,37 @@
+**/node_modules/
+**/bin/
+**/obj/
+**/.vite/
+**/dist/
+backend/DarEltahfeez.Api/wwwroot/
+*.log
+*.user
+*.suo
+.env
+.env.*
+!.env.example
+.DS_Store
+desktop-host/bin/
+desktop-host/obj/
+
+# Build/test output
+**/.vs/
+**/TestResults/
+**/coverage/
+**/playwright-report/
+**/test-results/
+**/*.tsbuildinfo
+
+# Local archives/secrets
+*.backup
+*.zip
+*.7z
+*.rar
+*.pfx
+*.pem
+*.key
+
+# IDE/OS
+.idea/
+Thumbs.db
+

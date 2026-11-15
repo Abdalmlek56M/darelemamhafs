@@ -1,0 +1,26 @@
+/* Refresh feedback belongs to the actual data surfaces, not only the toolbar icon. */
+.refresh-button{position:relative;overflow:visible;transition:background .22s ease,border-color .22s ease,box-shadow .22s ease,transform .22s ease}
+.refresh-button:hover{background:color-mix(in srgb,var(--accent) 9%,var(--surface));box-shadow:0 5px 18px color-mix(in srgb,var(--accent) 14%,transparent);transform:translateY(-1px)}
+.refresh-button[aria-busy="true"] svg{animation:refresh-symbol-spin .9s linear infinite}
+@keyframes refresh-symbol-spin{to{transform:rotate(360deg)}}
+@keyframes refresh-surface-pulse{0%{opacity:.62;filter:saturate(.72);transform:translateY(5px)}45%{opacity:1;filter:saturate(1.09);transform:translateY(0)}70%{box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 18%,transparent),0 12px 26px color-mix(in srgb,var(--accent) 7%,transparent)}100%{opacity:1;filter:none;transform:none;box-shadow:none}}
+@keyframes refresh-row-arrive{0%{opacity:.18;transform:translateY(9px);background:color-mix(in srgb,var(--accent) 10%,transparent)}68%{opacity:1;transform:translateY(-1px)}100%{opacity:1;transform:translateY(0);background:transparent}}
+@keyframes refresh-card-arrive{0%{opacity:.5;transform:translateY(12px) scale(.992);filter:saturate(.75)}70%{opacity:1;transform:translateY(-2px) scale(1);filter:saturate(1.06)}100%{opacity:1;transform:none;filter:none}}
+.app-shell.is-refreshing-lists .table-card,
+.app-shell.is-refreshing-lists .table-scroll,
+.app-shell.is-refreshing-lists .schedule-upcoming-grid,
+.app-shell.is-refreshing-lists .circle-card-grid,
+.app-shell.is-refreshing-lists .saved-report-list,
+.app-shell.is-refreshing-lists .system-admin-page .system-panel,
+.system-admin-page.is-refreshing-lists .table-scroll{animation:refresh-surface-pulse 1.12s cubic-bezier(.2,.75,.2,1) both}
+.app-shell.is-refreshing-lists .students-table tbody tr{animation:refresh-row-arrive .82s cubic-bezier(.2,.8,.25,1) both}
+.app-shell.is-refreshing-lists .students-table tbody tr:nth-child(2){animation-delay:.035s}
+.app-shell.is-refreshing-lists .students-table tbody tr:nth-child(3){animation-delay:.07s}
+.app-shell.is-refreshing-lists .students-table tbody tr:nth-child(4){animation-delay:.105s}
+.app-shell.is-refreshing-lists .students-table tbody tr:nth-child(5){animation-delay:.14s}
+.app-shell.is-refreshing-lists .students-table tbody tr:nth-child(6){animation-delay:.175s}
+.app-shell.is-refreshing-lists .students-table tbody tr:nth-child(n+7){animation-delay:.21s}
+.app-shell.is-refreshing-lists .schedule-upcoming-card,
+.app-shell.is-refreshing-lists .circle-card-grid>*,
+.app-shell.is-refreshing-lists .saved-report-list>*{animation:refresh-card-arrive .94s cubic-bezier(.2,.8,.2,1) both}
+@media(prefers-reduced-motion:reduce){.refresh-button,.icon-button{transition:none!important}.refresh-button[aria-busy="true"] svg,.app-shell.is-refreshing-lists .table-card,.app-shell.is-refreshing-lists .table-scroll,.app-shell.is-refreshing-lists .schedule-upcoming-grid,.app-shell.is-refreshing-lists .circle-card-grid,.app-shell.is-refreshing-lists .saved-report-list,.app-shell.is-refreshing-lists .system-admin-page .system-panel,.system-admin-page.is-refreshing-lists .table-scroll,.app-shell.is-refreshing-lists .students-table tbody tr,.app-shell.is-refreshing-lists .schedule-upcoming-card,.app-shell.is-refreshing-lists .circle-card-grid>*,.app-shell.is-refreshing-lists .saved-report-list>*{animation:none!important;transform:none!important;filter:none!important}}

@@ -1,0 +1,74 @@
+using System.Threading.RateLimiting;
+using Dar.Api.Features.Health;
+using Dar.Api.Features.System.MigrateDatabase;
+using Dar.Api.Infrastructure.Errors;
+using Dar.Api.Infrastructure.Security;
+using Dar.Modules.Identity;
+using Dar.Modules.Secretariat;
+using Microsoft.AspNetCore.RateLimiting;
+using Npgsql;
+
+var builder = WebApplication.CreateBuilder(args);
+
+if (args.Contains("--migrate", StringComparer.OrdinalIgnoreCase))
+{
+    Environment.ExitCode = await MigrationRunner.RunAsync(builder.Configuration);
+    return;
+}
+
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<AppExceptionHandler>();
+builder.Services.AddOpenApi("v1");
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
+
+// The data source is created lazily so build/test does not require a database.
+// A production start must set ConnectionStrings:Default.
+builder.Services.AddSingleton<NpgsqlDataSource>(_ =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("Default");
+    if (string.IsNullOrWhiteSpace(connectionString))
+        throw new InvalidOperationException("ConnectionStrings:Default is not configured.");
+    return NpgsqlDataSource.Create(connectionString);
+});
+
+builder.Services.AddIdentityModule(builder.Configuration, builder.Environment.IsDevelopment());
+builder.Services.AddSecretariatModule();
+
+var app = builder.Build();
+
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+app.UseMiddleware<SecurityHeadersMiddleware>();
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapOpenApi("/api/openapi/{documentName}.json");
+app.MapHealthEndpoints();
+app.MapIdentityEndpoints();
+app.MapSecretariatEndpoints();
+
+app.MapGet("/api/v1/ping", () => Results.Ok(new
+{
+    status = "ok",
+    service = "Dar.Api",
+    version = "0.1.0"
+})).WithTags("system");
+
+app.Run();
+
+// Required for WebApplicationFactory<Program> in integration tests.
+public partial class Program;
