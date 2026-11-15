@@ -22,6 +22,7 @@
 | 1.5.3 | [SystemAdminEndpoints split](legacy-split-1.2.md) | 🟡 partial |
 | 1.5.4 | [Frontend selectors](legacy-split-2.1.md) | ✅ |
 | 1.5.5 | [Frontend hook split](legacy-split-2.2.md) | ✅ |
+| 1.5.6 | [SystemAdminView split](legacy-split-2.3.md) | ✅ |
 
 ## Next in order
 

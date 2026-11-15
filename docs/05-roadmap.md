@@ -160,7 +160,8 @@
 - [x] Auth/session → `useDarAuth.ts`.
 - [x] Students/teachers/circles → action hooks.
 - [x] `useDarApplication` → **363 lines** (under 400).
-- [ ] `SystemAdminView` → tabs.
+- [x] `SystemAdminView` → **307 lines** with `src/system/*` helpers.
+- [x] All frontend `.ts/.tsx` files under 400 lines.
 - [ ] `ManagementReportBuilder` → report types.
 - [ ] `App.tsx` → shell/sidebar/topbar.
 
