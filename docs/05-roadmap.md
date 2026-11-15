@@ -72,10 +72,10 @@
 
 **Checkpoint:** `docs/checkpoints/0.6-legacy-docs.md`
 
-### 0.7 Git baseline — 🟡 In progress
+### 0.7 Git baseline — 🟡 Local done, remote pending
 - [x] `git init -b main`.
 - [x] `.gitignore` / `.gitattributes`.
-- [x] Local baseline commit.
+- [x] Local baseline commit (`bac94fa`).
 - [ ] GitHub remote URL.
 - [ ] `gh auth login`.
 - [ ] Push `main`.

@@ -63,7 +63,7 @@
 - **Phase 3.1:** Secretariat — 🟡 students list/get/create done.
 - **TypeScript backend:** ⏳ decision pending; do not build a second backend until confirmed.
 - **Google login:** deferred; temporary password + sessions is the current path.
-- **Git:** repo initialized locally; remote/push pending `gh auth login` + remote URL.
+- **Git:** local repo initialized; commit `bac94fa` on `main`; remote/push pending `gh auth login` + remote URL.
 - **Legacy stack:** .NET 10 minimal API + React 19/Vite + PostgreSQL 17 + WPF/WebView2 + PowerShell Test Center. No `.bat` files remain.
 
 ### What Was Done vs. What Was Not
