@@ -72,13 +72,13 @@
 
 **Checkpoint:** `docs/checkpoints/0.6-legacy-docs.md`
 
-### 0.7 Git baseline — 🟡 Local done, remote pending
+### 0.7 Git baseline — ✅ Done
 - [x] `git init -b main`.
 - [x] `.gitignore` / `.gitattributes`.
 - [x] Local baseline commit (`bac94fa`).
-- [ ] GitHub remote URL.
-- [ ] `gh auth login`.
-- [ ] Push `main`.
+- [x] GitHub remote: `https://github.com/Abdalmlek56M/darelemamhafs.git`.
+- [x] Push `main` (authenticated via cached Git credentials).
+- [x] Subsequent commits pushed (`d8c7b29`).
 
 **Checkpoint:** `docs/checkpoints/0.7-git-baseline.md`
 

@@ -64,7 +64,9 @@
 - **Phase 3.1:** Secretariat — 🟡 students list/get/create done.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.
-- **Git:** local repo initialized; commit `bac94fa` on `main`; remote/push pending `gh auth login` + remote URL.
+- **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` pushed (`d8c7b29`).
+- **Git rule:** every completed checkpoint = commit + push. No force-push.
+- **Next:** Next.js shell + BFF, then login + students screen.
 - **Legacy stack:** .NET 10 minimal API + React 19/Vite + PostgreSQL 17 + WPF/WebView2 + PowerShell Test Center. No `.bat` files remain.
 
 ### What Was Done vs. What Was Not
@@ -134,7 +136,7 @@
 10. Run targeted tests while working.
 11. Run the full relevant suite before finishing.
 12. Update docs + checkpoint + roadmap.
-13. Commit small, focused changes; push only after remote/auth confirmation.
+13. Commit small, focused changes; push to `origin/main` after every checkpoint.
 14. Report: what changed, tests, risks, next step.
 
 **Work order:** one roadmap step at a time. No random branching, no unrelated refactors, no parallel features.
@@ -182,12 +184,15 @@ docker compose up -d
 git status
 git add <paths>
 git commit -m "area: summary"
-git push
+git push origin main
 ```
+
+Remote: `https://github.com/Abdalmlek56M/darelemamhafs.git`
 
 **لا `.bat`.**
 **لا تشغيل migrations على الإنتاج بدون نسخة.**
-**لا push قبل تأكيد الـremote و`gh auth login`.**
+**كل Checkpoint مكتمل = Commit + Push.**
+**لا force-push ولا إعادة كتابة تاريخ مشترك.**
 
 ---
 
@@ -204,6 +209,7 @@ git push
 | `docs/07-gap-audit.md` | نتائج الفحص |
 | `docs/08-testing.md` | الاختبارات |
 | `docs/checkpoints/*.md` | Done / Uncommitted / Remaining / Decisions |
+| `docs/checkpoints/README.md` | Ordered checkpoint index and next steps |
 
 ### Checkpoint format
 ```md
