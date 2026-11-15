@@ -66,7 +66,7 @@
 - **Google login:** deferred; temporary password + sessions is the current path.
 - **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` pushed (`d8c7b29`).
 - **Git rule:** every completed checkpoint = commit + push. No force-push.
-- **Next:** Next.js shell + BFF, then login + students screen.
+- **Next:** CI/CD baseline (2.6), then security gate (2.7), then Next.js shell + BFF (5.1).
 - **Legacy stack:** .NET 10 minimal API + React 19/Vite + PostgreSQL 17 + WPF/WebView2 + PowerShell Test Center. No `.bat` files remain.
 
 ### What Was Done vs. What Was Not
