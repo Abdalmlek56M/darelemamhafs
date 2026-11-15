@@ -9,6 +9,8 @@
 
 > الاختبارات مشاريع داخل الحل (Solution)، لكنها ليست جزءًا من التطبيق المنشور.
 
+> **Legacy GUI Test Center is archived.** No test panel in the product. Individual `tests/runners/Verify-*.ps1` scripts remain only as conversion references; valuable scenarios move to xUnit/Testcontainers/Playwright.
+
 - **ليست تطبيقًا منفصلًا.** هي `tests/Unit`, `tests/Integration`, `tests/Contract`, `tests/E2E` داخل نفس الحل.
 - لا Test Panel في الواجهة.
 - لا Test Routes في الإنتاج.

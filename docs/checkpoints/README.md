@@ -17,13 +17,18 @@
 | 2.4 | [Database + migration runner](2.4-database.md) | ✅ |
 | 2.5 | [API contract + generated TS client](2.5-contract.md) | ✅ |
 | 3.1 | [Secretariat — students](3.1-secretariat.md) | 🟡 first slice |
+| 1.5.1 | [Legacy backend split — first slice](legacy-split-0.1.md) | 🟡 started |
 
 ## Next in order
 
 | Phase | Step | Checkpoint to create |
 |---|---|---|
-| 2.6 | CI/CD baseline | `2.6-ci-cd.md` |
+| 1.5.1 | Finish backend partial split | `legacy-split-1.1.md` |
+| 1.5.2 | Frontend feature split | `legacy-split-1.2.md` |
+| 1.5.3 | Test migration | `legacy-split-1.3.md` |
 | 2.7 | Security gate | `2.7-security-gate.md` |
+| 2.8 | DB hardening | `2.8-db-hardening.md` |
+| 5.0 | UI sample gate | `5.0-ui-sample.md` |
 | 5.1 | Next.js shell + design tokens | `5.1-nextjs-shell.md` |
 | 5.2 | Login + session BFF | `5.2-auth-layout.md` |
 | 5.3 | Students screen | `5.3-students-ui.md` |

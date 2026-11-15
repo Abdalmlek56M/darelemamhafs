@@ -128,6 +128,48 @@
 
 ---
 
+## Phase 1.5 — Legacy File Split
+
+> **Priority:** finish this before UI/features. No behavior change while splitting. Full map: `docs/09-legacy-refactor-plan.md`.
+
+### 1.5.1 Backend split — 🟡 Started
+- [x] `DomainEndpoints` → partial + `DomainEndpoints.Reports.cs`.
+- [ ] `DomainEndpoints.Students.cs`
+- [ ] `DomainEndpoints.Teachers.cs`
+- [ ] `DomainEndpoints.Circles.cs`
+- [ ] `DomainEndpoints.Enrollments.cs`
+- [ ] `DomainEndpoints.ScheduleAttendance.cs`
+- [ ] `DomainEndpoints.Collections.cs`
+- [ ] `DomainEndpoints.Advertising.cs`
+- [ ] `DomainEndpoints.OperatingExpenses.cs`
+- [ ] `DomainEndpoints.History.cs`
+- [ ] `DomainEndpoints.Validation.cs`
+- [ ] `SystemAdminEndpoints` split.
+- [ ] `AuthEndpoints` split.
+- [ ] `Program.cs` composition extraction.
+- [ ] `AuditMiddleware` split.
+- [ ] `SystemAdminService` split.
+
+**Checkpoint:** `docs/checkpoints/legacy-split-0.1.md`
+
+### 1.5.2 Frontend split — ⏳ Pending
+- [ ] `useDarApplication` → feature hooks.
+- [ ] `SystemAdminView` → tabs.
+- [ ] `ManagementReportBuilder` → report types.
+- [ ] `App.tsx` → shell/sidebar/topbar.
+
+### 1.5.3 Test migration — ⏳ Pending
+- [ ] Port high-value PowerShell/SQL tests.
+- [ ] Remove GUI Test Center references (archived).
+- [ ] Add Playwright E2E.
+
+### 1.5.4 UI sample gate — ⏳ Pending
+- [ ] Produce a visual sample before any UI implementation.
+- [ ] Owner approves the sample.
+- [ ] Record approval in a checkpoint.
+
+---
+
 ## Phase 2 — Backend Foundation (.NET)
 
 > **Backend decision:** .NET is final. TypeScript/NestJS is rejected. Do not build a second backend.

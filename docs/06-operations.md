@@ -29,8 +29,9 @@ powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run-desk
 # Build React + API for acceptance (does not start PostgreSQL or apply migrations)
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\Build-DarForRehearsal.ps1
 
-# Test Center (legacy; to be replaced by tests/ projects)
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tests\runners\Start-TestCenter.ps1
+# Legacy Test Center GUI is archived. Run individual Verify-*.ps1 runners
+# only while converting them to tests/ projects.
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tests\runners\Verify-FinancialRounding.ps1
 
 # System Center
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-SystemCenter.ps1

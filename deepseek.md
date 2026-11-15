@@ -63,11 +63,13 @@
 - **Phase 2.5:** OpenAPI + generated TS client — ✅ done (12 paths, 10 schemas, `openapi-typescript` + `openapi-fetch`, typecheck passes).
 - **Phase 2.6:** CI baseline — ✅ done (backend/frontend/api-client/security jobs).
 - **Phase 3.1:** Secretariat — 🟡 students list/get/create done.
+- **Phase 1.5.1:** Legacy backend split — 🟡 started (`DomainEndpoints` → partial + `DomainEndpoints.Reports.cs`; Test Center GUI archived).
+- **UI gate:** no UI implementation before the owner approves a visual sample.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.
 - **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` pushed (`d8c7b29`).
 - **Git rule:** every completed checkpoint = commit + push. No force-push.
-- **Next:** CI/CD baseline (2.6), then security gate (2.7), then Next.js shell + BFF (5.1).
+- **Next:** finish the legacy backend split (1.5.1), then frontend split (1.5.2), tests (1.5.3), then security gate (2.7), DB hardening (2.8), UI sample gate (5.0), Next.js shell (5.1).
 - **Legacy stack:** .NET 10 minimal API + React 19/Vite + PostgreSQL 17 + WPF/WebView2 + PowerShell Test Center. No `.bat` files remain.
 
 ### What Was Done vs. What Was Not
@@ -115,11 +117,13 @@
 8. **Money = decimal/numeric.** Never float. API returns strings when needed.
 9. **Every financial mutation:** transaction + idempotency + audit.
 10. **No `.bat` files.**
-11. **Arabic RTL first.**
-12. **Tests are isolated.** Separate DB/environment. No Test Panel/Test Routes in production.
-13. **No blind rewrite.** Audit first, then Strangler.
-14. **Every step = docs + checkpoint.**
-15. **If a business decision is missing: stop and ask.** Do not invent.
+11. **UI sample gate:** before any UI implementation, produce a visual sample and get owner approval.
+12. **No behavior change during a legacy split.** Build after each slice; no route/SQL/response changes.
+13. **Arabic RTL first.**
+14. **Tests are isolated.** Separate DB/environment. No Test Panel/Test Routes in production.
+15. **No blind rewrite.** Audit first, then Strangler.
+16. **Every step = docs + checkpoint.**
+17. **If a business decision is missing: stop and ask.** Do not invent.
 
 ---
 
@@ -209,6 +213,7 @@ Remote: `https://github.com/Abdalmlek56M/darelemamhafs.git`
 | `docs/06-operations.md` | التشغيل والنشر |
 | `docs/07-gap-audit.md` | نتائج الفحص |
 | `docs/08-testing.md` | الاختبارات |
+| `docs/09-legacy-refactor-plan.md` | خطة تفكيك الملفات القديمة |
 | `docs/checkpoints/*.md` | Done / Uncommitted / Remaining / Decisions |
 | `docs/checkpoints/README.md` | Ordered checkpoint index and next steps |
 

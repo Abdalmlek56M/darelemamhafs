@@ -458,6 +458,9 @@ flowchart TB
 | 21 | .NET is the final backend | owner decision; TypeScript/NestJS rejected to avoid a second rewrite |
 | 22 | Google login deferred | temporary password + sessions is the current path |
 | 23 | File size budget 200–400 lines | split every use case; legacy exceptions documented |
+| 24 | One unified .NET backend; OpenAPI is the generated/stable boundary | contract stability + replaceable modules; no duplicated backend |
+| 25 | UI sample gate | owner approves a visual sample before any UI implementation |
+| 26 | Legacy split first, no behavior change | partial classes → feature files → modules; build after each slice |
 
 ---
 
