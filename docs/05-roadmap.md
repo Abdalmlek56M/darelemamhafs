@@ -189,10 +189,10 @@
 **Checkpoint:** `docs/checkpoints/2.5-contract.md`
 
 ### 2.6 CI/CD
-- [ ] Build/test workflow.
+- [x] Build/test workflow.
 - [ ] Contract diff.
-- [ ] Dependency audit.
-- [ ] Secret scan.
+- [x] Dependency audit.
+- [x] Secret scan.
 - [ ] Docker images.
 - [ ] Deploy script.
 - [ ] Rollback.
