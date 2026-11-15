@@ -183,8 +183,9 @@ Split shell, sidebar, topbar, auth gate, theme, dialogs.
 
 ### L2 — Frontend feature split
 - [x] Pure selectors extracted to `application/selectors.ts`.
-- [ ] `useDarApplication` notification/loader/CRUD hooks.
+- [x] `useDarApplication` split into notification/loader/auth/action hooks; **787 → 363 lines**.
 - [ ] `SystemAdminView` tabs.
+- [ ] `ManagementReportBuilder` split if it grows past 400.
 - [ ] `ManagementReportBuilder`.
 - [ ] `App.tsx` shell.
 

@@ -153,9 +153,13 @@
 
 **Checkpoint:** `docs/checkpoints/legacy-split-1.1.md`
 
-### 1.5.2 Frontend split — 🟡 Started
+### 1.5.2 Frontend split — 🟡 In progress
 - [x] Pure selectors → `application/selectors.ts`.
-- [ ] `useDarApplication` → notification/loader/CRUD hooks.
+- [x] Notifications → `useScheduleNotifications.ts`.
+- [x] Loaders → `useDarDataLoaders.ts`.
+- [x] Auth/session → `useDarAuth.ts`.
+- [x] Students/teachers/circles → action hooks.
+- [x] `useDarApplication` → **363 lines** (under 400).
 - [ ] `SystemAdminView` → tabs.
 - [ ] `ManagementReportBuilder` → report types.
 - [ ] `App.tsx` → shell/sidebar/topbar.
@@ -445,9 +449,11 @@
 ### 6.5 Staging + production
 - [ ] Staging deploy.
 - [ ] Smoke tests.
-- [ ] Production deploy.
-- [ ] DNS/TLS.
+- [ ] Production deploy on the final host.
+- [ ] Final domain (`darelemamhaf.rigxhardware.com`) + DNS/TLS.
 - [ ] Rollback verified.
+
+**Final goal:** النظام كاملًا يعمل على host + domain إنتاجي، وليس محليًا فقط. كل Build قبل الـPush هدفه التحقق من سلامة الملفات المرفوعة ومنع الكسر.
 
 **Checkpoint:** `docs/checkpoints/6.5-launch.md`
 

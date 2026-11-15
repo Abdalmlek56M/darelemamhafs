@@ -39,12 +39,14 @@
 **Scope:** إداري/مالي فقط — ليس منصة تعليمية (LMS). لا مناهج/محتوى/امتحانات إلكترونية في MVP.
 
 **Domain:** `darelemamhaf.rigxhardware.com`
-**Backend:** .NET 10 / ASP.NET Core minimal API + EF Core
+**Backend:** .NET 10 / ASP.NET Core minimal API + Npgsql + Dapper
 **Frontend:** Next.js 16 + React 19
 **Database:** PostgreSQL 17+ على نفس السيرفر
-**Auth:** Email OTP + Google فقط، بدون كلمات مرور أو SMS
+**Auth:** Email OTP + Google (Google deferred)؛ كلمة مرور/جلسة مؤقتة الآن، بدون SMS
 **Language:** عربي + إنجليزي
 **Deploy:** Ubuntu 24.04 + Docker Compose + Caddy + Cloudflare
+
+**الهدف النهائي:** تسليم النظام كاملًا على **host + domain** إنتاجي مع HTTPS ونسخ احتياطي ومراقبة — وليس مجرد بناء محلي أو Demo. أي مرحلة لا تُعد مكتملة إلا إذا كانت قابلة للنشر ضمن هذا المسار.
 
 ---
 
@@ -64,7 +66,7 @@
 - **Phase 2.6:** CI baseline — ✅ done (backend/frontend/api-client/security jobs).
 - **Phase 3.1:** Secretariat — 🟡 students list/get/create done.
 - **Phase 1.5.1:** Legacy backend split — 🟡 `DomainEndpoints` fully split (13 files, max 376); `SystemAdminEndpoints` partial (main 304 + Export/Trash/Helpers); Test Center GUI archived.
-- **Phase 1.5.2:** Frontend split — 🟡 selectors extracted (`selectors.ts`); `useDarApplication` 889 → 807 lines. Next: notifications/loaders/CRUD hooks + `SystemAdminView` tabs.
+- **Phase 1.5.2:** Frontend split — 🟡 `useDarApplication` 889 → **363 lines** via selectors + notifications/loaders/auth/student/teacher/circle hooks. Next: `SystemAdminView` tabs, then `ManagementReportBuilder`.
 - **UI gate:** no UI implementation before the owner approves a visual sample.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.
@@ -196,6 +198,8 @@ git push origin main
 Remote: `https://github.com/Abdalmlek56M/darelemamhafs.git`
 
 ### Pre-Push Build Gate (mandatory)
+
+**الغرض:** التأكد أن الملفات المرفوعة سليمة ومترابطة، وأن أي كسر أو خطأ يظهر قبل الـPush — وليس تنفيذ Build كطقس شكلي.
 
 Before **every** commit/push:
 
