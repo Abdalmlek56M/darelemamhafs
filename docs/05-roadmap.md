@@ -132,25 +132,26 @@
 
 > **Priority:** finish this before UI/features. No behavior change while splitting. Full map: `docs/09-legacy-refactor-plan.md`.
 
-### 1.5.1 Backend split — 🟡 Started
-- [x] `DomainEndpoints` → partial + `DomainEndpoints.Reports.cs`.
-- [ ] `DomainEndpoints.Students.cs`
-- [ ] `DomainEndpoints.Teachers.cs`
-- [ ] `DomainEndpoints.Circles.cs`
-- [ ] `DomainEndpoints.Enrollments.cs`
-- [ ] `DomainEndpoints.ScheduleAttendance.cs`
-- [ ] `DomainEndpoints.Collections.cs`
-- [ ] `DomainEndpoints.Advertising.cs`
-- [ ] `DomainEndpoints.OperatingExpenses.cs`
-- [ ] `DomainEndpoints.History.cs`
-- [ ] `DomainEndpoints.Validation.cs`
+### 1.5.1 Backend split — 🟡 In progress
+- [x] `DomainEndpoints` → 13 partial files; max 376 lines.
+- [x] `DomainEndpoints.Students.cs`
+- [x] `DomainEndpoints.Teachers.cs`
+- [x] `DomainEndpoints.Circles.cs`
+- [x] `DomainEndpoints.Enrollments.cs`
+- [x] `DomainEndpoints.ScheduleAttendance.cs`
+- [x] `DomainEndpoints.Collections.cs`
+- [x] `DomainEndpoints.Advertising.cs`
+- [x] `DomainEndpoints.OperatingExpenses.cs`
+- [x] `DomainEndpoints.History.cs`
+- [x] `DomainEndpoints.Validation.cs`
+- [x] `DomainEndpoints.EnrollmentLifecycle.cs`
 - [ ] `SystemAdminEndpoints` split.
 - [ ] `AuthEndpoints` split.
 - [ ] `Program.cs` composition extraction.
 - [ ] `AuditMiddleware` split.
 - [ ] `SystemAdminService` split.
 
-**Checkpoint:** `docs/checkpoints/legacy-split-0.1.md`
+**Checkpoint:** `docs/checkpoints/legacy-split-1.1.md`
 
 ### 1.5.2 Frontend split — ⏳ Pending
 - [ ] `useDarApplication` → feature hooks.

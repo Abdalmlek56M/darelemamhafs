@@ -63,7 +63,7 @@
 - **Phase 2.5:** OpenAPI + generated TS client — ✅ done (12 paths, 10 schemas, `openapi-typescript` + `openapi-fetch`, typecheck passes).
 - **Phase 2.6:** CI baseline — ✅ done (backend/frontend/api-client/security jobs).
 - **Phase 3.1:** Secretariat — 🟡 students list/get/create done.
-- **Phase 1.5.1:** Legacy backend split — 🟡 started (`DomainEndpoints` → partial + `DomainEndpoints.Reports.cs`; Test Center GUI archived).
+- **Phase 1.5.1:** Legacy backend split — 🟡 `DomainEndpoints` fully split into 13 files (max 376 lines); Test Center GUI archived. Next: SystemAdmin/Auth/Program/Audit/AdminService.
 - **UI gate:** no UI implementation before the owner approves a visual sample.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.

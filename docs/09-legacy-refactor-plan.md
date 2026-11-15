@@ -50,7 +50,7 @@ Target: `public static partial class DomainEndpoints` split into:
 | `DomainEndpoints.History.cs` | `StudentHistory`, `TeacherHistory`, `LoadStudent`, `LoadTeacher`, `LoadCircle` | 220 |
 | `DomainEndpoints.Validation.cs` | validators, `TryMonth`, `AddNullable`, `NewCode`, actor helpers | 180 |
 
-**First slice done:** `DomainEndpoints.Reports.cs` moved; legacy build passes.
+**Done:** `DomainEndpoints` is fully split into 13 partial files. The original file is 79 lines; the largest partial is 376 lines. Legacy build passes.
 
 ### 3.2 `SystemAdminEndpoints.cs` (697 lines)
 
@@ -173,7 +173,7 @@ Split shell, sidebar, topbar, auth gate, theme, dialogs.
 - [x] Start `DomainEndpoints` partial split (Reports).
 
 ### L1 — Backend partial split
-- [ ] `DomainEndpoints` remaining groups.
+- [x] `DomainEndpoints` fully split (13 files; max 376 lines).
 - [ ] `SystemAdminEndpoints`.
 - [ ] `AuthEndpoints`.
 - [ ] `Program.cs` composition extraction.
