@@ -108,11 +108,24 @@ For a Git-based deploy, add the server's read-only deploy key to GitHub and use 
 
 - Local: `/var/lib/dar/backups/db/dar-YYYYmmdd-HHMMSS.dump`, 14-day retention.
 - Timer: `dar-backup.timer`, daily at 02:30 Africa/Cairo.
-- Offsite: set `RCLONE_REMOTE` in `/etc/dar/backup.env` (e.g. `r2:dar-backups`) and create the rclone remote:
-  ```bash
-  rclone config
+- Offsite: the current target is **Google Drive**. Create the remote on a machine with a browser, then copy the config:
+  ```powershell
+  rclone config   # n -> gdrive -> drive -> authorize in browser -> q
+  scp "$env:APPDATA\rclone\rclone.conf" deploy@31.220.76.171:/home/deploy/rclone.conf
   ```
-  Use Cloudflare R2 or Backblaze B2. The script copies only the new dump to `${RCLONE_REMOTE}/dar/db/`.
+  On the server:
+  ```bash
+  sudo mv /home/deploy/rclone.conf /etc/dar/rclone.conf
+  sudo chown dar:dar /etc/dar/rclone.conf
+  sudo chmod 600 /etc/dar/rclone.conf
+  sudo -u dar rclone --config /etc/dar/rclone.conf mkdir gdrive:dar-backups
+  # Add to /etc/dar/backup.env:
+  # RCLONE_CONFIG=/etc/dar/rclone.conf
+  # RCLONE_REMOTE=gdrive:dar-backups
+  sudo systemctl start dar-backup.service
+  sudo -u dar rclone --config /etc/dar/rclone.conf ls gdrive:dar-backups/dar/db
+  ```
+  The script copies only the new dump to `${RCLONE_REMOTE}/dar/db/`.
 - Test:
   ```bash
   sudo systemctl start dar-backup.service
