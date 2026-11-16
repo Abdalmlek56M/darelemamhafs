@@ -14,6 +14,7 @@ public sealed class IdentityRepository(NpgsqlDataSource dataSource) : IIdentityR
                u.email AS Email,
                u.password_hash AS PasswordHash,
                u.is_active AS IsActive,
+               u.session_version AS SessionVersion,
                COALESCE(
                    (SELECT array_agg(up.permission_code ORDER BY up.permission_code)
                     FROM user_permissions up WHERE up.user_id=u.id),
@@ -73,7 +74,7 @@ public sealed class IdentityRepository(NpgsqlDataSource dataSource) : IIdentityR
 
         var updated = await connection.ExecuteAsync("""
             UPDATE app_users
-            SET email=@email, updated_at=now()
+            SET email=@email, session_version=session_version+1, updated_at=now()
             WHERE id=@userId AND is_active=TRUE;
             """, new { userId, email }, transaction);
 

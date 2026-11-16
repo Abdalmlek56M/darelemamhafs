@@ -35,7 +35,7 @@
 - **Migration:** collect emails manually; keep password login temporarily for accounts without email; remove passwords after all active users are migrated.
 - **Credential handling:** never store admin credentials in docs, code, logs, or repository. Use a password manager. The current weak credential must be changed before production. Do not reuse it for OTP/Google.
 
-> **Implementation status (16 Nov 2026):** this section is the target security model, not a claim that every control is live. Implemented today: login rate limit, login audit, HttpOnly/Secure/SameSite cookies, security headers, blocked financial purge, hashed OTPs, and a server-side ticket store in `Dar.Api`. Still open: CSRF tokens, `__Host-` prefix, legacy session revocation on password change, per-account lockout, proxy/forwarded-header handling, and revalidation of `Dar.Api` sessions against the user row. See `docs/10-code-review.md` for evidence.
+> **Implementation status (16 Nov 2026):** this section is the target security model, not a claim that every control is live. Implemented today: login rate limit, login audit, HttpOnly/Secure/SameSite cookies, security headers, blocked financial purge, hashed OTPs, a server-side ticket store in `Dar.Api`, session-version revocation, first-run setup token/loopback restriction, same-origin guard for unsafe methods, and forwarded-header support. Still open: full antiforgery tokens, `__Host-` prefix, per-account lockout, per-email OTP throttling, and a staging Caddy smoke test. See `docs/10-code-review.md` for evidence.
 
 ### 2.2 Sessions
 

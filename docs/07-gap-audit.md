@@ -102,6 +102,10 @@ Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; a
 | **P1-24** | Circle roster requests are guarded against stale responses and cleared before loading. | `useCircleActions.ts`, `useDarApplication.ts` |
 | **P1-25** | Re-marking attendance preserves an explicitly corrected duration instead of resetting payroll to the scheduled length. | `DomainEndpoints.ScheduleAttendance.cs` |
 | **P1-26** | `--migrate` adopts the legacy `schema_migrations` ledger before applying files, so migrations are not replayed on the existing database. | `MigrationRunner.cs` |
+| **P1-27** | Session revocation: `session_version` added (migration 016). Legacy cookie carries the version and `ValidatePrincipalAsync` rejects mismatches; `Dar.Api` adds `OnValidatePrincipal` with active-user/permission refresh. Password change/reset/deactivation/email change bump the version. | `AuthEndpoints.cs`, `AuthEndpoints.Helpers.cs`, `IdentityModule.cs`, `IdentityRepository.cs`, `016_session_version.sql` |
+| **P1-28** | First-run setup: requires `Auth:SetupToken` for remote callers; without a token it is loopback-only. | `AuthEndpoints.cs` |
+| **P1-29** | Baseline CSRF: `SameOriginGuardMiddleware` rejects unsafe cross-origin browser requests (Origin/Referer) on both hosts. | `SameOriginGuardMiddleware.cs`, both `Program.cs` |
+| **P1-30** | Forwarded headers: `UseForwardedHeaders` + configurable known proxies, so Caddy supplies the real client IP/scheme. | both `Program.cs`, `appsettings.json` |
 | **P2-15** | New students default to the local date, not the UTC date. | `CreateStudent.cs` |
 | **P2-16** | Audit viewer shows unknown non-sensitive fields instead of silently dropping them. | `system/formatting.tsx` |
 
@@ -111,10 +115,6 @@ Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; a
 
 | ID | Severity | Finding | Evidence | Required fix |
 |---|---|---|---|---|
-| **P1-27** | P1 | Legacy and new sessions survive password change, permission removal, or deactivation. | `AuthEndpoints.cs` (no session version); `IdentityModule.cs` (no `OnValidatePrincipal`); `DatabaseTicketStore.cs` | Session version/`OnValidatePrincipal`; revoke tickets on credential/email/role changes |
-| **P1-28** | P1 | First-run `/api/setup/admin` is anonymous and claimable by anyone who reaches the host first. | `AuthEndpoints.cs` setup route | One-time setup token or loopback-only bootstrap |
-| **P1-29** | P1 | No CSRF token/Origin check; legacy cookie is `SameSite=Strict`, new cookie is `Lax`. | `Program.cs`, `IdentityModule.cs`, `docs/03-security.md` §2.3 | Antiforgery token + Origin/Referer validation; align SameSite |
-| **P1-30** | P1 | No `ForwardedHeaders`: behind Caddy every request looks like the proxy IP, so the 10/min auth bucket is global and HSTS is not emitted. | `Program.cs`, `src/Host/Dar.Api/Program.cs` | `UseForwardedHeaders` with known proxies before rate limiting |
 | **P1-31** | P1 | Trash operations require only `trash.manage`; a trash manager can hide/restore payments or charges without `finance.*`. | `SystemAdminEndpoints.cs` trash routes | Per-entity permission check |
 | **P1-32** | P1 | Backup/Restore is Windows-only (`pg_dump.exe`, drive-letter path validation) and has no Linux/Docker path. | `SystemAdminService.cs` | Linux `pg_dump`, mounted backup volume, Compose service |
 | **P1-33** | P1 | No Dockerfile/Compose/Caddy deployment yet, despite the final host+domain goal. | repo root | Add deployment stack + staging smoke test |

@@ -1,3 +1,4 @@
+using System.Net;
 using System.Threading.RateLimiting;
 using Dar.Api.Features.Health;
 using Dar.Api.Features.System.MigrateDatabase;
@@ -5,6 +6,7 @@ using Dar.Api.Infrastructure.Errors;
 using Dar.Api.Infrastructure.Security;
 using Dar.Modules.Identity;
 using Dar.Modules.Secretariat;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Npgsql;
 
@@ -19,6 +21,19 @@ if (args.Contains("--migrate", StringComparer.OrdinalIgnoreCase))
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<AppExceptionHandler>();
 builder.Services.AddOpenApi("v1");
+
+// Caddy terminates TLS on the same host. Trust only loopback by default; Docker
+// deployments can add their proxy IP(s) through ForwardedHeaders:KnownProxies.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownProxies.Add(IPAddress.Loopback);
+    options.KnownProxies.Add(IPAddress.IPv6Loopback);
+    foreach (var value in builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])
+    {
+        if (IPAddress.TryParse(value, out var proxy)) options.KnownProxies.Add(proxy);
+    }
+});
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -51,7 +66,9 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseForwardedHeaders();
 app.UseMiddleware<SecurityHeadersMiddleware>();
+app.UseMiddleware<SameOriginGuardMiddleware>();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

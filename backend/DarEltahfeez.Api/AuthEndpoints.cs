@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
@@ -7,7 +8,7 @@ using NpgsqlTypes;
 
 namespace DarEltahfeez.Api;
 
-public static class AuthEndpoints
+public static partial class AuthEndpoints
 {
     public static async Task ValidatePrincipalAsync(CookieValidatePrincipalContext context)
     {
@@ -21,7 +22,8 @@ public static class AuthEndpoints
         var db = context.HttpContext.RequestServices.GetRequiredService<NpgsqlDataSource>();
         string username;
         string displayName;
-        await using (var cmd = db.CreateCommand("SELECT username, display_name FROM app_users WHERE id=@id AND is_active=TRUE;"))
+        int sessionVersion;
+        await using (var cmd = db.CreateCommand("SELECT username, display_name, session_version FROM app_users WHERE id=@id AND is_active=TRUE;"))
         {
             cmd.Parameters.AddWithValue("id", userId);
             await using var reader = await cmd.ExecuteReaderAsync(context.HttpContext.RequestAborted);
@@ -33,6 +35,16 @@ public static class AuthEndpoints
             }
             username = reader.GetString(0);
             displayName = reader.GetString(1);
+            sessionVersion = reader.GetInt32(2);
+        }
+
+        var oldVersion = context.Principal?.FindFirstValue("session_version");
+        if (!string.Equals(oldVersion, sessionVersion.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal))
+        {
+            // Password reset, deactivation, or another credential change revoked this cookie.
+            context.RejectPrincipal();
+            await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return;
         }
 
         var currentPermissions = new List<string>();
@@ -53,7 +65,8 @@ public static class AuthEndpoints
             {
                 new(ClaimTypes.NameIdentifier, userId.ToString()),
                 new(ClaimTypes.Name, username),
-                new("display_name", displayName)
+                new("display_name", displayName),
+                new("session_version", sessionVersion.ToString(System.Globalization.CultureInfo.InvariantCulture))
             };
             claims.AddRange(newPermissions.Select(permission => new Claim("permission", permission)));
             context.ReplacePrincipal(new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
@@ -70,8 +83,24 @@ public static class AuthEndpoints
             return Results.Ok(new { needsInitialAdmin = !hasUsers, schoolName = "دار الإمام حفص للقرآن والتجويد" });
         });
 
-        app.MapPost("/api/setup/admin", async Task<IResult> (InitialAdminRequest request, HttpContext context, NpgsqlDataSource db, CancellationToken ct) =>
+        app.MapPost("/api/setup/admin", async Task<IResult> (InitialAdminRequest request, HttpContext context, IConfiguration configuration, NpgsqlDataSource db, CancellationToken ct) =>
         {
+            // First-run bootstrap is the highest-value takeover target. Require a configured
+            // one-time token for remote callers; local desktop setup stays loopback-only.
+            var configuredToken = configuration["Auth:SetupToken"];
+            if (!string.IsNullOrWhiteSpace(configuredToken))
+            {
+                var providedToken = context.Request.Headers["X-Setup-Token"].ToString();
+                if (!FixedTimeEquals(providedToken, configuredToken))
+                    return Results.Json(new { message = "رمز إعداد الخادم غير صحيح." }, statusCode: StatusCodes.Status403Forbidden);
+            }
+            else if (context.Connection.RemoteIpAddress is not null && !IPAddress.IsLoopback(context.Connection.RemoteIpAddress))
+            {
+                return Results.Json(
+                    new { message = "إعداد الخادم الأول متاح من الجهاز المحلي فقط. اضبط Auth:SetupToken للسماح بالإعداد عن بُعد." },
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+
             var errors = ValidateCredentials(request.Username, request.DisplayName, request.Password, requireStrongPassword: true);
             if (errors is not null) return Results.ValidationProblem(errors);
 
@@ -110,7 +139,7 @@ public static class AuthEndpoints
                     await audit.ExecuteNonQueryAsync(ct);
                 }
                 await transaction.CommitAsync(ct);
-                await SignInAsync(context, userId, request.Username.Trim().ToLowerInvariant(), request.DisplayName.Trim(), AppPermissions.All.Select(p => p.Code));
+                await SignInAsync(context, userId, request.Username.Trim().ToLowerInvariant(), request.DisplayName.Trim(), AppPermissions.All.Select(p => p.Code), sessionVersion: 0);
                 return Results.Ok(new UserSessionResponse(userId, request.Username.Trim().ToLowerInvariant(), request.DisplayName.Trim(), AppPermissions.All.Select(p => p.Code).ToArray()));
             }
             catch (PostgresException ex) when (ex.SqlState == "23505")
@@ -130,7 +159,8 @@ public static class AuthEndpoints
             string displayName;
             string passwordHash;
             bool active;
-            await using (var cmd = db.CreateCommand("SELECT id, username, display_name, password_hash, is_active FROM app_users WHERE username = @username;"))
+            int sessionVersion;
+            await using (var cmd = db.CreateCommand("SELECT id, username, display_name, password_hash, is_active, session_version FROM app_users WHERE username = @username;"))
             {
                 cmd.Parameters.AddWithValue("username", request.Username.Trim().ToLowerInvariant());
                 await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -144,6 +174,7 @@ public static class AuthEndpoints
                 displayName = reader.GetString(2);
                 passwordHash = reader.GetString(3);
                 active = reader.GetBoolean(4);
+                sessionVersion = reader.GetInt32(5);
             }
             if (!active || !Passwords.Verify(request.Password, passwordHash))
             {
@@ -151,7 +182,7 @@ public static class AuthEndpoints
                 return Results.Unauthorized();
             }
             var permissions = await LoadPermissions(db, id, ct);
-            await SignInAsync(context, id, username, displayName, permissions, request.RememberMe);
+            await SignInAsync(context, id, username, displayName, permissions, sessionVersion, request.RememberMe);
             await TryAuditLoginAsync(db, id, displayName, "auth.login", username, ct);
             return Results.Ok(new UserSessionResponse(id, username, displayName, permissions));
         }).RequireRateLimiting("auth");
@@ -178,7 +209,7 @@ public static class AuthEndpoints
             if (Passwords.Verify(request.NewPassword, storedHash))
                 return Results.BadRequest(new { message = "اختَر كلمة مرور مختلفة عن الحالية." });
 
-            await using (var update = db.CreateCommand("UPDATE app_users SET password_hash=@hash,updated_at=now() WHERE id=@id AND is_active=TRUE;"))
+            await using (var update = db.CreateCommand("UPDATE app_users SET password_hash=@hash,session_version=session_version+1,updated_at=now() WHERE id=@id AND is_active=TRUE;"))
             {
                 update.Parameters.AddWithValue("id", userId);
                 update.Parameters.AddWithValue("hash", Passwords.Hash(request.NewPassword));
@@ -191,7 +222,7 @@ public static class AuthEndpoints
                     JsonSerializer.Serialize(new { passwordChanged = true }), "/api/auth/change-password", "POST", false, ct);
             }
             catch { /* Password change has already committed; do not misreport it as failed because audit logging failed. */ }
-            return Results.Ok(new { changed = true });
+            return Results.Ok(new { changed = true, reauthenticate = true, message = "تم تغيير كلمة المرور. سجّل الدخول من جديد." });
         }).RequireAuthorization();
 
         app.MapGet("/api/auth/me", (ClaimsPrincipal user) => Results.Ok(ToSession(user)))
@@ -271,15 +302,17 @@ public static class AuthEndpoints
             await using var transaction = await connection.BeginTransactionAsync(ct);
             try
             {
+                var bumpSession = !request.IsActive || !string.IsNullOrEmpty(request.Password);
                 var sql = string.IsNullOrEmpty(request.Password)
-                    ? "UPDATE app_users SET username=@username, display_name=@display, is_active=@active, updated_at=now() WHERE id=@id;"
-                    : "UPDATE app_users SET username=@username, display_name=@display, is_active=@active, password_hash=@hash, updated_at=now() WHERE id=@id;";
+                    ? "UPDATE app_users SET username=@username, display_name=@display, is_active=@active, session_version=session_version+CASE WHEN @bump THEN 1 ELSE 0 END, updated_at=now() WHERE id=@id;"
+                    : "UPDATE app_users SET username=@username, display_name=@display, is_active=@active, password_hash=@hash, session_version=session_version+CASE WHEN @bump THEN 1 ELSE 0 END, updated_at=now() WHERE id=@id;";
                 await using (var update = new NpgsqlCommand(sql, connection, transaction))
                 {
                     update.Parameters.AddWithValue("id", id);
                     update.Parameters.AddWithValue("username", request.Username.Trim().ToLowerInvariant());
                     update.Parameters.AddWithValue("display", request.DisplayName.Trim());
                     update.Parameters.AddWithValue("active", request.IsActive);
+                    update.Parameters.AddWithValue("bump", bumpSession);
                     if (!string.IsNullOrEmpty(request.Password)) update.Parameters.AddWithValue("hash", Passwords.Hash(request.Password));
                     if (await update.ExecuteNonQueryAsync(ct) == 0) return Results.NotFound();
                 }
@@ -297,7 +330,7 @@ public static class AuthEndpoints
         users.MapDelete("/{id:guid}", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
             if (GetActorId(principal) == id) return Results.Conflict(new { message = "لا يمكنك تعطيل حسابك الحالي." });
-            await using var cmd = db.CreateCommand("UPDATE app_users SET is_active=FALSE, updated_at=now() WHERE id=@id RETURNING id;");
+            await using var cmd = db.CreateCommand("UPDATE app_users SET is_active=FALSE, session_version=session_version+1, updated_at=now() WHERE id=@id RETURNING id;");
             cmd.Parameters.AddWithValue("id", id);
             var result = await cmd.ExecuteScalarAsync(ct);
             if (result is null) return Results.NotFound();
@@ -305,112 +338,4 @@ public static class AuthEndpoints
         });
     }
 
-    private static async Task TryAuditLoginAsync(
-        NpgsqlDataSource db,
-        Guid? actorId,
-        string? actorName,
-        string action,
-        string? username,
-        CancellationToken ct)
-    {
-        try
-        {
-            await using var cmd = db.CreateCommand(
-                "INSERT INTO audit_log(actor_user_id,actor_display_name,action_code,entity_type,entity_id,details,request_path,http_method,can_restore) " +
-                "VALUES(@actor,@name,@action,'app_user',NULL,jsonb_build_object('username',@username),'/api/auth/login','POST',FALSE);");
-            cmd.Parameters.Add("actor", NpgsqlDbType.Uuid).Value = actorId.HasValue ? actorId.Value : DBNull.Value;
-            cmd.Parameters.AddWithValue("name", (object?)actorName ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("action", action);
-            cmd.Parameters.AddWithValue("username", (object?)username?.Trim().ToLowerInvariant() ?? DBNull.Value);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
-        catch
-        {
-            // Login must not fail because the audit write failed. The request logger still records it.
-        }
-    }
-
-    private static Dictionary<string, string[]>? ValidateCredentials(string? username, string? displayName, string? password, bool requireStrongPassword)
-    {
-        var errors = new Dictionary<string, string[]>();
-        if (string.IsNullOrWhiteSpace(username) || username.Trim().Length < 3 || username.Trim().Length > 100)
-            errors["username"] = ["اسم المستخدم يجب أن يكون بين 3 و100 حرف."];
-        if (string.IsNullOrWhiteSpace(displayName) || displayName.Trim().Length > 160)
-            errors["displayName"] = ["اسم العرض مطلوب وبحد أقصى 160 حرفًا."];
-        var minimum = requireStrongPassword ? 12 : 1;
-        if (string.IsNullOrEmpty(password) || password.Length < minimum || password.Length > 200)
-            errors["password"] = [$"كلمة المرور يجب ألا تقل عن {minimum} حرفًا وألا تتجاوز 200 حرف."];
-        return errors.Count == 0 ? null : errors;
-    }
-
-    private static Dictionary<string, string[]>? ValidatePermissionList(string[]? codes)
-    {
-        if (codes is null) return new Dictionary<string, string[]> { ["permissionCodes"] = ["حدد الصلاحيات المطلوبة للحساب."] };
-        var unknown = codes.Where(code => !AppPermissions.IsKnown(code)).Distinct().ToArray();
-        return unknown.Length == 0 ? null : new Dictionary<string, string[]> { ["permissionCodes"] = ["توجد صلاحيات غير معروفة."] };
-    }
-
-    private static async Task ReplacePermissions(NpgsqlConnection connection, NpgsqlTransaction transaction, Guid id, string[] codes, CancellationToken ct)
-    {
-        await using (var delete = new NpgsqlCommand("DELETE FROM user_permissions WHERE user_id=@id;", connection, transaction))
-        {
-            delete.Parameters.AddWithValue("id", id);
-            await delete.ExecuteNonQueryAsync(ct);
-        }
-        foreach (var code in codes.Distinct(StringComparer.Ordinal))
-        {
-            await using var insert = new NpgsqlCommand("INSERT INTO user_permissions(user_id, permission_code) VALUES (@id, @code);", connection, transaction);
-            insert.Parameters.AddWithValue("id", id);
-            insert.Parameters.AddWithValue("code", code);
-            await insert.ExecuteNonQueryAsync(ct);
-        }
-    }
-
-    private static async Task<string[]> LoadPermissions(NpgsqlDataSource db, Guid id, CancellationToken ct)
-    {
-        var codes = new List<string>();
-        await using var cmd = db.CreateCommand("SELECT permission_code FROM user_permissions WHERE user_id=@id ORDER BY permission_code;");
-        cmd.Parameters.AddWithValue("id", id);
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct)) codes.Add(reader.GetString(0));
-        return codes.ToArray();
-    }
-
-    private static async Task SignInAsync(HttpContext context, Guid id, string username, string displayName, IEnumerable<string> permissions, bool rememberMe = true)
-    {
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, id.ToString()),
-            new(ClaimTypes.Name, username),
-            new("display_name", displayName)
-        };
-        claims.AddRange(permissions.Select(permission => new Claim("permission", permission)));
-        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
-        var properties = new AuthenticationProperties { IsPersistent = rememberMe, AllowRefresh = true };
-        if (rememberMe) properties.ExpiresUtc = DateTimeOffset.UtcNow.AddDays(30);
-        await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, properties);
-    }
-
-    private static UserSessionResponse ToSession(ClaimsPrincipal principal) => new(
-        GetActorId(principal), principal.Identity?.Name ?? string.Empty,
-        principal.FindFirstValue("display_name") ?? principal.Identity?.Name ?? string.Empty,
-        principal.FindAll("permission").Select(c => c.Value).Distinct().ToArray());
-
-    private static Guid GetActorId(ClaimsPrincipal principal) => Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
 }
-
-public sealed record InitialAdminRequest(string Username, string DisplayName, string Password);
-public sealed record LoginRequest(string Username, string Password, bool RememberMe = false);
-public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
-public sealed record UserSessionResponse(Guid Id, string Username, string DisplayName, string[] PermissionCodes);
-public sealed record PermissionResponse(string Code, string NameAr);
-public sealed class AdminUserResponse(Guid id, string username, string displayName, bool isActive, DateTimeOffset createdAt, string[] permissionCodes)
-{
-    public Guid Id { get; } = id;
-    public string Username { get; } = username;
-    public string DisplayName { get; } = displayName;
-    public bool IsActive { get; } = isActive;
-    public DateTimeOffset CreatedAt { get; } = createdAt;
-    public string[] PermissionCodes { get; set; } = permissionCodes;
-}
-public sealed record AdminUserWriteRequest(string Username, string DisplayName, string? Password, bool IsActive, string[] PermissionCodes);

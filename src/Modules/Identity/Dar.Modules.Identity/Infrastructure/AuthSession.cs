@@ -26,7 +26,8 @@ public static class AuthSession
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.Username),
-            new("display_name", user.DisplayName)
+            new("display_name", user.DisplayName),
+            new("session_version", user.SessionVersion.ToString(System.Globalization.CultureInfo.InvariantCulture))
         };
 
         if (!string.IsNullOrWhiteSpace(user.Email))

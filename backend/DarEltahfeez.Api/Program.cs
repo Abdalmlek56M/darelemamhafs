@@ -1,11 +1,26 @@
-﻿using System.Threading.RateLimiting;
+﻿using System.Net;
+using System.Threading.RateLimiting;
 using DarEltahfeez.Api;
 using DarEltahfeez.Api.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Caddy terminates TLS on the same host. Trust only loopback by default; Docker
+// deployments can add their proxy IP(s) through ForwardedHeaders:KnownProxies.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownProxies.Add(IPAddress.Loopback);
+    options.KnownProxies.Add(IPAddress.IPv6Loopback);
+    foreach (var value in builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])
+    {
+        if (IPAddress.TryParse(value, out var proxy)) options.KnownProxies.Add(proxy);
+    }
+});
 
 // Persistent structured logs are shared with the external Dar System Center.
 builder.Logging.AddProvider(new DarFileLoggerProvider());
@@ -134,6 +149,7 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+app.UseForwardedHeaders();
 app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/api"))
@@ -154,6 +170,7 @@ app.Use(async (context, next) =>
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseMiddleware<ApiRequestLoggingMiddleware>();
+app.UseMiddleware<SameOriginGuardMiddleware>();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

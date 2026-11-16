@@ -11,6 +11,7 @@ public sealed class AuthUser
     public string? Email { get; set; }
     public string? PasswordHash { get; set; }
     public bool IsActive { get; set; }
+    public int SessionVersion { get; set; }
     public string[] Permissions { get; set; } = [];
 
     public bool HasPassword =>

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Dar.Common.Domain;
 using Dar.Modules.Identity.Abstractions;
 using Dar.Modules.Identity.Features.GetCurrentUser;
@@ -66,6 +67,43 @@ public static class IdentityModule
                 {
                     context.Response.StatusCode = StatusCodes.Status403Forbidden;
                     return Task.CompletedTask;
+                };
+                options.Events.OnValidatePrincipal = async context =>
+                {
+                    var principal = context.Principal;
+                    var idValue = principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                    if (!Guid.TryParse(idValue, out var userId))
+                    {
+                        context.RejectPrincipal();
+                        await context.HttpContext.SignOutAsync(AuthSession.Scheme);
+                        return;
+                    }
+
+                    var repository = context.HttpContext.RequestServices.GetRequiredService<IIdentityRepository>();
+                    var user = await repository.FindByIdAsync(userId, context.HttpContext.RequestAborted);
+                    var versionValue = principal?.FindFirstValue("session_version");
+                    if (user is null || !int.TryParse(versionValue, out var version) || version != user.SessionVersion)
+                    {
+                        // Deactivated user, password/email change, or other revocation.
+                        context.RejectPrincipal();
+                        await context.HttpContext.SignOutAsync(AuthSession.Scheme);
+                        return;
+                    }
+
+                    var oldPermissions = principal!.FindAll("permission")
+                        .Select(claim => claim.Value)
+                        .OrderBy(value => value, StringComparer.Ordinal)
+                        .ToArray();
+                    var newPermissions = user.Permissions
+                        .OrderBy(value => value, StringComparer.Ordinal)
+                        .ToArray();
+                    if (!oldPermissions.SequenceEqual(newPermissions, StringComparer.Ordinal))
+                    {
+                        var claims = principal.Claims.Where(claim => claim.Type != "permission").ToList();
+                        claims.AddRange(newPermissions.Select(permission => new Claim("permission", permission)));
+                        context.ReplacePrincipal(new ClaimsPrincipal(new ClaimsIdentity(claims, AuthSession.Scheme)));
+                        context.ShouldRenew = true;
+                    }
                 };
             });
 
