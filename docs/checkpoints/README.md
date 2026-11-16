@@ -31,6 +31,7 @@
 | 1.8.0 | [Host + domain deployment stack](deployment-stack-1.0.md) | ✅ local smoke test |
 | 1.8.1 | [CI + deployment validation](ci-deployment-validation-1.0.md) | 🟡 first CI run pending |
 | 1.8.2 | [Final local hardening](final-local-hardening-1.0.md) | ✅ |
+| 1.9.0 | [Frontend Vitest baseline](frontend-vitest-1.0.md) | ✅ |
 
 ## Next in order
 

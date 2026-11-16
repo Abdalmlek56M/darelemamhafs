@@ -140,12 +140,18 @@ tests/Unit/Attendance/AttendanceRulesTests.cs
 - Naming: `Method_State_Expected`.
 - Test edge cases: zero, negative, max, rounding, leap day, DST, month end.
 
+### 6.1 Frontend — Vitest
+
+- `npm test` runs `vitest run`.
+- `src/application/selectors.test.ts` covers text/status filters, current-month totals, first-month proration, dashboard profit, and per-circle net.
+- Keep pure selectors free of React/DOM so they stay fast.
+
 ---
 
 ## 7. Integration Tests — .NET
 
 - `WebApplicationFactory` + Testcontainers PostgreSQL.
-- Real EF Core, real transactions.
+- Real PostgreSQL via Dapper, real transactions.
 - Test API auth/permissions.
 - Test idempotency.
 - Test concurrency (two requests).

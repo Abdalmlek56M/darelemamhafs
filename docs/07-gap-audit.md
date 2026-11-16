@@ -154,7 +154,7 @@ Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; a
 | **P1-05** | Money | لا Idempotency-Key؛ الاعتماد على `FOR UPDATE` + sum فقط. | `DomainEndpoints.cs:1313-1386` | Idempotency table + header |
 | **P1-06** | API Contract | لا OpenAPI؛ أنواع TS مكتوبة يدويًا وقد تنحرف. | `frontend/src/domain/types.ts` | OpenAPI 3.1 + generated client + contract test |
 | **P1-07** | Frontend | SPA Vite، Hook مركزي 874 سطر، لا Router، عربي فقط. | `useDarApplication.ts`؛ `App.tsx` | Next.js 16 + feature modules + ar/en + BFF |
-| **P1-08** | Tests | Test Center تطبيق PowerShell منفصل؛ 39 `.ps1`، 2 C# regression فقط، لا xUnit/Testcontainers/Playwright. | `tests/` | xUnit + Testcontainers + Playwright داخل الحل؛ حذف Test Center |
+| **P1-08** | Tests | 🟡 xUnit (12) + integration (5) + Vitest (7) now exist and run in CI. PowerShell Test Center is archived; several source guards are stale. No Testcontainers/Playwright yet. | `tests/`، `frontend/src/application/selectors.test.ts`، CI | Testcontainers + Playwright later |
 | **P1-09** | Ops | لا Dockerfile/Compose/CI/CD؛ لا Linux deploy. | المشروع | Docker Compose + GitHub Actions + staging |
 | **P1-10** | Lists | لا Pagination/Server search؛ القوائم تُرجع كل الصفوف. | `DomainEndpoints.cs` list queries؛ `PROJECT_STATUS...:102` | PagedResult + indexes |
 | **P1-11** | Migrations | Legacy `DatabaseInitializer` بلا checksum/advisory lock. New `MigrationRunner` يملك checksums + lock + legacy-ledger adoption؛ legacy auto-migrate مقيّد بـDevelopment/desktop. يتبقى توحيد الـledger وإزالة الـinitializer القديم. | `DatabaseInitializer.cs:7-78`؛ `MigrationRunner.cs`؛ `Program.cs:164-173` | Retire legacy initializer؛ single ledger |
