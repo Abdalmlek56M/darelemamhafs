@@ -10,7 +10,8 @@ public sealed record UserSessionResponse(
     string Username,
     string DisplayName,
     string? Email,
-    string[] PermissionCodes);
+    string[] PermissionCodes,
+    Guid? TeacherId);
 
 public static class AuthSession
 {
@@ -33,6 +34,9 @@ public static class AuthSession
         if (!string.IsNullOrWhiteSpace(user.Email))
             claims.Add(new Claim(ClaimTypes.Email, user.Email));
 
+        if (user.TeacherId is { } teacherId)
+            claims.Add(new Claim("teacher_id", teacherId.ToString()));
+
         claims.AddRange(user.Permissions.Select(code => new Claim("permission", code)));
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme));
@@ -53,19 +57,24 @@ public static class AuthSession
         user.Username,
         user.DisplayName,
         user.Email,
-        user.Permissions);
+        user.Permissions,
+        user.TeacherId);
 
     public static UserSessionResponse FromPrincipal(ClaimsPrincipal principal)
     {
         var id = Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var parsed)
             ? parsed
             : Guid.Empty;
+        var teacherId = Guid.TryParse(principal.FindFirstValue("teacher_id"), out var parsedTeacherId)
+            ? parsedTeacherId
+            : (Guid?)null;
 
         return new UserSessionResponse(
             id,
             principal.FindFirstValue(ClaimTypes.Name) ?? string.Empty,
             principal.FindFirstValue("display_name") ?? principal.FindFirstValue(ClaimTypes.Name) ?? string.Empty,
             principal.FindFirstValue(ClaimTypes.Email),
-            principal.FindAll("permission").Select(c => c.Value).Distinct(StringComparer.Ordinal).ToArray());
+            principal.FindAll("permission").Select(c => c.Value).Distinct(StringComparer.Ordinal).ToArray(),
+            teacherId);
     }
 }

@@ -110,23 +110,23 @@ The admin console remains desktop-first. The teacher portal is a separate mobile
 
 | # | Risk | Decision needed |
 |---|---|---|
-| R1 | **15-minute minimum.** A session shorter than 15 minutes cannot be stored or paid; longer than 360 minutes is also rejected. | Block ending too early, or add a migration/flow for short/cancelled sessions with 0 pay and a reason. Do not bypass silently. |
+| R1 | **15-minute minimum.** A session shorter than 15 minutes could not be stored or paid; longer than 360 minutes was also rejected. | **Resolved 16 Nov 2026:** early end is allowed; migration 017 relaxes the check to 1–360 and `Money` pays the actual whole minutes (minimum 1). Overtime is recorded but paid at the scheduled duration. |
 | R2 | **Timezone.** `session_date` is a `DATE`; the host is `Africa/Cairo`, but code must compute “today” explicitly in Cairo. | Use a single `Africa/Cairo` clock in the teacher/supervisor APIs; never rely on server UTC. |
 | R3 | **Teacher identity.** `teacher_attendance.marked_by` points to `app_users`; teacher self-service must set it to the linked user, not null. | Add `app_users.teacher_id`; audit actor = user id. |
 | R4 | **Roster statuses.** `student_attendance` supports `excused`, but the sample only shows present/absent. | Decide whether the teacher roster exposes “بعذر” now or later. |
-| R5 | **Unpaid timing.** Charges are monthly (day 1) and `students.joined_on` exists; the alert rule is a view, not a new ledger. | Implement “month-end OR one month after join” as a query/filter; do not create duplicate charges. |
+| R5 | **Unpaid timing.** Charges are monthly (day 1) and `students.joined_on` exists; the alert rule is a view, not a new ledger. | Implement “month-end OR one month after join” as a query/filter; do not create duplicate charges. The notification resolves only when the charge is fully paid. |
 | R6 | **Payroll lock.** No month lock exists; earnings are calculated from attendance on the fly. | Add a lock table/flag and freeze teacher view after lock. |
-| R7 | **Supervisor scope.** The role does not exist; existing permissions are broad. | Decide all circles vs assigned circles before the API. |
-| R8 | **Notification persistence.** Only toast/browser alerts exist. | Add the tables and a dedupe key; do not send one row per render. |
-| R9 | **Teacher account lock.** Admin can lock the supervisor; the same mechanism should cover a compromised teacher account. | Reuse `session_version` + an `is_disabled`/lock flag. |
+| R7 | **Supervisor scope.** Default is all circles; the admin may change the role/permissions per supervisor. | Implement permission bundles first; circle scope can be a later filter. |
+| R8 | **Notification persistence.** Only toast/browser alerts exist. | Add `notifications` + `notification_reads`; status is `open`/`resolved`, separate from read. Dedupe by issue key. |
+| R9 | **Teacher account lock.** Admin can lock the supervisor; the same mechanism should cover a compromised teacher account. | Added `app_users.is_locked` + session-version bump; both APIs reject locked accounts. |
 | R10 | **Payment corrections.** `payments.amount > 0`; no negative rows. | Use reversal/void records, never delete or negate history. |
 
 ---
 
 ## 7. Implementation Order After Sample Approval
 
-1. Migration: `app_users.teacher_id`, `teacher_sessions`, `notifications`, `notification_reads`, lock flag.
-2. Resolve R1 (15-minute rule) and R5 (unpaid timing) explicitly.
+1. Migration: `app_users.teacher_id`, `teacher_sessions`, `notifications`, `notification_reads`, lock flag — **migration 017 added**.
+2. R1 is resolved (early end allowed; scheduled pay cap; 1-minute minimum); R5 is implemented as a query/filter.
 3. Scoped teacher APIs: today, start, end, roster, submit, earnings.
 4. Student attendance upsert through the existing unique index; link final `teacher_attendance` row.
 5. Supervisor APIs: live, absences, unpaid, correction, lock.

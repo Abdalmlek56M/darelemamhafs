@@ -13,6 +13,9 @@
   <Folder Name="/src/Modules/Secretariat/">
     <Project Path="src/Modules/Secretariat/Dar.Modules.Secretariat/Dar.Modules.Secretariat.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Teaching/">
+    <Project Path="src/Modules/Teaching/Dar.Modules.Teaching/Dar.Modules.Teaching.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Dar.IntegrationTests/Dar.IntegrationTests.csproj" />
     <Project Path="tests/Dar.UnitTests/Dar.UnitTests.csproj" />

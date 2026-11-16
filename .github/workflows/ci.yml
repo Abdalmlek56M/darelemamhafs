@@ -4,13 +4,19 @@ on:
   push:
     branches: ["main"]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -24,9 +30,59 @@ jobs:
         run: dotnet build Dar.slnx --no-restore --nologo
       - name: Test
         run: dotnet test Dar.slnx --no-build --nologo
+      - name: Check deploy script syntax
+        run: |
+          for file in deploy/*.sh deploy/scripts/*.sh; do
+            bash -n "$file"
+          done
+
+  migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: dar
+          POSTGRES_PASSWORD: dar
+          POSTGRES_DB: dar_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dar -d dar_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Apply all migrations to a clean database
+        env:
+          ConnectionStrings__Default: "Host=127.0.0.1;Port=5432;Database=dar_ci;Username=dar;Password=dar"
+        run: dotnet run --project src/Host/Dar.Api -- --migrate
+      - name: Verify migrations and portal tables
+        run: |
+          docker exec -i -e PGPASSWORD=dar "${{ job.services.postgres.id }}" \
+            psql -U dar -d dar_ci -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT count(*) AS migrations FROM web_schema_migrations;
+          SELECT count(*) AS permissions FROM permissions;
+          SELECT count(*) AS teacher_permission_defaults
+          FROM role_permissions rp
+          JOIN roles r ON r.id=rp.role_id
+          WHERE r.code='teacher';
+          SELECT count(*) AS supervisor_permission_defaults
+          FROM role_permissions rp
+          JOIN roles r ON r.id=rp.role_id
+          WHERE r.code='supervisor';
+          SELECT to_regclass('public.teacher_sessions') IS NOT NULL AS teacher_sessions_ready,
+                 to_regclass('public.notifications') IS NOT NULL AS notifications_ready;
+          SQL
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: frontend
@@ -46,6 +102,7 @@ jobs:
 
   api-client:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: packages/api-client
@@ -63,6 +120,7 @@ jobs:
 
   deployment:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Validate Compose stack
@@ -70,6 +128,10 @@ jobs:
 
   security:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
         with:

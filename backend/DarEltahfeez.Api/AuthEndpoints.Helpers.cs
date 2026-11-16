@@ -104,12 +104,37 @@ public static partial class AuthEndpoints
 
     private static Guid GetActorId(ClaimsPrincipal principal) => Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
 
+    private static void AddNullable(NpgsqlCommand command, string name, object? value) =>
+        command.Parameters.AddWithValue(name, value ?? DBNull.Value);
+
     private static bool FixedTimeEquals(string provided, string expected)
     {
         var providedBytes = Encoding.UTF8.GetBytes(provided);
         var expectedBytes = Encoding.UTF8.GetBytes(expected);
         return providedBytes.Length == expectedBytes.Length &&
                CryptographicOperations.FixedTimeEquals(providedBytes, expectedBytes);
+    }
+
+    private static async Task<IResult?> ValidateTeacherLinkAsync(NpgsqlDataSource db, Guid? userId, Guid? teacherId, CancellationToken ct)
+    {
+        if (teacherId is null) return null;
+
+        await using (var teacher = db.CreateCommand("SELECT EXISTS(SELECT 1 FROM teachers WHERE id=@id AND is_trashed=FALSE AND status='active');"))
+        {
+            teacher.Parameters.AddWithValue("id", teacherId.Value);
+            if (!(bool)(await teacher.ExecuteScalarAsync(ct) ?? false))
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["teacherId"] = ["المعلمة غير موجودة أو غير نشطة."] });
+        }
+
+        await using (var linked = db.CreateCommand("SELECT EXISTS(SELECT 1 FROM app_users WHERE teacher_id=@teacher AND (@userId IS NULL OR id<>@userId));"))
+        {
+            linked.Parameters.AddWithValue("teacher", teacherId.Value);
+            AddNullable(linked, "userId", userId);
+            if ((bool)(await linked.ExecuteScalarAsync(ct) ?? false))
+                return Results.Conflict(new { message = "هذه المعلمة مرتبطة بحساب آخر." });
+        }
+
+        return null;
     }
 
     private static async Task<bool> IsActiveUserManagerAsync(NpgsqlDataSource db, Guid id, CancellationToken ct)

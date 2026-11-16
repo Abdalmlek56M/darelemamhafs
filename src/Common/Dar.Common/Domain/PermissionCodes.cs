@@ -35,7 +35,19 @@ public static class PermissionCodes
         ("audit.restore", "استرجاع القيم الوصفية"),
         ("trash.manage", "إدارة سلة المهملات"),
         ("backup.manage", "إدارة النسخ الاحتياطية"),
-        ("exports.manage", "تصدير البيانات والتقارير")
+        ("exports.manage", "تصدير البيانات والتقارير"),
+        ("teacher.portal", "الدخول إلى بوابة المعلمة"),
+        ("teacher.attendance", "تسجيل حضور حلقتها وطالباتها"),
+        ("teacher.earnings.self", "عرض مستحقاتها فقط"),
+        ("teacher.students.read", "عرض طالباتها فقط"),
+        ("teacher.subscriptions.read", "عرض حالة اشتراكات طالباتها"),
+        ("teacher.notes.write", "إضافة ملاحظات الحلقة والطالبة"),
+        ("supervisor.portal", "الدخول إلى بوابة المشرفة"),
+        ("supervisor.live", "عرض الحلقات المباشرة"),
+        ("supervisor.absences", "عرض ومتابعة الغياب"),
+        ("supervisor.unpaid", "عرض المتأخرات والمتابعة"),
+        ("supervisor.attendance.correct", "تصحيح الحضور والوقت والأجر"),
+        ("supervisor.teachers.read", "متابعة المعلمات")
     ];
 
     public static bool IsKnown(string? code) =>

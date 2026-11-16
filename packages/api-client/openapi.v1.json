@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "/"
+      "url": "http://127.0.0.1:5099/"
     }
   ],
   "paths": {
@@ -504,10 +504,419 @@
           }
         }
       }
+    },
+    "/api/v1/teacher/today": {
+      "get": {
+        "tags": [
+          "teacher"
+        ],
+        "operationId": "TeacherToday",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/teacher/sessions/start": {
+      "post": {
+        "tags": [
+          "teacher"
+        ],
+        "operationId": "TeacherStartSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/teacher/sessions/{id}/end": {
+      "post": {
+        "tags": [
+          "teacher"
+        ],
+        "operationId": "TeacherEndSession",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/teacher/sessions/{id}/roster": {
+      "get": {
+        "tags": [
+          "teacher"
+        ],
+        "operationId": "TeacherRoster",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/teacher/sessions/{id}/attendance": {
+      "post": {
+        "tags": [
+          "teacher"
+        ],
+        "operationId": "TeacherSubmitAttendance",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitAttendanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/teacher/earnings": {
+      "get": {
+        "tags": [
+          "teacher"
+        ],
+        "operationId": "TeacherEarnings",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/teacher/subscriptions": {
+      "get": {
+        "tags": [
+          "teacher"
+        ],
+        "operationId": "TeacherSubscriptions",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/supervisor/live": {
+      "get": {
+        "tags": [
+          "supervisor"
+        ],
+        "operationId": "SupervisorLive",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/supervisor/absences": {
+      "get": {
+        "tags": [
+          "supervisor"
+        ],
+        "operationId": "SupervisorAbsences",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/supervisor/unpaid": {
+      "get": {
+        "tags": [
+          "supervisor"
+        ],
+        "operationId": "SupervisorUnpaid",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/supervisor/attendance/{id}/adjust": {
+      "post": {
+        "tags": [
+          "supervisor"
+        ],
+        "operationId": "SupervisorAdjustAttendance",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustAttendanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "ListNotifications",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{id}/read": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "ReadNotification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "ReadAllNotifications",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{id}/resolve": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "ResolveNotification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveNotificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AdjustAttendanceRequest": {
+        "required": [
+          "payableDurationMinutes",
+          "payableAmount",
+          "note"
+        ],
+        "type": "object",
+        "properties": {
+          "payableDurationMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "payableAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "AttendanceMark": {
+        "required": [
+          "enrollmentId",
+          "status",
+          "note"
+        ],
+        "type": "object",
+        "properties": {
+          "enrollmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CreateStudentRequest": {
         "required": [
           "studentCode",
@@ -566,6 +975,20 @@
             "type": "string"
           },
           "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "EndSessionRequest": {
+        "required": [
+          "note"
+        ],
+        "type": "object",
+        "properties": {
+          "note": {
             "type": [
               "null",
               "string"
@@ -693,6 +1116,17 @@
           }
         }
       },
+      "ResolveNotificationRequest": {
+        "required": [
+          "note"
+        ],
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string"
+          }
+        }
+      },
       "SetUserEmailRequest": {
         "required": [
           "email"
@@ -701,6 +1135,18 @@
         "properties": {
           "email": {
             "type": "string"
+          }
+        }
+      },
+      "StartSessionRequest": {
+        "required": [
+          "scheduleSlotId"
+        ],
+        "type": "object",
+        "properties": {
+          "scheduleSlotId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -781,13 +1227,28 @@
           }
         }
       },
+      "SubmitAttendanceRequest": {
+        "required": [
+          "students"
+        ],
+        "type": "object",
+        "properties": {
+          "students": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttendanceMark"
+            }
+          }
+        }
+      },
       "UserSessionResponse": {
         "required": [
           "id",
           "username",
           "displayName",
           "email",
-          "permissionCodes"
+          "permissionCodes",
+          "teacherId"
         ],
         "type": "object",
         "properties": {
@@ -812,6 +1273,13 @@
             "items": {
               "type": "string"
             }
+          },
+          "teacherId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -848,6 +1316,15 @@
     },
     {
       "name": "secretariat"
+    },
+    {
+      "name": "teacher"
+    },
+    {
+      "name": "supervisor"
+    },
+    {
+      "name": "notifications"
     }
   ]
 }

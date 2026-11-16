@@ -33,12 +33,57 @@ public sealed class MoneyTests
     }
 
     [Fact]
-    public void TeacherPayable_RejectsDurationBelow15Minutes()
+    public void TeacherPayable_AcceptsOneMinute()
     {
-        var ok = Money.TryCalculateTeacherPayableAmount(120m, 14, out var payable);
+        var ok = Money.TryCalculateTeacherPayableAmount(120m, 1, out var payable);
 
-        Assert.False(ok);
-        Assert.Equal(0m, payable);
+        Assert.True(ok);
+        Assert.Equal(2.00m, payable);
+    }
+
+    [Fact]
+    public void TeacherPayable_RejectsZeroAndTooLong()
+    {
+        Assert.False(Money.TryCalculateTeacherPayableAmount(120m, 0, out _));
+        Assert.False(Money.TryCalculateTeacherPayableAmount(120m, 361, out _));
+    }
+
+    [Fact]
+    public void TeacherSessionPay_OverScheduled_PaysScheduledAndRecordsOvertime()
+    {
+        var ok = Money.TryCalculateTeacherSessionPay(100m, 90, 98, out var result);
+
+        Assert.True(ok);
+        Assert.Equal(98, result.ActualMinutes);
+        Assert.Equal(90, result.PayableMinutes);
+        Assert.Equal(8, result.OvertimeMinutes);
+        Assert.Equal(0, result.UndertimeMinutes);
+        Assert.Equal("scheduled", result.PayBasis);
+        Assert.Equal(150.00m, result.PayableAmount);
+    }
+
+    [Fact]
+    public void TeacherSessionPay_EarlyEnd_PaysActualAndRecordsUndertime()
+    {
+        var ok = Money.TryCalculateTeacherSessionPay(100m, 90, 75, out var result);
+
+        Assert.True(ok);
+        Assert.Equal(75, result.PayableMinutes);
+        Assert.Equal(0, result.OvertimeMinutes);
+        Assert.Equal(15, result.UndertimeMinutes);
+        Assert.Equal("actual", result.PayBasis);
+        Assert.Equal(125.00m, result.PayableAmount);
+    }
+
+    [Fact]
+    public void TeacherSessionPay_ZeroActual_PaysOneMinuteMinimum()
+    {
+        var ok = Money.TryCalculateTeacherSessionPay(100m, 60, 0, out var result);
+
+        Assert.True(ok);
+        Assert.Equal(1, result.PayableMinutes);
+        Assert.Equal(59, result.UndertimeMinutes);
+        Assert.Equal(1.67m, result.PayableAmount);
     }
 
     [Fact]

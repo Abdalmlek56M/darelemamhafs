@@ -13,7 +13,9 @@ public sealed class IdentityRepository(NpgsqlDataSource dataSource) : IIdentityR
                u.display_name AS DisplayName,
                u.email AS Email,
                u.password_hash AS PasswordHash,
+               u.teacher_id AS TeacherId,
                u.is_active AS IsActive,
+               u.is_locked AS IsLocked,
                u.session_version AS SessionVersion,
                COALESCE(
                    (SELECT array_agg(up.permission_code ORDER BY up.permission_code)
@@ -27,7 +29,7 @@ public sealed class IdentityRepository(NpgsqlDataSource dataSource) : IIdentityR
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         return await connection.QuerySingleOrDefaultAsync<AuthUser>(
-            UserSelect + " WHERE lower(u.email)=lower(@email) AND u.is_active=TRUE LIMIT 1;",
+            UserSelect + " WHERE lower(u.email)=lower(@email) AND u.is_active=TRUE AND u.is_locked=FALSE LIMIT 1;",
             new { email });
     }
 
@@ -35,7 +37,7 @@ public sealed class IdentityRepository(NpgsqlDataSource dataSource) : IIdentityR
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         return await connection.QuerySingleOrDefaultAsync<AuthUser>(
-            UserSelect + " WHERE lower(u.username)=lower(@username) AND u.is_active=TRUE LIMIT 1;",
+            UserSelect + " WHERE lower(u.username)=lower(@username) AND u.is_active=TRUE AND u.is_locked=FALSE LIMIT 1;",
             new { username });
     }
 
@@ -43,7 +45,7 @@ public sealed class IdentityRepository(NpgsqlDataSource dataSource) : IIdentityR
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         return await connection.QuerySingleOrDefaultAsync<AuthUser>(
-            UserSelect + " WHERE u.google_subject=@subject AND u.is_active=TRUE LIMIT 1;",
+            UserSelect + " WHERE u.google_subject=@subject AND u.is_active=TRUE AND u.is_locked=FALSE LIMIT 1;",
             new { subject });
     }
 
@@ -51,7 +53,7 @@ public sealed class IdentityRepository(NpgsqlDataSource dataSource) : IIdentityR
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         return await connection.QuerySingleOrDefaultAsync<AuthUser>(
-            UserSelect + " WHERE u.id=@id AND u.is_active=TRUE LIMIT 1;",
+            UserSelect + " WHERE u.id=@id AND u.is_active=TRUE AND u.is_locked=FALSE LIMIT 1;",
             new { id });
     }
 

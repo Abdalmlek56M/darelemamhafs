@@ -34,7 +34,19 @@ public static class AppPermissions
         ("audit.restore", "استرجاع نسخة سابقة من تعديل"),
         ("trash.manage", "إدارة سلة المهملات والاستعادة والحذف النهائي"),
         ("backup.manage", "إنشاء وتنزيل النسخ الاحتياطية وإدارتها"),
-        ("exports.manage", "تصدير بيانات الدار وتقارير PDF")
+        ("exports.manage", "تصدير بيانات الدار وتقارير PDF"),
+        ("teacher.portal", "الدخول إلى بوابة المعلمة"),
+        ("teacher.attendance", "تسجيل حضور حلقتها وطالباتها"),
+        ("teacher.earnings.self", "عرض مستحقاتها فقط"),
+        ("teacher.students.read", "عرض طالباتها فقط"),
+        ("teacher.subscriptions.read", "عرض حالة اشتراكات طالباتها"),
+        ("teacher.notes.write", "إضافة ملاحظات الحلقة والطالبة"),
+        ("supervisor.portal", "الدخول إلى بوابة المشرفة"),
+        ("supervisor.live", "عرض الحلقات المباشرة"),
+        ("supervisor.absences", "عرض ومتابعة الغياب"),
+        ("supervisor.unpaid", "عرض المتأخرات والمتابعة"),
+        ("supervisor.attendance.correct", "تصحيح الحضور والوقت والأجر"),
+        ("supervisor.teachers.read", "متابعة المعلمات")
     ];
 
     public static bool IsKnown(string? code) => All.Any(x => x.Code == code);

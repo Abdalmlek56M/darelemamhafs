@@ -100,10 +100,15 @@ public static class IdentityModule
                     var newPermissions = user.Permissions
                         .OrderBy(value => value, StringComparer.Ordinal)
                         .ToArray();
-                    if (!oldPermissions.SequenceEqual(newPermissions, StringComparer.Ordinal))
+                    var oldTeacherId = principal.FindFirstValue("teacher_id");
+                    var newTeacherId = user.TeacherId?.ToString();
+                    if (!oldPermissions.SequenceEqual(newPermissions, StringComparer.Ordinal) ||
+                        !string.Equals(oldTeacherId, newTeacherId, StringComparison.Ordinal))
                     {
-                        var claims = principal.Claims.Where(claim => claim.Type != "permission").ToList();
+                        var claims = principal.Claims.Where(claim => claim.Type is not "permission" and not "teacher_id").ToList();
                         claims.AddRange(newPermissions.Select(permission => new Claim("permission", permission)));
+                        if (!string.IsNullOrWhiteSpace(newTeacherId))
+                            claims.Add(new Claim("teacher_id", newTeacherId));
                         context.ReplacePrincipal(new ClaimsPrincipal(new ClaimsIdentity(claims, AuthSession.Scheme)));
                         context.ShouldRenew = true;
                     }
@@ -138,6 +143,11 @@ public static class IdentityModule
                 policy.RequireAuthenticatedUser().RequireAssertion(context =>
                     context.User.HasClaim("permission", "attendance.read") ||
                     context.User.HasClaim("permission", "attendance.edit")));
+
+            options.AddPolicy("attendance.correct", policy =>
+                policy.RequireAuthenticatedUser().RequireAssertion(context =>
+                    context.User.HasClaim("permission", "attendance.edit") ||
+                    context.User.HasClaim("permission", "supervisor.attendance.correct")));
         });
 
         return services;

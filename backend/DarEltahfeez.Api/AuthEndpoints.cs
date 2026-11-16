@@ -23,7 +23,7 @@ public static partial class AuthEndpoints
         string username;
         string displayName;
         int sessionVersion;
-        await using (var cmd = db.CreateCommand("SELECT username, display_name, session_version FROM app_users WHERE id=@id AND is_active=TRUE;"))
+        await using (var cmd = db.CreateCommand("SELECT username, display_name, session_version FROM app_users WHERE id=@id AND is_active=TRUE AND is_locked=FALSE;"))
         {
             cmd.Parameters.AddWithValue("id", userId);
             await using var reader = await cmd.ExecuteReaderAsync(context.HttpContext.RequestAborted);
@@ -159,8 +159,9 @@ public static partial class AuthEndpoints
             string displayName;
             string passwordHash;
             bool active;
+            bool locked;
             int sessionVersion;
-            await using (var cmd = db.CreateCommand("SELECT id, username, display_name, password_hash, is_active, session_version FROM app_users WHERE username = @username;"))
+            await using (var cmd = db.CreateCommand("SELECT id, username, display_name, password_hash, is_active, is_locked, session_version FROM app_users WHERE username = @username;"))
             {
                 cmd.Parameters.AddWithValue("username", request.Username.Trim().ToLowerInvariant());
                 await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -174,9 +175,10 @@ public static partial class AuthEndpoints
                 displayName = reader.GetString(2);
                 passwordHash = reader.GetString(3);
                 active = reader.GetBoolean(4);
-                sessionVersion = reader.GetInt32(5);
+                locked = reader.GetBoolean(5);
+                sessionVersion = reader.GetInt32(6);
             }
-            if (!active || !Passwords.Verify(request.Password, passwordHash))
+            if (!active || locked || !Passwords.Verify(request.Password, passwordHash))
             {
                 await TryAuditLoginAsync(db, id, displayName, "auth.login.failed", request.Username, ct);
                 return Results.Unauthorized();
@@ -240,11 +242,24 @@ public static partial class AuthEndpoints
         users.MapGet("", async Task<IResult> (NpgsqlDataSource db, CancellationToken ct) =>
         {
             var list = new List<AdminUserResponse>();
-            await using var cmd = db.CreateCommand("SELECT id, username, display_name, is_active, created_at FROM app_users ORDER BY created_at, username;");
+            await using var cmd = db.CreateCommand("""
+                SELECT id, username, display_name, is_active, is_locked, teacher_id, lock_reason, created_at
+                FROM app_users
+                ORDER BY created_at, username;
+                """);
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                list.Add(new AdminUserResponse(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), reader.GetBoolean(3), reader.GetFieldValue<DateTimeOffset>(4), []));
+                list.Add(new AdminUserResponse(
+                    reader.GetGuid(0),
+                    reader.GetString(1),
+                    reader.GetString(2),
+                    reader.GetBoolean(3),
+                    reader.GetBoolean(4),
+                    reader.IsDBNull(5) ? null : reader.GetGuid(5),
+                    reader.IsDBNull(6) ? null : reader.GetString(6),
+                    reader.GetFieldValue<DateTimeOffset>(7),
+                    []));
             }
             await reader.CloseAsync();
             foreach (var user in list)
@@ -258,27 +273,39 @@ public static partial class AuthEndpoints
             if (errors is not null) return Results.ValidationProblem(errors);
             var permissionErrors = ValidatePermissionList(request.PermissionCodes);
             if (permissionErrors is not null) return Results.ValidationProblem(permissionErrors);
+            var linkError = await ValidateTeacherLinkAsync(db, null, request.TeacherId, ct);
+            if (linkError is not null) return linkError;
+            if (request.IsLocked && string.IsNullOrWhiteSpace(request.LockReason))
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["lockReason"] = ["اكتب سبب قفل الحساب."] });
             var id = Guid.NewGuid();
             await using var connection = await db.OpenConnectionAsync(ct);
             await using var transaction = await connection.BeginTransactionAsync(ct);
             try
             {
-                await using (var insert = new NpgsqlCommand("INSERT INTO app_users(id, username, display_name, password_hash, is_active) VALUES (@id, @username, @display, @hash, TRUE);", connection, transaction))
+                await using (var insert = new NpgsqlCommand("""
+                    INSERT INTO app_users(id, username, display_name, password_hash, is_active, is_locked, teacher_id, locked_at, lock_reason)
+                    VALUES (@id, @username, @display, @hash, TRUE, @locked, @teacher,
+                            CASE WHEN @locked THEN now() ELSE NULL END,
+                            CASE WHEN @locked THEN @lockReason ELSE NULL END);
+                    """, connection, transaction))
                 {
                     insert.Parameters.AddWithValue("id", id);
                     insert.Parameters.AddWithValue("username", request.Username.Trim().ToLowerInvariant());
                     insert.Parameters.AddWithValue("display", request.DisplayName.Trim());
                     insert.Parameters.AddWithValue("hash", Passwords.Hash(request.Password!));
+                    insert.Parameters.AddWithValue("locked", request.IsLocked);
+                    AddNullable(insert, "teacher", request.TeacherId);
+                    AddNullable(insert, "lockReason", request.IsLocked ? request.LockReason?.Trim() : null);
                     await insert.ExecuteNonQueryAsync(ct);
                 }
                 await ReplacePermissions(connection, transaction, id, request.PermissionCodes, ct);
                 await transaction.CommitAsync(ct);
-                return Results.Created($"/api/admin/users/{id}", new { id, username = request.Username.Trim().ToLowerInvariant(), displayName = request.DisplayName.Trim(), isActive = true, permissionCodes = request.PermissionCodes });
+                return Results.Created($"/api/admin/users/{id}", new { id, username = request.Username.Trim().ToLowerInvariant(), displayName = request.DisplayName.Trim(), isActive = true, isLocked = request.IsLocked, teacherId = request.TeacherId, permissionCodes = request.PermissionCodes });
             }
             catch (PostgresException ex) when (ex.SqlState == "23505")
             {
                 await transaction.RollbackAsync(ct);
-                return Results.Conflict(new { message = "اسم المستخدم مستخدم بالفعل." });
+                return Results.Conflict(new { message = ex.ConstraintName == "ux_app_users_teacher_id" ? "هذه المعلمة مرتبطة بحساب آخر." : "اسم المستخدم مستخدم بالفعل." });
             }
         });
 
@@ -327,6 +354,77 @@ public static partial class AuthEndpoints
             {
                 await transaction.RollbackAsync(ct);
                 return Results.Conflict(new { message = "اسم المستخدم مستخدم بالفعل." });
+            }
+        });
+
+        users.MapPut("/{id:guid}/access", async Task<IResult> (Guid id, AdminUserAccessRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
+        {
+            var actorId = GetActorId(principal);
+            if (actorId == id && request.IsLocked)
+                return Results.Conflict(new { message = "لا يمكنك قفل حسابك الحالي. استخدم حساب مدير آخر." });
+            if (request.IsLocked && string.IsNullOrWhiteSpace(request.LockReason))
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["lockReason"] = ["اكتب سبب قفل الحساب."] });
+            var linkError = await ValidateTeacherLinkAsync(db, id, request.TeacherId, ct);
+            if (linkError is not null) return linkError;
+
+            await using var connection = await db.OpenConnectionAsync(ct);
+            await using var transaction = await connection.BeginTransactionAsync(ct);
+            try
+            {
+                bool currentLocked;
+                Guid? currentTeacherId;
+                await using (var current = new NpgsqlCommand("SELECT is_locked, teacher_id FROM app_users WHERE id=@id FOR UPDATE;", connection, transaction))
+                {
+                    current.Parameters.AddWithValue("id", id);
+                    await using var reader = await current.ExecuteReaderAsync(ct);
+                    if (!await reader.ReadAsync(ct)) return Results.NotFound();
+                    currentLocked = reader.GetBoolean(0);
+                    currentTeacherId = reader.IsDBNull(1) ? null : reader.GetGuid(1);
+                }
+
+                var changed = request.IsLocked != currentLocked || request.TeacherId != currentTeacherId;
+                var lockReason = request.IsLocked ? request.LockReason?.Trim() : null;
+                await using (var update = new NpgsqlCommand("""
+                    UPDATE app_users
+                    SET is_locked=@locked, teacher_id=@teacher, lock_reason=@lockReason,
+                        locked_at=CASE WHEN @locked THEN COALESCE(locked_at, now()) ELSE NULL END,
+                        locked_by=CASE WHEN @locked THEN COALESCE(locked_by, @actor) ELSE NULL END,
+                        session_version=session_version+CASE WHEN @changed THEN 1 ELSE 0 END,
+                        updated_at=now()
+                    WHERE id=@id;
+                    """, connection, transaction))
+                {
+                    update.Parameters.AddWithValue("id", id);
+                    update.Parameters.AddWithValue("locked", request.IsLocked);
+                    update.Parameters.AddWithValue("changed", changed);
+                    update.Parameters.AddWithValue("actor", actorId);
+                    AddNullable(update, "teacher", request.TeacherId);
+                    AddNullable(update, "lockReason", lockReason);
+                    if (await update.ExecuteNonQueryAsync(ct) == 0) return Results.NotFound();
+                }
+
+                await using (var audit = new NpgsqlCommand("""
+                    INSERT INTO audit_log(actor_user_id, actor_display_name, action_code, entity_type, entity_id, details, request_path, http_method, can_restore)
+                    VALUES (@actor, @name, 'user.access.update', 'app_user', @id,
+                            jsonb_build_object('isLocked', @locked, 'teacherId', @teacher),
+                            '/api/admin/users/' || @id || '/access', 'PUT', FALSE);
+                    """, connection, transaction))
+                {
+                    audit.Parameters.AddWithValue("actor", actorId);
+                    audit.Parameters.AddWithValue("name", principal.FindFirstValue("display_name") ?? "مدير النظام");
+                    audit.Parameters.AddWithValue("id", id);
+                    audit.Parameters.AddWithValue("locked", request.IsLocked);
+                    AddNullable(audit, "teacher", request.TeacherId);
+                    await audit.ExecuteNonQueryAsync(ct);
+                }
+
+                await transaction.CommitAsync(ct);
+                return Results.Ok(new { id, isLocked = request.IsLocked, teacherId = request.TeacherId, lockReason });
+            }
+            catch (PostgresException ex) when (ex.SqlState == "23505")
+            {
+                await transaction.RollbackAsync(ct);
+                return Results.Conflict(new { message = "هذه المعلمة مرتبطة بحساب آخر." });
             }
         });
 

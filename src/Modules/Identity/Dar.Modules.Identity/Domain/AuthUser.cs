@@ -10,7 +10,9 @@ public sealed class AuthUser
     public string DisplayName { get; set; } = "";
     public string? Email { get; set; }
     public string? PasswordHash { get; set; }
+    public Guid? TeacherId { get; set; }
     public bool IsActive { get; set; }
+    public bool IsLocked { get; set; }
     public int SessionVersion { get; set; }
     public string[] Permissions { get; set; } = [];
 

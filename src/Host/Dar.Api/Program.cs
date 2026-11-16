@@ -6,6 +6,7 @@ using Dar.Api.Infrastructure.Errors;
 using Dar.Api.Infrastructure.Security;
 using Dar.Modules.Identity;
 using Dar.Modules.Secretariat;
+using Dar.Modules.Teaching;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Npgsql;
@@ -61,6 +62,7 @@ builder.Services.AddSingleton<NpgsqlDataSource>(_ =>
 
 builder.Services.AddIdentityModule(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddSecretariatModule();
+builder.Services.AddTeachingModule();
 
 var app = builder.Build();
 
@@ -77,6 +79,7 @@ app.MapOpenApi("/api/openapi/{documentName}.json");
 app.MapHealthEndpoints();
 app.MapIdentityEndpoints();
 app.MapSecretariatEndpoints();
+app.MapTeachingEndpoints();
 
 app.MapGet("/api/v1/ping", () => Results.Ok(new
 {

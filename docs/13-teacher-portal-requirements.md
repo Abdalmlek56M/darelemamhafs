@@ -255,16 +255,27 @@ All endpoints derive the teacher from the authenticated session; never trust a c
 
 ---
 
-## 10. Owner Decisions (16 Nov 2026)
+## 10. Owner Decisions (16 Nov 2026, updated)
 
-1. **Late start:** record the actual start and show “بدأت متأخرًا” with the delay. The owner can see it.
-2. **Overtime:** if the session exceeds its scheduled end, show a clear “الوقت +” alert; allow the teacher to add notes. The owner sees the overtime and the note.
-3. **Rounding:** minute-level duration is the default. Keep money at 2 decimals (`MoneyRules`). Do not round duration to 5-minute blocks; a 5-minute grace is only for the “late” warning, not for pay.
-4. **Supervisor lock:** the admin can lock/unlock the supervisor account. A locked supervisor cannot sign in or act.
-5. **Unpaid alerts:** surface at the end of the month, or one month after the student joins, whichever applies to the billing cycle.
-6. **Timezone:** all UI and date logic use `Africa/Cairo`.
-7. **Reuse:** extend the existing students/attendance/payroll/collections tables and endpoints; do not rebuild them.
-8. **Password policy:** temporarily 6 characters per owner request; raise later with lockout/2FA.
+| # | Decision |
+|---|---|
+| 1 | **Late start:** record the actual start and show “بدأت متأخرًا” with the delay. The owner sees it. |
+| 2 | **Early end is allowed.** Do not block it. The finish sheet shows actual vs scheduled duration and the resulting pay. |
+| 3 | **Overtime pay cap:** if the actual duration **reaches or exceeds** the scheduled duration, pay the **scheduled duration**, not the actual overtime. Example: a 2-hour circle that runs 2h10 is paid as 2 hours; the extra 10 minutes are recorded for review. |
+| 4 | **Short session:** if the teacher ends before the scheduled duration, pay the **actual whole minutes** (minimum 1 minute). The legacy 15-minute minimum is relaxed to 1 minute in the teacher-pay policy. |
+| 5 | **Manual adjustment:** the admin can adjust paid duration and amount manually after reviewing the note. Every adjustment is audited with before/after values. A supervisor may adjust only with the explicit `supervisor.attendance.correct` permission. |
+| 6 | **Notes at finish:** the finish sheet has a note field for overtime/early end, reason, or detail. The note is stored on the session and the attendance row and is visible to the owner/supervisor. Notes can also be added during the session, but the finish sheet always offers the field. |
+| 7 | **Attendance statuses:** the teacher roster has only **حاضر / غائب بعذر / غائب بدون عذر**. This maps to `student_attendance.status` = `present` / `excused` / `absent`. |
+| 8 | **Rounding:** minute-level duration; money at 2 decimals (`MoneyRules`). No 5-minute pay rounding. A 5-minute grace is only for the late warning. |
+| 9 | **Supervisor lock:** the admin can lock/unlock the supervisor account. A locked account cannot sign in or act. The same lock applies to any teacher account. |
+| 10 | **Unpaid alerts:** surface at the end of the month, or one month after the student joins. The alert resolves only when the charge is fully paid. |
+| 11 | **Timezone:** all UI and date logic use `Africa/Cairo`. |
+| 12 | **Reuse:** extend students/attendance/payroll/collections; do not rebuild the financial model. |
+| 13 | **Notifications persist until resolved.** Read state is separate. An unpaid notification stays open until payment; an absence notification stays open until follow-up/excuse; a missing-attendance notification stays open until submission. |
+| 14 | **Granular permissions:** teacher and supervisor are permission bundles, not hard-coded roles. The admin can grant/revoke each permission per user. The teacher default bundle excludes administrative work; `teacher.subscriptions.read` is a separate, optional permission to see her students’ subscription status. |
+| 15 | **Supervisor scope:** default is all circles. The admin can change the supervisor’s role/permissions and, when needed, restrict scope. |
+| 16 | **Teacher link:** only the admin links an `app_users` row to a `teachers` row; the teacher cannot self-link. |
+| 17 | **Password policy:** temporarily 6 characters per owner request; raise later with lockout/2FA. |
 
 ## 10.1 Reuse Map — What Already Exists
 
@@ -272,12 +283,13 @@ All endpoints derive the teacher from the authenticated session; never trust a c
 |---|---|---|
 | Students/roster | `students`, `circle_enrollments`, `circles` | read-only scoped queries for the teacher |
 | Schedule | `circle_schedule_slots` | “now/next” cards + start-session validation |
-| Student attendance | `student_attendance` (`present`/`absent`/`excused`) | teacher roster writes through a scoped API |
-| Teacher pay | `teacher_attendance` (`duration_minutes`, `hourly_rate_snapshot`, `payable_amount`) | link to `teacher_sessions`, reuse money rules |
-| Unpaid | `monthly_charges`, `payments`, `collections` | supervisor unpaid list/filter, no new ledger |
+| Student attendance | `student_attendance` (`present`/`absent`/`excused`) | teacher roster writes present/excused/absent through a scoped API |
+| Teacher pay | `teacher_attendance` (`duration_minutes`, `hourly_rate_snapshot`, `payable_amount`) | add actual/payable/overtime/undertime + `teacher_session_id`; reuse `MoneyRules` |
+| Unpaid | `monthly_charges`, `payments`, `collections` | supervisor unpaid list/filter, no new ledger; resolve on full payment |
+| Notifications | currently toast/browser only | new persistent table with open/resolved + read state, dedupe key |
 | Teacher summaries | `getTeacherPaySummary`, dashboard totals | teacher self-view + supervisor board |
-| Audit | `audit_log` | every start/end/submit/correction |
-| Auth/session | `app_users`, cookie sessions, session version | add `teacher_id` and a scoped role |
+| Audit | `audit_log` | every start/end/submit/correction/manual adjustment |
+| Auth/session | `app_users`, cookie sessions, session version | add `teacher_id`, `is_locked`, `teacher.*`/`supervisor.*` permissions |
 
 **Do not rebuild** the financial model. Add the teacher/session/notification layer around it.
 
@@ -288,24 +300,23 @@ See `docs/15-legacy-reuse-audit.md` for the concrete tables, endpoints, frontend
 `docs/ui-sample/teacher-portal.html` is a static, interactive 390×844 phone frame with five screens:
 
 1. **اليوم** — live circle first, next circle, month summary, rest-of-day timeline.
-2. **الحلقة الجارية** — live timer, late badge, overtime alert, earnings, note action, finish button.
-3. **حضور الطلاب** — search, present/absent toggles, bulk actions, sticky submit, success sheet.
-4. **التنبيهات** — category filters, unread state, absent/unpaid/missing-attendance cards.
-5. **لوحة المشرفة** — live sessions, absences, unpaid list, supervisor lock toggle, team report.
+2. **الحلقة الجارية** — live timer, late badge, overtime alert, projected pay, finish button.
+3. **حضور الطلاب** — search, حاضر/غائب بعذر/غائب بدون عذر, bulk actions, sticky submit, success sheet.
+4. **التنبيهات** — category filters, open/resolved state, absent/unpaid/missing-attendance cards.
+5. **لوحة المشرفة** — live sessions, absences, unpaid list, supervisor lock/permissions, team report.
 
-The sample encodes: late start, `الوقت +` alert with a note composer (the saved note also appears on the supervisor board), minute-level duration (98 minutes → 163.33 at 100/hour), 2-decimal money, dynamic roster counts and success sheet, notification category filters, supervisor lock by admin, unpaid timing, and `Africa/Cairo` labels. It is **not** connected to the API and makes no data changes.
+The sample encodes: late start; a finish sheet with actual vs scheduled duration, overtime/early-end note, and **scheduled-duration pay cap** (90 scheduled minutes, 98 actual → 150.00 at 100/hour); three attendance states; persistent notifications marked open until resolved; supervisor lock; permission controls; and `Africa/Cairo` labels. It is **not** connected to the API and makes no data changes.
 
-**Approval state:** awaiting owner review. Do not start the teacher PWA or change the admin UI until approved.
+**Approval state:** approved with modifications (16 Nov 2026). The production UI is built after the API foundation.
 
 ## 10.3 Still Open
 
-1. **Who approves** a teacher-submitted absence/cancellation: supervisor only, or admin too?
-2. **Can a teacher edit attendance after submit?** If yes, for how long, and who approves?
-3. **Supervisor scope:** all circles or assigned circles?
-4. **Teacher earnings visibility:** current month only, or historical months too?
-5. **Mobile app:** PWA only for now, or native app later?
-6. **Password policy:** when to raise the minimum again.
-7. **Short/cancelled sessions:** the legacy schema and `MoneyRules` reject teacher pay rows under 15 minutes (or over 360). Should a short session be blocked, recorded as cancelled with 0 pay, or should the minimum be relaxed to 1 minute? This must be decided before the session API.
+1. **Who approves** a teacher-submitted absence/cancellation: supervisor only, or admin too? Default for now: supervisor with `supervisor.attendance.correct`, admin always.
+2. **Can a teacher edit attendance after submit?** Default for now: only through a supervisor/admin correction with a reason; the teacher requests a correction.
+3. **Teacher earnings visibility:** current month only, or historical months too? Default for now: current month + previous month.
+4. **Mobile app:** PWA only for now; native later if needed.
+5. **Password policy:** when to raise the minimum again.
+6. **Teacher subscription detail:** should the teacher see only paid/unpaid + amount due, or the full payment history? Default for now: status + amount due only, no receipts or other students.
 
 ---
 
@@ -314,12 +325,12 @@ The sample encodes: late start, `الوقت +` alert with a note composer (the s
 | Phase | Deliverable | Gate |
 |---|---|---|
 | **P0** | min-6 password, remove auto-start/connection UI, deploy | build + smoke — ✅ |
-| **P1** | requirements + visual sample (teacher home/live/roster/notifications/supervisor) | owner approval |
-| **P2** | DB migration: teacher link, sessions, notifications; scoped APIs | tests |
+| **P1** | requirements + visual sample (teacher home/live/roster/notifications/supervisor) | ✅ owner approved with modifications |
+| **P2** | DB migration: teacher link, sessions, notifications; scoped APIs | migration 017 ✅; APIs next |
 | **P3** | Teacher PWA UI (mobile-first) | sample parity |
 | **P4** | Supervisor dashboard + absent/unpaid | tests |
 | **P5** | Notification center + dedupe/read state | tests |
 | **P6** | Payroll lock/approval + reports | owner sign-off |
 | **P7** | Full code review fixes + E2E | CI green |
 
-UI implementation starts only after P1 approval.
+P1 is approved. P2 is in progress: migration 017 and the pay policy are done; scoped APIs and the PWA follow.

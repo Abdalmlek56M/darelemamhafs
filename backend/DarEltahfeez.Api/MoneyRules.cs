@@ -40,7 +40,7 @@ public static class MoneyRules
     public static bool TryCalculateTeacherPayableAmount(decimal hourlyRateSnapshot, int durationMinutes, out decimal payableAmount)
     {
         payableAmount = 0m;
-        if (durationMinutes is < 15 or > 360 ||
+        if (durationMinutes is < 1 or > 360 ||
             !TryNormalizeNonNegativeCurrency(hourlyRateSnapshot, out var normalizedHourlyRate))
         {
             return false;
