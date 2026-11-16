@@ -237,4 +237,4 @@ git pull --ff-only
 - **Rotate the earlier Google OAuth grant** if the Drive config was authorized before the token exposure; re-authorize with the new dedicated client ID.
 - The two hardware stores and the Quran site are not deployed on this host yet.
 - The new Next.js UI is not built; the deployed frontend is the legacy React/Vite SPA.
-- Teacher/supervisor/notification backend and PWA are not implemented; the 5-screen sample awaits owner approval.
+- Teacher/supervisor/notification APIs and the mobile PWA are implemented in code (migration 017, `Dar.Modules.Teaching`, `/teacher` and `/supervisor` entries). First production deploy, teacher/supervisor account creation, and linking are pending.

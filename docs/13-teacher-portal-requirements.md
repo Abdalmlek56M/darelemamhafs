@@ -1,6 +1,6 @@
 # RIGX Dar — Teacher Portal & Notification Requirements
 
-**Status:** requirements captured and 5-screen sample created (16 Nov 2026). UI implementation is gated on owner approval of the sample (`docs/ui-sample/teacher-portal.html`).
+**Status:** requirements, sample, and first implementation slice (migration 017, scoped APIs, mobile `/teacher` and `/supervisor` PWA) are complete (16 Nov 2026). Production deployment and account setup are next.
 **Scope:** teacher accounts, supervisor account, live attendance, student attendance, teacher earnings, mobile-first UI, notification center.
 
 ---
@@ -326,11 +326,11 @@ The sample encodes: late start; a finish sheet with actual vs scheduled duration
 |---|---|---|
 | **P0** | min-6 password, remove auto-start/connection UI, deploy | build + smoke — ✅ |
 | **P1** | requirements + visual sample (teacher home/live/roster/notifications/supervisor) | ✅ owner approved with modifications |
-| **P2** | DB migration: teacher link, sessions, notifications; scoped APIs | migration 017 ✅; APIs next |
-| **P3** | Teacher PWA UI (mobile-first) | sample parity |
-| **P4** | Supervisor dashboard + absent/unpaid | tests |
-| **P5** | Notification center + dedupe/read state | tests |
-| **P6** | Payroll lock/approval + reports | owner sign-off |
-| **P7** | Full code review fixes + E2E | CI green |
+| **P2** | DB migration: teacher link, sessions, notifications; scoped APIs | ✅ migration 017 + teacher/supervisor/notification APIs |
+| **P3** | Teacher PWA UI (mobile-first) | ✅ first slice; visual parity checked at 430×932 |
+| **P4** | Supervisor dashboard + absent/unpaid | ✅ first slice; live/absences/unpaid/adjust |
+| **P5** | Notification center + dedupe/read state | ✅ open/resolved, read ≠ resolved, payment trigger |
+| **P6** | Payroll lock/approval + reports | pending |
+| **P7** | Full code review fixes + E2E + production deploy | pending |
 
 P1 is approved. P2 is in progress: migration 017 and the pay policy are done; scoped APIs and the PWA follow.

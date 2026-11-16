@@ -149,7 +149,7 @@
 .t-student-copy strong { display: block; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .t-student-copy small { display: block; color: var(--muted); font-size: 8px; margin-top: 1px; }
 .t-status-toggle { display: flex; gap: 2px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 999px; background: #0a1320; padding: 3px; }
-.t-status-toggle button { min-width: 38px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); padding: 6px 5px; font: inherit; font-size: 8px; font-weight: 800; }
+.t-status-toggle button { min-width: 40px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); padding: 6px 4px; font: inherit; font-size: 9px; font-weight: 800; }
 .t-status-toggle button.selected.present { background: rgba(113, 213, 192, .18); color: var(--accent); }
 .t-status-toggle button.selected.excused { background: rgba(230, 189, 106, .18); color: #f0d59c; }
 .t-status-toggle button.selected.absent { background: rgba(255, 138, 138, .16); color: #ffb0b0; }

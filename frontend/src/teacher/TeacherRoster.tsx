@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Check, Search, Users } from 'lucide-react'
 import type { EndResponse, RosterResponse, RosterStudent, Slot } from './teacherTypes'
-import { money } from './teacherFormat'
+import { enrollmentStatusLabel, money } from './teacherFormat'
 
 type Status = 'present' | 'excused' | 'absent'
 type Props = {
@@ -103,7 +103,7 @@ export default function TeacherRoster({ roster, slot, endResult, hourlyRate, loa
           return (
             <div className="t-student" key={student.enrollmentId}>
               <span className="t-avatar">{student.studentName.slice(0, 1)}</span>
-              <div className="t-student-copy"><strong>{student.studentName}</strong><small>{student.studentCode} · {student.enrollmentStatus}</small></div>
+              <div className="t-student-copy"><strong>{student.studentName}</strong><small>{student.studentCode} · {enrollmentStatusLabel(student.enrollmentStatus)}</small></div>
               <div className="t-status-toggle" role="group" aria-label={`حالة ${student.studentName}`}>
                 {(['present', 'excused', 'absent'] as Status[]).map((value) => (
                   <button key={value} className={`${value} ${status === value ? 'selected' : ''}`} onClick={() => setStudent(student, value)} aria-pressed={status === value}>

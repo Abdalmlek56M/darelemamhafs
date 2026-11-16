@@ -51,6 +51,21 @@ public static class SessionEndpoints
         if (dayOfWeek != (int)date.DayOfWeek)
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["scheduleSlotId"] = ["هذه الحلقة ليست ضمن جدول اليوم."] });
 
+        await using (var substitute = new NpgsqlCommand("""
+            SELECT EXISTS(
+                SELECT 1 FROM teacher_attendance
+                WHERE schedule_slot_id=@slot AND session_date=@date
+                  AND is_trashed=FALSE AND teacher_id<>@teacher
+            );
+            """, connection, transaction))
+        {
+            substitute.Parameters.AddWithValue("slot", request.ScheduleSlotId);
+            substitute.Parameters.AddWithValue("date", date);
+            substitute.Parameters.AddWithValue("teacher", teacherId);
+            if ((bool)(await substitute.ExecuteScalarAsync(ct) ?? false))
+                return Results.Conflict(new { message = "هذه الحلقة مسجلة لمعلمة أخرى (بديلة). راجع المشرفة." });
+        }
+
         await using (var open = new NpgsqlCommand("""
             SELECT id FROM teacher_sessions
             WHERE teacher_id = @teacher AND session_date = @date AND status = 'in_progress'
@@ -273,7 +288,7 @@ public static class SessionEndpoints
 
         await TeachingNotifications.OpenAsync(connection, transaction, userId, null, "attendance", "warning",
             "لم تسجلي حضور الطالبات بعد",
-            $"حلقة {circleName} — {sessionDate:yyyy-MM-dd}. أكمل تسجيل الحضور.",
+            $"{circleName} — {sessionDate:yyyy-MM-dd}. أكمل تسجيل الحضور.",
             "teacher_session", id, $"/teacher/roster/{id}", $"missing-attendance:{id}", ct);
 
         await TeachingAudit.WriteAsync(connection, transaction, principal, "teacher.session.end", "teacher_session", id,

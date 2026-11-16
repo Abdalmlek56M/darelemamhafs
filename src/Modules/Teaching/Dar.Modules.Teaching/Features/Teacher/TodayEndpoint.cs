@@ -125,7 +125,7 @@ public static class TodayEndpoint
             teacher = new { id = teacherId, name = teacherName, hourlyRate },
             date,
             dayOfWeek,
-            currentSlotId = result.FirstOrDefault(x => x.isCurrent)?.id,
+            currentSlotId = result.FirstOrDefault(x => x.isCurrent || x.sessionStatus is "in_progress" or "awaiting_attendance")?.id,
             nextSlotId = result.FirstOrDefault(x => x.isNext)?.id,
             slots = result
         });

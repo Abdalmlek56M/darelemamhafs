@@ -377,7 +377,7 @@ export default function TeacherApp({ mode }: Props) {
             onBack={() => setPage('home')}
           />
         )}
-        {page === 'supervisor' && canSupervisor && <SupervisorBoard canCorrect={canCorrect} />}
+        {page === 'supervisor' && canSupervisor && <SupervisorBoard canCorrect={canCorrect} onLogout={() => void logout()} />}
       </main>
 
       <TeacherNav

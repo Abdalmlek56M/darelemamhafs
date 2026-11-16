@@ -14,11 +14,15 @@ export function elapsedMinutes(startedAt: string | null | undefined) {
 }
 
 export function localTime(value: string) {
-  return new Date(value).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+  return new Date(value).toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit' })
 }
 
 export function localDate(value: string) {
-  return new Date(`${value}T12:00:00`).toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' })
+  return new Date(`${value}T12:00:00`).toLocaleDateString('ar-EG-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long' })
+}
+
+export function enrollmentStatusLabel(value: string) {
+  return { active: 'نشطة', paused: 'موقوفة', ended: 'منتهية' }[value] ?? value
 }
 
 export function timeRange(start: string, end: string) {

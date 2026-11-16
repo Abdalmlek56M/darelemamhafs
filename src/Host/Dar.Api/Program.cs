@@ -62,7 +62,6 @@ builder.Services.AddSingleton<NpgsqlDataSource>(_ =>
 
 builder.Services.AddIdentityModule(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddSecretariatModule();
-builder.Services.AddTeachingModule();
 
 var app = builder.Build();
 

@@ -114,7 +114,13 @@ export default function TeacherHome({
                   <strong>{slot.circleName}</strong>
                   <small>{timeRange(slot.startsAt, slot.endsAt)} · {slot.studentCount} طالبة</small>
                 </div>
-                <SlotStatus slot={slot} />
+                {slot.sessionId && slot.sessionStatus === 'in_progress'
+                  ? <button className="t-text-button" onClick={() => onOpenLive(slot.sessionId!)}>فتح</button>
+                  : slot.sessionId && slot.sessionStatus === 'awaiting_attendance'
+                    ? <button className="t-text-button" onClick={() => onOpenRoster(slot.sessionId!)}>إكمال</button>
+                    : !slot.sessionId && slot.sessionStatus !== 'completed'
+                      ? <button className="t-text-button" onClick={() => onStart(slot)}>بدء</button>
+                      : <SlotStatus slot={slot} />}
               </div>
             ))}
           </div>

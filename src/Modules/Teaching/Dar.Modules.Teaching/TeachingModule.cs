@@ -6,8 +6,6 @@ namespace Dar.Modules.Teaching;
 
 public static class TeachingModule
 {
-    public static IServiceCollection AddTeachingModule(this IServiceCollection services) => services;
-
     public static IEndpointRouteBuilder MapTeachingEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapTeacherEndpoints();

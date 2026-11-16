@@ -62,63 +62,6 @@ public static class TeachingAudit
     }
 }
 
-public sealed record TeachingSessionRow(
-    Guid Id,
-    Guid TeacherId,
-    Guid CircleId,
-    Guid ScheduleSlotId,
-    DateOnly SessionDate,
-    DateTimeOffset StartedAt,
-    DateTimeOffset? EndedAt,
-    string Status,
-    int ScheduledDurationMinutes,
-    int? ActualDurationMinutes,
-    int? PayableDurationMinutes,
-    string? PayBasis,
-    int OvertimeMinutes,
-    int UndertimeMinutes,
-    string? Note,
-    string CircleName,
-    TimeOnly StartsAt,
-    decimal HourlyRate);
-
-public static class TeachingSessionLookup
-{
-    public static async Task<TeachingSessionRow?> FindAsync(
-        NpgsqlDataSource dataSource,
-        Guid sessionId,
-        Guid teacherId,
-        CancellationToken ct)
-    {
-        await using var connection = await dataSource.OpenConnectionAsync(ct);
-        await using var command = new NpgsqlCommand("""
-            SELECT ts.id, ts.teacher_id, ts.circle_id, ts.schedule_slot_id, ts.session_date,
-                   ts.started_at, ts.ended_at, ts.status, ts.scheduled_duration_minutes,
-                   ts.actual_duration_minutes, ts.payable_duration_minutes, ts.pay_basis,
-                   ts.overtime_minutes, ts.undertime_minutes, ts.note,
-                   c.name, ss.starts_at, t.hourly_rate
-            FROM teacher_sessions ts
-            JOIN circles c ON c.id = ts.circle_id
-            JOIN circle_schedule_slots ss ON ss.id = ts.schedule_slot_id
-            JOIN teachers t ON t.id = ts.teacher_id
-            WHERE ts.id = @id AND ts.teacher_id = @teacher AND t.is_trashed = FALSE;
-            """, connection);
-        command.Parameters.AddWithValue("id", sessionId);
-        command.Parameters.AddWithValue("teacher", teacherId);
-        await using var reader = await command.ExecuteReaderAsync(ct);
-        if (!await reader.ReadAsync(ct)) return null;
-
-        return new TeachingSessionRow(
-            reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetGuid(3),
-            reader.GetFieldValue<DateOnly>(4), reader.GetFieldValue<DateTimeOffset>(5),
-            reader.IsDBNull(6) ? null : reader.GetFieldValue<DateTimeOffset>(6), reader.GetString(7),
-            reader.GetInt32(8), reader.IsDBNull(9) ? null : reader.GetInt32(9),
-            reader.IsDBNull(10) ? null : reader.GetInt32(10), reader.IsDBNull(11) ? null : reader.GetString(11),
-            reader.GetInt32(12), reader.GetInt32(13), reader.IsDBNull(14) ? null : reader.GetString(14),
-            reader.GetString(15), reader.GetFieldValue<TimeOnly>(16), reader.GetDecimal(17));
-    }
-}
-
 public static class TeachingNotifications
 {
     public static async Task OpenAsync(

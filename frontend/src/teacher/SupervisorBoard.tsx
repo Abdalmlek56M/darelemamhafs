@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Clock3, RefreshCw, Wallet } from 'lucide-react'
+import { AlertTriangle, Clock3, LogOut, RefreshCw, Wallet } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorAbsence, SupervisorLiveResponse, SupervisorSession, SupervisorUnpaid, SupervisorUnpaidResponse } from './teacherTypes'
 import { money } from './teacherFormat'
 
-type Props = { canCorrect: boolean }
+type Props = { canCorrect: boolean; onLogout: () => void }
 type Tab = 'live' | 'absences' | 'unpaid'
 
-export default function SupervisorBoard({ canCorrect }: Props) {
+export default function SupervisorBoard({ canCorrect, onLogout }: Props) {
   const [tab, setTab] = useState<Tab>('live')
   const [live, setLive] = useState<SupervisorLiveResponse | null>(null)
   const [absences, setAbsences] = useState<SupervisorAbsence[]>([])
@@ -42,7 +42,10 @@ export default function SupervisorBoard({ canCorrect }: Props) {
       <header className="t-subheader">
         <span className="t-icon-button"><Clock3 size={20} /></span>
         <div><span className="t-eyebrow">متابعة تشغيلية</span><h1>لوحة المشرفة</h1></div>
-        <button className="t-icon-button" aria-label="تحديث" onClick={() => void load()} disabled={loading}><RefreshCw size={18} /></button>
+        <div className="t-header-actions">
+          <button className="t-icon-button" aria-label="تحديث" onClick={() => void load()} disabled={loading}><RefreshCw size={18} /></button>
+          <button className="t-icon-button" aria-label="تسجيل الخروج" onClick={onLogout}><LogOut size={18} /></button>
+        </div>
       </header>
 
       <div className="t-filter-row">

@@ -174,9 +174,9 @@ Tested on disposable PostgreSQL 17: direct `details` update blocked, delete bloc
 
 ## 8. Teacher Portal / Supervisor / Mobile Findings (16 Nov 2026)
 
-This section reviews the **design and reuse plan**; no teacher/supervisor production code exists yet. The 5-screen sample is at `docs/ui-sample/teacher-portal.html`; it was tested at 430×932 and 1280×1000 with no console errors.
+This section now covers the **first implementation slice**: migration 017, `Dar.Modules.Teaching`, and the mobile `/teacher` + `/supervisor` PWA. The 5-screen sample remains at `docs/ui-sample/teacher-portal.html`. The APIs were exercised against a disposable PostgreSQL copy (start/end, scheduled pay cap, roster, submit, earnings, subscriptions, notifications, supervisor live/absences/unpaid, manual adjustment, lock, payment trigger). The PWA was rendered at 430×932 against a mock API.
 
-### P0 — must decide before the session API
+### P0 - decisions made
 
 | # | Finding | Why it blocks |
 |---|---|---|
@@ -208,4 +208,4 @@ This section reviews the **design and reuse plan**; no teacher/supervisor produc
 
 ### Verdict
 
-The reuse plan is sound. Do **not** rebuild students/attendance/payroll/collections. Start with the three P0 decisions, then the migration and scoped APIs. The UI gate remains closed until the owner approves the sample.
+The reuse plan is sound and the first slice is implemented. Do **not** rebuild students/attendance/payroll/collections. Next: production deploy, owner-created teacher/supervisor accounts, payroll lock, and end-to-end tests against the live host. The payment/absence notification resolution and the manual pay adjustment are audited; the remaining risk is the production account/setup step.

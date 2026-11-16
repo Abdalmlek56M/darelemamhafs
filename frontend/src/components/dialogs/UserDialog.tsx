@@ -61,10 +61,10 @@ export default function UserDialog({ ctx }: Props) {
 
           {editing && (
             <Field label="قفل الدخول" wide>
-              <label className="lock-toggle-row">
+              <span className="lock-toggle-row">
                 <input type="checkbox" checked={!!form.isLocked} onChange={(event) => update({ isLocked: event.target.checked })} />
-                قفل الحساب مؤقتًا (يمنع الدخول والتصرفات فورًا)
-              </label>
+                <span>قفل الحساب مؤقتًا (يمنع الدخول والتصرفات فورًا)</span>
+              </span>
               {form.isLocked && (
                 <input
                   required
