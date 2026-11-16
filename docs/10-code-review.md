@@ -206,6 +206,18 @@ This section now covers the **first implementation slice**: migration 017, `Dar.
 - Desktop layout was corrected to a centered 310px + 390px review grid; mobile full-screen layout has no horizontal overflow at 430px.
 - No API calls or data changes are made by the sample.
 
+### Remaining after first slice
+
+- **OpenAPI response DTOs:** the teaching endpoints return anonymous objects; the contract has paths but loose response schemas. Define records + `.Produces<T>()` so the generated client is strongly typed.
+- **Unpaid notification sync:** unpaid notifications are materialized when the supervisor opens the unpaid board. Add a daily Cairo-time sync so alerts appear without opening the board.
+- **Payroll lock/approval:** not implemented; earnings are still on-the-fly.
+- **Teacher absence/cancellation/correction request:** not implemented; only supervisor/admin correction. Decide the approval flow.
+- **Role assignment:** roles/templates are seeded, but the admin UI edits direct permissions. Add role assignment or copy-template UX.
+- **Supervisor circle scope:** default all circles; per-supervisor circle restriction is not implemented.
+- **PWA offline queue:** not implemented; a failed roster submit needs retry/queue.
+- **Forced password change:** the supervisor temp password must be changed manually; add a `must_change_password` flow.
+- **Admin notification center:** the supervisor/teacher notification API is ready, but the legacy admin console has no dedicated notification center; the owner can view alerts through a supervisor account or the API for now.
+
 ### Verdict
 
 The reuse plan is sound and the first slice is implemented. Do **not** rebuild students/attendance/payroll/collections. Next: production deploy, owner-created teacher/supervisor accounts, payroll lock, and end-to-end tests against the live host. The payment/absence notification resolution and the manual pay adjustment are audited; the remaining risk is the production account/setup step.
