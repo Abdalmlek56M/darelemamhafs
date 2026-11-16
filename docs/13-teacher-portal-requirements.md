@@ -291,7 +291,7 @@ All endpoints derive the teacher from the authenticated session; never trust a c
 4. **التنبيهات** — category filters, unread state, absent/unpaid/missing-attendance cards.
 5. **لوحة المشرفة** — live sessions, absences, unpaid list, supervisor lock toggle, team report.
 
-The sample encodes: late start, `الوقت +` alert with notes, minute-level duration, 2-decimal money, supervisor lock by admin, unpaid timing, and `Africa/Cairo` labels. It is **not** connected to the API and makes no data changes.
+The sample encodes: late start, `الوقت +` alert with a note composer (the saved note also appears on the supervisor board), minute-level duration (98 minutes → 163.33 at 100/hour), 2-decimal money, dynamic roster counts and success sheet, notification category filters, supervisor lock by admin, unpaid timing, and `Africa/Cairo` labels. It is **not** connected to the API and makes no data changes.
 
 **Approval state:** awaiting owner review. Do not start the teacher PWA or change the admin UI until approved.
 

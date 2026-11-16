@@ -13,6 +13,7 @@
     --shadow:0 24px 70px rgba(0,0,0,.28);
   }
   *{box-sizing:border-box}
+  [hidden]{display:none!important}
   html,body{min-height:100%}
   body{
     margin:0; font-family:'Cairo',Tahoma,sans-serif; color:var(--text);
@@ -24,7 +25,7 @@
   }
   button{font:inherit;cursor:pointer}
   .icon{width:20px;height:20px;flex:0 0 auto}
-  .review-shell{display:grid;grid-template-columns:310px minmax(390px,1fr);gap:42px;padding:32px;max-width:1180px;margin:0 auto;min-height:100vh;align-items:start}
+  .review-shell{display:grid;grid-template-columns:310px 390px;justify-content:center;gap:42px;padding:32px;max-width:1180px;margin:0 auto;min-height:100vh;align-items:start}
   .review-sidebar{position:sticky;top:32px;background:rgba(17,27,44,.72);border:1px solid var(--line);border-radius:24px;padding:22px;box-shadow:var(--shadow);backdrop-filter:blur(18px);max-height:calc(100vh - 64px);overflow:auto}
   .review-brand{display:flex;align-items:center;gap:12px;margin-bottom:8px}
   .review-brand .mark{width:44px;height:44px;border-radius:15px;display:grid;place-items:center;background:linear-gradient(140deg,var(--accent),var(--accent-2));color:#07121e;font-weight:800;font-size:19px}
@@ -96,6 +97,15 @@
   .timer-label{font-size:10px;color:var(--muted)}
   .overtime-card{display:flex;align-items:flex-start;gap:9px;margin-top:12px;padding:12px;border-radius:16px;background:rgba(230,189,106,.1);border:1px solid rgba(230,189,106,.25);color:#f0d59c;font-size:11px;line-height:1.8}
   .overtime-card strong{display:block;color:#ffe4a8;font-size:12px;margin-bottom:1px}
+  .note-editor{margin-top:10px;padding:12px;border-radius:16px;border:1px solid rgba(230,189,106,.25);background:rgba(230,189,106,.06)}
+  .note-editor label{display:block;font-size:10px;color:#f0d59c;margin-bottom:6px;line-height:1.8}
+  .note-editor textarea{width:100%;min-height:70px;resize:vertical;border-radius:12px;border:1px solid var(--line);background:#0a1320;color:var(--text);padding:10px;font:inherit;font-size:11px;outline:none}
+  .note-editor textarea:focus{border-color:rgba(230,189,106,.45)}
+  .note-actions{display:flex;gap:8px;margin-top:8px}
+  .note-actions .primary-button{flex:1;width:auto;padding:10px;font-size:11px}
+  .note-actions .secondary-button{flex:0 0 auto;padding:10px 12px;font-size:11px}
+  .saved-note{display:flex;flex-direction:column;gap:2px;margin-top:10px;padding:10px 12px;border-radius:14px;border:1px solid rgba(113,213,192,.2);background:rgba(113,213,192,.07);font-size:10px;color:var(--muted);line-height:1.8}
+  .saved-note strong{font-size:10px;color:var(--accent)}
   .earnings-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding:12px 14px;border-radius:16px;background:rgba(113,213,192,.08);border:1px solid rgba(113,213,192,.18)}
   .earnings-row span{font-size:10px;color:var(--muted)}
   .earnings-row strong{font-size:17px;color:var(--accent)}
@@ -152,6 +162,8 @@
   .live-session small{display:block;font-size:9px;color:var(--muted);margin-top:1px}
   .live-session .side{margin-right:auto;text-align:left}
   .live-session .side strong{color:var(--accent);font-size:10px}
+  .session-note{margin-top:4px;font-size:9px;color:#f0d59c;line-height:1.7}
+  .tz-note{font-size:9px;color:var(--muted);text-align:center;margin:12px 0 0}
   .list-card{padding:12px 13px;border-radius:16px;border:1px solid var(--line);background:rgba(17,27,44,.5);margin-bottom:7px}
   .list-card .row{display:flex;justify-content:space-between;gap:8px;align-items:center}
   .list-card strong{font-size:11px}
@@ -220,7 +232,7 @@
     <div class="side-note">
       <strong>ملاحظات المالك</strong>
       تسجيل التأخير والوقت الإضافي + ملاحظات المعلمة تظهر للمالك.<br>
-      التقريب بالدقيقة (بدون تقريب للأجر).<br>
+      المدة بالدقائق الكاملة (بدون تقريب لخمس دقائق)، والأجر 2 عشري.<br>
       المدير يقفل/يفتح حساب المشرفة.<br>
       المتأخرات تظهر آخر الشهر أو بعد شهر من انضمام الطالبة.<br>
       التوقيت: Africa/Cairo.
@@ -268,6 +280,7 @@
             <div class="timeline-row"><span class="timeline-dot"></span><div><strong>حلقة الفجر</strong><small>7:00 – 8:30 م · 14 طالبة</small></div><span class="side">قادمة</span></div>
             <div class="timeline-row"><span class="timeline-dot"></span><div><strong>حلقة الإتقان</strong><small>9:00 – 10:00 م · 9 طالبات</small></div><span class="side">قادمة</span></div>
           </div>
+          <p class="tz-note">كل الأوقات بتوقيت القاهرة (Africa/Cairo).</p>
         </section>
 
         <section class="screen timer-screen" id="screen-live">
@@ -278,8 +291,8 @@
 
           <div class="timer-card">
             <span class="live-badge"><span class="pulse"></span> مباشر</span>
-            <div class="timer" id="live-timer">01:38:42</div>
-            <div class="timer-label">بدأت 5:03 م · الموعد 5:00 – 6:30 م</div>
+            <div class="timer" id="live-timer">01:38</div>
+            <div class="timer-label">بدأت 5:03 م · الموعد 5:00 – 6:30 م · الاحتساب بالدقيقة</div>
             <div class="live-meta" style="justify-content:center;margin-bottom:0">
               <span class="meta-chip warn">تأخرت 3 دقائق</span>
               <span class="meta-chip warn">الوقت + 11 دقيقة</span>
@@ -292,11 +305,21 @@
             <div><strong>تنبيه الوقت +</strong>تجاوزتِ الموعد بـ 11 دقيقة. يمكنك إضافة ملاحظة ليظهر السبب للمالك والمشرفة.</div>
           </div>
 
-          <div class="earnings-row"><div><span>المستحق حتى الآن</span><strong>164.50 ج.م</strong></div><span style="font-size:10px;color:var(--muted)">100 ج.م/ساعة</span></div>
+          <div class="note-editor" id="note-editor" hidden>
+            <label for="overtime-note">سبب الوقت الإضافي — يظهر للمالك والمشرفة</label>
+            <textarea id="overtime-note" rows="3" placeholder="مثال: انتظرنا وصول الطالبات، أو استكملنا مراجعة الجزء."></textarea>
+            <div class="note-actions">
+              <button class="primary-button" onclick="saveNote()">حفظ الملاحظة</button>
+              <button class="secondary-button" onclick="toggleNote(false)">إلغاء</button>
+            </div>
+          </div>
+          <div class="saved-note" id="saved-note" hidden><strong>ملاحظة مسجلة</strong><span id="saved-note-text"></span></div>
+
+          <div class="earnings-row"><div><span>المستحق حتى الآن</span><strong id="live-pay">163.33 ج.م</strong></div><span id="live-rate" style="font-size:10px;color:var(--muted)">98 دقيقة · 100 ج.م/ساعة</span></div>
 
           <div class="stack">
             <button class="primary-button danger" onclick="showScreen('roster')"><svg class="icon"><use href="#i-stop"/></svg> إنهاء الحلقة وتسجيل الطلاب</button>
-            <button class="secondary-button" onclick="toast('تم فتح ملاحظة الحلقة — اكتبي السبب وسيظهر للمالك')">إضافة ملاحظة على الوقت الإضافي</button>
+            <button class="secondary-button" id="note-toggle" aria-expanded="false" onclick="toggleNote()">إضافة ملاحظة على الوقت الإضافي</button>
           </div>
 
           <div class="section-title"><strong>ملخص سريع</strong><span>يُحدّث تلقائيًا</span></div>
@@ -320,7 +343,7 @@
 
           <div class="roster-toolbar">
             <div class="search-box"><svg class="icon" style="width:17px;height:17px"><use href="#i-search"/></svg><input placeholder="ابحثي باسم الطالبة أو الكود" aria-label="بحث الطالبات"></div>
-            <div class="bulk-actions"><button onclick="setAll('present')">الكل حاضر</button><button onclick="setAll('absent')">الكل غائب</button></div>
+            <div class="bulk-actions"><button onclick="setAll('present')">الظاهر حاضر</button><button onclick="setAll('absent')">الظاهر غائب</button></div>
           </div>
 
           <div class="roster-list" id="roster-list">
@@ -332,7 +355,7 @@
             <div class="roster-row" data-status="absent"><span class="avatar">آ</span><div class="student-copy"><strong>آية الله</strong><small>STD-1047 · 11 سنة</small></div><div class="status-toggle"><button class="present" onclick="setStudent(this,'present')">حاضر</button><button class="absent selected" onclick="setStudent(this,'absent')">غائب</button></div></div>
           </div>
 
-          <button class="secondary-button" style="width:100%;margin-top:8px" onclick="toast('سيتم عرض باقي الطالبات في النسخة الكاملة')">عرض كل الطالبات (18)</button>
+          <button class="secondary-button" style="width:100%;margin-top:8px" onclick="toast('12 طالبة أخرى — كلهن حاضر في هذا المثال')">عرض 12 طالبة أخرى (الإجمالي 18)</button>
 
           <div class="sticky-submit"><button class="primary-button" onclick="openSuccess()"><svg class="icon"><use href="#i-check"/></svg> تسجيل الحضور <span id="submit-count" style="font-size:11px;opacity:.8">(16 حاضر · 2 غائب)</span></button></div>
         </section>
@@ -342,16 +365,23 @@
             <div><span class="eyebrow">مركز التنبيهات</span><h1>التنبيهات</h1><p>كل ما يحتاج انتباهك — بدون دوشة.</p></div>
             <button class="icon-button" aria-label="رجوع" onclick="showScreen('today')"><svg class="icon"><use href="#i-arrow"/></svg></button>
           </div>
-          <div class="filter-chips"><button class="chip active">الكل</button><button class="chip">الحضور</button><button class="chip">المدفوعات</button><button class="chip">الجدول</button><button class="chip">النظام</button></div>
+          <div class="filter-chips" role="group" aria-label="تصفية التنبيهات">
+            <button class="chip active" data-filter="all" aria-pressed="true" onclick="filterNotifications(this)">الكل</button>
+            <button class="chip" data-filter="attendance" aria-pressed="false" onclick="filterNotifications(this)">الحضور</button>
+            <button class="chip" data-filter="payments" aria-pressed="false" onclick="filterNotifications(this)">المدفوعات</button>
+            <button class="chip" data-filter="schedule" aria-pressed="false" onclick="filterNotifications(this)">الجدول</button>
+            <button class="chip" data-filter="system" aria-pressed="false" onclick="filterNotifications(this)">النظام</button>
+          </div>
 
           <div class="day-label">اليوم</div>
-          <div class="notification-card unread"><span class="notification-icon warn"><svg class="icon"><use href="#i-alert"/></svg></span><div class="notification-copy"><strong>3 طالبات غائبات</strong><p>حلقة النور — الأحد 16 نوفمبر · مريم، نور، آية</p><button class="text-action" onclick="toast('سيتم فتح قائمة الغائبات')">عرض الغائبات</button></div><span class="unread-dot"></span></div>
-          <div class="notification-card unread"><span class="notification-icon"><svg class="icon"><use href="#i-wallet"/></svg></span><div class="notification-copy"><strong>اشتراك غير مدفوع</strong><p>مريم أحمد — 350 ج.م متأخر · حلقة النور</p><button class="text-action" onclick="toast('سيتم فتح حساب الطالبة')">عرض الحساب</button></div><span class="unread-dot"></span></div>
-          <div class="notification-card unread"><span class="notification-icon good"><svg class="icon"><use href="#i-clock"/></svg></span><div class="notification-copy"><strong>لم تسجلي حضورًا بعد</strong><p>حلقة الفجر — أمس · 14 طالبة</p><button class="text-action" onclick="toast('سيتم فتح الحلقة لتسجيل الحضور')">تسجيل الآن</button></div><span class="unread-dot"></span></div>
+          <div class="notification-card unread" data-category="attendance"><span class="notification-icon warn"><svg class="icon"><use href="#i-alert"/></svg></span><div class="notification-copy"><strong>طالبتان غائبتان</strong><p>حلقة النور — الأحد 16 نوفمبر · نور، آية</p><button class="text-action" onclick="toast('سيتم فتح قائمة الغائبات')">عرض الغائبات</button></div><span class="unread-dot"></span></div>
+          <div class="notification-card unread" data-category="payments"><span class="notification-icon"><svg class="icon"><use href="#i-wallet"/></svg></span><div class="notification-copy"><strong>اشتراك غير مدفوع</strong><p>مريم أحمد — 350 ج.م متأخر · حلقة النور</p><button class="text-action" onclick="toast('سيتم فتح حساب الطالبة')">عرض الحساب</button></div><span class="unread-dot"></span></div>
+          <div class="notification-card unread" data-category="attendance"><span class="notification-icon good"><svg class="icon"><use href="#i-clock"/></svg></span><div class="notification-copy"><strong>لم تسجلي حضورًا بعد</strong><p>حلقة الفجر — أمس · 14 طالبة</p><button class="text-action" onclick="toast('سيتم فتح الحلقة لتسجيل الحضور')">تسجيل الآن</button></div><span class="unread-dot"></span></div>
 
           <div class="day-label">أمس</div>
-          <div class="notification-card"><span class="notification-icon good"><svg class="icon"><use href="#i-check"/></svg></span><div class="notification-copy"><strong>تم اعتماد حضورك</strong><p>حلقة الإتقان — 15 نوفمبر · 9 طالبات</p></div></div>
-          <div class="notification-card"><span class="notification-icon"><svg class="icon"><use href="#i-calendar"/></svg></span><div class="notification-copy"><strong>تغيير موعد</strong><p>حلقة الفجر أصبحت 7:00 م بدلًا من 7:30 م</p></div></div>
+          <div class="notification-card" data-category="attendance"><span class="notification-icon good"><svg class="icon"><use href="#i-check"/></svg></span><div class="notification-copy"><strong>تم اعتماد حضورك</strong><p>حلقة الإتقان — 15 نوفمبر · 9 طالبات</p></div></div>
+          <div class="notification-card" data-category="schedule"><span class="notification-icon"><svg class="icon"><use href="#i-calendar"/></svg></span><div class="notification-copy"><strong>تغيير موعد</strong><p>حلقة الفجر أصبحت 7:00 م بدلًا من 7:30 م</p></div></div>
+          <div class="notification-card" data-category="system"><span class="notification-icon"><svg class="icon"><use href="#i-lock"/></svg></span><div class="notification-copy"><strong>دخول من جهاز جديد</strong><p>هاتف Android — القاهرة · 6:30 م. إذا لم تكوني أنتِ، غيّري كلمة المرور.</p></div></div>
         </section>
 
         <section class="screen" id="screen-supervisor">
@@ -371,13 +401,13 @@
 
           <div class="section-title"><strong>الآن</strong><span>تحديث مباشر</span></div>
           <div class="live-session-list">
-            <div class="live-session"><span class="dot"></span><div><strong>حلقة النور · أ. أسماء</strong><small>5:00 – 6:30 م · 18 طالبة</small></div><div class="side"><strong>00:18</strong><small>الوقت + 11 د</small></div></div>
-            <div class="live-session"><span class="dot late"></span><div><strong>حلقة الفجر · أ. هدى</strong><small>7:00 – 8:30 م · 14 طالبة</small></div><div class="side"><strong>00:04</strong><small>بدأت متأخرة</small></div></div>
+            <div class="live-session"><span class="dot"></span><div><strong>حلقة النور · أ. أسماء</strong><small>5:00 – 6:30 م · 18 طالبة</small><div class="session-note" id="supervisor-note" hidden></div></div><div class="side"><strong>01:38</strong><small>الوقت + 11 د</small></div></div>
+            <div class="live-session"><span class="dot late"></span><div><strong>حلقة الصفاء · أ. منى</strong><small>6:00 – 6:45 م · 12 طالبة</small></div><div class="side"><strong>00:41</strong><small>بدأت متأخرة 4 د</small></div></div>
           </div>
 
           <div class="section-title"><strong>غياب اليوم</strong><span>5 طالبات</span></div>
-          <div class="list-card"><div class="row"><div><strong>مريم أحمد</strong><small>حلقة النور · أ. أسماء</small></div><button class="text-action" onclick="toast('سيتم فتح متابعة الطالبة')">متابعة</button></div></div>
           <div class="list-card"><div class="row"><div><strong>نور الدين</strong><small>حلقة النور · أ. أسماء</small></div><button class="text-action" onclick="toast('سيتم فتح متابعة الطالبة')">متابعة</button></div></div>
+          <div class="list-card"><div class="row"><div><strong>آية الله</strong><small>حلقة النور · أ. أسماء</small></div><button class="text-action" onclick="toast('سيتم فتح متابعة الطالبة')">متابعة</button></div></div>
 
           <div class="section-title"><strong>غير المدفوعين</strong><span>7 طالبات</span></div>
           <div class="list-card"><div class="row"><div><strong>مريم أحمد</strong><small>حلقة النور · متأخر من 1 نوفمبر</small></div><span class="amount">350 ج.م</span></div></div>
@@ -403,10 +433,10 @@
         <h2>تم تسجيل الحلقة</h2>
         <p>حلقة النور · 5:03 – 6:41 م · تم حفظ حضور الطلاب وأجر المعلمة.</p>
         <div class="success-grid">
-          <div><span>حاضر</span><strong>16</strong></div>
-          <div><span>غائب</span><strong style="color:var(--danger)">2</strong></div>
-          <div><span>المدة</span><strong>1:38</strong></div>
-          <div><span>مستحق الحلقة</span><strong>164.50 ج.م</strong></div>
+          <div><span>حاضر</span><strong id="success-present">16</strong></div>
+          <div><span>غائب</span><strong id="success-absent" style="color:var(--danger)">2</strong></div>
+          <div><span>المدة</span><strong id="success-duration">1:38</strong></div>
+          <div><span>مستحق الحلقة</span><strong id="success-pay">163.33 ج.م</strong></div>
         </div>
         <button class="primary-button" onclick="closeSuccess()">تم</button>
       </div>
@@ -417,23 +447,35 @@
 
 <script>
   const screens = ['today','live','roster','notifications','supervisor'];
+  const HIDDEN_PRESENT = 12; // the sample shows 6 of 18; the other 12 are present by default
+  const HOURLY_RATE = 100;
+
   function showScreen(id){
     screens.forEach(s => document.getElementById('screen-'+s).classList.toggle('active', s === id));
     document.querySelectorAll('.screen-link').forEach(b => b.classList.toggle('active', b.dataset.screen === id));
     document.querySelectorAll('.bottom-nav button').forEach(b => b.classList.toggle('active', b.dataset.nav === id));
-    document.querySelector('.app-view').scrollTop = 0;
+    const active = document.getElementById('screen-'+id);
+    if (active) active.scrollTop = 0;
   }
   document.querySelectorAll('.screen-link').forEach(b => b.addEventListener('click', () => showScreen(b.dataset.screen)));
 
-  let seconds = 1*3600 + 38*60 + 42;
-  setInterval(() => {
-    seconds += 1;
-    const h = String(Math.floor(seconds/3600)).padStart(2,'0');
-    const m = String(Math.floor((seconds%3600)/60)).padStart(2,'0');
-    const s = String(seconds%60).padStart(2,'0');
-    const el = document.getElementById('live-timer');
-    if (el) el.textContent = `${h}:${m}:${s}`;
-  }, 1000);
+  let seconds = 98 * 60; // 1:38 — minute-level duration
+  function formatDuration(totalMinutes){
+    const h = String(Math.floor(totalMinutes/60)).padStart(2,'0');
+    const m = String(totalMinutes%60).padStart(2,'0');
+    return `${h}:${m}`;
+  }
+  function currentPay(){
+    return (Math.floor(seconds/60) * HOURLY_RATE / 60).toFixed(2);
+  }
+  function renderTimer(){
+    const minutes = Math.floor(seconds/60);
+    document.getElementById('live-timer').textContent = formatDuration(minutes);
+    document.getElementById('live-pay').textContent = `${currentPay()} ج.م`;
+    document.getElementById('live-rate').textContent = `${minutes} دقيقة · ${HOURLY_RATE} ج.م/ساعة`;
+  }
+  // The sample is frozen at 1:38 so every screen shows the same numbers.
+  renderTimer();
 
   function toast(text){
     const el = document.getElementById('toast');
@@ -443,11 +485,34 @@
     window.__toastTimer = setTimeout(()=>el.classList.remove('show'), 2600);
   }
 
+  function getRosterCounts(){
+    const rows = [...document.querySelectorAll('#roster-list .roster-row')];
+    const visiblePresent = rows.filter(r => r.dataset.status === 'present').length;
+    return {
+      present: visiblePresent + HIDDEN_PRESENT,
+      absent: rows.length - visiblePresent,
+      total: rows.length + HIDDEN_PRESENT
+    };
+  }
+  function updateCounts(){
+    const {present, absent, total} = getRosterCounts();
+    document.getElementById('submit-count').textContent = `(${present} حاضر · ${absent} غائب)`;
+    const summary = document.querySelectorAll('.roster-summary .summary-pill');
+    if (summary.length >= 3){
+      summary[0].textContent = `${present} حاضر`;
+      summary[1].textContent = `${absent} غائب`;
+      summary[2].textContent = `الإجمالي ${total}`;
+    }
+  }
+  function syncToggleAria(){
+    document.querySelectorAll('.status-toggle button').forEach(b => b.setAttribute('aria-pressed', b.classList.contains('selected') ? 'true' : 'false'));
+  }
   function setStudent(button, status){
     const row = button.closest('.roster-row');
     row.dataset.status = status;
     row.querySelectorAll('.status-toggle button').forEach(b => b.classList.remove('selected'));
     button.classList.add('selected');
+    syncToggleAria();
     updateCounts();
   }
   function setAll(status){
@@ -455,18 +520,17 @@
       row.dataset.status = status;
       row.querySelectorAll('.status-toggle button').forEach(b => b.classList.toggle('selected', b.classList.contains(status)));
     });
+    syncToggleAria();
     updateCounts();
     toast(status === 'present' ? 'تم تحديد الظاهرين كحاضرين — راجعي القائمة' : 'تم تحديد الظاهرين كغائبين — راجعي القائمة');
   }
-  function updateCounts(){
-    const rows = [...document.querySelectorAll('#roster-list .roster-row')];
-    const present = rows.filter(r => r.dataset.status === 'present').length;
-    const absent = rows.length - present;
-    document.getElementById('submit-count').textContent = `(${present} حاضر · ${absent} غائب)`;
-    const summary = document.querySelectorAll('.roster-summary .summary-pill');
-    if (summary.length >= 3){ summary[0].textContent = `${present} حاضر`; summary[1].textContent = `${absent} غائب`; summary[2].textContent = `الإجمالي ${rows.length}`; }
-  }
+
   function openSuccess(){
+    const {present, absent} = getRosterCounts();
+    document.getElementById('success-present').textContent = present;
+    document.getElementById('success-absent').textContent = absent;
+    document.getElementById('success-duration').textContent = formatDuration(Math.floor(seconds/60));
+    document.getElementById('success-pay').textContent = `${currentPay()} ج.م`;
     document.getElementById('sheet-backdrop').classList.add('open');
     document.getElementById('success-sheet').classList.add('open');
   }
@@ -475,9 +539,60 @@
     document.getElementById('success-sheet').classList.remove('open');
     showScreen('today');
   }
+
+  function toggleNote(force){
+    const editor = document.getElementById('note-editor');
+    const button = document.getElementById('note-toggle');
+    const open = typeof force === 'boolean' ? force : editor.hidden;
+    editor.hidden = !open;
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    button.textContent = open ? 'إغلاق ملاحظة الوقت الإضافي' : 'إضافة ملاحظة على الوقت الإضافي';
+    if (open) document.getElementById('overtime-note').focus();
+  }
+  function saveNote(){
+    const field = document.getElementById('overtime-note');
+    const text = field.value.trim();
+    if (!text){
+      toast('اكتبي سبب الوقت الإضافي أولًا');
+      field.focus();
+      return;
+    }
+    document.getElementById('saved-note-text').textContent = text;
+    document.getElementById('saved-note').hidden = false;
+    const supervisor = document.getElementById('supervisor-note');
+    if (supervisor){
+      supervisor.textContent = `ملاحظة المعلمة: ${text}`;
+      supervisor.hidden = false;
+    }
+    toggleNote(false);
+    toast('تم حفظ الملاحظة — ستظهر للمالك والمشرفة');
+  }
+
+  function filterNotifications(button){
+    const filter = button.dataset.filter;
+    document.querySelectorAll('.filter-chips .chip').forEach(c => {
+      const active = c === button;
+      c.classList.toggle('active', active);
+      c.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    document.querySelectorAll('#screen-notifications .notification-card').forEach(card => {
+      card.hidden = filter !== 'all' && card.dataset.category !== filter;
+    });
+    document.querySelectorAll('#screen-notifications .day-label').forEach(label => {
+      let node = label.nextElementSibling;
+      let any = false;
+      while (node && !node.classList.contains('day-label')){
+        if (node.classList.contains('notification-card') && !node.hidden) any = true;
+        node = node.nextElementSibling;
+      }
+      label.hidden = !any;
+    });
+  }
+
   function toggleLock(button){
     button.classList.toggle('off');
     const locked = button.classList.contains('off');
+    button.setAttribute('aria-pressed', locked ? 'true' : 'false');
     const state = document.getElementById('lock-state');
     state.innerHTML = locked ? 'مقفول <svg class="icon" style="width:12px;height:12px"><use href="#i-lock"/></svg>' : 'مفتوح <svg class="icon" style="width:12px;height:12px"><use href="#i-lock"/></svg>';
     state.style.color = locked ? 'var(--danger)' : 'var(--accent)';
@@ -485,6 +600,9 @@
     state.style.borderColor = locked ? 'rgba(255,138,138,.22)' : 'rgba(113,213,192,.2)';
     toast(locked ? 'تم قفل حساب المشرفة — لن تستطيع الدخول' : 'تم فتح حساب المشرفة');
   }
+
+  syncToggleAria();
+  updateCounts();
 </script>
 </body>
 </html>
