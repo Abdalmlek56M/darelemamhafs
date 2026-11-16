@@ -63,7 +63,7 @@
 - **Phase 2.3:** Identity — 🟡 first slice done (Email OTP, Google path, password fallback, sessions, logout; SMTP/Google config pending).
 - **Phase 2.4:** Migration runner — ✅ done (checksums, advisory lock, 13 migrations, idempotent).
 - **Phase 2.5:** OpenAPI + generated TS client — ✅ done (12 paths, 10 schemas, `openapi-typescript` + `openapi-fetch`, typecheck passes).
-- **Phase 2.6:** CI baseline — ✅ done (backend/frontend/api-client/security jobs).
+- **Phase 2.6:** CI baseline — ✅ workflow builds legacy + new solution, runs tests, frontend/api-client, security scans, and Compose validation. First GitHub Actions run still needs verification.
 - **Phase 3.1:** Secretariat — 🟡 students list/get/create done.
 - **Phase 1.5.1:** Legacy backend split — 🟡 `DomainEndpoints` fully split (13 files, max 376); `SystemAdminEndpoints` partial (main 304 + Export/Trash/Helpers); Test Center GUI archived.
 - **Phase 1.5.2:** Frontend split — ✅ `useDarApplication` 889 → **363 lines**; `SystemAdminView` 456 → **307 lines** with `src/system/*`. All frontend files under 400.

@@ -160,13 +160,13 @@ Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; a
 | **P1-11** | Migrations | Legacy `DatabaseInitializer` بلا checksum/advisory lock. New `MigrationRunner` يملك checksums + lock + legacy-ledger adoption؛ legacy auto-migrate مقيّد بـDevelopment/desktop. يتبقى توحيد الـledger وإزالة الـinitializer القديم. | `DatabaseInitializer.cs:7-78`؛ `MigrationRunner.cs`؛ `Program.cs:164-173` | Retire legacy initializer؛ single ledger |
 | **P1-12** | Billing | خصم أيام الإيقاف داخل الشهر غير مطبق في API؛ الاقتراح في الواجهة فقط. | `FINANCIAL_WORKFLOW...:40-46, 260-267`؛ `DomainEndpoints.cs:1222-1251` | سياسة مالية + حساب خادمي + اختبارات |
 | **P1-13** | Substitution | البديلة تستبدل صف الحضور؛ لا سجل صريح للأصلية/البديلة خارج Note/Audit. | `DomainEndpoints.cs:931-973` | `session_teacher_assignment` أو Original/Substitute columns |
-| **P1-14** | Backup | Backup/Restore Windows Task Scheduler + `pg_dump.exe`؛ لا Offsite مشفر. | `SystemAdminService.cs`؛ `OPERATIONS_RUNBOOK_AR.md` | Backup service على Linux + Offsite + Restore drill |
+| **P1-14** | Backup | 🟡 Cross-platform backup path + Linux `pg_dump`/`pg_restore` and Docker volume are now implemented. Offsite automation and a real restore drill remain. | `SystemAdminService.cs`؛ `deploy/legacy.Dockerfile`؛ `docs/11-deployment.md` | Offsite copy + restore drill |
 | **P1-15** | Errors | لا Global ProblemDetails؛ بعض المسارات ترجع `ex.Message`. | `SystemAdminEndpoints.cs:275`؛ `Program.cs` | Global handler + RFC 9457 |
 | **P1-16** | Concurrency | لا `row_version`؛ بعض المسارات تعتمد `FOR UPDATE` فقط. | schema؛ endpoints | Optimistic concurrency |
 | **P1-17** | Permissions | جداول `roles`/`role_permissions`/`user_roles` غير مستخدمة؛ `user_permissions` مسطحة. | `001:12-35`؛ `Security.cs` | Roles/Permissions model أو إزالة الجداول الميتة |
 | **P1-18** | Dead Code | ✅ تم حذف كل مسارات `MapDelete` القديمة من `DomainEndpoints*` (10 مسارات). `AuditMiddleware` يحتفظ بحجب DELETE كطبقة دفاع إضافية. | `DomainEndpoints*.cs`؛ `AuditMiddleware.cs:20-27` | Done |
-| **P1-19** | Health | `/health` فقط؛ لا `/health/live`/`ready`، لا readiness للـDB/migrations. | `Program.cs:149-161` | Health endpoints + checks |
-| **P1-20** | CI | لا Build/Test Pipeline؛ لا Contract diff؛ لا Secret scan. | المشروع | GitHub Actions |
+| **P1-19** | Health | 🟡 `Dar.Api` has `/health/live` + `/health/ready`; legacy has `/health` only. Add legacy live/ready before launch. | `Program.cs`؛ `HealthEndpoints.cs` | Legacy split health endpoints |
+| **P1-20** | CI | ✅ GitHub Actions now builds legacy + new solution, runs tests, frontend build, API-client typecheck, .NET/npm vulnerability audits, gitleaks, and Compose validation. First run still needs verification on GitHub. | `.github/workflows/ci.yml` | Verify first run |
 
 ---
 

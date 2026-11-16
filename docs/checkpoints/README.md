@@ -29,6 +29,7 @@
 | 1.7.1 | [Trash permissions + OTP pepper](p1-trash-and-otp-1.0.md) | ✅ |
 | 1.7.2 | [Remove dead DELETE endpoints](p1-dead-deletes-1.0.md) | ✅ |
 | 1.8.0 | [Host + domain deployment stack](deployment-stack-1.0.md) | ✅ local smoke test |
+| 1.8.1 | [CI + deployment validation](ci-deployment-validation-1.0.md) | 🟡 first CI run pending |
 
 ## Next in order
 

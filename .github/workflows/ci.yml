@@ -16,9 +16,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
-      - name: Restore
+      - name: Restore new solution
         run: dotnet restore Dar.slnx
-      - name: Build
+      - name: Build legacy API
+        run: dotnet build backend/DarEltahfeez.Api/DarEltahfeez.Api.csproj --nologo
+      - name: Build new solution
         run: dotnet build Dar.slnx --no-restore --nologo
       - name: Test
         run: dotnet test Dar.slnx --no-build --nologo
@@ -56,6 +58,13 @@ jobs:
         run: npm ci
       - name: Typecheck
         run: npm run typecheck
+
+  deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose stack
+        run: docker compose --env-file deploy/.env.example -f deploy/docker-compose.yml config > /dev/null
 
   security:
     runs-on: ubuntu-latest

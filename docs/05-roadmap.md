@@ -121,8 +121,8 @@
 - [ ] API contract test.
 - [ ] Playwright smoke.
 - [ ] Test DB isolation.
-- [ ] Tests are projects inside the solution, not a separate app.
-- [ ] CI runs tests.
+- [x] Tests are projects inside the solution, not a separate app.
+- [x] CI runs tests (legacy + new build, 12 unit + 5 integration).
 
 **Checkpoint:** `docs/checkpoints/1.4-test-baseline.md`
 
@@ -242,9 +242,9 @@
 - [ ] Contract diff.
 - [x] Dependency audit.
 - [x] Secret scan.
-- [ ] Docker images.
-- [ ] Deploy script.
-- [ ] Rollback.
+- [x] Docker images (`deploy/legacy.Dockerfile`, `deploy/api.Dockerfile`).
+- [x] Deploy script (`deploy/docker-compose.yml` + Caddy).
+- [ ] Rollback verified on the real host.
 
 **Checkpoint:** `docs/checkpoints/2.6-ci-cd.md`
 
