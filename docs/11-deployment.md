@@ -1,6 +1,6 @@
 # RIGX Dar — Host + Domain Deployment
 
-**Status:** container stack authored and smoke-tested locally (16 Nov 2026). Not yet deployed to the final host.
+**Status:** live on a disposable Contabo VPS at **https://dar.31.220.76.171.nip.io** (16 Nov 2026). Final domain, DNS, and offsite backups are pending.
 **Target:** Ubuntu 24.04 + Docker Compose + Caddy + Cloudflare, domain `darelemamhaf.rigxhardware.com`.
 
 ---

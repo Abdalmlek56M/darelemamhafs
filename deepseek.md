@@ -71,13 +71,14 @@
 - **Phase 1.7:** Auth hardening — ✅ session revocation (`016_session_version.sql`), setup token/loopback bootstrap, same-origin guard, forwarded headers; verified on disposable PostgreSQL 17.
 - **Phase 1.7.1:** Trash permissions + OTP pepper — ✅ per-entity trash checks (limited `trash.manage` user gets 403 for financial/student operations); OTP pepper now fails closed outside Development; all 10 legacy `MapDelete` endpoints removed.
 - **Phase 1.8:** Host + domain deployment stack — ✅ `deploy/` Dockerfiles + Compose + Caddy; images built and local stack smoke-tested (16 migrations, both APIs healthy). Cross-platform backup path + `pg_dump` support added. Legacy live/ready health, last-admin guard, and per-email OTP throttle added.
-- **Phase 1.9:** Frontend Vitest — ✅ 7 selector tests; `npm test` in CI. Real host/DNS/TLS deploy still pending.
+- **Phase 1.9:** Frontend Vitest — ✅ 7 selector tests; `npm test` in CI.
+- **Phase 1.10:** Live deployment — ✅ Contabo VPS `31.220.76.171` (Ubuntu 24.04, 4 vCPU/8 GB/100 GB) is live at **https://dar.31.220.76.171.nip.io**; 16 migrations applied, both APIs healthy, admin created, full backup verified. Final domain/DNS, GitHub deploy key, and offsite backups remain.
 - **UI gate:** no UI implementation before the owner approves a visual sample.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.
 - **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` pushed (`d8c7b29`).
 - **Git rule:** every completed checkpoint = commit + push. No force-push.
-- **Next:** deploy to staging on the real host (DNS/TLS, smoke checklist), then migrate active PowerShell source guards to xUnit/CI, then UI sample gate (5.0) and Next.js shell (5.1).
+- **Next:** add GitHub deploy key + convert `/opt/dar` to a Git checkout; point the final domain and switch Caddy; add offsite backups; then deploy the two stores + Quran site; then tests/UI gate.
 - **Legacy stack:** .NET 10 minimal API + React 19/Vite + PostgreSQL 17 + WPF/WebView2 + PowerShell Test Center. No `.bat` files remain.
 
 ### What Was Done vs. What Was Not

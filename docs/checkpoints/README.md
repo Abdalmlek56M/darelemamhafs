@@ -32,6 +32,7 @@
 | 1.8.1 | [CI + deployment validation](ci-deployment-validation-1.0.md) | 🟡 first CI run pending |
 | 1.8.2 | [Final local hardening](final-local-hardening-1.0.md) | ✅ |
 | 1.9.0 | [Frontend Vitest baseline](frontend-vitest-1.0.md) | ✅ |
+| 1.10.0 | [Live deployment on Contabo](live-deployment-1.0.md) | ✅ temporary domain |
 
 ## Next in order
 
