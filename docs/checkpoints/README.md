@@ -35,7 +35,8 @@
 | 1.10.0 | [Live deployment on Contabo](live-deployment-1.0.md) | ✅ temporary domain |
 | 1.11.0 | [Host Nginx + systemd deployment](host-nginx-deployment-1.0.md) | ✅ final domain |
 | 1.11.1 | [DNS-01, GitHub, fail2ban](host-deployment-1.1.md) | ✅ |
-| 1.12.0 | [Teacher portal requirements](teacher-portal-requirements-1.0.md) | ✅ requirements; UI sample pending |
+| 1.11.2 | [Host backup + Google Drive offsite](host-backup-offsite-1.0.md) | ✅ verified restore |
+| 1.12.0 | [Teacher portal requirements](teacher-portal-requirements-1.0.md) | ✅ requirements; sample ready, awaiting owner approval |
 
 ## Next in order
 

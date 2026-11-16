@@ -14,7 +14,7 @@
 | `dar-legacy.service` | full legacy app + React SPA + `/api/*` on `127.0.0.1:5080` | via Nginx |
 | `dar-api.service` | `/api/v1/*` + health on `127.0.0.1:5081` | via Nginx |
 | PostgreSQL 17 | `dareltahfeez` database on `127.0.0.1:5432` | no |
-| `dar-backup.timer` | daily `pg_dump` + optional rclone offsite | no |
+| `dar-backup.timer` | daily `pg_dump` + Google Drive offsite (30-day retention) | no |
 | Certbot | Let's Encrypt certificate + renewal timer | ports 80/443 during issuance |
 
 Routing:
@@ -82,7 +82,8 @@ For a Git-based deploy, add the server's read-only deploy key to GitHub and use 
 
 - `/etc/dar/legacy.env` (root:dar, 640) — connection string, backup path, setup token (empty after bootstrap), timezone, forwarded headers.
 - `/etc/dar/api.env` (root:dar, 640) — connection string, OTP pepper, SMTP, Google client ID.
-- `/etc/dar/backup.env` (dar:dar, 600) — `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, optional `RCLONE_REMOTE`.
+- `/etc/dar/backup.env` (dar:dar, 600) — `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, `RCLONE_CONFIG`, `RCLONE_REMOTE`.
+- `/etc/dar/rclone.conf` (dar:dar, 600) — the Google Drive remote used by the daily offsite backup.
 - `/opt/dar/deploy/.env` (deploy:deploy, 600) — the original install secrets; keep for reference, never commit.
 
 ---
@@ -106,32 +107,46 @@ For a Git-based deploy, add the server's read-only deploy key to GitHub and use 
 
 ## 6. Backups
 
-- Local: `/var/lib/dar/backups/db/dar-YYYYmmdd-HHMMSS.dump`, 14-day retention.
-- Timer: `dar-backup.timer`, daily at 02:30 Africa/Cairo.
-- Offsite: the current target is **Google Drive**. Create the remote on a machine with a browser, then copy the config:
-  ```powershell
-  rclone config   # n -> gdrive -> drive -> authorize in browser -> q
-  scp "$env:APPDATA\rclone\rclone.conf" deploy@31.220.76.171:/home/deploy/rclone.conf
-  ```
-  On the server:
-  ```bash
-  sudo mv /home/deploy/rclone.conf /etc/dar/rclone.conf
-  sudo chown dar:dar /etc/dar/rclone.conf
-  sudo chmod 600 /etc/dar/rclone.conf
-  sudo -u dar rclone --config /etc/dar/rclone.conf mkdir gdrive:dar-backups
-  # Add to /etc/dar/backup.env:
-  # RCLONE_CONFIG=/etc/dar/rclone.conf
-  # RCLONE_REMOTE=gdrive:dar-backups
-  sudo systemctl start dar-backup.service
-  sudo -u dar rclone --config /etc/dar/rclone.conf ls gdrive:dar-backups/dar/db
-  ```
-  The script copies only the new dump to `${RCLONE_REMOTE}/dar/db/`.
-- Test:
-  ```bash
-  sudo systemctl start dar-backup.service
-  ls -lh /var/lib/dar/backups/db
-  ```
-- Restore drill: restore the dump to a disposable database and compare row counts.
+**Status: configured and verified on 16 Nov 2026.**
+
+- Local: `/var/lib/dar/backups/db/dar-YYYYmmdd-HHMMSS.dump`, **30-day retention**.
+- Offsite: Google Drive at `gdrive:dar-backups/dar/db/`, **30-day retention**.
+- Timer: `dar-backup.timer`, daily at ~02:30 Africa/Cairo (systemd adds a randomized delay; check `systemctl list-timers`).
+- Credentials:
+  - `/etc/dar/rclone.conf` (`dar:dar`, `600`) — Google Drive remote `gdrive:`.
+  - `/etc/dar/backup.env` (`dar:dar`, `600`) — `RCLONE_CONFIG=/etc/dar/rclone.conf`, `RCLONE_REMOTE=gdrive:dar-backups`.
+- The script copies the new dump to `${RCLONE_REMOTE}/dar/db/` and deletes offsite dumps older than 30 days. Local dumps older than 30 days are deleted too.
+
+Manual verification:
+
+```bash
+sudo systemctl start dar-backup.service
+ls -lh /var/lib/dar/backups/db
+sudo -u dar rclone --config /etc/dar/rclone.conf ls gdrive:dar-backups/dar/db/
+```
+
+Verified result (16 Nov 2026):
+
+- Local and remote dump `dar-20261116-095559.dump` were byte-identical (`sha256` match).
+- `pg_restore --list` → **184 TOC entries**.
+- Restored to a disposable PostgreSQL database: **1 user / 16 migrations**, matching live.
+- Disposable database dropped after the test.
+- Retention dry-run with `--min-age 30d --include 'dar-*.dump'` deleted nothing.
+
+Restore drill: restore the dump to a disposable database and compare `app_users` and `web_schema_migrations` counts. Never restore over the live database.
+
+Setup reference (already completed; keep for a future host):
+
+```powershell
+rclone config   # n -> gdrive -> drive -> authorize in browser -> q
+scp "$env:APPDATA\rclone\rclone.conf" deploy@31.220.76.171:/home/deploy/rclone.conf
+```
+
+```bash
+sudo install -m 0600 -o dar -g dar /home/deploy/rclone.conf /etc/dar/rclone.conf
+sudo rm /home/deploy/rclone.conf
+sudo systemctl start dar-backup.service
+```
 
 ---
 
@@ -176,10 +191,11 @@ The first Git checkout needs the server deploy key (see §9).
 - [x] Admin login + `/api/auth/me` → 28 permissions
 - [x] Full backup created (`.dump` + manifest)
 - [x] UFW active; password SSH disabled; fail2ban active
-- [ ] Cloudflare DNS-01 renewal (token pending)
-- [ ] Offsite rclone copy (keys pending)
-- [ ] GitHub deploy key + `git pull` (public key pending)
-- [ ] Restore drill
+- [x] Cloudflare DNS-01 renewal + dry-run
+- [x] Offsite rclone copy to Google Drive
+- [x] GitHub deploy key + `git pull`
+- [x] Restore drill (local and offsite dumps)
+- [x] Admin password changed; `/opt/dar/.initial-admin-password` deleted
 
 ---
 
@@ -213,7 +229,9 @@ git pull --ff-only
 
 ## 11. Known Gaps
 
-- Offsite rclone destination and keys are not configured yet (Google Drive target).
-- Admin password file `/opt/dar/.initial-admin-password` still exists; change the password, then delete it.
+- **rclone 1.60.1 uses the shared Google Drive client ID, which rclone plans to retire during 2026.** Create a dedicated Google OAuth client ID and re-authorize `gdrive:` before the shared client stops working. Until then, verify backups weekly.
+- **Rotate the Cloudflare API token** that was shared in chat. Replace `/root/.secrets/cloudflare.ini`, then rerun `certbot renew --dry-run --no-random-sleep-on-renew`.
+- **Rotate the earlier Google OAuth grant** if the Drive config was authorized before the token exposure; re-authorize with the new dedicated client ID.
 - The two hardware stores and the Quran site are not deployed on this host yet.
 - The new Next.js UI is not built; the deployed frontend is the legacy React/Vite SPA.
+- Teacher/supervisor/notification backend and PWA are not implemented; the 5-screen sample awaits owner approval.

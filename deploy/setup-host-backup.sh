@@ -12,7 +12,8 @@ PGPORT=5432
 PGDATABASE=dareltahfeez
 PGUSER=dar_app
 PGPASSWORD=$PASS
-RCLONE_REMOTE=
+RCLONE_CONFIG=/etc/dar/rclone.conf
+RCLONE_REMOTE=gdrive:dar-backups
 EOF
 sudo chown dar:dar /etc/dar/backup.env
 sudo chmod 600 /etc/dar/backup.env

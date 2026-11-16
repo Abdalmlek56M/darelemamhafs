@@ -15,8 +15,16 @@ FILE="$DIR/dar-$STAMP.dump"
 pg_dump -Fc -f "$FILE"
 
 if [ -n "${RCLONE_REMOTE:-}" ]; then
-  rclone copy "$FILE" "${RCLONE_REMOTE}/dar/db/" --include "$(basename "$FILE")"
+  CONFIG="${RCLONE_CONFIG:-/etc/dar/rclone.conf}"
+  if [ -f "$CONFIG" ]; then
+    rclone --config "$CONFIG" copy "$FILE" "${RCLONE_REMOTE}/dar/db/" --include "$(basename "$FILE")"
+    # Keep the last 30 days offsite.
+    rclone --config "$CONFIG" delete "${RCLONE_REMOTE}/dar/db/" --min-age 30d --include 'dar-*.dump' || \
+      logger -t dar-backup "offsite retention cleanup failed"
+  else
+    logger -t dar-backup "offsite skipped: rclone config not found at $CONFIG"
+  fi
 fi
 
-# Keep 14 days locally; offsite retention is managed by the bucket lifecycle policy.
-find "$DIR" -type f -name 'dar-*.dump' -mtime +14 -delete
+# Keep 30 days locally as well.
+find "$DIR" -type f -name 'dar-*.dump' -mtime +30 -delete
