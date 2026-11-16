@@ -137,6 +137,7 @@ export default function TeacherRoster({ roster, slot, endResult, hourlyRate, loa
               <div><span>الفعلية</span><strong>{actual} د</strong></div>
               <div><span>المحتسبة</span><strong>{payable} د</strong></div>
             </div>
+            {endResult?.message && <p className="t-note">{endResult.message}</p>}
             {endResult?.note && <p className="t-note">ملاحظة الإنهاء: {endResult.note}</p>}
             <button className="t-primary" onClick={onDone}>تم</button>
           </div>
