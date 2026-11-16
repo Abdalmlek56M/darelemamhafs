@@ -64,6 +64,24 @@ public sealed class SystemAdminService(NpgsqlDataSource dataSource, ILogger<Syst
     {
         get
         {
+            // Container/Linux deployments mount a persistent volume and set this explicitly.
+            var configuredRoot = configuration["Backup:RootPath"];
+            if (!string.IsNullOrWhiteSpace(configuredRoot))
+            {
+                if (!Path.IsPathRooted(configuredRoot))
+                    throw new InvalidOperationException("Backup:RootPath must be an absolute path.");
+                var configuredFull = Path.GetFullPath(configuredRoot);
+                Directory.CreateDirectory(configuredFull);
+                return configuredFull;
+            }
+
+            if (!OperatingSystem.IsWindows())
+            {
+                var linuxDefault = Path.Combine(AppContext.BaseDirectory, "Backups");
+                Directory.CreateDirectory(linuxDefault);
+                return linuxDefault;
+            }
+
             var localRoot = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             if (string.IsNullOrWhiteSpace(localRoot)) localRoot = AppContext.BaseDirectory;
             var darRoot = Path.GetFullPath(Path.Combine(localRoot, "DarEltahfeez"));
@@ -198,16 +216,19 @@ public sealed class SystemAdminService(NpgsqlDataSource dataSource, ILogger<Syst
         {
             var connection = new NpgsqlConnectionStringBuilder(configuration.GetConnectionString("DarDatabase"));
             var pgBin = Environment.GetEnvironmentVariable("DAR_POSTGRES_BIN");
-            if (string.IsNullOrWhiteSpace(pgBin))
+            var isWindows = OperatingSystem.IsWindows();
+            if (string.IsNullOrWhiteSpace(pgBin) && isWindows)
             {
                 var localRuntime = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DarEltahfeez", "Runtime", "PostgreSQL", "17");
                 var candidates = new[] { Path.Combine(localRuntime, "bin"), Path.Combine(localRuntime, "pgsql", "bin") };
                 pgBin = candidates.FirstOrDefault(path => File.Exists(Path.Combine(path, "pg_dump.exe")));
             }
-            var pgDumpPath = !string.IsNullOrWhiteSpace(pgBin) ? Path.Combine(pgBin, "pg_dump.exe") : "pg_dump.exe";
+            var pgDumpName = isWindows ? "pg_dump.exe" : "pg_dump";
+            var pgRestoreName = isWindows ? "pg_restore.exe" : "pg_restore";
+            var pgDumpPath = !string.IsNullOrWhiteSpace(pgBin) ? Path.Combine(pgBin, pgDumpName) : pgDumpName;
             if (Path.IsPathRooted(pgDumpPath) && !File.Exists(pgDumpPath))
                 throw new InvalidOperationException("لم يتم العثور على pg_dump المرفق مع محرك قاعدة البيانات المحلي.");
-            var pgRestorePath = !string.IsNullOrWhiteSpace(pgBin) ? Path.Combine(pgBin, "pg_restore.exe") : "pg_restore.exe";
+            var pgRestorePath = !string.IsNullOrWhiteSpace(pgBin) ? Path.Combine(pgBin, pgRestoreName) : pgRestoreName;
             if (Path.IsPathRooted(pgRestorePath) && !File.Exists(pgRestorePath))
                 throw new InvalidOperationException("لم يتم العثور على pg_restore للتحقق من النسخة الاحتياطية الكاملة.");
 

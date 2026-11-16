@@ -448,8 +448,10 @@
 **Checkpoint:** `docs/checkpoints/6.4-monitoring.md`
 
 ### 6.5 Staging + production
+- [x] Docker Compose + Caddy stack authored (`deploy/`).
+- [x] Images build; local stack smoke test passed (16 migrations, both APIs healthy).
 - [ ] Staging deploy.
-- [ ] Smoke tests.
+- [ ] Smoke tests on the real host.
 - [ ] Production deploy on the final host.
 - [ ] Final domain (`darelemamhaf.rigxhardware.com`) + DNS/TLS.
 - [ ] Rollback verified.

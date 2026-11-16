@@ -28,6 +28,7 @@
 | 1.7.0 | [P1 auth hardening](p1-auth-hardening-1.0.md) | ✅ |
 | 1.7.1 | [Trash permissions + OTP pepper](p1-trash-and-otp-1.0.md) | ✅ |
 | 1.7.2 | [Remove dead DELETE endpoints](p1-dead-deletes-1.0.md) | ✅ |
+| 1.8.0 | [Host + domain deployment stack](deployment-stack-1.0.md) | ✅ local smoke test |
 
 ## Next in order
 

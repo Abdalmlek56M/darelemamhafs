@@ -3,6 +3,8 @@
 **Status:** Target runbook. Commands will be aligned with the real solution after intake.
 **Scope:** Local setup, migrations, tests, backups, deployment, monitoring, incidents.
 
+> **Container deployment:** see `docs/11-deployment.md` for the Ubuntu + Docker Compose + Caddy stack, first-admin bootstrap, backups, and rollback.
+
 ---
 
 ## 1. Requirements
