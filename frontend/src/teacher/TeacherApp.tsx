@@ -11,6 +11,7 @@ import TeacherLive from './TeacherLive'
 import TeacherRoster from './TeacherRoster'
 import TeacherNotifications from './TeacherNotifications'
 import TeacherSubscriptions from './TeacherSubscriptions'
+import TeacherAccount from './TeacherAccount'
 import SupervisorBoard from './SupervisorBoard'
 import TeacherNav from './TeacherNav'
 import './teacher.css'
@@ -56,6 +57,10 @@ export default function TeacherApp({ mode }: Props) {
   const canTeacher = has(session, 'teacher.portal')
   const canSupervisor = has(session, 'supervisor.portal')
   const canSubscriptions = has(session, 'teacher.subscriptions.read')
+  const canEarnings = has(session, 'teacher.earnings.self')
+  const canSelfPassword = has(session, 'account.password.self')
+  const canFinance = has(session, 'finance.read')
+  const canUnpaid = has(session, 'supervisor.unpaid') || canFinance
   const canCorrect = has(session, 'supervisor.attendance.correct') || has(session, 'attendance.edit')
   const unread = notifications?.counts.unread ?? 0
 
@@ -66,9 +71,11 @@ export default function TeacherApp({ mode }: Props) {
     try {
       const data = await teacherApi.today()
       setToday(data)
-      try {
-        setEarnings(await teacherApi.earnings())
-      } catch { /* earnings is optional if the permission is missing */ }
+      if (canEarnings) {
+        try { setEarnings(await teacherApi.earnings()) } catch { /* optional if the permission is missing */ }
+      } else {
+        setEarnings(null)
+      }
       return data
     } catch (err) {
       if (err instanceof TeacherApiError && err.status === 401) {
@@ -80,7 +87,7 @@ export default function TeacherApp({ mode }: Props) {
     } finally {
       setTodayLoading(false)
     }
-  }, [session])
+  }, [session, canEarnings])
 
   const loadNotifications = useCallback(async () => {
     setNotifLoading(true)
@@ -150,6 +157,17 @@ export default function TeacherApp({ mode }: Props) {
       notificationsRequested.current = false
       setSession(signedIn)
       setError(null)
+      try {
+        const raw = localStorage.getItem('dar-teacher-profiles')
+        const old = raw ? JSON.parse(raw) : []
+        const profiles = Array.isArray(old) ? old.filter((item) => item && typeof item.username === 'string') : []
+        const next = [
+          { username: signedIn.username, displayName: signedIn.displayName, lastUsedAt: new Date().toISOString() },
+          ...profiles.filter((item) => String(item.username).toLowerCase() !== signedIn.username.toLowerCase()),
+        ].slice(0, 5)
+        localStorage.setItem('dar-teacher-profiles', JSON.stringify(next))
+        localStorage.setItem('dar-teacher-last-username', signedIn.username)
+      } catch { /* saved profiles are a convenience; never block login */ }
       const teacher = signedIn.permissionCodes.includes('teacher.portal')
       const supervisor = signedIn.permissionCodes.includes('supervisor.portal')
       setPage(mode === 'supervisor' && supervisor ? 'supervisor' : teacher ? 'home' : supervisor ? 'supervisor' : 'home')
@@ -299,6 +317,12 @@ export default function TeacherApp({ mode }: Props) {
     setPage('home')
   }
 
+  useEffect(() => {
+    if (!session) return
+    if (page === 'home' && !canTeacher && canSupervisor) setPage('supervisor')
+    if (page === 'supervisor' && !canSupervisor && canTeacher) setPage('home')
+  }, [session, page, canTeacher, canSupervisor])
+
   const liveSlot = useMemo(() => activeSlot ?? today?.slots.find((item) => item.sessionId === activeSessionId) ?? null, [activeSlot, today, activeSessionId])
 
   if (checking) return <div className="teacher-app"><div className="t-empty">جارٍ التحقق من الجلسة…</div></div>
@@ -311,7 +335,7 @@ export default function TeacherApp({ mode }: Props) {
   return (
     <div className="teacher-app">
       <main className="teacher-main">
-        {page === 'home' && (
+        {page === 'home' && canTeacher && (
           <TeacherHome
             today={today}
             earnings={earnings}
@@ -325,6 +349,7 @@ export default function TeacherApp({ mode }: Props) {
             onSubscriptions={() => setPage('subscriptions')}
             onLogout={() => void logout()}
             canSubscriptions={canSubscriptions}
+            canEarnings={canEarnings}
           />
         )}
         {page === 'live' && activeSessionId && (
@@ -336,6 +361,7 @@ export default function TeacherApp({ mode }: Props) {
             startedAt={liveSlot?.startedAt ?? null}
             busy={busy}
             error={error}
+            canEarnings={canEarnings}
             onBack={() => setPage('home')}
             onEnd={end}
           />
@@ -349,6 +375,7 @@ export default function TeacherApp({ mode }: Props) {
             loading={rosterLoading}
             busy={busy}
             error={rosterError ?? error}
+            canEarnings={canEarnings}
             onBack={() => setPage('home')}
             onSubmit={submit}
             onDone={() => { setPage('home'); setRoster(null); setActiveSessionId(null); setActiveSlot(null); setEndResult(null) }}
@@ -377,7 +404,17 @@ export default function TeacherApp({ mode }: Props) {
             onBack={() => setPage('home')}
           />
         )}
-        {page === 'supervisor' && canSupervisor && <SupervisorBoard canCorrect={canCorrect} onLogout={() => void logout()} />}
+        {page === 'supervisor' && canSupervisor && (
+          <SupervisorBoard canCorrect={canCorrect} canUnpaid={canUnpaid} canFinance={canFinance} onLogout={() => void logout()} />
+        )}
+        {page === 'account' && (
+          <TeacherAccount
+            session={session}
+            canSelfPassword={canSelfPassword}
+            onBack={canTeacher || canSupervisor ? () => setPage(canTeacher ? 'home' : 'supervisor') : undefined}
+            onLogout={() => void logout()}
+          />
+        )}
       </main>
 
       <TeacherNav

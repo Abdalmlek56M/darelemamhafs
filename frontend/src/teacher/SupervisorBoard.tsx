@@ -4,10 +4,10 @@ import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorAbsence, SupervisorLiveResponse, SupervisorSession, SupervisorUnpaid, SupervisorUnpaidResponse } from './teacherTypes'
 import { money } from './teacherFormat'
 
-type Props = { canCorrect: boolean; onLogout: () => void }
+type Props = { canCorrect: boolean; canUnpaid: boolean; canFinance: boolean; onLogout: () => void }
 type Tab = 'live' | 'absences' | 'unpaid'
 
-export default function SupervisorBoard({ canCorrect, onLogout }: Props) {
+export default function SupervisorBoard({ canCorrect, canUnpaid, canFinance, onLogout }: Props) {
   const [tab, setTab] = useState<Tab>('live')
   const [live, setLive] = useState<SupervisorLiveResponse | null>(null)
   const [absences, setAbsences] = useState<SupervisorAbsence[]>([])
@@ -23,7 +23,7 @@ export default function SupervisorBoard({ canCorrect, onLogout }: Props) {
       const [liveData, absenceData, unpaidData] = await Promise.all([
         teacherApi.supervisorLive(),
         teacherApi.supervisorAbsences(),
-        teacherApi.supervisorUnpaid(),
+        canUnpaid ? teacherApi.supervisorUnpaid() : Promise.resolve(null),
       ])
       setLive(liveData)
       setAbsences(absenceData.absences)
@@ -35,7 +35,8 @@ export default function SupervisorBoard({ canCorrect, onLogout }: Props) {
     }
   }
 
-  useEffect(() => { void load() }, [])
+  useEffect(() => { void load() }, [canUnpaid])
+  useEffect(() => { if (!canUnpaid && tab === 'unpaid') setTab('live') }, [canUnpaid, tab])
 
   return (
     <div className="t-page">
@@ -51,7 +52,7 @@ export default function SupervisorBoard({ canCorrect, onLogout }: Props) {
       <div className="t-filter-row">
         <button className={`t-filter ${tab === 'live' ? 'active' : ''}`} onClick={() => setTab('live')}>الآن ({live?.sessions.length ?? 0})</button>
         <button className={`t-filter ${tab === 'absences' ? 'active' : ''}`} onClick={() => setTab('absences')}>الغياب ({absences.length})</button>
-        <button className={`t-filter ${tab === 'unpaid' ? 'active' : ''}`} onClick={() => setTab('unpaid')}>المتأخرات ({unpaid?.count ?? 0})</button>
+        {canUnpaid && <button className={`t-filter ${tab === 'unpaid' ? 'active' : ''}`} onClick={() => setTab('unpaid')}>المتأخرات ({unpaid?.count ?? 0})</button>}
       </div>
 
       {loading && !live && <div className="t-empty">جارٍ تحميل اللوحة…</div>}
@@ -68,7 +69,7 @@ export default function SupervisorBoard({ canCorrect, onLogout }: Props) {
                 <span className="t-chip">{session.actualMinutes} دقيقة</span>
                 {session.lateMinutes > 0 && <span className="t-chip t-chip-warn">تأخر {session.lateMinutes} د</span>}
                 {session.overtimeMinutes > 0 && <span className="t-chip t-chip-warn">الوقت + {session.overtimeMinutes} د</span>}
-                {session.payableAmount !== null && <span className="t-chip t-chip-ok">أجر {money(session.payableAmount)}</span>}
+                {canFinance && session.payableAmount !== null && <span className="t-chip t-chip-ok">أجر {money(session.payableAmount)}</span>}
               </div>
               {session.note && <p className="t-note">ملاحظة المعلمة: {session.note}</p>}
               {canCorrect && session.attendanceId && (
@@ -106,12 +107,12 @@ export default function SupervisorBoard({ canCorrect, onLogout }: Props) {
         </div>
       )}
 
-      {adjusting && <AdjustSheet session={adjusting} onClose={() => setAdjusting(null)} onSaved={() => { setAdjusting(null); void load() }} />}
+      {adjusting && <AdjustSheet session={adjusting} canFinance={canFinance} onClose={() => setAdjusting(null)} onSaved={() => { setAdjusting(null); void load() }} />}
     </div>
   )
 }
 
-function AdjustSheet({ session, onClose, onSaved }: { session: SupervisorSession; onClose: () => void; onSaved: () => void }) {
+function AdjustSheet({ session, canFinance, onClose, onSaved }: { session: SupervisorSession; canFinance: boolean; onClose: () => void; onSaved: () => void }) {
   const [minutes, setMinutes] = useState(String(session.payableMinutes ?? session.actualMinutes))
   const [amount, setAmount] = useState(session.payableAmount === null ? '' : String(session.payableAmount))
   const [note, setNote] = useState('')
@@ -125,7 +126,7 @@ function AdjustSheet({ session, onClose, onSaved }: { session: SupervisorSession
       await teacherApi.adjustAttendance(
         session.attendanceId!,
         Number(minutes),
-        amount.trim() ? Number(amount) : null,
+        canFinance && amount.trim() ? Number(amount) : null,
         note.trim(),
       )
       onSaved()
@@ -139,11 +140,11 @@ function AdjustSheet({ session, onClose, onSaved }: { session: SupervisorSession
   return (
     <div className="t-sheet-backdrop" onClick={() => !busy && onClose()}>
       <div className="t-sheet" onClick={(event) => event.stopPropagation()}>
-        <div className="t-sheet-head"><AlertTriangle size={22} /><div><strong>تعديل الوقت والأجر</strong><small>{session.circleName} · {session.teacherName}</small></div></div>
+        <div className="t-sheet-head"><AlertTriangle size={22} /><div><strong>{canFinance ? 'تعديل الوقت والأجر' : 'تعديل الوقت'}</strong><small>{session.circleName} · {session.teacherName}</small></div></div>
         <label className="t-label">المدة المحتسبة (دقيقة)</label>
         <input className="t-input" type="number" min={1} max={360} value={minutes} onChange={(event) => setMinutes(event.target.value)} />
-        <label className="t-label">الأجر (اتركيه فارغًا للحساب التلقائي)</label>
-        <input className="t-input" type="number" min={0} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} />
+        {canFinance && <label className="t-label">الأجر (اتركيه فارغًا للحساب التلقائي)</label>}
+        {canFinance && <input className="t-input" type="number" min={0} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} />}
         <label className="t-label">سبب التعديل</label>
         <textarea className="t-textarea" rows={3} value={note} onChange={(event) => setNote(event.target.value)} placeholder="مثال: المعلمة أرسلت دليلًا على وقت إضافي معتمد." />
         {error && <p className="t-error">{error}</p>}

@@ -25,6 +25,7 @@ public static class NotificationEndpoints
         if (userId == Guid.Empty) return Results.Unauthorized();
         var isSupervisor = TeachingPrincipal.Has(principal, "supervisor.portal");
         var isAdmin = TeachingPrincipal.Has(principal, "users.manage");
+        var canFinance = isAdmin || TeachingPrincipal.Has(principal, "finance.read") || TeachingPrincipal.Has(principal, "supervisor.unpaid");
         var filter = string.IsNullOrWhiteSpace(status) ? "open" : status.Trim().ToLowerInvariant();
         if (filter is not ("open" or "resolved" or "all"))
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["status"] = ["استخدم open أو resolved أو all."] });
@@ -38,12 +39,14 @@ public static class NotificationEndpoints
                    COUNT(*) FILTER (WHERE n.status='open' AND nr.read_at IS NULL) AS unread_count
             FROM notifications n
             LEFT JOIN notification_reads nr ON nr.notification_id=n.id AND nr.user_id=@user
-            WHERE (n.user_id=@user OR (@supervisor AND n.role_scope='supervisor') OR (@admin AND n.role_scope IN ('supervisor','admin')));
+            WHERE (n.user_id=@user OR (@supervisor AND n.role_scope='supervisor') OR (@admin AND n.role_scope IN ('supervisor','admin')))
+              AND (n.category <> 'payment' OR @canFinance);
             """, connection))
         {
             counts.Parameters.AddWithValue("user", userId);
             counts.Parameters.AddWithValue("supervisor", isSupervisor);
             counts.Parameters.AddWithValue("admin", isAdmin);
+            counts.Parameters.AddWithValue("canFinance", canFinance);
             await using var reader = await counts.ExecuteReaderAsync(ct);
             await reader.ReadAsync(ct);
             openCount = (int)reader.GetInt64(0);
@@ -56,6 +59,7 @@ public static class NotificationEndpoints
             FROM notifications n
             LEFT JOIN notification_reads nr ON nr.notification_id=n.id AND nr.user_id=@user
             WHERE (n.user_id=@user OR (@supervisor AND n.role_scope='supervisor') OR (@admin AND n.role_scope IN ('supervisor','admin')))
+              AND (n.category <> 'payment' OR @canFinance)
               AND (@status='all' OR n.status=@status)
             ORDER BY (n.status='open') DESC, n.created_at DESC
             LIMIT 200;
@@ -64,6 +68,7 @@ public static class NotificationEndpoints
             command.Parameters.AddWithValue("user", userId);
             command.Parameters.AddWithValue("supervisor", isSupervisor);
             command.Parameters.AddWithValue("admin", isAdmin);
+            command.Parameters.AddWithValue("canFinance", canFinance);
             command.Parameters.AddWithValue("status", filter);
             await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
@@ -118,6 +123,7 @@ public static class NotificationEndpoints
         if (userId == Guid.Empty) return Results.Unauthorized();
         var isSupervisor = TeachingPrincipal.Has(principal, "supervisor.portal");
         var isAdmin = TeachingPrincipal.Has(principal, "users.manage");
+        var canFinance = isAdmin || TeachingPrincipal.Has(principal, "finance.read") || TeachingPrincipal.Has(principal, "supervisor.unpaid");
 
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         await using var command = new NpgsqlCommand("""
@@ -125,11 +131,13 @@ public static class NotificationEndpoints
             SELECT n.id, @user
             FROM notifications n
             WHERE (n.user_id=@user OR (@supervisor AND n.role_scope='supervisor') OR (@admin AND n.role_scope IN ('supervisor','admin')))
+              AND (n.category <> 'payment' OR @canFinance)
             ON CONFLICT (notification_id, user_id) DO NOTHING;
             """, connection);
         command.Parameters.AddWithValue("user", userId);
         command.Parameters.AddWithValue("supervisor", isSupervisor);
         command.Parameters.AddWithValue("admin", isAdmin);
+        command.Parameters.AddWithValue("canFinance", canFinance);
         var count = await command.ExecuteNonQueryAsync(ct);
         return Results.Ok(new { read = count });
     }
@@ -193,18 +201,21 @@ public static class NotificationEndpoints
         var userId = TeachingPrincipal.UserId(principal);
         var isSupervisor = TeachingPrincipal.Has(principal, "supervisor.portal");
         var isAdmin = TeachingPrincipal.Has(principal, "users.manage");
+        var canFinance = isAdmin || TeachingPrincipal.Has(principal, "finance.read") || TeachingPrincipal.Has(principal, "supervisor.unpaid");
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         await using var command = new NpgsqlCommand("""
             SELECT EXISTS(
                 SELECT 1 FROM notifications
                 WHERE id=@id
                   AND (user_id=@user OR (@supervisor AND role_scope='supervisor') OR (@admin AND role_scope IN ('supervisor','admin')))
+                  AND (category <> 'payment' OR @canFinance)
             );
             """, connection);
         command.Parameters.AddWithValue("id", id);
         command.Parameters.AddWithValue("user", userId);
         command.Parameters.AddWithValue("supervisor", isSupervisor);
         command.Parameters.AddWithValue("admin", isAdmin);
+        command.Parameters.AddWithValue("canFinance", canFinance);
         return (bool)(await command.ExecuteScalarAsync(ct) ?? false);
     }
 }

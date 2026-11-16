@@ -17,6 +17,9 @@ public static class AdjustEndpoint
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["payableDurationMinutes"] = ["المدة يجب أن تكون بين 1 و360 دقيقة."] });
         if (string.IsNullOrWhiteSpace(request.Note))
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["note"] = ["اكتب سبب التعديل."] });
+        var hasFinance = TeachingPrincipal.Has(principal, "finance.read");
+        if (request.PayableAmount is not null && !hasFinance)
+            return Results.Json(new { message = "لا تملك صلاحية تعديل الأجر." }, statusCode: StatusCodes.Status403Forbidden);
 
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         await using var transaction = await connection.BeginTransactionAsync(ct);
@@ -96,7 +99,7 @@ public static class AdjustEndpoint
         {
             attendanceId = id,
             payableMinutes = request.PayableDurationMinutes,
-            payableAmount = amount,
+            payableAmount = hasFinance ? amount : (decimal?)null,
             payBasis = "manual",
             note
         });

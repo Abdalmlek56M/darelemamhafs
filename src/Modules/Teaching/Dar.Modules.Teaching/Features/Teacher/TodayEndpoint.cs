@@ -29,6 +29,7 @@ public static class TodayEndpoint
         CancellationToken ct)
     {
         var teacherId = TeachingPrincipal.TeacherId(principal);
+        var canSeeEarnings = TeachingPrincipal.Has(principal, "teacher.earnings.self");
         if (teacherId == Guid.Empty)
             return Results.Json(new { message = "هذا الحساب غير مرتبط بمعلمة. راجع المدير." }, statusCode: StatusCodes.Status403Forbidden);
 
@@ -103,6 +104,7 @@ public static class TodayEndpoint
                 endsAt = end.ToString("HH:mm"),
                 durationMinutes = slot.DurationMinutes,
                 studentCount = slot.StudentCount,
+                canStart = now >= slot.StartsAt,
                 isCurrent,
                 isNext,
                 minutesUntilStart = isNext ? (int)Math.Ceiling((slot.StartsAt.ToTimeSpan() - now.ToTimeSpan()).TotalMinutes) : (int?)null,
@@ -122,7 +124,7 @@ public static class TodayEndpoint
 
         return Results.Ok(new
         {
-            teacher = new { id = teacherId, name = teacherName, hourlyRate },
+            teacher = new { id = teacherId, name = teacherName, hourlyRate = canSeeEarnings ? hourlyRate : (decimal?)null },
             date,
             dayOfWeek,
             currentSlotId = result.FirstOrDefault(x => x.isCurrent || x.sessionStatus is "in_progress" or "awaiting_attendance")?.id,

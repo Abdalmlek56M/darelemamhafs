@@ -46,7 +46,25 @@ public static class AppPermissions
         ("supervisor.absences", "عرض ومتابعة الغياب"),
         ("supervisor.unpaid", "عرض المتأخرات والمتابعة"),
         ("supervisor.attendance.correct", "تصحيح الحضور والوقت والأجر"),
-        ("supervisor.teachers.read", "متابعة المعلمات")
+        ("supervisor.teachers.read", "متابعة المعلمات"),
+        ("account.password.self", "تغيير كلمة المرور من الحساب"),
+        ("supervisor.students.read", "عرض الطلاب في النطاق"),
+        ("supervisor.students.create", "إضافة طلاب في النطاق"),
+        ("supervisor.students.edit", "تعديل طلاب في النطاق"),
+        ("supervisor.students.delete", "أرشفة طلاب في النطاق"),
+        ("supervisor.students.notes", "إضافة ملاحظات الطلاب"),
+        ("supervisor.circles.read", "عرض الحلقات في النطاق"),
+        ("supervisor.circles.create", "إضافة حلقات في النطاق"),
+        ("supervisor.circles.edit", "تعديل حلقات في النطاق"),
+        ("supervisor.circles.delete", "أرشفة حلقات في النطاق"),
+        ("supervisor.teachers.notes", "إضافة ملاحظات المعلمات"),
+        ("supervisor.attendance.requests", "مراجعة طلبات الغياب والتصحيح"),
+        ("supervisor.communication", "استخدام قوالب واتساب"),
+        ("supervisor.reports", "تقارير الإشراف"),
+        ("teacher.calendar", "تقويم المعلمة الأسبوعي"),
+        ("teacher.history.self", "سجل حلقات المعلمة السابقة"),
+        ("teacher.requests", "تقديم طلبات الغياب والتصحيح"),
+        ("reports.finance", "الأقسام المالية في التقارير")
     ];
 
     public static bool IsKnown(string? code) => All.Any(x => x.Code == code);

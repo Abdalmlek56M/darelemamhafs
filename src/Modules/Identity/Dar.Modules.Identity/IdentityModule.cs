@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Dar.Common.Domain;
 using Dar.Modules.Identity.Abstractions;
+using Dar.Modules.Identity.Features.ChangePassword;
 using Dar.Modules.Identity.Features.GetCurrentUser;
 using Dar.Modules.Identity.Features.GoogleSignIn;
 using Dar.Modules.Identity.Features.Logout;
@@ -46,6 +47,7 @@ public static class IdentityModule
         services.AddScoped<RequestEmailOtpHandler>();
         services.AddScoped<VerifyEmailOtpHandler>();
         services.AddScoped<PasswordSignInHandler>();
+        services.AddScoped<ChangePasswordHandler>();
         services.AddScoped<GoogleSignInHandler>();
         services.AddScoped<SetUserEmailHandler>();
 
@@ -148,6 +150,12 @@ public static class IdentityModule
                 policy.RequireAuthenticatedUser().RequireAssertion(context =>
                     context.User.HasClaim("permission", "attendance.edit") ||
                     context.User.HasClaim("permission", "supervisor.attendance.correct")));
+
+            options.AddPolicy("unpaid.access", policy =>
+                policy.RequireAuthenticatedUser().RequireAssertion(context =>
+                    context.User.HasClaim("permission", "supervisor.unpaid") ||
+                    context.User.HasClaim("permission", "finance.read") ||
+                    context.User.HasClaim("permission", "users.manage")));
         });
 
         return services;
@@ -160,6 +168,7 @@ public static class IdentityModule
         group.MapRequestEmailOtp();
         group.MapVerifyEmailOtp();
         group.MapPasswordSignIn();
+        group.MapChangePassword();
         group.MapGoogleSignIn();
         group.MapGetCurrentUser();
         group.MapLogout();

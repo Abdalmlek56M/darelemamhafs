@@ -14,6 +14,7 @@ public static class SessionEndpoints
     {
         var teacherId = TeachingPrincipal.TeacherId(principal);
         var userId = TeachingPrincipal.UserId(principal);
+        var canSeeEarnings = TeachingPrincipal.Has(principal, "teacher.earnings.self");
         if (teacherId == Guid.Empty || userId == Guid.Empty)
             return Results.Json(new { message = "هذا الحساب غير مرتبط بمعلمة. راجع المدير." }, statusCode: StatusCodes.Status403Forbidden);
 
@@ -50,6 +51,9 @@ public static class SessionEndpoints
 
         if (dayOfWeek != (int)date.DayOfWeek)
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["scheduleSlotId"] = ["هذه الحلقة ليست ضمن جدول اليوم."] });
+
+        if (CairoTime.NowTime() < startsAt)
+            return Results.Conflict(new { message = $"لا يمكن بدء الحلقة قبل موعدها. موعدها {startsAt:HH:mm} بتوقيت القاهرة." });
 
         await using (var substitute = new NpgsqlCommand("""
             SELECT EXISTS(
@@ -120,7 +124,7 @@ public static class SessionEndpoints
             await transaction.CommitAsync(ct);
             if (existingStatus is "completed" or "cancelled")
                 return Results.Conflict(new { message = "هذه الحلقة مسجلة بالفعل لهذا اليوم.", sessionId = existingId });
-            return Results.Ok(new { sessionId = existingId, status = existingStatus, resumed = true, scheduledDurationMinutes = duration, circleName, startsAt = startsAt.ToString("HH:mm"), hourlyRate });
+            return Results.Ok(new { sessionId = existingId, status = existingStatus, resumed = true, scheduledDurationMinutes = duration, circleName, startsAt = startsAt.ToString("HH:mm"), hourlyRate = canSeeEarnings ? hourlyRate : (decimal?)null });
         }
 
         await TeachingAudit.WriteAsync(connection, transaction, principal, "teacher.session.start", "teacher_session", createdId.Value,
@@ -134,7 +138,7 @@ public static class SessionEndpoints
             scheduledDurationMinutes = duration,
             circleName,
             startsAt = startsAt.ToString("HH:mm"),
-            hourlyRate
+            hourlyRate = canSeeEarnings ? hourlyRate : (decimal?)null
         });
     }
 
@@ -147,6 +151,7 @@ public static class SessionEndpoints
     {
         var teacherId = TeachingPrincipal.TeacherId(principal);
         var userId = TeachingPrincipal.UserId(principal);
+        var canSeeEarnings = TeachingPrincipal.Has(principal, "teacher.earnings.self");
         if (teacherId == Guid.Empty || userId == Guid.Empty)
             return Results.Json(new { message = "هذا الحساب غير مرتبط بمعلمة. راجع المدير." }, statusCode: StatusCodes.Status403Forbidden);
 
@@ -312,7 +317,7 @@ public static class SessionEndpoints
             overtimeMinutes = pay.OvertimeMinutes,
             undertimeMinutes = pay.UndertimeMinutes,
             payBasis = pay.PayBasis,
-            payableAmount = pay.PayableAmount,
+            payableAmount = canSeeEarnings ? pay.PayableAmount : (decimal?)null,
             note,
             message
         });

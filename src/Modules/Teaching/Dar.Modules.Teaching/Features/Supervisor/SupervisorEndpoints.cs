@@ -10,7 +10,7 @@ public static class SupervisorEndpoints
         group.MapGet("/absences", AbsencesEndpoint.Handle)
             .RequireAuthorization("supervisor.absences").WithName("SupervisorAbsences");
         group.MapGet("/unpaid", UnpaidEndpoint.Handle)
-            .RequireAuthorization("supervisor.unpaid").WithName("SupervisorUnpaid");
+            .RequireAuthorization("unpaid.access").WithName("SupervisorUnpaid");
         group.MapPost("/attendance/{id:guid}/adjust", AdjustEndpoint.Handle)
             .RequireAuthorization("attendance.correct").WithName("SupervisorAdjustAttendance");
         return app;

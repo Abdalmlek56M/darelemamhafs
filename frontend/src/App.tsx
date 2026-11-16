@@ -62,7 +62,7 @@ export default function App() {
       <div className="side-section">لوحة الإدارة الداخلية</div>
       <nav className="nav-list" aria-label="القائمة الرئيسية">{visiblePages.map(item=>{const Icon=item.icon;return <button key={item.id} className={`nav-item ${page===item.id?'active':''}`} onClick={()=>changePage(item.id)}><Icon size={18}/>{item.label}{item.id==='students'&&students.length>0&&<span className="nav-count">{students.length}</span>}</button>})}</nav>
       <div className="sidebar-account"><span className="avatar">{avatarAvailable&&<img src={`/api/auth/profile/avatar?v=${avatarVersion}`} alt="" onError={()=>setAvatarAvailable(false)} onLoad={() => setAvatarAvailable(true)} />}{!avatarAvailable&&session.displayName.slice(0,1)}</span><div><strong>{session.displayName}</strong><small>@{session.username}</small></div><button className="small-icon-button" title="تسجيل الخروج" onClick={()=>void logout()}><LogOut size={15}/></button></div>
-      <div className="sidebar-bottom">نسخة سطح المكتب · v0.8.25.0</div>
+      <div className="sidebar-bottom">نسخة سطح المكتب</div>
     </aside>
 
     <main className="main-content">
@@ -84,7 +84,7 @@ export default function App() {
         {page==='system' && <SystemPage ctx={ctx} />}
       </AnimatePresence>
       {gate === 'ready' && visiblePages.length === 0 && <motion.section className="system-panel glass access-denied-panel" initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}><span className="system-heading-icon"><LockKeyhole size={22}/></span><h2>لا توجد صلاحيات مخصصة لهذا الحساب</h2><p>حسابك لا يملك صلاحية عرض أي قسم في لوحة الإدارة. اطلب من مدير الدار منح الصلاحيات المطلوبة، ثم سجّل الخروج وادخل مرة أخرى.</p></motion.section>}
-      <footer className="app-footer"><div>© 2026 جميع الحقوق محفوظة <span>•</span> {branding.brandName} <span>•</span> لوحة الإدارة الداخلية · v0.8.25.0</div><SocialLinks branding={branding}/></footer>
+      <footer className="app-footer"><div>© 2026 جميع الحقوق محفوظة <span>•</span> {branding.brandName} <span>•</span> لوحة الإدارة الداخلية</div><SocialLinks branding={branding}/></footer>
     </main>
 
     <ApplicationDialogs ctx={ctx} />

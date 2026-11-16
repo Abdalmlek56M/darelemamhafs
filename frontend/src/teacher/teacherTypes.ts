@@ -1,4 +1,4 @@
-export type Page = 'home' | 'live' | 'roster' | 'notifications' | 'supervisor' | 'subscriptions'
+export type Page = 'home' | 'live' | 'roster' | 'notifications' | 'supervisor' | 'subscriptions' | 'account'
 
 export type TeacherSession = {
   id: string
@@ -17,6 +17,7 @@ export type Slot = {
   endsAt: string
   durationMinutes: number
   studentCount: number
+  canStart: boolean
   isCurrent: boolean
   isNext: boolean
   minutesUntilStart: number | null
@@ -34,7 +35,7 @@ export type Slot = {
 }
 
 export type TodayResponse = {
-  teacher: { id: string; name: string; hourlyRate: number }
+  teacher: { id: string; name: string; hourlyRate: number | null }
   date: string
   dayOfWeek: number
   currentSlotId: string | null
@@ -49,7 +50,7 @@ export type StartResponse = {
   scheduledDurationMinutes: number
   circleName: string
   startsAt: string
-  hourlyRate: number
+  hourlyRate: number | null
 }
 
 export type EndResponse = {

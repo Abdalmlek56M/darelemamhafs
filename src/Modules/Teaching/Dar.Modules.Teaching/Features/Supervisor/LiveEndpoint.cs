@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Npgsql;
 
 namespace Dar.Modules.Teaching.Features.Supervisor;
@@ -23,8 +24,9 @@ public static class LiveEndpoint
         int? PayableMinutes,
         decimal? PayableAmount);
 
-    public static async Task<IResult> Handle(NpgsqlDataSource dataSource, CancellationToken ct)
+    public static async Task<IResult> Handle(ClaimsPrincipal principal, NpgsqlDataSource dataSource, CancellationToken ct)
     {
+        var hasFinance = TeachingPrincipal.Has(principal, "finance.read");
         var date = CairoTime.Today();
         var now = DateTimeOffset.UtcNow;
         var rows = new List<LiveRow>();
@@ -84,7 +86,7 @@ public static class LiveEndpoint
                 studentCount = row.StudentCount,
                 attendanceId = row.AttendanceId,
                 payableMinutes = row.PayableMinutes,
-                payableAmount = row.PayableAmount
+                payableAmount = hasFinance ? row.PayableAmount : (decimal?)null
             };
         }).ToArray();
 

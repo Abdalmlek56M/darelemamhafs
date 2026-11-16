@@ -12,6 +12,7 @@ type Props = {
   loading: boolean
   busy: boolean
   error: string | null
+  canEarnings: boolean
   onBack: () => void
   onSubmit: (marks: { enrollmentId: string; status: Status }[]) => Promise<{ present: number; excused: number; absent: number; total: number }>
   onDone: () => void
@@ -19,7 +20,7 @@ type Props = {
 
 const statusLabel: Record<Status, string> = { present: 'حاضر', excused: 'بعذر', absent: 'غائب' }
 
-export default function TeacherRoster({ roster, slot, endResult, hourlyRate, loading, busy, error, onBack, onSubmit, onDone }: Props) {
+export default function TeacherRoster({ roster, slot, endResult, hourlyRate, loading, busy, error, canEarnings, onBack, onSubmit, onDone }: Props) {
   const [marks, setMarks] = useState<Record<string, Status>>({})
   const [query, setQuery] = useState('')
   const [success, setSuccess] = useState<{ present: number; excused: number; absent: number; total: number } | null>(null)
@@ -133,7 +134,7 @@ export default function TeacherRoster({ roster, slot, endResult, hourlyRate, loa
               <div><span>حاضر</span><strong>{success.present}</strong></div>
               <div><span>بعذر</span><strong>{success.excused}</strong></div>
               <div><span>غائب</span><strong>{success.absent}</strong></div>
-              <div><span>الأجر</span><strong>{money(amount)}</strong></div>
+              {canEarnings && <div><span>الأجر</span><strong>{money(amount)}</strong></div>}
               <div><span>الفعلية</span><strong>{actual} د</strong></div>
               <div><span>المحتسبة</span><strong>{payable} د</strong></div>
             </div>

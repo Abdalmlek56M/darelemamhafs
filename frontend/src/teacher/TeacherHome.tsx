@@ -15,6 +15,7 @@ type Props = {
   onSubscriptions: () => void
   onLogout: () => void
   canSubscriptions: boolean
+  canEarnings: boolean
 }
 
 function SlotStatus({ slot }: { slot: Slot }) {
@@ -36,12 +37,15 @@ function SlotAction({ slot, onStart, onOpenLive, onOpenRoster }: Pick<Props, 'on
   if (slot.sessionStatus === 'completed') {
     return <button className="t-secondary" disabled>تم تسجيل الحلقة</button>
   }
+  if (!slot.canStart) {
+    return <button className="t-secondary" disabled>تبدأ {slot.startsAt}</button>
+  }
   return <button className="t-primary" onClick={() => onStart(slot)}><Play size={17} /> تسجيل الحضور</button>
 }
 
 export default function TeacherHome({
   today, earnings, loading, error, onRefresh, onStart, onOpenLive, onOpenRoster,
-  onNotifications, onSubscriptions, onLogout, canSubscriptions,
+  onNotifications, onSubscriptions, onLogout, canSubscriptions, canEarnings,
 }: Props) {
   if (loading && !today) return <div className="t-empty">جارٍ تحميل حلقاتك…</div>
   if (error) return <div className="t-error-card"><p>{error}</p><button className="t-secondary" onClick={onRefresh}>إعادة المحاولة</button></div>
@@ -81,13 +85,15 @@ export default function TeacherHome({
         </article>
       )}
 
-      <div className="t-stat-grid">
-        <div className="t-stat">
-          <Wallet size={18} />
-          <span>مستحق الشهر</span>
-          <strong>{money(earnings?.totals.payable)}</strong>
-          <small>{earnings?.totals.sessions ?? 0} حلقة · {earnings?.totals.minutes ?? 0} دقيقة</small>
-        </div>
+      <div className="t-stat-grid" style={{ gridTemplateColumns: canEarnings ? undefined : '1fr' }}>
+        {canEarnings && (
+          <div className="t-stat">
+            <Wallet size={18} />
+            <span>مستحق الشهر</span>
+            <strong>{money(earnings?.totals.payable)}</strong>
+            <small>{earnings?.totals.sessions ?? 0} حلقة · {earnings?.totals.minutes ?? 0} دقيقة</small>
+          </div>
+        )}
         <div className="t-stat">
           <CalendarDays size={18} />
           <span>حلقات اليوم</span>
@@ -118,9 +124,11 @@ export default function TeacherHome({
                   ? <button className="t-text-button" onClick={() => onOpenLive(slot.sessionId!)}>فتح</button>
                   : slot.sessionId && slot.sessionStatus === 'awaiting_attendance'
                     ? <button className="t-text-button" onClick={() => onOpenRoster(slot.sessionId!)}>إكمال</button>
-                    : !slot.sessionId && slot.sessionStatus !== 'completed'
+                    : !slot.sessionId && slot.sessionStatus !== 'completed' && slot.canStart
                       ? <button className="t-text-button" onClick={() => onStart(slot)}>بدء</button>
-                      : <SlotStatus slot={slot} />}
+                      : !slot.sessionId && slot.sessionStatus !== 'completed'
+                        ? <span className="t-badge t-badge-muted">تبدأ {slot.startsAt}</span>
+                        : <SlotStatus slot={slot} />}
               </div>
             ))}
           </div>

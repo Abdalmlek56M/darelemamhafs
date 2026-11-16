@@ -11,6 +11,7 @@ type Props = {
   startedAt: string | null
   busy: boolean
   error: string | null
+  canEarnings: boolean
   onBack: () => void
   onEnd: (note: string) => Promise<void>
 }
@@ -21,7 +22,7 @@ function clock(startedAt: string | null) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
-export default function TeacherLive({ slot, sessionId, hourlyRate, scheduledMinutes, startedAt, busy, error, onBack, onEnd }: Props) {
+export default function TeacherLive({ slot, hourlyRate, scheduledMinutes, startedAt, busy, error, canEarnings, onBack, onEnd }: Props) {
   const [tick, setTick] = useState(0)
   const [finishOpen, setFinishOpen] = useState(false)
   const [note, setNote] = useState('')
@@ -67,13 +68,15 @@ export default function TeacherLive({ slot, sessionId, hourlyRate, scheduledMinu
         </div>
       </div>
 
-      <div className="t-pay-banner">
-        <span>الأجر المتوقع</span>
-        <strong>{money(amount)}</strong>
-        <small>{actual} فعلية · {payable} محتسبة · {hourlyRate} ج.م/ساعة</small>
-      </div>
+      {canEarnings && (
+        <div className="t-pay-banner">
+          <span>الأجر المتوقع</span>
+          <strong>{money(amount)}</strong>
+          <small>{actual} فعلية · {payable} محتسبة · {hourlyRate} ج.م/ساعة</small>
+        </div>
+      )}
 
-      <p className="t-hint">إذا تجاوزتِ المدة الأساسية يُحتسب الأجر على المدة الأساسية، والزيادة تُسجل للمراجعة. إذا انتهيتِ مبكرًا يُحتسب الوقت الفعلي.</p>
+      {canEarnings && <p className="t-hint">إذا تجاوزتِ المدة الأساسية يُحتسب الأجر على المدة الأساسية، والزيادة تُسجل للمراجعة. إذا انتهيتِ مبكرًا يُحتسب الوقت الفعلي.</p>}
 
       <button className="t-primary t-danger" onClick={() => setFinishOpen(true)} disabled={busy}>
         <Square size={17} /> إنهاء الحلقة
@@ -90,7 +93,7 @@ export default function TeacherLive({ slot, sessionId, hourlyRate, scheduledMinu
               <div><span>المحتسبة</span><strong>{payable} د</strong></div>
               <div><span>بعد الموعد</span><strong>{overtime} د</strong></div>
             </div>
-            <div className="t-pay-banner compact"><span>الأجر المحتسب</span><strong>{money(amount)}</strong></div>
+            {canEarnings && <div className="t-pay-banner compact"><span>الأجر المحتسب</span><strong>{money(amount)}</strong></div>}
             <label className="t-label" htmlFor="finish-note">ملاحظة الإنهاء — وقت إضافي / انتهاء مبكر / تفصيل</label>
             <textarea id="finish-note" className="t-textarea" rows={3} value={note} onChange={(event) => setNote(event.target.value)} placeholder="مثال: انتظرنا وصول الطالبات، أو استكملنا مراجعة الجزء." />
             <div className="t-sheet-actions">

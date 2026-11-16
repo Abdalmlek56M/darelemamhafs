@@ -69,6 +69,16 @@ public sealed class IdentityRepository(NpgsqlDataSource dataSource) : IIdentityR
             """, new { email, excludeUserId });
     }
 
+    public async Task UpdatePasswordAsync(Guid userId, string passwordHash, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await connection.ExecuteAsync("""
+            UPDATE app_users
+            SET password_hash=@passwordHash, session_version=session_version+1, updated_at=now()
+            WHERE id=@userId AND is_active=TRUE AND is_locked=FALSE;
+            """, new { userId, passwordHash });
+    }
+
     public async Task<bool> UpdateEmailAsync(Guid userId, string email, Guid actorId, CancellationToken ct)
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);

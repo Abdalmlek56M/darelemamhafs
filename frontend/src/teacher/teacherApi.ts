@@ -43,6 +43,11 @@ export const teacherApi = {
       body: JSON.stringify({ username, password, rememberMe }),
     }),
   logout: () => request<{ success: boolean }>('/api/v1/auth/logout', { method: 'POST' }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ success: boolean }>('/api/v1/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
   today: () => request<TodayResponse>('/api/v1/teacher/today'),
   start: (scheduleSlotId: string) =>
     request<StartResponse>('/api/v1/teacher/sessions/start', {

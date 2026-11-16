@@ -1,4 +1,4 @@
-import { Bell, CalendarDays, Home, Users } from 'lucide-react'
+import { Bell, CalendarDays, Home, UserRound, Users } from 'lucide-react'
 import type { Page } from './teacherTypes'
 
 type Props = {
@@ -20,6 +20,7 @@ export default function TeacherNav({ page, unread, canTeacher, canSupervisor, ac
     ] : []),
     { id: 'notifications' as Page, label: 'التنبيهات', icon: Bell, disabled: false },
     ...(canSupervisor ? [{ id: 'supervisor' as Page, label: 'المشرفة', icon: Users, disabled: false }] : []),
+    { id: 'account' as Page, label: 'حسابي', icon: UserRound, disabled: false },
   ]
 
   return (

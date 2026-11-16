@@ -1,7 +1,7 @@
 # Supervision Workspace, Communications and Admin UX — Plan
 
 **Date:** 16 Nov 2026
-**Status:** requirements captured; phased implementation not started.
+**Status:** A1 implemented and verified locally; deployment pending. Phases A2–E not started.
 **Owner approval:** all previously listed gaps and suggestions are approved. Manual adjustments, supervisor scope, offline handling, calendar, requests, admin notifications, WhatsApp sender, reports and the full admin/supervisor UI are in scope.
 
 Related: `docs/13-teacher-portal-requirements.md`, `docs/14-ui-audit-and-mobile-direction.md`, `docs/15-legacy-reuse-audit.md`, `docs/11-deployment.md`.
@@ -41,7 +41,14 @@ The exact “supervisor vs secretary” split is a naming/role-template decision
 |---|---|---|
 | `account.password.self` | allow self password change; otherwise admin only | off |
 | `supervisor.students.read` | student list/profile for scoped circles | on for supervisor |
+| `supervisor.students.create` | add students | on for supervisor |
+| `supervisor.students.edit` | edit students | on for supervisor |
+| `supervisor.students.delete` | archive/trash students | on for supervisor |
 | `supervisor.students.notes` | add/edit student notes | on for supervisor |
+| `supervisor.circles.read` | circle list/details for scoped circles | on for supervisor |
+| `supervisor.circles.create` | add circles | on for supervisor |
+| `supervisor.circles.edit` | edit circles | on for supervisor |
+| `supervisor.circles.delete` | archive/trash circles | on for supervisor |
 | `supervisor.teachers.notes` | add/edit teacher notes | on for supervisor |
 | `supervisor.teachers.read` | teacher list/details | on for supervisor |
 | `supervisor.attendance.requests` | review absence/cancellation/correction requests | on for supervisor |
@@ -87,7 +94,9 @@ CREATE TABLE app_user_scopes (
 ```
 
 - No rows = all circles/teachers (backward compatible).
-- Admin UI: per-user scope picker (all / selected circles / selected teachers).
+- Supervisor default: all circles and students, with add/edit/delete permissions for students and circles. The admin can revoke any of the create/edit/delete toggles independently; “add only” means `create` on and `edit/delete` off.
+- Secretary default: selected teachers/circles, plus the student/circle read/notes/CRUD toggles the admin chooses.
+- Admin UI: per-user scope picker (all / selected circles / selected teachers) and separate CRUD checkboxes.
 - Supervisor/secretary endpoints add an `EXISTS` scope filter.
 - Teacher endpoints stay scoped by `app_users.teacher_id`; the table is for supervisor/secretary.
 - Default: supervisor all circles; secretary is configured by the admin.
@@ -231,6 +240,8 @@ Requirements:
 - PDF via browser print (`window.print`) or a proper PDF library later; no server-side dependency unless approved.
 - Add `reports.finance` and hide financial columns entirely when absent.
 - Add filters (date range, circle, teacher), page numbers, generated-at Cairo time, and a “no data” line that is not a zero-money placeholder.
+- **Two audiences:** `internal` (admin/secretary with finance) includes money, internal notes and management sections; `share` (guardian/teacher/public) excludes internal finance, internal notes and staff-only data. The existing `ReportAudience` type is the anchor; every report must render both variants deliberately.
+- **Owner review gate:** generate a sample PDF of the current reports (internal + share) and show it before changing the layout. If the current layout is good, keep it; otherwise improve readability and print pagination.
 
 ---
 
@@ -314,7 +325,8 @@ git add <files>; git commit -m "<phase>"; git push origin main
 7. **Password:** `account.password.self` off by default; admin can grant or reset. Default: yes.
 8. **Teacher login history:** last 5 login events + previous attendance sessions; no tokens. Default: yes.
 9. **Request approval:** supervisor with `supervisor.attendance.requests` or admin; reason required. Default: yes.
-10. **PDF:** produce a sample of existing reports before redesign; owner approves. Default: yes.
+10. **PDF:** produce a sample of existing reports before redesign; owner approves; internal and share variants. Default: yes.
+11. **Supervisor student/circle CRUD:** default all add/edit/delete; admin can revoke each independently (add-only/edit-only/etc.). Default: yes.
 
 If any default is wrong, the owner can change it before that phase starts.
 
@@ -324,14 +336,12 @@ If any default is wrong, the owner can change it before that phase starts.
 
 - Supervisor/secretary: no student/circle/teacher lists, teacher detail, teacher attendance rate/hours/notes, teacher absences, student notes, scope, requests, WhatsApp, admin notification page.
 - Teacher: no weekly calendar, no history screen, no previous login/profile list, no absence/correction request, no offline queue.
-- Financial UI is not fully gated: teacher earnings/live pay and supervisor unpaid surfaces need permission checks; some report financial columns need `reports.finance`.
+- Financial UI is not fully gated in later report surfaces: report financial columns still need `reports.finance` (A1 covers teacher/supervisor money surfaces and payment notifications).
 - No daily alert sync; unpaid notifications appear when the board is opened.
-- No early-start guard; teacher can start before the scheduled time.
 - Notes are readable but admin/supervisor editing during/after submission is not a first-class flow.
-- No self-password permission; the teacher/supervisor app has no password screen, and the admin reset is the only path.
+- A1 added `account.password.self`; later phases still need the full self-service/previous-login surface.
 - No admin notification center; no WhatsApp sender; no supervisor scope.
 - Reports are HTML print layouts; no PDF sample review.
-- Admin UI still shows `v0.8.25.0`; mobile navigation and density need the overhaul.
 - No production E2E for the new supervision flows.
 
 ---
@@ -350,3 +360,30 @@ If any default is wrong, the owner can change it before that phase starts.
 Then Phase A2 (scope + supervision read models), then B/C/D/E as above.
 
 No code from later phases will be mixed into A1.
+
+---
+
+## 16. Implementation Log
+
+### A1 — Visibility + guardrails
+
+Implemented:
+
+- `database/018_supervision_permissions.sql`: seeds the A1–E permission catalog (student/circle CRUD, teacher calendar/history/requests, supervision requests/communication/reports, `account.password.self`, `reports.finance`) and supervisor/teacher role templates. Supervisor template defaults to all circle/student CRUD; every toggle can be revoked per user.
+- `POST /api/v1/auth/change-password` behind `account.password.self`; verifies the current password, rejects reuse, bumps `session_version`, and signs the current session out.
+- Financial gating: `teacher.earnings.self` hides the hourly rate and all pay amounts from `/teacher/today`, session start/end, and the teacher UI; `finance.read` hides `payableAmount` from supervisor live/adjust; a supervisor cannot set a manual amount without `finance.read`; payment-category notifications are filtered unless the viewer has `supervisor.unpaid`/`finance.read`/`users.manage`; `/supervisor/unpaid` uses the `unpaid.access` policy.
+- No early start: `POST /teacher/sessions/start` returns 409 before the Cairo scheduled time, with the scheduled time in the message; late start remains allowed and recorded. `/teacher/today` exposes `canStart` and the UI disables early start.
+- Teacher account screen with `account.password.self`; saved username profiles on the login screen (username only, never a password/token); account tab in the teacher/supervisor nav.
+- Removed `v0.8.25.0` from the admin sidebar/footer.
+- Fixed role routing so a supervisor-only account does not land on an empty teacher home and vice versa.
+
+Verification (disposable PostgreSQL 17 + local API):
+
+- All 18 migrations applied cleanly to an empty database; supervisor role resolved to 19 permissions.
+- Login + `today` exposed `hourlyRate=50.00`, `canStart=false` for a slot two hours ahead.
+- Early start returned `409` with the Cairo scheduled time.
+- After removing `teacher.earnings.self`: `hourlyRate=null`, `/teacher/earnings` returned `403`.
+- Change password returned `200`; the old cookie returned `401`, the old password `401`, and the new password `200`.
+- Supervisor live returned `payableAmount=null` without `finance.read`; `/supervisor/unpaid` returned `403`; adjust with a manual amount returned `403`; adjust without an amount succeeded with `payableAmount=null`.
+- After granting `supervisor.unpaid` + `finance.read`: `/supervisor/unpaid` returned `200`, and live returned `payableAmount=37.50` for the adjusted 45 minutes at 50/hour.
+- Build: `dotnet build` 0 warnings/0 errors; `dotnet test` 16 unit + 5 integration passed; frontend `tsc -b && vite build` passed.

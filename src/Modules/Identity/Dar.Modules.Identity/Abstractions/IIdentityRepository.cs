@@ -11,6 +11,7 @@ public interface IIdentityRepository
 
     Task<bool> EmailExistsAsync(string email, Guid? excludeUserId, CancellationToken ct);
     Task<bool> UpdateEmailAsync(Guid userId, string email, Guid actorId, CancellationToken ct);
+    Task UpdatePasswordAsync(Guid userId, string passwordHash, CancellationToken ct);
     Task LinkGoogleSubjectAsync(Guid userId, string subject, Guid actorId, CancellationToken ct);
 
     Task CreateOtpAsync(string email, string codeHash, DateTimeOffset expiresAt, int maxAttempts, string? ip, CancellationToken ct);
