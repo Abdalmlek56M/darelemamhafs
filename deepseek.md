@@ -68,13 +68,14 @@
 - **Phase 1.5.1:** Legacy backend split — 🟡 `DomainEndpoints` fully split (13 files, max 376); `SystemAdminEndpoints` partial (main 304 + Export/Trash/Helpers); Test Center GUI archived.
 - **Phase 1.5.2:** Frontend split — ✅ `useDarApplication` 889 → **363 lines**; `SystemAdminView` 456 → **307 lines** with `src/system/*`. All frontend files under 400.
 - **Phase 1.6:** Full code review — ✅ `docs/10-code-review.md` written. P0 fixes verified: purge cascade blocked end-to-end (migration 014 + FK RESTRICT + API 409); audit log append-only (migration 015); financial/attendance restore disabled (descriptive fields only).
-- **Phase 1.7:** Auth hardening — ✅ session revocation (`016_session_version.sql`), setup token/loopback bootstrap, same-origin guard, forwarded headers; verified on disposable PostgreSQL 17 (16 migrations, legacy + `Dar.Api` cookie revocation, remote setup 403, cross-origin 403). 5 integration tests pass. Open P1: trash permission split, Linux backups/deploy, dead DELETE endpoints, OTP pepper, stale source tests.
+- **Phase 1.7:** Auth hardening — ✅ session revocation (`016_session_version.sql`), setup token/loopback bootstrap, same-origin guard, forwarded headers; verified on disposable PostgreSQL 17.
+- **Phase 1.7.1:** Trash permissions + OTP pepper — ✅ per-entity trash checks (limited `trash.manage` user gets 403 for financial/student operations); OTP pepper now fails closed outside Development. Open P1: Linux backups/deploy, dead DELETE endpoints, stale source tests.
 - **UI gate:** no UI implementation before the owner approves a visual sample.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.
 - **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` pushed (`d8c7b29`).
 - **Git rule:** every completed checkpoint = commit + push. No force-push.
-- **Next:** trash permission split + remove dead DELETE endpoints + OTP pepper, then Linux backup path + Docker/Compose/Caddy deployment, then tests migration, then UI sample gate (5.0) and Next.js shell (5.1).
+- **Next:** remove dead DELETE endpoints, then Linux backup path + Docker/Compose/Caddy deployment, then tests migration, then UI sample gate (5.0) and Next.js shell (5.1).
 - **Legacy stack:** .NET 10 minimal API + React 19/Vite + PostgreSQL 17 + WPF/WebView2 + PowerShell Test Center. No `.bat` files remain.
 
 ### What Was Done vs. What Was Not

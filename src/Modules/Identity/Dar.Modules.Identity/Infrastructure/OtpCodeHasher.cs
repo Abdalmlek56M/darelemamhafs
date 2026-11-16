@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Hosting;
 
 namespace Dar.Modules.Identity.Infrastructure;
 
@@ -11,7 +12,7 @@ public sealed class OtpCodeHasher
 {
     private readonly byte[] _pepper;
 
-    public OtpCodeHasher(IConfiguration configuration, ILogger<OtpCodeHasher> logger)
+    public OtpCodeHasher(IConfiguration configuration, IHostEnvironment environment, ILogger<OtpCodeHasher> logger)
     {
         var configured = configuration["Auth:Otp:Pepper"];
         if (!string.IsNullOrWhiteSpace(configured))
@@ -19,6 +20,9 @@ public sealed class OtpCodeHasher
             _pepper = Encoding.UTF8.GetBytes(configured);
             return;
         }
+
+        if (!environment.IsDevelopment())
+            throw new InvalidOperationException("Auth:Otp:Pepper must be configured outside Development. OTP login is disabled to avoid a process-local, non-shared key.");
 
         _pepper = RandomNumberGenerator.GetBytes(32);
         logger.LogWarning("Auth:Otp:Pepper is not configured; using a process-local key. OTPs will be invalid after restart.");

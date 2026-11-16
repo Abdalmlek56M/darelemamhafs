@@ -20,6 +20,31 @@ public static partial class SystemAdminEndpoints
     private static bool CanReadFinance(ClaimsPrincipal principal) => principal.HasClaim("permission", "finance.read");
     private static bool CanEditFinancialValues(ClaimsPrincipal principal) => CanReadFinance(principal) && principal.HasClaim("permission", "finance.edit");
 
+    /// <summary>
+    /// Trash is a shared tool, but moving/restoring/purging a record must still require
+    /// the same domain permission that owns the record. Otherwise a trash manager could
+    /// hide financial history without finance.delete.
+    /// </summary>
+    private static string? RequiredTrashPermission(string entityType) => entityType switch
+    {
+        "student" => "students.delete",
+        "student-note" => "students.edit",
+        "teacher" => "teachers.delete",
+        "teacher-note" => "teachers.edit",
+        "circle" => "circles.delete",
+        "enrollment" => "circles.edit",
+        "schedule-slot" => "schedule.edit",
+        "teacher-attendance" or "student-attendance" => "attendance.edit",
+        "monthly-charge" or "payment" or "collection-report" or "advertising-expense" or "operating-expense" => "finance.delete",
+        _ => null
+    };
+
+    private static bool CanManageTrashEntity(ClaimsPrincipal principal, string entityType)
+    {
+        var permission = RequiredTrashPermission(entityType);
+        return permission is null || principal.HasClaim("permission", permission);
+    }
+
     private static readonly HashSet<string> FinancialJsonFields = new(StringComparer.OrdinalIgnoreCase)
     {
         "amount", "amountdue", "amountpaid", "paidamount", "balance", "hourlyrate", "hourlyratesnapshot",

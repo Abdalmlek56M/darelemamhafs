@@ -106,6 +106,8 @@ Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; a
 | **P1-28** | First-run setup: requires `Auth:SetupToken` for remote callers; without a token it is loopback-only. | `AuthEndpoints.cs` |
 | **P1-29** | Baseline CSRF: `SameOriginGuardMiddleware` rejects unsafe cross-origin browser requests (Origin/Referer) on both hosts. | `SameOriginGuardMiddleware.cs`, both `Program.cs` |
 | **P1-30** | Forwarded headers: `UseForwardedHeaders` + configurable known proxies, so Caddy supplies the real client IP/scheme. | both `Program.cs`, `appsettings.json` |
+| **P1-31** | Trash move/restore/purge now requires the owning domain permission as well as `trash.manage`; frontend hides/disables unauthorized rows. | `SystemAdminEndpoints.Helpers.cs`, `SystemAdminEndpoints.Trash.cs`, `system/constants.ts`, `SystemAdminView.tsx` |
+| **P1-35** | OTP pepper now fails closed outside Development; no process-local key in production. | `IdentityModule.cs`, `OtpCodeHasher.cs` |
 | **P2-15** | New students default to the local date, not the UTC date. | `CreateStudent.cs` |
 | **P2-16** | Audit viewer shows unknown non-sensitive fields instead of silently dropping them. | `system/formatting.tsx` |
 
@@ -115,7 +117,6 @@ Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; a
 
 | ID | Severity | Finding | Evidence | Required fix |
 |---|---|---|---|---|
-| **P1-31** | P1 | Trash operations require only `trash.manage`; a trash manager can hide/restore payments or charges without `finance.*`. | `SystemAdminEndpoints.cs` trash routes | Per-entity permission check |
 | **P1-32** | P1 | Backup/Restore is Windows-only (`pg_dump.exe`, drive-letter path validation) and has no Linux/Docker path. | `SystemAdminService.cs` | Linux `pg_dump`, mounted backup volume, Compose service |
 | **P1-33** | P1 | No Dockerfile/Compose/Caddy deployment yet, despite the final host+domain goal. | repo root | Add deployment stack + staging smoke test |
 | **P1-34** | P1 | Dead physical DELETE endpoints remain in `DomainEndpoints*`; only `AuditMiddleware` blocks them. | `DomainEndpoints*.cs` `MapDelete` | Remove or convert to trash-only |

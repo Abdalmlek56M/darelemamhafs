@@ -26,6 +26,9 @@ public static class IdentityModule
         IConfiguration configuration,
         bool isDevelopment)
     {
+        if (!isDevelopment && string.IsNullOrWhiteSpace(configuration["Auth:Otp:Pepper"]))
+            throw new InvalidOperationException("Auth:Otp:Pepper must be configured outside Development. OTP login cannot run with a process-local key.");
+
         services.AddHttpContextAccessor();
         services.AddScoped<IIdentityRepository, IdentityRepository>();
         services.AddSingleton<ITicketStore, DatabaseTicketStore>();

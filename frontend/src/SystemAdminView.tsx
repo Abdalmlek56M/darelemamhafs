@@ -8,7 +8,7 @@ import {
   ImagePlus, LoaderCircle, RotateCcw, Save, Settings2, ShieldCheck, Trash2, XCircle, DatabaseZap,
 } from 'lucide-react'
 import { api } from './system/api'
-import { defaultSettings, emptyResetCandidates, resetTypeLabels, scopeOptions, systemTabs, type SystemTab } from './system/constants'
+import { defaultSettings, emptyResetCandidates, resetTypeLabels, scopeOptions, systemTabs, trashPermissionFor, type SystemTab } from './system/constants'
 import { AuditValue, actionLabel, bytes, displayScopes, downloadBlob, entityLabel, formatDate, payloadToXml } from './system/formatting'
 import type { AdminSettings, AuditRecord, BackupRecord, ResetCandidate, ResetCandidates, ResetType, TrashRecord } from './system/types'
 
@@ -18,6 +18,10 @@ const tabs = systemTabs
 
 export default function SystemAdminView({ permissions, branding, onBrandingSaved, notify, reportData }: Props) {
   const can = useCallback((permission: string) => permissions.includes(permission), [permissions])
+  const canTrashEntity = useCallback((entityType: string) => {
+    const permission = trashPermissionFor(entityType)
+    return !permission || can(permission)
+  }, [can])
   const visibleTabs = useMemo(() => tabs.filter(tab => can(tab.permission) && (tab.id !== 'reset' || can('backup.manage'))), [can])
   const [tab, setTab] = useState<Tab>(() => tabs.find(t => permissions.includes(t.permission))?.id ?? 'settings')
   const [settings, setSettings] = useState<AdminSettings>(() => defaultSettings(branding))
@@ -68,6 +72,11 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
   useEffect(() => {
     if (!visibleTabs.some(t => t.id === tab)) setTab(visibleTabs[0]?.id ?? 'settings')
   }, [visibleTabs, tab])
+
+  const manageableTrashRows = useMemo(
+    () => trashRows.filter(row => canTrashEntity(row.entityType)),
+    [trashRows, canTrashEntity],
+  )
 
   const loadTab = useCallback(async (requested: Tab = tab) => {
     setLoading(true); setRefreshing(true)
@@ -131,10 +140,10 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
     if (next.has(id)) next.delete(id); else next.add(id)
     return next
   })
-  const selectAllTrash = (checked: boolean) => setSelectedTrashIds(checked ? new Set(trashRows.map(row => row.id)) : new Set())
+  const selectAllTrash = (checked: boolean) => setSelectedTrashIds(checked ? new Set(trashRows.filter(row => canTrashEntity(row.entityType)).map(row => row.id)) : new Set())
   const purgeSelectedTrash = async () => {
-    const chosen = trashRows.filter(row => selectedTrashIds.has(row.id))
-    if (chosen.length === 0) { notify('info', 'حدد سجلًا واحدًا على الأقل.'); return }
+    const chosen = trashRows.filter(row => selectedTrashIds.has(row.id) && canTrashEntity(row.entityType))
+    if (chosen.length === 0) { notify('info', 'حدد سجلًا واحدًا على الأقل لديك صلاحية حذفه.'); return }
     if (!window.confirm(`سيتم حذف ${chosen.length} سجلًا نهائيًا من سلة المهملات. لن يمكن استعادتها بعد ذلك. قد تُحذف السجلات التابعة مع السجل الرئيسي. هل تريد المتابعة؟`)) return
     const priority: Record<string, number> = {
       'student-note': 1, payment: 2, 'student-attendance': 3, 'teacher-attendance': 4,
@@ -285,8 +294,8 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
     </div>}
 
     {tab === 'trash' && can('trash.manage') && <div className="system-panel glass"><div className="system-panel-heading"><div><span className="eyebrow">Recovery</span><h3>سلة المهملات</h3><p>يمكنك استعادة السجلات أو تحديد مجموعة لحذفها نهائيًا. حذف السجل الرئيسي قد يشمل السجلات التابعة له.</p></div><span className="system-heading-icon"><Trash2 size={20}/></span></div>
-      <div className="trash-bulk-toolbar"><label className="trash-select-all"><input type="checkbox" checked={trashRows.length > 0 && trashRows.every(row => selectedTrashIds.has(row.id))} onChange={event => selectAllTrash(event.target.checked)} /><span>تحديد الكل ({trashRows.length})</span></label><div><button type="button" className="secondary-button compact-button" onClick={() => selectAllTrash(false)} disabled={selectedTrashIds.size === 0}>إلغاء التحديد</button><button type="button" className="danger-button reset-danger-button" onClick={() => void purgeSelectedTrash()} disabled={selectedTrashIds.size === 0 || purgingSelectedTrash}>{purgingSelectedTrash ? <LoaderCircle className="spin" size={14}/> : <Trash2 size={14}/>} حذف المحدد نهائيًا ({selectedTrashIds.size})</button></div></div>
-      <div className="table-scroll"><table className="students-table wide-table"><thead><tr><th>تحديد</th><th>السجل</th><th>النوع</th><th>نُقل بواسطة</th><th>تاريخ الحذف</th><th>الحذف التلقائي</th><th>الإجراء</th></tr></thead><tbody>{trashRows.map(item => <tr key={item.id}><td><input type="checkbox" checked={selectedTrashIds.has(item.id)} onChange={() => toggleTrashSelection(item.id)} aria-label={`تحديد ${item.displayName}`} /></td><td><strong>{item.displayName}</strong>{item.purgeError && <small className="error-text">تعذر الحذف التلقائي؛ توجد علاقة أو مشكلة تحتاج مراجعة.</small>}</td><td>{entityLabel(item.entityType)}</td><td>{item.deletedByName}</td><td>{formatDate(item.deletedAt)}</td><td>{formatDate(item.expiresAt)}</td><td><div className="row-actions"><button className="secondary-button compact-button" onClick={() => void restoreTrash(item)}><ArchiveRestore size={13}/> استعادة</button><button className="small-icon-button danger-action" title="حذف نهائي" onClick={() => void purgeTrash(item)}><Trash2 size={14}/></button></div></td></tr>)}{trashRows.length === 0 && <tr><td colSpan={7}>سلة المهملات فارغة.</td></tr>}</tbody></table></div>
+      <div className="trash-bulk-toolbar"><label className="trash-select-all"><input type="checkbox" checked={manageableTrashRows.length > 0 && manageableTrashRows.every(row => selectedTrashIds.has(row.id))} onChange={event => selectAllTrash(event.target.checked)} /><span>تحديد المسموح ({manageableTrashRows.length})</span></label><div><button type="button" className="secondary-button compact-button" onClick={() => selectAllTrash(false)} disabled={selectedTrashIds.size === 0}>إلغاء التحديد</button><button type="button" className="danger-button reset-danger-button" onClick={() => void purgeSelectedTrash()} disabled={selectedTrashIds.size === 0 || purgingSelectedTrash}>{purgingSelectedTrash ? <LoaderCircle className="spin" size={14}/> : <Trash2 size={14}/>} حذف المحدد نهائيًا ({selectedTrashIds.size})</button></div></div>
+      <div className="table-scroll"><table className="students-table wide-table"><thead><tr><th>تحديد</th><th>السجل</th><th>النوع</th><th>نُقل بواسطة</th><th>تاريخ الحذف</th><th>الحذف التلقائي</th><th>الإجراء</th></tr></thead><tbody>{trashRows.map(item => <tr key={item.id}><td><input type="checkbox" checked={selectedTrashIds.has(item.id)} disabled={!canTrashEntity(item.entityType)} onChange={() => toggleTrashSelection(item.id)} aria-label={`تحديد ${item.displayName}`} /></td><td><strong>{item.displayName}</strong>{item.purgeError && <small className="error-text">تعذر الحذف التلقائي؛ توجد علاقة أو مشكلة تحتاج مراجعة.</small>}</td><td>{entityLabel(item.entityType)}</td><td>{item.deletedByName}</td><td>{formatDate(item.deletedAt)}</td><td>{formatDate(item.expiresAt)}</td><td>{canTrashEntity(item.entityType) ? <div className="row-actions"><button className="secondary-button compact-button" onClick={() => void restoreTrash(item)}><ArchiveRestore size={13}/> استعادة</button><button className="small-icon-button danger-action" title="حذف نهائي" onClick={() => void purgeTrash(item)}><Trash2 size={14}/></button></div> : <small className="sub-cell">لا تملك صلاحية إدارة هذا النوع</small>}</td></tr>)}{trashRows.length === 0 && <tr><td colSpan={7}>سلة المهملات فارغة.</td></tr>}</tbody></table></div>
     </div>}
 
     {tab === 'backups' && can('backup.manage') && <div className="system-panel glass"><div className="system-panel-heading"><div><span className="eyebrow">Backup & restore</span><h3>النسخ الاحتياطية</h3><p>النسخة الكاملة تشمل مخطط PostgreSQL والبيانات. النسخ الجزئية بيانات فقط وتحتاج مخططًا متوافقًا عند الاستعادة.</p></div><span className="system-heading-icon"><FileArchive size={20}/></span></div>

@@ -50,6 +50,27 @@ export const systemTabs: { id: SystemTab; label: string; icon: typeof Settings2;
   { id: 'reset', label: 'تصفير بيانات التشغيل', icon: DatabaseZap, permission: 'trash.manage' },
 ]
 
+/** Mirrors the server-side trash permission map. */
+export function trashPermissionFor(entityType: string): string | null {
+  switch (entityType) {
+    case 'student': return 'students.delete'
+    case 'student-note': return 'students.edit'
+    case 'teacher': return 'teachers.delete'
+    case 'teacher-note': return 'teachers.edit'
+    case 'circle': return 'circles.delete'
+    case 'enrollment': return 'circles.edit'
+    case 'schedule-slot': return 'schedule.edit'
+    case 'teacher-attendance':
+    case 'student-attendance': return 'attendance.edit'
+    case 'monthly-charge':
+    case 'payment':
+    case 'collection-report':
+    case 'advertising-expense':
+    case 'operating-expense': return 'finance.delete'
+    default: return null
+  }
+}
+
 export const defaultSettings = (value: Branding): AdminSettings => ({
   ...value,
   facebookUrl: value.facebookUrl ?? '',

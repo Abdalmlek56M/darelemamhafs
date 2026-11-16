@@ -12,7 +12,9 @@ public static partial class SystemAdminEndpoints
     private static async Task<IResult> MoveToTrashAsync(TrashCreateRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct)
     {
         if (!SystemAdminService.TrashTables.TryGetValue(request.EntityType ?? "", out var table)) return Results.BadRequest(new { message = "نوع السجل غير مدعوم في سلة المهملات." });
-        var type = request.EntityType!; var retention = 30;
+        var type = request.EntityType!;
+        if (!CanManageTrashEntity(principal, type)) return Results.Forbid();
+        var retention = 30;
         await using (var getRetention = db.CreateCommand("SELECT trash_retention_days FROM school_settings WHERE id=1;")) retention = (int)(await getRetention.ExecuteScalarAsync(ct) ?? 30);
         await using var connection = await db.OpenConnectionAsync(ct); await using var tx = await connection.BeginTransactionAsync(ct);
         try
@@ -51,6 +53,7 @@ public static partial class SystemAdminEndpoints
                     return Results.Conflict(new { message = "استعد السجل الرئيسي أولاً؛ ستُستعاد السجلات التابعة معه تلقائيًا." });
             }
             if (!SystemAdminService.TrashTables.TryGetValue(type!, out var table)) return Results.BadRequest(new { message = "نوع السجل غير مدعوم." });
+            if (!CanManageTrashEntity(principal, type!)) return Results.Forbid();
             await using (var restore = new NpgsqlCommand($"UPDATE public.{table} SET is_trashed=FALSE WHERE id=@id AND is_trashed=TRUE;", conn, tx)) { restore.Parameters.AddWithValue("id", entityId); if (await restore.ExecuteNonQueryAsync(ct) == 0) return Results.Conflict(new { message = "السجل غير موجود أو لا يمكن استعادته." }); }
             await using (var mark = new NpgsqlCommand("UPDATE trash_items SET restored_at=now(),purge_error=NULL WHERE id=@id;", conn, tx)) { mark.Parameters.AddWithValue("id", id); await mark.ExecuteNonQueryAsync(ct); }
             await RestoreRelatedRecordsAsync(conn, tx, id, ct);
@@ -77,6 +80,7 @@ public static partial class SystemAdminEndpoints
             if (SystemAdminService.FinancialTrashTypes.Contains(type!))
                 return Results.Conflict(new { message = "لا يمكن الحذف النهائي لسجل مالي أو تاريخي. استخدم إلغاءً أو قيدًا عكسيًا بدل الحذف." });
             if (!SystemAdminService.TrashTables.TryGetValue(type!, out var table)) return Results.BadRequest(new { message = "نوع السجل غير مدعوم." });
+            if (!CanManageTrashEntity(principal, type!)) return Results.Forbid();
             // A student/circle/teacher parent may own financial children that were moved to trash with it.
             // Purging the parent must never cascade-delete those children.
             await using (var financialChildren = new NpgsqlCommand("SELECT EXISTS(SELECT 1 FROM trash_items WHERE parent_trash_id=@id AND restored_at IS NULL AND purged_at IS NULL AND entity_type = ANY(@types));", conn, tx))
