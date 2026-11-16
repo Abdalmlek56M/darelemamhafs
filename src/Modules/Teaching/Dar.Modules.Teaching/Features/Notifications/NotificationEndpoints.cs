@@ -38,7 +38,7 @@ public static class NotificationEndpoints
                    COUNT(*) FILTER (WHERE n.status='open' AND nr.read_at IS NULL) AS unread_count
             FROM notifications n
             LEFT JOIN notification_reads nr ON nr.notification_id=n.id AND nr.user_id=@user
-            WHERE (n.user_id=@user OR (@supervisor AND n.role_scope='supervisor') OR (@admin AND n.role_scope='admin'));
+            WHERE (n.user_id=@user OR (@supervisor AND n.role_scope='supervisor') OR (@admin AND n.role_scope IN ('supervisor','admin')));
             """, connection))
         {
             counts.Parameters.AddWithValue("user", userId);
@@ -55,7 +55,7 @@ public static class NotificationEndpoints
                    n.created_at, n.resolved_at, n.resolution_note, nr.read_at
             FROM notifications n
             LEFT JOIN notification_reads nr ON nr.notification_id=n.id AND nr.user_id=@user
-            WHERE (n.user_id=@user OR (@supervisor AND n.role_scope='supervisor') OR (@admin AND n.role_scope='admin'))
+            WHERE (n.user_id=@user OR (@supervisor AND n.role_scope='supervisor') OR (@admin AND n.role_scope IN ('supervisor','admin')))
               AND (@status='all' OR n.status=@status)
             ORDER BY (n.status='open') DESC, n.created_at DESC
             LIMIT 200;
@@ -124,7 +124,7 @@ public static class NotificationEndpoints
             INSERT INTO notification_reads(notification_id, user_id)
             SELECT n.id, @user
             FROM notifications n
-            WHERE (n.user_id=@user OR (@supervisor AND n.role_scope='supervisor') OR (@admin AND n.role_scope='admin'))
+            WHERE (n.user_id=@user OR (@supervisor AND n.role_scope='supervisor') OR (@admin AND n.role_scope IN ('supervisor','admin')))
             ON CONFLICT (notification_id, user_id) DO NOTHING;
             """, connection);
         command.Parameters.AddWithValue("user", userId);
@@ -198,7 +198,7 @@ public static class NotificationEndpoints
             SELECT EXISTS(
                 SELECT 1 FROM notifications
                 WHERE id=@id
-                  AND (user_id=@user OR (@supervisor AND role_scope='supervisor') OR (@admin AND role_scope='admin'))
+                  AND (user_id=@user OR (@supervisor AND role_scope='supervisor') OR (@admin AND role_scope IN ('supervisor','admin')))
             );
             """, connection);
         command.Parameters.AddWithValue("id", id);

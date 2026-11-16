@@ -10,7 +10,7 @@ export default function UserDialog({ ctx }: Props) {
   const editing = ctx.editingUser
   const form = ctx.userForm
   const update = (patch: Partial<typeof form>) => ctx.setUserForm((current) => ({ ...current, ...patch }))
-  const activeTeachers = ctx.teachers.filter((teacher) => teacher.status === 'active')
+  const activeTeachers = ctx.teachers.filter((teacher) => teacher.status === 'active' || teacher.id === form.teacherId)
 
   return (
     <Modal

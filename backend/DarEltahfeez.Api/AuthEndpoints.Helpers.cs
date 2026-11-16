@@ -119,11 +119,11 @@ public static partial class AuthEndpoints
     {
         if (teacherId is null) return null;
 
-        await using (var teacher = db.CreateCommand("SELECT EXISTS(SELECT 1 FROM teachers WHERE id=@id AND is_trashed=FALSE AND status='active');"))
+        await using (var teacher = db.CreateCommand("SELECT EXISTS(SELECT 1 FROM teachers WHERE id=@id AND is_trashed=FALSE AND status IN ('active','inactive'));"))
         {
             teacher.Parameters.AddWithValue("id", teacherId.Value);
             if (!(bool)(await teacher.ExecuteScalarAsync(ct) ?? false))
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["teacherId"] = ["المعلمة غير موجودة أو غير نشطة."] });
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["teacherId"] = ["المعلمة غير موجودة أو مؤرشفة."] });
         }
 
         var linkedSql = userId is null
