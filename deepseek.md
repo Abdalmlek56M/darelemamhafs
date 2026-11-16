@@ -73,13 +73,13 @@
 - **Phase 1.8:** Host + domain deployment stack — ✅ `deploy/` Dockerfiles + Compose + Caddy; images built and local stack smoke-tested (16 migrations, both APIs healthy). Cross-platform backup path + `pg_dump` support added. Legacy live/ready health, last-admin guard, and per-email OTP throttle added.
 - **Phase 1.9:** Frontend Vitest — ✅ 7 selector tests; `npm test` in CI.
 - **Phase 1.10:** Live deployment — ✅ Contabo VPS `31.220.76.171` is live at **https://dar-elemam-hafs.rigxhardware.com** on **Nginx + Certbot + systemd + host PostgreSQL 17 + .NET 10**; 16 migrations restored, both APIs healthy, admin login verified, first backup created. Docker/Caddy stack retired; volumes retained.
-- **Phase 1.11:** Host hardening — ✅ UFW, key-only SSH, fail2ban, unattended upgrades, Certbot certificate, daily backup timer. Pending: Cloudflare DNS-01 token, GitHub deploy key, rclone offsite, admin password rotation.
+- **Phase 1.11:** Host hardening — ✅ UFW, key-only SSH, fail2ban, unattended upgrades, Certbot certificate, daily backup timer. Cloudflare DNS-01 renewal works (dry-run passed); GitHub deploy key added and `/opt/dar` tracks `origin/main` (`git pull` verified). Pending: Google Drive rclone offsite, admin password rotation.
 - **UI gate:** no UI implementation before the owner approves a visual sample.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.
 - **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` pushed (`d8c7b29`).
 - **Git rule:** every completed checkpoint = commit + push. No force-push.
-- **Next:** add the GitHub deploy key and verify `git fetch`; configure Cloudflare DNS-01 for Certbot renewal; configure rclone offsite; rotate the admin password; then deploy the two stores + Quran site; then tests/UI gate.
+- **Next:** configure rclone Google Drive offsite + first copy; rotate the admin password and delete the temporary file; then deploy the two stores + Quran site; then tests/UI gate.
 - **Legacy stack:** .NET 10 minimal API + React 19/Vite + PostgreSQL 17 + WPF/WebView2 + PowerShell Test Center. No `.bat` files remain.
 
 ### What Was Done vs. What Was Not

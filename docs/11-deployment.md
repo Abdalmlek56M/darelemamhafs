@@ -94,22 +94,13 @@ For a Git-based deploy, add the server's read-only deploy key to GitHub and use 
 - `X-Forwarded-Proto https` is set explicitly because Cloudflare terminates TLS.
 - Certificate: `/etc/letsencrypt/live/dar-elemam-hafs.rigxhardware.com/`.
 - Renewal: `certbot.timer` is enabled.
-- **Important:** HTTP-01 renewal through the Cloudflare proxy failed the dry-run (`Connection reset by peer`). Use **Cloudflare DNS-01** for reliable renewal:
-  1. Create a scoped Cloudflare API token: `Zone:DNS:Edit` for `rigxhardware.com`.
-  2. Save it as `/root/.secrets/cloudflare.ini`:
-     ```ini
-     dns_cloudflare_api_token = <token>
-     ```
-     `chmod 600`.
-  3. Run:
-     ```bash
-     sudo certbot certonly --dns-cloudflare \
-       --dns-cloudflare-credentials /root/.secrets/cloudflare.ini \
-       --cert-name dar-elemam-hafs.rigxhardware.com \
-       -d dar-elemam-hafs.rigxhardware.com \
-       --non-interactive --agree-tos -m admin@rigxhardware.com
-     ```
-  4. `sudo certbot renew --dry-run --no-random-sleep-on-renew`.
+- **DNS-01 is configured** after HTTP-01 through the Cloudflare proxy failed:
+  - Token: `/root/.secrets/cloudflare.ini` (`600 root:root`), scoped `Zone:DNS:Edit` for `rigxhardware.com`.
+  - Forced renewal and `certbot renew --dry-run --no-random-sleep-on-renew` both succeeded.
+  - If the token is rotated, replace the file and rerun the dry-run:
+    ```bash
+    sudo certbot renew --dry-run --no-random-sleep-on-renew
+    ```
 
 ---
 
@@ -187,17 +178,14 @@ The server's read-only deploy key is:
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILYgHunQJEMXH3Mx5blGCqvkHHwjtcRc4qPdosx6pcub dar-server-deploy
 ```
 
-Add it in GitHub → repository `darelemamhafs` → **Settings → Deploy keys → Add deploy key**:
-- Title: `dar-server`
-- Key: the line above
-- Leave **Allow write access** unchecked.
-
-Then test from the server:
+This key has been added to GitHub. `/opt/dar` is now a Git checkout tracking `origin/main`:
 
 ```bash
 cd /opt/dar
 git fetch origin
 git reset --hard origin/main
+git branch --set-upstream-to=origin/main main
+git pull --ff-only
 ```
 
 `.env`, `app/`, and `backups/` are untracked and remain in place.
@@ -212,9 +200,7 @@ git reset --hard origin/main
 
 ## 11. Known Gaps
 
-- Cloudflare DNS-01 token is not configured yet; HTTP-01 renewal through the proxy failed.
-- Offsite rclone destination and keys are not configured yet.
-- GitHub deploy key is generated but not yet added; `/opt/dar` is not a full Git checkout.
+- Offsite rclone destination and keys are not configured yet (Google Drive target).
 - Admin password file `/opt/dar/.initial-admin-password` still exists; change the password, then delete it.
 - The two hardware stores and the Quran site are not deployed on this host yet.
 - The new Next.js UI is not built; the deployed frontend is the legacy React/Vite SPA.

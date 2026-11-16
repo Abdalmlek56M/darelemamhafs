@@ -34,6 +34,7 @@
 | 1.9.0 | [Frontend Vitest baseline](frontend-vitest-1.0.md) | ✅ |
 | 1.10.0 | [Live deployment on Contabo](live-deployment-1.0.md) | ✅ temporary domain |
 | 1.11.0 | [Host Nginx + systemd deployment](host-nginx-deployment-1.0.md) | ✅ final domain |
+| 1.11.1 | [DNS-01, GitHub, fail2ban](host-deployment-1.1.md) | ✅ |
 
 ## Next in order
 
