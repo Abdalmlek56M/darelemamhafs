@@ -169,3 +169,43 @@ Tested on disposable PostgreSQL 17: direct `details` update blocked, delete bloc
 - Export/trash SQL identifiers come from fixed allow-lists; values are parameterized.
 - Security headers, HttpOnly/Secure cookies, no CORS, and no tokens in `localStorage`.
 - The new migration runner has checksums, an advisory lock, and now adopts the legacy ledger.
+
+---
+
+## 8. Teacher Portal / Supervisor / Mobile Findings (16 Nov 2026)
+
+This section reviews the **design and reuse plan**; no teacher/supervisor production code exists yet. The 5-screen sample is at `docs/ui-sample/teacher-portal.html`; it was tested at 430×932 and 1280×1000 with no console errors.
+
+### P0 — must decide before the session API
+
+| # | Finding | Why it blocks |
+|---|---|---|
+| **T-01** | **15-minute minimum.** `teacher_attendance.duration_minutes` and `MoneyRules.TryCalculateTeacherPayableAmount` reject `< 15` and `> 360` minutes. | A short/cancelled session cannot be recorded as actual time. Decide: block early end, record cancelled with 0 pay, or migrate to a 1-minute minimum. |
+| **T-02** | **Timezone.** `session_date` is `DATE`; host TZ is Cairo, but code must compute “today” in `Africa/Cairo` explicitly. | Otherwise a session near midnight can land on the wrong day after UTC conversion. |
+| **T-03** | **Teacher identity.** `teacher_attendance.marked_by` references `app_users`; teacher self-service must set the linked user and audit it. | Without `app_users.teacher_id`, a teacher endpoint can only trust a client-supplied id, which is unsafe. |
+
+### P1 — design gaps
+
+| # | Finding | Plan |
+|---|---|---|
+| **T-04** | `student_attendance` supports `excused`; the sample only shows present/absent. | Decide whether “بعذر” is in the first roster release. |
+| **T-05** | Unpaid timing (“month-end or one month after join”) is a query rule; `students.joined_on` and `monthly_charges` exist. | Implement as a supervisor filter/view; do not create duplicate charges. |
+| **T-06** | No payroll lock; earnings are calculated on the fly. | Add a month lock and freeze the teacher view after lock. |
+| **T-07** | Supervisor scope is undecided (all vs assigned circles). | Decide before the supervisor endpoints. |
+| **T-08** | Notifications are toast/browser-only. | Add `notifications` + `notification_reads` with a dedupe key and quiet hours. |
+| **T-09** | Admin can lock the supervisor; teacher account lock is not designed. | Reuse `session_version` + a disabled/lock flag for both roles. |
+| **T-10** | `payments.amount > 0`; no negative rows. | Use reversal/void records; never delete or negate financial history. |
+
+### UI / mobile review
+
+- The current admin nav hides all items except the active one below 760px; the teacher sample replaces this with a 5-item bottom nav at 430px.
+- The sample uses 44px+ touch targets, sticky primary actions, bottom sheets, and safe-area padding.
+- The sample’s minute math is consistent: 98 minutes × 100/hour = **163.33**, with 2-decimal money.
+- Late start (+3 min), overtime (+11 min), the note composer, and the supervisor note were exercised and work.
+- Roster counts (16 present / 2 absent / 18 total), success sheet, notification filters, and the supervisor lock toggle were exercised.
+- Desktop layout was corrected to a centered 310px + 390px review grid; mobile full-screen layout has no horizontal overflow at 430px.
+- No API calls or data changes are made by the sample.
+
+### Verdict
+
+The reuse plan is sound. Do **not** rebuild students/attendance/payroll/collections. Start with the three P0 decisions, then the migration and scoped APIs. The UI gate remains closed until the owner approves the sample.

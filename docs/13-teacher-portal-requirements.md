@@ -281,6 +281,8 @@ All endpoints derive the teacher from the authenticated session; never trust a c
 
 **Do not rebuild** the financial model. Add the teacher/session/notification layer around it.
 
+See `docs/15-legacy-reuse-audit.md` for the concrete tables, endpoints, frontend pages, and the conflicts found (notably the legacy 15-minute minimum for teacher pay).
+
 ## 10.2 Visual Sample
 
 `docs/ui-sample/teacher-portal.html` is a static, interactive 390×844 phone frame with five screens:
@@ -303,6 +305,7 @@ The sample encodes: late start, `الوقت +` alert with a note composer (the s
 4. **Teacher earnings visibility:** current month only, or historical months too?
 5. **Mobile app:** PWA only for now, or native app later?
 6. **Password policy:** when to raise the minimum again.
+7. **Short/cancelled sessions:** the legacy schema and `MoneyRules` reject teacher pay rows under 15 minutes (or over 360). Should a short session be blocked, recorded as cancelled with 0 pay, or should the minimum be relaxed to 1 minute? This must be decided before the session API.
 
 ---
 
