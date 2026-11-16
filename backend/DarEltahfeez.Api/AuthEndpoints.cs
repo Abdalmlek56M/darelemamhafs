@@ -295,6 +295,9 @@ public static partial class AuthEndpoints
                 return Results.Conflict(new { message = "لا يمكنك تعطيل حسابك الحالي. استخدم حساب مدير آخر." });
             if (actorId == id && !request.PermissionCodes.Contains("users.manage", StringComparer.Ordinal))
                 return Results.Conflict(new { message = "لا يمكنك إزالة صلاحية إدارة الحسابات من حسابك الحالي. استخدم حساب مدير آخر." });
+            var removesUserManager = !request.IsActive || !request.PermissionCodes.Contains("users.manage", StringComparer.Ordinal);
+            if (removesUserManager && await IsActiveUserManagerAsync(db, id, ct) && !await HasOtherActiveUserManagerAsync(db, id, ct))
+                return Results.Conflict(new { message = "لا يمكن تعطيل آخر حساب مدير أو إزالة صلاحية إدارة الحسابات منه. أضف مديرًا آخر أولًا." });
             if (!string.IsNullOrEmpty(request.Password) && request.Password.Length < 12)
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["password"] = ["كلمة المرور الجديدة يجب ألا تقل عن 12 حرفًا."] });
 
@@ -330,6 +333,8 @@ public static partial class AuthEndpoints
         users.MapDelete("/{id:guid}", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
             if (GetActorId(principal) == id) return Results.Conflict(new { message = "لا يمكنك تعطيل حسابك الحالي." });
+            if (await IsActiveUserManagerAsync(db, id, ct) && !await HasOtherActiveUserManagerAsync(db, id, ct))
+                return Results.Conflict(new { message = "لا يمكن تعطيل آخر حساب مدير. أضف مديرًا آخر أولًا." });
             await using var cmd = db.CreateCommand("UPDATE app_users SET is_active=FALSE, session_version=session_version+1, updated_at=now() WHERE id=@id RETURNING id;");
             cmd.Parameters.AddWithValue("id", id);
             var result = await cmd.ExecuteScalarAsync(ct);

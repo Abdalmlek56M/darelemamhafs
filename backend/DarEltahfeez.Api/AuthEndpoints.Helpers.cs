@@ -111,4 +111,30 @@ public static partial class AuthEndpoints
         return providedBytes.Length == expectedBytes.Length &&
                CryptographicOperations.FixedTimeEquals(providedBytes, expectedBytes);
     }
+
+    private static async Task<bool> IsActiveUserManagerAsync(NpgsqlDataSource db, Guid id, CancellationToken ct)
+    {
+        await using var cmd = db.CreateCommand("""
+            SELECT EXISTS(
+                SELECT 1 FROM app_users u
+                JOIN user_permissions p ON p.user_id=u.id AND p.permission_code='users.manage'
+                WHERE u.id=@id AND u.is_active=TRUE
+            );
+            """);
+        cmd.Parameters.AddWithValue("id", id);
+        return (bool)(await cmd.ExecuteScalarAsync(ct) ?? false);
+    }
+
+    private static async Task<bool> HasOtherActiveUserManagerAsync(NpgsqlDataSource db, Guid id, CancellationToken ct)
+    {
+        await using var cmd = db.CreateCommand("""
+            SELECT EXISTS(
+                SELECT 1 FROM app_users u
+                JOIN user_permissions p ON p.user_id=u.id AND p.permission_code='users.manage'
+                WHERE u.id<>@id AND u.is_active=TRUE
+            );
+            """);
+        cmd.Parameters.AddWithValue("id", id);
+        return (bool)(await cmd.ExecuteScalarAsync(ct) ?? false);
+    }
 }

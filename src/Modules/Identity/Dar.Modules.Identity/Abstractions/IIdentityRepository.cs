@@ -14,6 +14,7 @@ public interface IIdentityRepository
     Task LinkGoogleSubjectAsync(Guid userId, string subject, Guid actorId, CancellationToken ct);
 
     Task CreateOtpAsync(string email, string codeHash, DateTimeOffset expiresAt, int maxAttempts, string? ip, CancellationToken ct);
+    Task<bool> IsOtpRequestThrottledAsync(string email, CancellationToken ct);
     Task<OtpRecord?> GetLatestOtpAsync(string email, CancellationToken ct);
     Task ConsumeOtpAsync(Guid otpId, CancellationToken ct);
     Task IncrementOtpAttemptsAsync(Guid otpId, CancellationToken ct);

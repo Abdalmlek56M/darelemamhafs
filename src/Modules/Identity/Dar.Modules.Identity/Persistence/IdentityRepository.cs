@@ -139,6 +139,22 @@ public sealed class IdentityRepository(NpgsqlDataSource dataSource) : IIdentityR
         await transaction.CommitAsync(ct);
     }
 
+    public async Task<bool> IsOtpRequestThrottledAsync(string email, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        return await connection.ExecuteScalarAsync<bool>("""
+            SELECT EXISTS(
+                SELECT 1 FROM auth_email_otps
+                WHERE lower(email)=lower(@email)
+                  AND created_at > now() - interval '60 seconds'
+            ) OR (
+                SELECT COUNT(*) FROM auth_email_otps
+                WHERE lower(email)=lower(@email)
+                  AND created_at > now() - interval '1 hour'
+            ) >= 5;
+            """, new { email });
+    }
+
     public async Task<OtpRecord?> GetLatestOtpAsync(string email, CancellationToken ct)
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);

@@ -165,7 +165,7 @@ Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; a
 | **P1-16** | Concurrency | لا `row_version`؛ بعض المسارات تعتمد `FOR UPDATE` فقط. | schema؛ endpoints | Optimistic concurrency |
 | **P1-17** | Permissions | جداول `roles`/`role_permissions`/`user_roles` غير مستخدمة؛ `user_permissions` مسطحة. | `001:12-35`؛ `Security.cs` | Roles/Permissions model أو إزالة الجداول الميتة |
 | **P1-18** | Dead Code | ✅ تم حذف كل مسارات `MapDelete` القديمة من `DomainEndpoints*` (10 مسارات). `AuditMiddleware` يحتفظ بحجب DELETE كطبقة دفاع إضافية. | `DomainEndpoints*.cs`؛ `AuditMiddleware.cs:20-27` | Done |
-| **P1-19** | Health | 🟡 `Dar.Api` has `/health/live` + `/health/ready`; legacy has `/health` only. Add legacy live/ready before launch. | `Program.cs`؛ `HealthEndpoints.cs` | Legacy split health endpoints |
+| **P1-19** | Health | ✅ `Dar.Api` and legacy both expose live/ready endpoints; Docker/Compose healthchecks use `/health/ready`. | `Program.cs`؛ `HealthEndpoints.cs`؛ `deploy/*` | Done |
 | **P1-20** | CI | ✅ GitHub Actions now builds legacy + new solution, runs tests, frontend build, API-client typecheck, .NET/npm vulnerability audits, gitleaks, and Compose validation. First run still needs verification on GitHub. | `.github/workflows/ci.yml` | Verify first run |
 
 ---

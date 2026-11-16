@@ -37,6 +37,14 @@ public sealed class RequestEmailOtpHandler(
             return;
         }
 
+        // Per-email throttle: 1 request/minute and 5/hour. Return the same 202 shape
+        // instead of revealing that the address is being throttled.
+        if (await repository.IsOtpRequestThrottledAsync(email, cancellationToken))
+        {
+            logger.LogInformation("OTP request throttled for an existing email.");
+            return;
+        }
+
         var code = RandomNumberGenerator.GetInt32(100_000, 1_000_000)
             .ToString(CultureInfo.InvariantCulture);
         var expiryMinutes = configuration.GetValue("Auth:Otp:ExpiryMinutes", 5);

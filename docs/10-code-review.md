@@ -111,12 +111,12 @@ Tested on disposable PostgreSQL 17: direct `details` update blocked, delete bloc
 | **P2-4** | Historical rows show actions the API rejects. | `SchedulePage.tsx` row actions; API requires active slot. | Gate on `slot.isActive` or add a historical path. |
 | **P2-5** | Audit viewer dropped unknown fields. | Fixed: `system/formatting.tsx` falls back to the raw key. | Fixed. |
 | **P2-6** | New student `joined_on` used UTC. | Fixed: `CreateStudent.cs` uses `DateTime.Today`. | Fixed. |
-| **P2-7** | OTP request has no per-email throttle. | `RequestEmailOtp` uses the shared IP policy. | Add per-email 1/min + 5/hour and a resend timer. |
+| **P2-7** | OTP request has no per-email throttle. | Fixed: `IsOtpRequestThrottledAsync` enforces 1/min + 5/hour per email; generic 202 is preserved. | Fixed. |
 | **P2-8** | OTP email is invalidated by every new request. | `CreateOtpAsync` consumes all previous codes. | Key OTPs to `user_id` and keep a short grace window for the last code. |
 | **P2-9** | Audit `restore-before` can change identity/relationships. | Fixed: `RestoreColumns` now excludes relationship IDs, financial fields, attendance, and trash flags. | Fixed. |
 | **P2-10** | Client can inject audit entries. | `POST /api/admin/audit-events` accepts client `entityType`/`details` from any authenticated user. | Log from server handlers; validate/ignore client fields. |
 | **P2-11** | Backup failure leaks exception text. | `SystemAdminEndpoints.cs` returns `ex.Message` in `Results.Problem`. | Log server-side; return a fixed message + backup id. |
-| **P2-12** | Last-admin lockout possible. | `users.manage` allows deactivating every other admin; self only is protected. | Refuse the change if it leaves zero active `users.manage` holders. |
+| **P2-12** | Last-admin lockout possible. | Fixed: user update/delete refuses to leave zero active `users.manage` holders. | Fixed. |
 | **P2-13** | Auth sessions/OTP tables grow forever. | `auth_sessions`, `auth_email_otps` have no cleanup job. | Add retention job/indexes. |
 | **P2-14** | Legacy `DatabaseInitializer` and new runner use different ledgers. | `schema_migrations` vs `web_schema_migrations`. | Adopt legacy ledger (done in new runner); retire the legacy initializer. |
 | **P2-15** | File storage in BYTEA (receipts/logo/avatar). | Schema. | Object storage + signed URLs later. |

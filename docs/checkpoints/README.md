@@ -30,6 +30,7 @@
 | 1.7.2 | [Remove dead DELETE endpoints](p1-dead-deletes-1.0.md) | ✅ |
 | 1.8.0 | [Host + domain deployment stack](deployment-stack-1.0.md) | ✅ local smoke test |
 | 1.8.1 | [CI + deployment validation](ci-deployment-validation-1.0.md) | 🟡 first CI run pending |
+| 1.8.2 | [Final local hardening](final-local-hardening-1.0.md) | ✅ |
 
 ## Next in order
 

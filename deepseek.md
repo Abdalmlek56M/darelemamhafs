@@ -70,7 +70,7 @@
 - **Phase 1.6:** Full code review — ✅ `docs/10-code-review.md` written. P0 fixes verified: purge cascade blocked end-to-end (migration 014 + FK RESTRICT + API 409); audit log append-only (migration 015); financial/attendance restore disabled (descriptive fields only).
 - **Phase 1.7:** Auth hardening — ✅ session revocation (`016_session_version.sql`), setup token/loopback bootstrap, same-origin guard, forwarded headers; verified on disposable PostgreSQL 17.
 - **Phase 1.7.1:** Trash permissions + OTP pepper — ✅ per-entity trash checks (limited `trash.manage` user gets 403 for financial/student operations); OTP pepper now fails closed outside Development; all 10 legacy `MapDelete` endpoints removed.
-- **Phase 1.8:** Host + domain deployment stack — ✅ `deploy/` Dockerfiles + Compose + Caddy; images built and local stack smoke-tested (16 migrations, both APIs healthy). Cross-platform backup path + `pg_dump` support added. Real host/DNS/TLS deploy still pending.
+- **Phase 1.8:** Host + domain deployment stack — ✅ `deploy/` Dockerfiles + Compose + Caddy; images built and local stack smoke-tested (16 migrations, both APIs healthy). Cross-platform backup path + `pg_dump` support added. Legacy live/ready health, last-admin guard, and per-email OTP throttle added. Real host/DNS/TLS deploy still pending.
 - **UI gate:** no UI implementation before the owner approves a visual sample.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.

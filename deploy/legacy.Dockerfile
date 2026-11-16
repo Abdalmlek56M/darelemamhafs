@@ -41,5 +41,5 @@ ENV ASPNETCORE_URLS=http://+:8080 \
     Backup__RootPath=/var/lib/dar/backups
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=5 \
-    CMD curl -fsS http://127.0.0.1:8080/health || exit 1
+    CMD curl -fsS http://127.0.0.1:8080/health/ready || exit 1
 ENTRYPOINT ["dotnet", "DarEltahfeez.Api.dll"]
