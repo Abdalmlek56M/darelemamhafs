@@ -16,7 +16,7 @@ Date: 16 Nov 2026
   - `git pull --ff-only` → **Already up to date**.
   - `/opt/dar` is now a Git checkout. `app/`, `backups/`, `.initial-admin-password`, `deploy/.env` remain untracked/ignored.
 - **Admin:** password changed by the owner; `/opt/dar/.initial-admin-password` deleted.
-- **Offsite backup:** `gdrive:` remote copied to `/etc/dar/rclone.conf` (`dar:dar`, `600`); `RCLONE_CONFIG` + `RCLONE_REMOTE=gdrive:dar-backups` added to `/etc/dar/backup.env`.
+- **Offsite backup:** `gdrive:` remote copied to `/var/lib/dar/rclone/rclone.conf` (`dar:dar`, `600`, parent `0700 dar:dar`); `RCLONE_CONFIG=/var/lib/dar/rclone/rclone.conf` + `RCLONE_REMOTE=gdrive:dar-backups` added to `/etc/dar/backup.env`. The config was moved out of `/etc/dar` so rclone can persist token refreshes.
   - Manual run: `dar-20261116-095559.dump` (87,304 bytes) uploaded to `gdrive:dar-backups/dar/db/`.
   - Local and remote SHA-256 identical; `pg_restore --list` → 184 TOC entries.
   - Offsite dump restored to a disposable DB: 1 user / 16 migrations; DB dropped.

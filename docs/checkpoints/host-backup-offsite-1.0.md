@@ -6,8 +6,8 @@ Date: 16 Nov 2026
 
 - **Admin bootstrap closed:** owner changed the password from the web UI; `/opt/dar/.initial-admin-password` is deleted.
 - **Google Drive offsite configured:**
-  - `/etc/dar/rclone.conf` installed (`dar:dar`, `600`) with the `gdrive:` remote.
-  - `/etc/dar/backup.env` contains `RCLONE_CONFIG=/etc/dar/rclone.conf` and `RCLONE_REMOTE=gdrive:dar-backups`.
+  - `/var/lib/dar/rclone/rclone.conf` installed (`dar:dar`, `600`, parent `0700 dar:dar`) with the `gdrive:` remote. The config lives under `/var/lib/dar` so rclone can persist token refreshes; it is not in the root-owned `/etc/dar` directory.
+  - `/etc/dar/backup.env` contains `RCLONE_CONFIG=/var/lib/dar/rclone/rclone.conf` and `RCLONE_REMOTE=gdrive:dar-backups`.
   - `rclone listremotes` on the host → `gdrive:`.
 - **Backup retention:** local and offsite dumps kept for **30 days**.
   - `deploy/scripts/dar-backup.sh` copies the new dump to `${RCLONE_REMOTE}/dar/db/` and deletes remote dumps older than 30 days.
@@ -19,6 +19,9 @@ Date: 16 Nov 2026
   - Restored counts: **1 user / 16 migrations**, matching live.
   - Disposable database dropped.
 - **Retention dry-run:** `rclone delete --min-age 30d --include 'dar-*.dump' --dry-run` removed nothing.
+- **Full check:** `rclone check --include 'dar-*.dump' --one-way` → **6 matching files, 0 differences** after backfilling the two pre-offsite dumps.
+- **Token refresh:** the config lives in `/var/lib/dar/rclone` (`0700 dar:dar`), so rclone can write refreshed tokens; the journal has no config-save errors.
+- **Failure behavior:** if the offsite copy or config fails, the service exits non-zero after creating the local dump; local retention cleanup still runs.
 - **Timer:** active; next run **17 Nov 2026 02:34 EET**.
 
 ## Verification Commands
@@ -26,7 +29,7 @@ Date: 16 Nov 2026
 ```bash
 sudo systemctl start dar-backup.service
 ls -lh /var/lib/dar/backups/db
-sudo -u dar rclone --config /etc/dar/rclone.conf ls gdrive:dar-backups/dar/db/
+sudo -u dar rclone --config /var/lib/dar/rclone/rclone.conf ls gdrive:dar-backups/dar/db/
 sudo journalctl -u dar-backup.service -n 15 --no-pager
 systemctl list-timers dar-backup.timer --no-pager
 ```

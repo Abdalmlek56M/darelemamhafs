@@ -5,6 +5,7 @@ cd /opt/dar
 PASS="$(sed -n 's/^POSTGRES_PASSWORD=//p' deploy/.env)"
 
 sudo install -m 0750 -o root -g dar deploy/scripts/dar-backup.sh /usr/local/bin/dar-backup
+sudo install -d -m 0700 -o dar -g dar /var/lib/dar/rclone
 
 sudo tee /etc/dar/backup.env >/dev/null <<EOF
 PGHOST=127.0.0.1
@@ -12,7 +13,7 @@ PGPORT=5432
 PGDATABASE=dareltahfeez
 PGUSER=dar_app
 PGPASSWORD=$PASS
-RCLONE_CONFIG=/etc/dar/rclone.conf
+RCLONE_CONFIG=/var/lib/dar/rclone/rclone.conf
 RCLONE_REMOTE=gdrive:dar-backups
 EOF
 sudo chown dar:dar /etc/dar/backup.env

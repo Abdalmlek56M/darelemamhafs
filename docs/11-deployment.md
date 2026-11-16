@@ -83,7 +83,7 @@ For a Git-based deploy, add the server's read-only deploy key to GitHub and use 
 - `/etc/dar/legacy.env` (root:dar, 640) — connection string, backup path, setup token (empty after bootstrap), timezone, forwarded headers.
 - `/etc/dar/api.env` (root:dar, 640) — connection string, OTP pepper, SMTP, Google client ID.
 - `/etc/dar/backup.env` (dar:dar, 600) — `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, `RCLONE_CONFIG`, `RCLONE_REMOTE`.
-- `/etc/dar/rclone.conf` (dar:dar, 600) — the Google Drive remote used by the daily offsite backup.
+- `/var/lib/dar/rclone/rclone.conf` (dar:dar, 600) — the Google Drive remote used by the daily offsite backup. Its parent directory is `0700 dar:dar` so rclone can persist token refreshes; do not move it back under `/etc/dar` (root-owned).
 - `/opt/dar/deploy/.env` (deploy:deploy, 600) — the original install secrets; keep for reference, never commit.
 
 ---
@@ -113,21 +113,23 @@ For a Git-based deploy, add the server's read-only deploy key to GitHub and use 
 - Offsite: Google Drive at `gdrive:dar-backups/dar/db/`, **30-day retention**.
 - Timer: `dar-backup.timer`, daily at ~02:30 Africa/Cairo (systemd adds a randomized delay; check `systemctl list-timers`).
 - Credentials:
-  - `/etc/dar/rclone.conf` (`dar:dar`, `600`) — Google Drive remote `gdrive:`.
-  - `/etc/dar/backup.env` (`dar:dar`, `600`) — `RCLONE_CONFIG=/etc/dar/rclone.conf`, `RCLONE_REMOTE=gdrive:dar-backups`.
+  - `/var/lib/dar/rclone/rclone.conf` (`dar:dar`, `600`, parent `0700 dar:dar`) — Google Drive remote `gdrive:`.
+  - `/etc/dar/backup.env` (`dar:dar`, `600`) — `RCLONE_CONFIG=/var/lib/dar/rclone/rclone.conf`, `RCLONE_REMOTE=gdrive:dar-backups`.
 - The script copies the new dump to `${RCLONE_REMOTE}/dar/db/` and deletes offsite dumps older than 30 days. Local dumps older than 30 days are deleted too.
+- If the offsite copy fails or the rclone config is missing, the service exits non-zero **after** creating the local dump, so `systemctl --failed` shows the problem. The local retention cleanup still runs.
 
 Manual verification:
 
 ```bash
 sudo systemctl start dar-backup.service
 ls -lh /var/lib/dar/backups/db
-sudo -u dar rclone --config /etc/dar/rclone.conf ls gdrive:dar-backups/dar/db/
+sudo -u dar rclone --config /var/lib/dar/rclone/rclone.conf ls gdrive:dar-backups/dar/db/
 ```
 
 Verified result (16 Nov 2026):
 
 - Local and remote dump `dar-20261116-095559.dump` were byte-identical (`sha256` match).
+- `rclone check --include 'dar-*.dump' --one-way` → **6 matching files, 0 differences** (the two pre-offsite dumps were backfilled).
 - `pg_restore --list` → **184 TOC entries**.
 - Restored to a disposable PostgreSQL database: **1 user / 16 migrations**, matching live.
 - Disposable database dropped after the test.
@@ -143,7 +145,8 @@ scp "$env:APPDATA\rclone\rclone.conf" deploy@31.220.76.171:/home/deploy/rclone.c
 ```
 
 ```bash
-sudo install -m 0600 -o dar -g dar /home/deploy/rclone.conf /etc/dar/rclone.conf
+sudo install -d -m 0700 -o dar -g dar /var/lib/dar/rclone
+sudo install -m 0600 -o dar -g dar /home/deploy/rclone.conf /var/lib/dar/rclone/rclone.conf
 sudo rm /home/deploy/rclone.conf
 sudo systemctl start dar-backup.service
 ```
