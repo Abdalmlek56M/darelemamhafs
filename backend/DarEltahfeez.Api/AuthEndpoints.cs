@@ -193,8 +193,8 @@ public static partial class AuthEndpoints
             if (userId == Guid.Empty) return Results.Unauthorized();
             if (string.IsNullOrEmpty(request.CurrentPassword))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["currentPassword"] = ["اكتب كلمة المرور الحالية."] });
-            if (string.IsNullOrEmpty(request.NewPassword) || request.NewPassword.Length < 12 || request.NewPassword.Length > 200)
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["newPassword"] = ["كلمة المرور الجديدة يجب أن تكون بين 12 و200 حرف."] });
+            if (string.IsNullOrEmpty(request.NewPassword) || request.NewPassword.Length < 6 || request.NewPassword.Length > 200)
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["newPassword"] = ["كلمة المرور الجديدة يجب أن تكون بين 6 و200 حرف."] });
 
             string storedHash;
             await using (var current = db.CreateCommand("SELECT password_hash FROM app_users WHERE id=@id AND is_active=TRUE;"))
@@ -298,8 +298,8 @@ public static partial class AuthEndpoints
             var removesUserManager = !request.IsActive || !request.PermissionCodes.Contains("users.manage", StringComparer.Ordinal);
             if (removesUserManager && await IsActiveUserManagerAsync(db, id, ct) && !await HasOtherActiveUserManagerAsync(db, id, ct))
                 return Results.Conflict(new { message = "لا يمكن تعطيل آخر حساب مدير أو إزالة صلاحية إدارة الحسابات منه. أضف مديرًا آخر أولًا." });
-            if (!string.IsNullOrEmpty(request.Password) && request.Password.Length < 12)
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["password"] = ["كلمة المرور الجديدة يجب ألا تقل عن 12 حرفًا."] });
+            if (!string.IsNullOrEmpty(request.Password) && request.Password.Length < 6)
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["password"] = ["كلمة المرور الجديدة يجب ألا تقل عن 6 أحرف."] });
 
             await using var connection = await db.OpenConnectionAsync(ct);
             await using var transaction = await connection.BeginTransactionAsync(ct);

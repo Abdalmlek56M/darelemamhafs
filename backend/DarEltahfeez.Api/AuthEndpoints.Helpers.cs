@@ -42,7 +42,7 @@ public static partial class AuthEndpoints
             errors["username"] = ["اسم المستخدم يجب أن يكون بين 3 و100 حرف."];
         if (string.IsNullOrWhiteSpace(displayName) || displayName.Trim().Length > 160)
             errors["displayName"] = ["اسم العرض مطلوب وبحد أقصى 160 حرفًا."];
-        var minimum = requireStrongPassword ? 12 : 1;
+        var minimum = requireStrongPassword ? 6 : 1;
         if (string.IsNullOrEmpty(password) || password.Length < minimum || password.Length > 200)
             errors["password"] = [$"كلمة المرور يجب ألا تقل عن {minimum} حرفًا وألا تتجاوز 200 حرف."];
         return errors.Count == 0 ? null : errors;

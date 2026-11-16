@@ -33,7 +33,7 @@ export default function App() {
   const closePasswordDialog = () => { if (passwordChanging) return; setPasswordDialogOpen(false); setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' }) }
   const submitPasswordChange = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (passwordForm.newPassword.length < 12) { ctx.setToast({ tone: 'error', text: 'كلمة المرور الجديدة يجب ألا تقل عن 12 حرفًا.' }); return }
+    if (passwordForm.newPassword.length < 6) { ctx.setToast({ tone: 'error', text: 'كلمة المرور الجديدة يجب ألا تقل عن 6 أحرف.' }); return }
     if (passwordForm.newPassword !== passwordForm.confirmPassword) { ctx.setToast({ tone: 'error', text: 'تأكيد كلمة المرور الجديدة غير مطابق.' }); return }
     setPasswordChanging(true)
     try {
@@ -88,6 +88,6 @@ export default function App() {
     </main>
 
     <ApplicationDialogs ctx={ctx} />
-    <AnimatePresence>{passwordDialogOpen && <Modal title="تغيير كلمة المرور" subtitle="اكتب كلمة المرور الحالية ثم اختر كلمة مرور جديدة لا تقل عن 12 حرفًا." close={closePasswordDialog}><form onSubmit={submitPasswordChange} className="form-grid"><Field label="كلمة المرور الحالية *" wide><input type="password" autoComplete="current-password" required value={passwordForm.currentPassword} onChange={e=>setPasswordForm(f=>({...f,currentPassword:e.target.value}))}/></Field><Field label="كلمة المرور الجديدة *" wide><input type="password" autoComplete="new-password" required minLength={12} maxLength={200} value={passwordForm.newPassword} onChange={e=>setPasswordForm(f=>({...f,newPassword:e.target.value}))}/></Field><Field label="تأكيد كلمة المرور الجديدة *" wide><input type="password" autoComplete="new-password" required minLength={12} maxLength={200} value={passwordForm.confirmPassword} onChange={e=>setPasswordForm(f=>({...f,confirmPassword:e.target.value}))}/></Field><div className="wide"><ModalActions saving={passwordChanging} onCancel={closePasswordDialog} saveLabel="حفظ كلمة المرور"/></div></form></Modal>}</AnimatePresence>
+    <AnimatePresence>{passwordDialogOpen && <Modal title="تغيير كلمة المرور" subtitle="اكتب كلمة المرور الحالية ثم اختر كلمة مرور جديدة لا تقل عن 6 أحرف." close={closePasswordDialog}><form onSubmit={submitPasswordChange} className="form-grid"><Field label="كلمة المرور الحالية *" wide><input type="password" autoComplete="current-password" required value={passwordForm.currentPassword} onChange={e=>setPasswordForm(f=>({...f,currentPassword:e.target.value}))}/></Field><Field label="كلمة المرور الجديدة *" wide><input type="password" autoComplete="new-password" required minLength={6} maxLength={200} value={passwordForm.newPassword} onChange={e=>setPasswordForm(f=>({...f,newPassword:e.target.value}))}/></Field><Field label="تأكيد كلمة المرور الجديدة *" wide><input type="password" autoComplete="new-password" required minLength={6} maxLength={200} value={passwordForm.confirmPassword} onChange={e=>setPasswordForm(f=>({...f,confirmPassword:e.target.value}))}/></Field><div className="wide"><ModalActions saving={passwordChanging} onCancel={closePasswordDialog} saveLabel="حفظ كلمة المرور"/></div></form></Modal>}</AnimatePresence>
   </div>
 }
