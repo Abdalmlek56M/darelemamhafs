@@ -130,3 +130,6 @@
 .audit-meta-item{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--surface) 70%,transparent)}
 .audit-meta-item>span{font-size:10px;color:var(--muted)}.audit-meta-item>strong{font-size:11px;line-height:1.7;overflow-wrap:anywhere;color:var(--text)}
 @media(max-width:520px){.audit-modal-meta{grid-template-columns:1fr}.audit-modal-section{padding:10px}.audit-friendly-data>div{grid-template-columns:minmax(90px,40%) minmax(0,1fr)}}
+
+/* v0.9.0: explicit account lock control in the user dialog. */
+.lock-toggle-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text);line-height:1.7}.lock-toggle-row input{width:16px;height:16px;accent-color:var(--accent)}

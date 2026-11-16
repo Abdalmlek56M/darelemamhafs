@@ -97,15 +97,6 @@
   .timer-label{font-size:10px;color:var(--muted)}
   .overtime-card{display:flex;align-items:flex-start;gap:9px;margin-top:12px;padding:12px;border-radius:16px;background:rgba(230,189,106,.1);border:1px solid rgba(230,189,106,.25);color:#f0d59c;font-size:11px;line-height:1.8}
   .overtime-card strong{display:block;color:#ffe4a8;font-size:12px;margin-bottom:1px}
-  .note-editor{margin-top:10px;padding:12px;border-radius:16px;border:1px solid rgba(230,189,106,.25);background:rgba(230,189,106,.06)}
-  .note-editor label{display:block;font-size:10px;color:#f0d59c;margin-bottom:6px;line-height:1.8}
-  .note-editor textarea{width:100%;min-height:70px;resize:vertical;border-radius:12px;border:1px solid var(--line);background:#0a1320;color:var(--text);padding:10px;font:inherit;font-size:11px;outline:none}
-  .note-editor textarea:focus{border-color:rgba(230,189,106,.45)}
-  .note-actions{display:flex;gap:8px;margin-top:8px}
-  .note-actions .primary-button{flex:1;width:auto;padding:10px;font-size:11px}
-  .note-actions .secondary-button{flex:0 0 auto;padding:10px 12px;font-size:11px}
-  .saved-note{display:flex;flex-direction:column;gap:2px;margin-top:10px;padding:10px 12px;border-radius:14px;border:1px solid rgba(113,213,192,.2);background:rgba(113,213,192,.07);font-size:10px;color:var(--muted);line-height:1.8}
-  .saved-note strong{font-size:10px;color:var(--accent)}
   .earnings-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding:12px 14px;border-radius:16px;background:rgba(113,213,192,.08);border:1px solid rgba(113,213,192,.18)}
   .earnings-row span{font-size:10px;color:var(--muted)}
   .earnings-row strong{font-size:17px;color:var(--accent)}
@@ -119,6 +110,7 @@
   .roster-summary{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 4px}
   .summary-pill{border-radius:999px;padding:5px 9px;font-size:10px;border:1px solid var(--line);color:var(--muted)}
   .summary-pill.good{color:var(--accent);border-color:rgba(113,213,192,.25);background:rgba(113,213,192,.08)}
+  .summary-pill.warn{color:var(--gold);border-color:rgba(230,189,106,.25);background:rgba(230,189,106,.08)}
   .summary-pill.bad{color:var(--danger);border-color:rgba(255,138,138,.22);background:rgba(255,138,138,.07)}
   .roster-list{display:flex;flex-direction:column;gap:7px}
   .roster-row{display:flex;align-items:center;gap:9px;padding:10px;border-radius:16px;border:1px solid var(--line);background:rgba(17,27,44,.52)}
@@ -129,6 +121,7 @@
   .status-toggle{display:flex;gap:2px;background:#0a1320;border:1px solid var(--line);border-radius:999px;padding:3px;flex:0 0 auto}
   .status-toggle button{border:0;background:transparent;color:var(--muted);border-radius:999px;padding:6px 8px;font-size:9px;font-weight:700;min-width:42px}
   .status-toggle button.selected.present{background:rgba(113,213,192,.18);color:var(--accent)}
+  .status-toggle button.selected.excused{background:rgba(230,189,106,.18);color:var(--gold)}
   .status-toggle button.selected.absent{background:rgba(255,138,138,.16);color:var(--danger)}
   .sticky-submit{position:sticky;bottom:0;padding:12px 0 4px;margin-top:10px;background:linear-gradient(transparent,var(--bg) 34%)}
   .sticky-submit .primary-button{box-shadow:0 18px 38px rgba(113,213,192,.18)}
@@ -145,6 +138,11 @@
   .notification-copy{min-width:0;flex:1}
   .notification-copy strong{display:block;font-size:12px}
   .notification-copy p{font-size:10px;color:var(--muted);line-height:1.8;margin:3px 0 7px}
+  .notification-title{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .status-badge{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 7px;font-size:8px;font-weight:800;white-space:nowrap;border:1px solid var(--line)}
+  .status-badge.open{color:var(--gold);border-color:rgba(230,189,106,.28);background:rgba(230,189,106,.1)}
+  .status-badge.resolved{color:var(--accent);border-color:rgba(113,213,192,.25);background:rgba(113,213,192,.1)}
+  .resolution-note{display:block;font-size:9px;color:var(--muted);margin-top:2px;line-height:1.7}
   .text-action{border:0;background:transparent;color:var(--accent);font-size:10px;font-weight:800;padding:0}
   .unread-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);position:absolute;top:13px;left:13px}
   .supervisor-hero{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;border-radius:18px;background:rgba(140,157,255,.08);border:1px solid rgba(140,157,255,.18);margin-bottom:10px}
@@ -173,6 +171,12 @@
   .lock-card .copy{flex:1}
   .lock-card strong{display:block;font-size:11px}
   .lock-card small{display:block;font-size:9px;color:var(--muted);margin-top:2px}
+  .permission-card{margin-top:10px;padding:12px;border-radius:16px;border:1px solid var(--line);background:rgba(17,27,44,.52)}
+  .permission-card strong{display:block;font-size:11px}
+  .permission-card small{display:block;font-size:9px;color:var(--muted);margin-top:2px;line-height:1.7}
+  .permission-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .permission-chip{border:1px solid var(--line);border-radius:999px;padding:4px 8px;font-size:9px;color:var(--muted);background:rgba(17,27,44,.5)}
+  .permission-chip.on{color:var(--accent);border-color:rgba(113,213,192,.25);background:rgba(113,213,192,.08)}
   .switch{width:44px;height:25px;border-radius:999px;border:1px solid rgba(113,213,192,.3);background:rgba(113,213,192,.2);position:relative;flex:0 0 auto}
   .switch::after{content:'';position:absolute;top:3px;right:3px;width:17px;height:17px;border-radius:50%;background:var(--accent);transition:.18s}
   .switch.off{background:#0a1320;border-color:var(--line)}
@@ -188,6 +192,23 @@
   .success-icon{width:52px;height:52px;border-radius:18px;background:rgba(113,213,192,.14);color:var(--accent);display:grid;place-items:center;margin-bottom:10px}
   .success-sheet h2{font-size:18px;margin:0 0 4px}
   .success-sheet p{font-size:10px;color:var(--muted);line-height:1.8;margin:0 0 12px}
+  .finish-sheet{max-height:calc(100% - 46px);overflow:auto}
+  .finish-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+  .finish-grid div{padding:10px;border-radius:13px;border:1px solid var(--line);background:rgba(17,27,44,.55)}
+  .finish-grid span{display:block;font-size:9px;color:var(--muted)}
+  .finish-grid strong{display:block;font-size:15px;margin-top:2px;color:var(--text)}
+  .finish-grid small{display:block;font-size:8px;color:var(--muted);margin-top:1px}
+  .finish-pay{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 12px;border-radius:14px;border:1px solid rgba(113,213,192,.2);background:rgba(113,213,192,.08);margin-bottom:10px}
+  .finish-pay span{font-size:10px;color:var(--muted)}
+  .finish-pay strong{font-size:17px;color:var(--accent)}
+  .finish-pay small{display:block;font-size:8px;color:var(--muted);margin-top:2px}
+  .finish-label{display:block;font-size:10px;color:#f0d59c;margin:2px 0 6px;line-height:1.8}
+  .finish-note{width:100%;min-height:66px;resize:vertical;border-radius:12px;border:1px solid var(--line);background:#0a1320;color:var(--text);padding:10px;font:inherit;font-size:11px;outline:none}
+  .finish-note:focus{border-color:rgba(230,189,106,.45)}
+  .finish-actions{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .finish-actions .primary-button{padding:12px;font-size:12px}
+  .finish-actions .secondary-button{padding:10px;font-size:11px}
+  .live-hint{margin-top:10px;padding:10px 12px;border-radius:14px;border:1px dashed rgba(230,189,106,.25);background:rgba(230,189,106,.05);font-size:10px;color:#f0d59c;line-height:1.8}
   .success-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 14px}
   .success-grid div{padding:10px;border-radius:13px;border:1px solid var(--line);background:rgba(17,27,44,.55)}
   .success-grid span{display:block;font-size:9px;color:var(--muted)}
@@ -221,19 +242,21 @@
 <div class="review-shell">
   <aside class="review-sidebar">
     <div class="review-brand"><span class="mark">ح</span><div><strong>دار الإمام حفص</strong><small>عينة بوابة المعلمة</small></div></div>
-    <span class="sample-label">● بيانات تجريبية — تصميم مبدئي</span>
+    <span class="sample-label">● بيانات تجريبية — نسخة معتمدة</span>
     <div class="screen-list">
       <button class="screen-link active" data-screen="today"><strong>1. اليوم</strong><small>الحلقة الآن + القادمة + ملخص الشهر</small></button>
-      <button class="screen-link" data-screen="live"><strong>2. الحلقة الجارية</strong><small>العداد + التأخير + تنبيه الوقت +</small></button>
-      <button class="screen-link" data-screen="roster"><strong>3. حضور الطلاب</strong><small>حاضر/غائب + ملاحظات + تسليم</small></button>
-      <button class="screen-link" data-screen="notifications"><strong>4. التنبيهات</strong><small>غياب + متأخرات + متابعة</small></button>
-      <button class="screen-link" data-screen="supervisor"><strong>5. لوحة المشرفة</strong><small>مباشر + غائبات + غير مدفوعين + قفل</small></button>
+      <button class="screen-link" data-screen="live"><strong>2. الحلقة الجارية</strong><small>عداد + تأخير + إنهاء بملاحظة</small></button>
+      <button class="screen-link" data-screen="roster"><strong>3. حضور الطلاب</strong><small>حاضر / بعذر / غائب + تسليم</small></button>
+      <button class="screen-link" data-screen="notifications"><strong>4. التنبيهات</strong><small>مفتوح حتى تُحل المشكلة</small></button>
+      <button class="screen-link" data-screen="supervisor"><strong>5. لوحة المشرفة</strong><small>مباشر + غياب + متأخرات + صلاحيات</small></button>
     </div>
     <div class="side-note">
       <strong>ملاحظات المالك</strong>
-      تسجيل التأخير والوقت الإضافي + ملاحظات المعلمة تظهر للمالك.<br>
-      المدة بالدقائق الكاملة (بدون تقريب لخمس دقائق)، والأجر 2 عشري.<br>
-      المدير يقفل/يفتح حساب المشرفة.<br>
+      إذا تجاوزت المدة الأساسية يُحتسب الأجر على المدة الأساسية، والزيادة تُسجل للمراجعة.<br>
+      إذا انتهت مبكرًا يُحتسب الوقت الفعلي (بأقل من دقيقة = دقيقة).<br>
+      ملاحظة الإنهاء تظهر للمالك والمشرفة، ويمكن تعديل الوقت/الأجر يدويًا.<br>
+      الإشعارات لا تختفي إلا بعد حل المشكلة، وليست مجرد «مقروء».<br>
+      المدير يحدد صلاحيات كل معلمة/مشرفة ويقفل الحساب.<br>
       المتأخرات تظهر آخر الشهر أو بعد شهر من انضمام الطالبة.<br>
       التوقيت: Africa/Cairo.
     </div>
@@ -285,79 +308,73 @@
 
         <section class="screen timer-screen" id="screen-live">
           <div class="screen-header">
-            <div><span class="eyebrow">حلقة النور · الجزء الأول</span><h1>الحلقة الجارية</h1><p>سجّلي الحضور ثم أنهي الحلقة.</p></div>
+            <div><span class="eyebrow">حلقة النور · الجزء الأول</span><h1>الحلقة الجارية</h1><p>أنهي الحلقة ثم سجّلي حضور الطالبات.</p></div>
             <button class="icon-button" aria-label="رجوع" onclick="showScreen('today')"><svg class="icon"><use href="#i-arrow"/></svg></button>
           </div>
 
           <div class="timer-card">
             <span class="live-badge"><span class="pulse"></span> مباشر</span>
             <div class="timer" id="live-timer">01:38</div>
-            <div class="timer-label">بدأت 5:03 م · الموعد 5:00 – 6:30 م · الاحتساب بالدقيقة</div>
+            <div class="timer-label">بدأت 5:03 م · الموعد 5:00 – 6:30 م · المدة الأساسية 90 دقيقة</div>
             <div class="live-meta" style="justify-content:center;margin-bottom:0">
               <span class="meta-chip warn">تأخرت 3 دقائق</span>
-              <span class="meta-chip warn">الوقت + 11 دقيقة</span>
+              <span class="meta-chip warn">بعد الموعد +11 دقيقة</span>
               <span class="meta-chip">18 طالبة</span>
             </div>
           </div>
 
           <div class="overtime-card">
             <svg class="icon" style="width:18px;height:18px;margin-top:2px"><use href="#i-alert"/></svg>
-            <div><strong>تنبيه الوقت +</strong>تجاوزتِ الموعد بـ 11 دقيقة. يمكنك إضافة ملاحظة ليظهر السبب للمالك والمشرفة.</div>
+            <div><strong>تنبيه الوقت +</strong>تجاوزتِ نهاية الحلقة بـ 11 دقيقة. سيتم احتساب مدة الحلقة الأساسية 90 دقيقة، والزيادة 8 دقائق مسجلة للمراجعة.</div>
           </div>
 
-          <div class="note-editor" id="note-editor" hidden>
-            <label for="overtime-note">سبب الوقت الإضافي — يظهر للمالك والمشرفة</label>
-            <textarea id="overtime-note" rows="3" placeholder="مثال: انتظرنا وصول الطالبات، أو استكملنا مراجعة الجزء."></textarea>
-            <div class="note-actions">
-              <button class="primary-button" onclick="saveNote()">حفظ الملاحظة</button>
-              <button class="secondary-button" onclick="toggleNote(false)">إلغاء</button>
-            </div>
-          </div>
-          <div class="saved-note" id="saved-note" hidden><strong>ملاحظة مسجلة</strong><span id="saved-note-text"></span></div>
+          <div class="live-hint">ستفتح ملاحظة الإنهاء عند الضغط على «إنهاء الحلقة» — اكتبي سبب الوقت الإضافي أو الانتهاء المبكر.</div>
 
-          <div class="earnings-row"><div><span>المستحق حتى الآن</span><strong id="live-pay">163.33 ج.م</strong></div><span id="live-rate" style="font-size:10px;color:var(--muted)">98 دقيقة · 100 ج.م/ساعة</span></div>
+          <div class="earnings-row"><div><span>الأجر المتوقع</span><strong id="live-pay">150.00 ج.م</strong></div><span id="live-rate">98 فعلية · 90 محتسبة</span></div>
 
           <div class="stack">
-            <button class="primary-button danger" onclick="showScreen('roster')"><svg class="icon"><use href="#i-stop"/></svg> إنهاء الحلقة وتسجيل الطلاب</button>
-            <button class="secondary-button" id="note-toggle" aria-expanded="false" onclick="toggleNote()">إضافة ملاحظة على الوقت الإضافي</button>
+            <button class="primary-button danger" onclick="openFinish()"><svg class="icon"><use href="#i-stop"/></svg> إنهاء الحلقة</button>
+            <button class="secondary-button" onclick="toast('سيتم فتح تفاصيل الحلقة في النسخة الكاملة')">تفاصيل الحلقة</button>
           </div>
 
-          <div class="section-title"><strong>ملخص سريع</strong><span>يُحدّث تلقائيًا</span></div>
+          <div class="section-title"><strong>ملخص سريع</strong><span>ثابت للمراجعة</span></div>
           <div class="timeline">
             <div class="timeline-row"><span class="timeline-dot live"></span><div><strong>بدأت الحلقة</strong><small>5:03 م · تأخر 3 دقائق</small></div><span class="side">مسجل</span></div>
             <div class="timeline-row"><span class="timeline-dot"></span><div><strong>الوقت الإضافي</strong><small>6:41 م · +11 دقيقة</small></div><span class="side">تنبيه</span></div>
+            <div class="timeline-row"><span class="timeline-dot"></span><div><strong>الاحتساب</strong><small>90 دقيقة أساسية · الزيادة للمراجعة</small></div><span class="side">150.00</span></div>
           </div>
         </section>
 
         <section class="screen" id="screen-roster">
           <div class="screen-header">
-            <div><span class="eyebrow">حلقة النور · 5:00 – 6:30 م</span><h1>حضور الطلاب</h1><p>18 طالبة · حدّدي الحاضر والغائب ثم سلّمي.</p></div>
+            <div><span class="eyebrow">حلقة النور · 5:00 – 6:30 م</span><h1>حضور الطلاب</h1><p>18 طالبة · حاضر / بعذر / غائب ثم سلّمي.</p></div>
             <button class="icon-button" aria-label="رجوع" onclick="showScreen('live')"><svg class="icon"><use href="#i-arrow"/></svg></button>
           </div>
 
           <div class="roster-summary">
             <span class="summary-pill good">16 حاضر</span>
-            <span class="summary-pill bad">2 غائب</span>
+            <span class="summary-pill warn">1 بعذر</span>
+            <span class="summary-pill bad">1 غائب</span>
             <span class="summary-pill">الإجمالي 18</span>
           </div>
 
           <div class="roster-toolbar">
             <div class="search-box"><svg class="icon" style="width:17px;height:17px"><use href="#i-search"/></svg><input placeholder="ابحثي باسم الطالبة أو الكود" aria-label="بحث الطالبات"></div>
-            <div class="bulk-actions"><button onclick="setAll('present')">الظاهر حاضر</button><button onclick="setAll('absent')">الظاهر غائب</button></div>
+            <div class="bulk-actions"><button onclick="setAll('present')">الظاهر حاضر</button><button onclick="setAll('excused')">الظاهر بعذر</button><button onclick="setAll('absent')">الظاهر غائب</button></div>
           </div>
 
           <div class="roster-list" id="roster-list">
-            <div class="roster-row" data-status="present"><span class="avatar">م</span><div class="student-copy"><strong>مريم أحمد</strong><small>STD-1042 · 10 سنوات</small></div><div class="status-toggle"><button class="present selected" onclick="setStudent(this,'present')">حاضر</button><button class="absent" onclick="setStudent(this,'absent')">غائب</button></div></div>
-            <div class="roster-row" data-status="present"><span class="avatar">س</span><div class="student-copy"><strong>سارة محمود</strong><small>STD-1043 · 11 سنة</small></div><div class="status-toggle"><button class="present selected" onclick="setStudent(this,'present')">حاضر</button><button class="absent" onclick="setStudent(this,'absent')">غائب</button></div></div>
-            <div class="roster-row" data-status="present"><span class="avatar">ه</span><div class="student-copy"><strong>هبة الله محمد</strong><small>STD-1044 · 9 سنوات</small></div><div class="status-toggle"><button class="present selected" onclick="setStudent(this,'present')">حاضر</button><button class="absent" onclick="setStudent(this,'absent')">غائب</button></div></div>
-            <div class="roster-row" data-status="absent"><span class="avatar">ن</span><div class="student-copy"><strong>نور الدين</strong><small>STD-1045 · 10 سنوات</small></div><div class="status-toggle"><button class="present" onclick="setStudent(this,'present')">حاضر</button><button class="absent selected" onclick="setStudent(this,'absent')">غائب</button></div></div>
-            <div class="roster-row" data-status="present"><span class="avatar">ف</span><div class="student-copy"><strong>فاطمة الزهراء</strong><small>STD-1046 · 12 سنة</small></div><div class="status-toggle"><button class="present selected" onclick="setStudent(this,'present')">حاضر</button><button class="absent" onclick="setStudent(this,'absent')">غائب</button></div></div>
-            <div class="roster-row" data-status="absent"><span class="avatar">آ</span><div class="student-copy"><strong>آية الله</strong><small>STD-1047 · 11 سنة</small></div><div class="status-toggle"><button class="present" onclick="setStudent(this,'present')">حاضر</button><button class="absent selected" onclick="setStudent(this,'absent')">غائب</button></div></div>
+            <div class="roster-row" data-status="present"><span class="avatar">م</span><div class="student-copy"><strong>مريم أحمد</strong><small>STD-1042 · 10 سنوات</small></div><div class="status-toggle"><button class="present selected" onclick="setStudent(this,'present')">حاضر</button><button class="excused" onclick="setStudent(this,'excused')">بعذر</button><button class="absent" onclick="setStudent(this,'absent')">غائب</button></div></div>
+            <div class="roster-row" data-status="present"><span class="avatar">س</span><div class="student-copy"><strong>سارة محمود</strong><small>STD-1043 · 11 سنة</small></div><div class="status-toggle"><button class="present selected" onclick="setStudent(this,'present')">حاضر</button><button class="excused" onclick="setStudent(this,'excused')">بعذر</button><button class="absent" onclick="setStudent(this,'absent')">غائب</button></div></div>
+            <div class="roster-row" data-status="present"><span class="avatar">ه</span><div class="student-copy"><strong>هبة الله محمد</strong><small>STD-1044 · 9 سنوات</small></div><div class="status-toggle"><button class="present selected" onclick="setStudent(this,'present')">حاضر</button><button class="excused" onclick="setStudent(this,'excused')">بعذر</button><button class="absent" onclick="setStudent(this,'absent')">غائب</button></div></div>
+            <div class="roster-row" data-status="excused"><span class="avatar">ن</span><div class="student-copy"><strong>نور الدين</strong><small>STD-1045 · 10 سنوات</small></div><div class="status-toggle"><button class="present" onclick="setStudent(this,'present')">حاضر</button><button class="excused selected" onclick="setStudent(this,'excused')">بعذر</button><button class="absent" onclick="setStudent(this,'absent')">غائب</button></div></div>
+            <div class="roster-row" data-status="present"><span class="avatar">ف</span><div class="student-copy"><strong>فاطمة الزهراء</strong><small>STD-1046 · 12 سنة</small></div><div class="status-toggle"><button class="present selected" onclick="setStudent(this,'present')">حاضر</button><button class="excused" onclick="setStudent(this,'excused')">بعذر</button><button class="absent" onclick="setStudent(this,'absent')">غائب</button></div></div>
+            <div class="roster-row" data-status="absent"><span class="avatar">آ</span><div class="student-copy"><strong>آية الله</strong><small>STD-1047 · 11 سنة</small></div><div class="status-toggle"><button class="present" onclick="setStudent(this,'present')">حاضر</button><button class="excused" onclick="setStudent(this,'excused')">بعذر</button><button class="absent selected" onclick="setStudent(this,'absent')">غائب</button></div></div>
           </div>
 
           <button class="secondary-button" style="width:100%;margin-top:8px" onclick="toast('12 طالبة أخرى — كلهن حاضر في هذا المثال')">عرض 12 طالبة أخرى (الإجمالي 18)</button>
 
-          <div class="sticky-submit"><button class="primary-button" onclick="openSuccess()"><svg class="icon"><use href="#i-check"/></svg> تسجيل الحضور <span id="submit-count" style="font-size:11px;opacity:.8">(16 حاضر · 2 غائب)</span></button></div>
+          <div class="sticky-submit"><button class="primary-button" onclick="openSuccess()"><svg class="icon"><use href="#i-check"/></svg> تسجيل الحضور <span id="submit-count" style="font-size:11px;opacity:.8">(16 حاضر · 1 بعذر · 1 غائب)</span></button></div>
         </section>
 
         <section class="screen" id="screen-notifications">
@@ -374,12 +391,13 @@
           </div>
 
           <div class="day-label">اليوم</div>
-          <div class="notification-card unread" data-category="attendance"><span class="notification-icon warn"><svg class="icon"><use href="#i-alert"/></svg></span><div class="notification-copy"><strong>طالبتان غائبتان</strong><p>حلقة النور — الأحد 16 نوفمبر · نور، آية</p><button class="text-action" onclick="toast('سيتم فتح قائمة الغائبات')">عرض الغائبات</button></div><span class="unread-dot"></span></div>
-          <div class="notification-card unread" data-category="payments"><span class="notification-icon"><svg class="icon"><use href="#i-wallet"/></svg></span><div class="notification-copy"><strong>اشتراك غير مدفوع</strong><p>مريم أحمد — 350 ج.م متأخر · حلقة النور</p><button class="text-action" onclick="toast('سيتم فتح حساب الطالبة')">عرض الحساب</button></div><span class="unread-dot"></span></div>
-          <div class="notification-card unread" data-category="attendance"><span class="notification-icon good"><svg class="icon"><use href="#i-clock"/></svg></span><div class="notification-copy"><strong>لم تسجلي حضورًا بعد</strong><p>حلقة الفجر — أمس · 14 طالبة</p><button class="text-action" onclick="toast('سيتم فتح الحلقة لتسجيل الحضور')">تسجيل الآن</button></div><span class="unread-dot"></span></div>
+          <div class="notification-card unread" data-category="attendance"><span class="notification-icon warn"><svg class="icon"><use href="#i-alert"/></svg></span><div class="notification-copy"><div class="notification-title"><strong>طالبتان غائبتان</strong><span class="status-badge open">مفتوح</span></div><p>حلقة النور — الأحد 16 نوفمبر · نور بعذر، آية بدون عذر</p><small class="resolution-note">يبقى مفتوحًا حتى تسجيل العذر أو المتابعة.</small><button class="text-action" onclick="toast('سيتم فتح قائمة الغائبات')">عرض الغائبات</button></div><span class="unread-dot"></span></div>
+          <div class="notification-card unread" data-category="payments"><span class="notification-icon"><svg class="icon"><use href="#i-wallet"/></svg></span><div class="notification-copy"><div class="notification-title"><strong>اشتراك غير مدفوع</strong><span class="status-badge open">مفتوح</span></div><p>مريم أحمد — 350 ج.م متأخر · حلقة النور</p><small class="resolution-note">لا يختفي إلا بعد سداد الاشتراك بالكامل.</small><button class="text-action" onclick="toast('سيتم فتح حساب الطالبة')">عرض الحساب</button></div><span class="unread-dot"></span></div>
+          <div class="notification-card unread" data-category="attendance"><span class="notification-icon good"><svg class="icon"><use href="#i-clock"/></svg></span><div class="notification-copy"><div class="notification-title"><strong>لم تسجلي حضورًا بعد</strong><span class="status-badge open">مفتوح</span></div><p>حلقة الفجر — أمس · 14 طالبة</p><small class="resolution-note">يتحل بعد تسليم حضور الحلقة.</small><button class="text-action" onclick="toast('سيتم فتح الحلقة لتسجيل الحضور')">تسجيل الآن</button></div><span class="unread-dot"></span></div>
 
           <div class="day-label">أمس</div>
-          <div class="notification-card" data-category="attendance"><span class="notification-icon good"><svg class="icon"><use href="#i-check"/></svg></span><div class="notification-copy"><strong>تم اعتماد حضورك</strong><p>حلقة الإتقان — 15 نوفمبر · 9 طالبات</p></div></div>
+          <div class="notification-card" data-category="payments"><span class="notification-icon good"><svg class="icon"><use href="#i-check"/></svg></span><div class="notification-copy"><div class="notification-title"><strong>تم سداد اشتراك</strong><span class="status-badge resolved">تم الحل</span></div><p>هبة الله محمد — 300 ج.م · حلقة النور</p></div></div>
+          <div class="notification-card" data-category="attendance"><span class="notification-icon good"><svg class="icon"><use href="#i-check"/></svg></span><div class="notification-copy"><div class="notification-title"><strong>تم اعتماد حضورك</strong><span class="status-badge resolved">تم الحل</span></div><p>حلقة الإتقان — 15 نوفمبر · 9 طالبات</p></div></div>
           <div class="notification-card" data-category="schedule"><span class="notification-icon"><svg class="icon"><use href="#i-calendar"/></svg></span><div class="notification-copy"><strong>تغيير موعد</strong><p>حلقة الفجر أصبحت 7:00 م بدلًا من 7:30 م</p></div></div>
           <div class="notification-card" data-category="system"><span class="notification-icon"><svg class="icon"><use href="#i-lock"/></svg></span><div class="notification-copy"><strong>دخول من جهاز جديد</strong><p>هاتف Android — القاهرة · 6:30 م. إذا لم تكوني أنتِ، غيّري كلمة المرور.</p></div></div>
         </section>
@@ -401,19 +419,21 @@
 
           <div class="section-title"><strong>الآن</strong><span>تحديث مباشر</span></div>
           <div class="live-session-list">
-            <div class="live-session"><span class="dot"></span><div><strong>حلقة النور · أ. أسماء</strong><small>5:00 – 6:30 م · 18 طالبة</small><div class="session-note" id="supervisor-note" hidden></div></div><div class="side"><strong>01:38</strong><small>الوقت + 11 د</small></div></div>
+            <div class="live-session"><span class="dot"></span><div><strong>حلقة النور · أ. أسماء</strong><small>5:00 – 6:30 م · 18 طالبة</small><div class="session-note" id="supervisor-note" hidden></div></div><div class="side"><strong>01:38</strong><small>الوقت + 11 د</small><small>أجر 150.00</small></div></div>
             <div class="live-session"><span class="dot late"></span><div><strong>حلقة الصفاء · أ. منى</strong><small>6:00 – 6:45 م · 12 طالبة</small></div><div class="side"><strong>00:41</strong><small>بدأت متأخرة 4 د</small></div></div>
           </div>
 
           <div class="section-title"><strong>غياب اليوم</strong><span>5 طالبات</span></div>
-          <div class="list-card"><div class="row"><div><strong>نور الدين</strong><small>حلقة النور · أ. أسماء</small></div><button class="text-action" onclick="toast('سيتم فتح متابعة الطالبة')">متابعة</button></div></div>
-          <div class="list-card"><div class="row"><div><strong>آية الله</strong><small>حلقة النور · أ. أسماء</small></div><button class="text-action" onclick="toast('سيتم فتح متابعة الطالبة')">متابعة</button></div></div>
+          <div class="list-card"><div class="row"><div><div class="notification-title"><strong>نور الدين</strong><span class="status-badge open">بعذر</span></div><small>حلقة النور · أ. أسماء</small></div><button class="text-action" onclick="toast('سيتم فتح متابعة الطالبة')">متابعة</button></div></div>
+          <div class="list-card"><div class="row"><div><div class="notification-title"><strong>آية الله</strong><span class="status-badge open">بدون عذر</span></div><small>حلقة النور · أ. أسماء</small></div><button class="text-action" onclick="toast('سيتم فتح متابعة الطالبة')">متابعة</button></div></div>
 
           <div class="section-title"><strong>غير المدفوعين</strong><span>7 طالبات</span></div>
-          <div class="list-card"><div class="row"><div><strong>مريم أحمد</strong><small>حلقة النور · متأخر من 1 نوفمبر</small></div><span class="amount">350 ج.م</span></div></div>
-          <div class="list-card"><div class="row"><div><strong>سارة محمود</strong><small>حلقة الفجر · متأخر 12 يومًا</small></div><span class="amount">200 ج.م</span></div></div>
+          <div class="list-card"><div class="row"><div><div class="notification-title"><strong>مريم أحمد</strong><span class="status-badge open">مفتوح</span></div><small>حلقة النور · متأخر من 1 نوفمبر — يتحل عند الدفع</small></div><span class="amount">350 ج.م</span></div></div>
+          <div class="list-card"><div class="row"><div><div class="notification-title"><strong>سارة محمود</strong><span class="status-badge open">مفتوح</span></div><small>حلقة الفجر · متأخر 12 يومًا — يتحل عند الدفع</small></div><span class="amount">200 ج.م</span></div></div>
 
           <div class="lock-card"><div class="copy"><strong>صلاحية حساب المشرفة</strong><small>قفل الحساب يمنع الدخول والتصرفات فورًا.</small></div><button class="switch" aria-label="قفل حساب المشرفة" onclick="toggleLock(this)"></button></div>
+          <div class="permission-card"><strong>صلاحيات المشرفة</strong><small>المدير يحددها لكل حساب؛ الافتراضي كل الحلقات.</small><div class="permission-chips"><span class="permission-chip on">مباشر</span><span class="permission-chip on">غياب</span><span class="permission-chip on">متأخرات</span><span class="permission-chip">تعديل الحضور</span></div></div>
+          <div class="permission-card"><strong>صلاحيات المعلمة</strong><small>لا ترى العمل الإداري؛ الاشتراكات صلاحية منفصلة.</small><div class="permission-chips"><span class="permission-chip on">حضور</span><span class="permission-chip on">أجورها</span><span class="permission-chip">اشتراكات طالباتها</span><span class="permission-chip on">ملاحظات</span></div></div>
           <button class="secondary-button" style="width:100%;margin-top:10px" onclick="toast('سيتم فتح تقرير المشرفة الكامل')"><svg class="icon"><use href="#i-users"/></svg> فتح تقرير الفريق</button>
         </section>
 
@@ -427,17 +447,43 @@
         <button data-nav="supervisor" onclick="showScreen('supervisor')"><svg class="icon"><use href="#i-user"/></svg><span>المشرفة</span></button>
       </nav>
 
-      <div class="sheet-backdrop" id="sheet-backdrop" onclick="closeSuccess()"></div>
+      <div class="sheet-backdrop" id="sheet-backdrop" onclick="closeSheets()"></div>
+
+      <div class="success-sheet finish-sheet" id="finish-sheet">
+        <div class="success-icon" style="background:rgba(230,189,106,.14);color:var(--gold)"><svg class="icon" style="width:26px;height:26px"><use href="#i-stop"/></svg></div>
+        <h2>إنهاء الحلقة</h2>
+        <p>راجعي الفرق بين المدة الفعلية والأساسية، وأضيفي ملاحظة قبل فتح قائمة الطالبات.</p>
+        <div class="finish-grid">
+          <div><span>المدة الفعلية</span><strong>1:38</strong><small>98 دقيقة</small></div>
+          <div><span>المدة الأساسية</span><strong>1:30</strong><small>90 دقيقة</small></div>
+          <div><span>بعد نهاية الحلقة</span><strong style="color:var(--gold)">+11 د</strong><small>6:41 بدل 6:30</small></div>
+          <div><span>المدة المحتسبة</span><strong style="color:var(--accent)">1:30</strong><small>سقف المدة الأساسية</small></div>
+        </div>
+        <div class="finish-pay">
+          <div><span>الأجر المحتسب</span><strong>150.00 ج.م</strong><small>الزيادة 8 دقائق مسجلة للمراجعة</small></div>
+          <span style="font-size:10px;color:var(--muted)">100 ج.م/ساعة</span>
+        </div>
+        <label class="finish-label" for="finish-note">ملاحظة الإنهاء — وقت إضافي / انتهاء مبكر / تفصيل</label>
+        <textarea class="finish-note" id="finish-note" rows="3" placeholder="مثال: انتظرنا وصول الطالبات، أو استكملنا مراجعة الجزء."></textarea>
+        <div class="finish-actions">
+          <button class="primary-button" onclick="confirmFinish()">تأكيد الإنهاء وتسجيل الطلاب</button>
+          <button class="secondary-button" onclick="closeSheets()">إلغاء</button>
+        </div>
+      </div>
+
       <div class="success-sheet" id="success-sheet">
         <div class="success-icon"><svg class="icon" style="width:26px;height:26px"><use href="#i-check"/></svg></div>
         <h2>تم تسجيل الحلقة</h2>
         <p>حلقة النور · 5:03 – 6:41 م · تم حفظ حضور الطلاب وأجر المعلمة.</p>
         <div class="success-grid">
           <div><span>حاضر</span><strong id="success-present">16</strong></div>
-          <div><span>غائب</span><strong id="success-absent" style="color:var(--danger)">2</strong></div>
-          <div><span>المدة</span><strong id="success-duration">1:38</strong></div>
-          <div><span>مستحق الحلقة</span><strong id="success-pay">163.33 ج.م</strong></div>
+          <div><span>بعذر</span><strong id="success-excused" style="color:var(--gold)">1</strong></div>
+          <div><span>غائب</span><strong id="success-absent" style="color:var(--danger)">1</strong></div>
+          <div><span>الفعلية</span><strong id="success-actual">1:38</strong></div>
+          <div><span>المحتسبة</span><strong id="success-payable">1:30</strong></div>
+          <div><span>الأجر</span><strong id="success-pay">150.00 ج.م</strong></div>
         </div>
+        <p class="resolution-note" id="success-note" hidden></p>
         <button class="primary-button" onclick="closeSuccess()">تم</button>
       </div>
       <div class="toast" id="toast"></div>
@@ -449,6 +495,9 @@
   const screens = ['today','live','roster','notifications','supervisor'];
   const HIDDEN_PRESENT = 12; // the sample shows 6 of 18; the other 12 are present by default
   const HOURLY_RATE = 100;
+  const SCHEDULED_MINUTES = 90;
+  const ACTUAL_MINUTES = 98;
+  let sessionNote = '';
 
   function showScreen(id){
     screens.forEach(s => document.getElementById('screen-'+s).classList.toggle('active', s === id));
@@ -459,23 +508,23 @@
   }
   document.querySelectorAll('.screen-link').forEach(b => b.addEventListener('click', () => showScreen(b.dataset.screen)));
 
-  let seconds = 98 * 60; // 1:38 — minute-level duration
   function formatDuration(totalMinutes){
     const h = String(Math.floor(totalMinutes/60)).padStart(2,'0');
     const m = String(totalMinutes%60).padStart(2,'0');
     return `${h}:${m}`;
   }
-  function currentPay(){
-    return (Math.floor(seconds/60) * HOURLY_RATE / 60).toFixed(2);
+  function payableMinutes(){
+    return ACTUAL_MINUTES >= SCHEDULED_MINUTES ? SCHEDULED_MINUTES : Math.max(1, ACTUAL_MINUTES);
   }
-  function renderTimer(){
-    const minutes = Math.floor(seconds/60);
-    document.getElementById('live-timer').textContent = formatDuration(minutes);
-    document.getElementById('live-pay').textContent = `${currentPay()} ج.م`;
-    document.getElementById('live-rate').textContent = `${minutes} دقيقة · ${HOURLY_RATE} ج.م/ساعة`;
+  function payableAmount(){
+    return (payableMinutes() * HOURLY_RATE / 60).toFixed(2);
   }
-  // The sample is frozen at 1:38 so every screen shows the same numbers.
-  renderTimer();
+  function renderSummary(){
+    document.getElementById('live-timer').textContent = formatDuration(ACTUAL_MINUTES);
+    document.getElementById('live-pay').textContent = `${payableAmount()} ج.م`;
+    document.getElementById('live-rate').textContent = `${ACTUAL_MINUTES} فعلية · ${payableMinutes()} محتسبة`;
+  }
+  renderSummary();
 
   function toast(text){
     const el = document.getElementById('toast');
@@ -488,20 +537,24 @@
   function getRosterCounts(){
     const rows = [...document.querySelectorAll('#roster-list .roster-row')];
     const visiblePresent = rows.filter(r => r.dataset.status === 'present').length;
+    const visibleExcused = rows.filter(r => r.dataset.status === 'excused').length;
+    const visibleAbsent = rows.filter(r => r.dataset.status === 'absent').length;
     return {
       present: visiblePresent + HIDDEN_PRESENT,
-      absent: rows.length - visiblePresent,
+      excused: visibleExcused,
+      absent: visibleAbsent,
       total: rows.length + HIDDEN_PRESENT
     };
   }
   function updateCounts(){
-    const {present, absent, total} = getRosterCounts();
-    document.getElementById('submit-count').textContent = `(${present} حاضر · ${absent} غائب)`;
+    const {present, excused, absent, total} = getRosterCounts();
+    document.getElementById('submit-count').textContent = `(${present} حاضر · ${excused} بعذر · ${absent} غائب)`;
     const summary = document.querySelectorAll('.roster-summary .summary-pill');
-    if (summary.length >= 3){
+    if (summary.length >= 4){
       summary[0].textContent = `${present} حاضر`;
-      summary[1].textContent = `${absent} غائب`;
-      summary[2].textContent = `الإجمالي ${total}`;
+      summary[1].textContent = `${excused} بعذر`;
+      summary[2].textContent = `${absent} غائب`;
+      summary[3].textContent = `الإجمالي ${total}`;
     }
   }
   function syncToggleAria(){
@@ -522,50 +575,52 @@
     });
     syncToggleAria();
     updateCounts();
-    toast(status === 'present' ? 'تم تحديد الظاهرين كحاضرين — راجعي القائمة' : 'تم تحديد الظاهرين كغائبين — راجعي القائمة');
+    const labels = { present: 'حاضرين', excused: 'بعذر', absent: 'غائبين' };
+    toast(`تم تحديد الظاهرين ك${labels[status]} — راجعي القائمة`);
+  }
+
+  function openFinish(){
+    closeSheets();
+    document.getElementById('finish-note').value = sessionNote;
+    document.getElementById('sheet-backdrop').classList.add('open');
+    document.getElementById('finish-sheet').classList.add('open');
+    document.getElementById('finish-note').focus({preventScroll:true});
+  }
+  function confirmFinish(){
+    sessionNote = document.getElementById('finish-note').value.trim();
+    const supervisor = document.getElementById('supervisor-note');
+    if (supervisor){
+      supervisor.textContent = sessionNote ? `ملاحظة المعلمة: ${sessionNote}` : '';
+      supervisor.hidden = !sessionNote;
+    }
+    closeSheets();
+    showScreen('roster');
+    toast(sessionNote ? 'تم حفظ ملاحظة الإنهاء — ستظهر للمالك والمشرفة' : 'تم فتح قائمة الطالبات');
+  }
+  function closeSheets(){
+    document.getElementById('sheet-backdrop').classList.remove('open');
+    document.getElementById('finish-sheet').classList.remove('open');
+    document.getElementById('success-sheet').classList.remove('open');
   }
 
   function openSuccess(){
-    const {present, absent} = getRosterCounts();
+    const {present, excused, absent} = getRosterCounts();
     document.getElementById('success-present').textContent = present;
+    document.getElementById('success-excused').textContent = excused;
     document.getElementById('success-absent').textContent = absent;
-    document.getElementById('success-duration').textContent = formatDuration(Math.floor(seconds/60));
-    document.getElementById('success-pay').textContent = `${currentPay()} ج.م`;
+    document.getElementById('success-actual').textContent = formatDuration(ACTUAL_MINUTES);
+    document.getElementById('success-payable').textContent = formatDuration(payableMinutes());
+    document.getElementById('success-pay').textContent = `${payableAmount()} ج.م`;
+    const note = document.getElementById('success-note');
+    note.textContent = sessionNote ? `ملاحظة الإنهاء: ${sessionNote}` : '';
+    note.hidden = !sessionNote;
+    closeSheets();
     document.getElementById('sheet-backdrop').classList.add('open');
     document.getElementById('success-sheet').classList.add('open');
   }
   function closeSuccess(){
-    document.getElementById('sheet-backdrop').classList.remove('open');
-    document.getElementById('success-sheet').classList.remove('open');
+    closeSheets();
     showScreen('today');
-  }
-
-  function toggleNote(force){
-    const editor = document.getElementById('note-editor');
-    const button = document.getElementById('note-toggle');
-    const open = typeof force === 'boolean' ? force : editor.hidden;
-    editor.hidden = !open;
-    button.setAttribute('aria-expanded', open ? 'true' : 'false');
-    button.textContent = open ? 'إغلاق ملاحظة الوقت الإضافي' : 'إضافة ملاحظة على الوقت الإضافي';
-    if (open) document.getElementById('overtime-note').focus();
-  }
-  function saveNote(){
-    const field = document.getElementById('overtime-note');
-    const text = field.value.trim();
-    if (!text){
-      toast('اكتبي سبب الوقت الإضافي أولًا');
-      field.focus();
-      return;
-    }
-    document.getElementById('saved-note-text').textContent = text;
-    document.getElementById('saved-note').hidden = false;
-    const supervisor = document.getElementById('supervisor-note');
-    if (supervisor){
-      supervisor.textContent = `ملاحظة المعلمة: ${text}`;
-      supervisor.hidden = false;
-    }
-    toggleNote(false);
-    toast('تم حفظ الملاحظة — ستظهر للمالك والمشرفة');
   }
 
   function filterNotifications(button){

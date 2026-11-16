@@ -4,9 +4,114 @@ import { permissionGroups, knownPermissionNames } from '../../domain/permissions
 import ModalActions from '../common/ModalActions'
 import type { DarApplicationContext } from '../../application/useDarApplication'
 
-
 type Props = { ctx: DarApplicationContext }
 
 export default function UserDialog({ ctx }: Props) {
-  return <Modal title={ctx.editingUser?'تعديل الحساب والصلاحيات':'إنشاء حساب جديد'} subtitle="كل حساب يأخذ الصلاحيات التي تحددها فقط. كلمة مرور جديدة مطلوبة للحساب الجديد." wide close={()=>!ctx.saving&&ctx.setUserModal(false)}><form onSubmit={ctx.saveUser}><div className="form-grid"><Field label="اسم المستخدم *"><input required minLength={3} maxLength={100} autoComplete="off" value={ctx.userForm.username} onChange={e=>ctx.setUserForm(f=>({...f,username:e.target.value}))}/></Field><Field label="اسم العرض *"><input required maxLength={160} value={ctx.userForm.displayName} onChange={e=>ctx.setUserForm(f=>({...f,displayName:e.target.value}))}/></Field><Field label={`كلمة المرور ${ctx.editingUser?'(اتركها فارغة دون تغيير)':'(6 أحرف على الأقل)'} *`} wide={!ctx.editingUser}><input type="password" autoComplete="new-password" required={!ctx.editingUser} minLength={6} maxLength={200} value={ctx.userForm.password} onChange={e=>ctx.setUserForm(f=>({...f,password:e.target.value}))}/>{ctx.editingUser&&<small className="sub-cell password-reset-hint">اترك الحقل فارغًا دون تغيير. لو المستخدم نسي كلمة المرور، اكتب كلمة مرور جديدة من 6 أحرف على الأقل لحسابه.</small>}</Field>{ctx.editingUser&&<Field label="حالة الحساب"><select value={ctx.userForm.isActive?'active':'inactive'} onChange={e=>ctx.setUserForm(f=>({...f,isActive:e.target.value==='active'}))}><option value="active">نشط</option><option value="inactive">معطّل</option></select></Field>}</div><div className="permission-editor"><div className="permission-editor-heading"><strong>الصلاحيات</strong><div><button type="button" className="text-link" onClick={()=>ctx.setUserForm(f=>({...f,permissionCodes:ctx.permissions.map(p=>p.code)}))}>تحديد الكل</button><span>·</span><button type="button" className="text-link" onClick={()=>ctx.setUserForm(f=>({...f,permissionCodes:[]}))}>إلغاء الكل</button></div></div><div className="permission-groups">{permissionGroups.map(group=><fieldset key={group.label} className="permission-group"><legend>{group.label}</legend>{group.codes.map(code=><label className="permission-option" key={code}><input type="checkbox" checked={ctx.userForm.permissionCodes.includes(code)} onChange={e=>ctx.setUserForm(f=>({...f,permissionCodes:e.target.checked?[...new Set([...f.permissionCodes,code])]:f.permissionCodes.filter(p=>p!==code)}))}/><span>{knownPermissionNames[code]??'صلاحية إضافية'}</span></label>)}</fieldset>)}</div></div><ModalActions saving={ctx.saving} onCancel={()=>ctx.setUserModal(false)} saveLabel={ctx.editingUser?'حفظ الحساب والصلاحيات':'إنشاء الحساب'}/></form></Modal>
+  const editing = ctx.editingUser
+  const form = ctx.userForm
+  const update = (patch: Partial<typeof form>) => ctx.setUserForm((current) => ({ ...current, ...patch }))
+  const activeTeachers = ctx.teachers.filter((teacher) => teacher.status === 'active')
+
+  return (
+    <Modal
+      title={editing ? 'تعديل الحساب والصلاحيات' : 'إنشاء حساب جديد'}
+      subtitle="كل حساب يأخذ الصلاحيات التي تحددها فقط. يمكن ربط حساب المعلمة بسجل معلمة واحد."
+      wide
+      close={() => !ctx.saving && ctx.setUserModal(false)}
+    >
+      <form onSubmit={ctx.saveUser}>
+        <div className="form-grid">
+          <Field label="اسم المستخدم *">
+            <input required minLength={3} maxLength={100} autoComplete="off" value={form.username} onChange={(event) => update({ username: event.target.value })} />
+          </Field>
+          <Field label="اسم العرض *">
+            <input required maxLength={160} value={form.displayName} onChange={(event) => update({ displayName: event.target.value })} />
+          </Field>
+          <Field label={`كلمة المرور ${editing ? '(اتركها فارغة دون تغيير)' : '(6 أحرف على الأقل)'} *`} wide={!editing}>
+            <input
+              type="password"
+              autoComplete="new-password"
+              required={!editing}
+              minLength={6}
+              maxLength={200}
+              value={form.password}
+              onChange={(event) => update({ password: event.target.value })}
+            />
+            {editing && <small className="sub-cell password-reset-hint">اترك الحقل فارغًا دون تغيير. لو نسيت المعلمة كلمة المرور، اكتب كلمة مرور جديدة من 6 أحرف على الأقل.</small>}
+          </Field>
+
+          <Field label="ربط بمعلمة" wide>
+            <select value={form.teacherId ?? ''} onChange={(event) => update({ teacherId: event.target.value || null })}>
+              <option value="">بدون ربط</option>
+              {activeTeachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>{teacher.fullName} — {teacher.teacherCode}</option>
+              ))}
+            </select>
+            <small className="sub-cell">الربط يسمح لحساب المعلمة بالدخول إلى بوابة المعلمة ورؤية حلقاتها فقط. المعلمة لا تربط نفسها؛ المدير فقط.</small>
+          </Field>
+
+          {editing && (
+            <Field label="حالة الحساب">
+              <select value={form.isActive ? 'active' : 'inactive'} onChange={(event) => update({ isActive: event.target.value === 'active' })}>
+                <option value="active">نشط</option>
+                <option value="inactive">معطّل</option>
+              </select>
+            </Field>
+          )}
+
+          {editing && (
+            <Field label="قفل الدخول" wide>
+              <label className="lock-toggle-row">
+                <input type="checkbox" checked={!!form.isLocked} onChange={(event) => update({ isLocked: event.target.checked })} />
+                قفل الحساب مؤقتًا (يمنع الدخول والتصرفات فورًا)
+              </label>
+              {form.isLocked && (
+                <input
+                  required
+                  maxLength={300}
+                  placeholder="سبب القفل — يظهر في سجل التدقيق"
+                  value={form.lockReason ?? ''}
+                  onChange={(event) => update({ lockReason: event.target.value })}
+                />
+              )}
+            </Field>
+          )}
+        </div>
+
+        <div className="permission-editor">
+          <div className="permission-editor-heading">
+            <strong>الصلاحيات</strong>
+            <div>
+              <button type="button" className="text-link" onClick={() => update({ permissionCodes: ctx.permissions.map((permission) => permission.code) })}>تحديد الكل</button>
+              <span>·</span>
+              <button type="button" className="text-link" onClick={() => update({ permissionCodes: [] })}>إلغاء الكل</button>
+            </div>
+          </div>
+          <div className="permission-groups">
+            {permissionGroups.map((group) => (
+              <fieldset key={group.label} className="permission-group">
+                <legend>{group.label}</legend>
+                {group.codes.map((code) => (
+                  <label key={code} className="permission-option">
+                    <input
+                      type="checkbox"
+                      checked={form.permissionCodes.includes(code)}
+                      onChange={(event) => update({
+                        permissionCodes: event.target.checked
+                          ? [...form.permissionCodes, code]
+                          : form.permissionCodes.filter((item) => item !== code),
+                      })}
+                    />
+                    <span>{knownPermissionNames[code] ?? code}</span>
+                  </label>
+                ))}
+              </fieldset>
+            ))}
+          </div>
+        </div>
+
+        <ModalActions saving={ctx.saving} onCancel={() => ctx.setUserModal(false)} saveLabel={editing ? 'حفظ التعديلات' : 'إنشاء الحساب'} />
+      </form>
+    </Modal>
+  )
 }

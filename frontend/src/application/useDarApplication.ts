@@ -14,6 +14,7 @@ import useDarAuth from './useDarAuth'
 import useStudentActions from './useStudentActions'
 import useTeacherActions from './useTeacherActions'
 import useCircleActions from './useCircleActions'
+import useUserActions from './useUserActions'
 import { downloadProfitSummary as exportProfitSummary } from './profitSummaryReport'
 import {
   getNextSessions,
@@ -175,6 +176,10 @@ export default function useDarApplication() {
   }
 
   const closeDetailLayers = () => { historyRequestRef.current += 1; teacherHistoryRequestRef.current += 1; circleRosterRequestRef.current += 1; setHistory(null); setSelectedStudent(null); setSelectedStudentPreview(null); setHistoryLoading(false); setSelectedTeacherDetails(null); setTeacherHistory(null); setTeacherHistoryLoading(false); setTeacherHistoryError(''); setSelectedCircle(null); setCircleRoster([]); setReportView(null) }
+  const { openUserCreate, openUserEdit, saveUser, deactivateUser } = useUserActions({
+    userForm, editingUser, setEditingUser, setUserForm, setUserModal, setSaving, setToast,
+    closeDetailLayers, loadUsers,
+  })
   const {
     openStudentCreate, duplicateStudent, openStudentEdit, saveStudent, changeStudentStatus, deleteStudent,
     openHistory, closeHistory, addStudentNote, deleteStudentNote,
@@ -301,11 +306,6 @@ export default function useDarApplication() {
     finally { setSaving(false) }
   }
   const deleteOperatingExpense = async (expense: OperatingExpense) => { if (!await moveRecordToTrash('operating-expense', expense.id, expense.description)) return; await loadOperatingExpenses() }
-
-  const openUserCreate = () => { closeDetailLayers(); setEditingUser(null); setUserForm({ username: '', displayName: '', password: '', isActive: true, permissionCodes: ['dashboard.read'] }); setUserModal(true) }
-  const openUserEdit = (user: AdminUser) => { closeDetailLayers(); setEditingUser(user); setUserForm({ id: user.id, username: user.username, displayName: user.displayName, password: '', isActive: user.isActive, permissionCodes: [...user.permissionCodes] }); setUserModal(true) }
-  const saveUser = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSaving(true); try { const payload = { ...userForm, password: userForm.password || null }; if (editingUser) await request(`/api/admin/users/${editingUser.id}`, { method: 'PUT', body: JSON.stringify(payload) }); else await request('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) }); setUserModal(false); await loadUsers(); setToast({ tone: 'success', text: editingUser ? 'تم تحديث الحساب وصلاحياته.' : 'تم إنشاء الحساب بالصلاحيات المحددة.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ الحساب.' }) } finally { setSaving(false) } }
-  const deactivateUser = async (user: AdminUser) => { if (!window.confirm(`تعطيل حساب «${user.displayName}»؟ لن يستطيع تسجيل الدخول بعد ذلك.`)) return; try { await request(`/api/admin/users/${user.id}`, { method: 'DELETE' }); await loadUsers(); setToast({ tone: 'success', text: 'تم تعطيل الحساب.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر تعطيل الحساب.' }) } }
 
   const filteredStudents = useMemo(() => getFilteredStudents(students, query, statusFilter), [students, query, statusFilter])
   const filteredTeachers = useMemo(() => getFilteredTeachers(teachers, query, teacherFilter), [teachers, query, teacherFilter])
