@@ -199,6 +199,8 @@ The first Git checkout needs the server deploy key (see §9).
 - [x] GitHub deploy key + `git pull`
 - [x] Restore drill (local and offsite dumps)
 - [x] Admin password changed; `/opt/dar/.initial-admin-password` deleted
+- [x] `/teacher` and `/supervisor` PWA routes → 200; teacher assets/manifest/service worker → 200
+- [x] Live migration 017 applied; teacher/supervisor/notifications tables present
 
 ---
 
@@ -237,4 +239,5 @@ git pull --ff-only
 - **Rotate the earlier Google OAuth grant** if the Drive config was authorized before the token exposure; re-authorize with the new dedicated client ID.
 - The two hardware stores and the Quran site are not deployed on this host yet.
 - The new Next.js UI is not built; the deployed frontend is the legacy React/Vite SPA.
-- Teacher/supervisor/notification APIs and the mobile PWA are implemented in code (migration 017, `Dar.Modules.Teaching`, `/teacher` and `/supervisor` entries). First production deploy, teacher/supervisor account creation, and linking are pending.
+- Teacher/supervisor/notification APIs and the mobile PWA are **live** (migration 017, `Dar.Modules.Teaching`, `/teacher` and `/supervisor`). Teacher records and account links, the supervisor account, payroll lock, and production E2E are pending.
+- Rollback artifacts: `/opt/dar/app/legacy.old.20261116-155934`, `/opt/dar/app/legacy.old.20261116-162127`, `/opt/dar/app/api.old.20261116-155934`. Migration 017 is additive; old binaries ignore it.

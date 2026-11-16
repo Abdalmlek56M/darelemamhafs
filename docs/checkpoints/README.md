@@ -37,7 +37,8 @@
 | 1.11.1 | [DNS-01, GitHub, fail2ban](host-deployment-1.1.md) | ✅ |
 | 1.11.2 | [Host backup + Google Drive offsite](host-backup-offsite-1.0.md) | ✅ verified restore |
 | 1.12.0 | [Teacher portal requirements](teacher-portal-requirements-1.0.md) | ✅ requirements + sample; owner approved with changes |
-| 1.14.0 | [Teacher portal implementation](teacher-portal-implementation-1.0.md) | ✅ first slice; production deploy pending |
+| 1.14.0 | [Teacher portal implementation](teacher-portal-implementation-1.0.md) | ✅ first slice |
+| 1.14.1 | [Teacher portal live deploy](teacher-portal-deploy-1.0.md) | ✅ migration + apps live; accounts pending |
 
 ## Next in order
 

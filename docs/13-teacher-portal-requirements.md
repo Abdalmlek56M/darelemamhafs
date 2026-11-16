@@ -1,6 +1,6 @@
 # RIGX Dar — Teacher Portal & Notification Requirements
 
-**Status:** requirements, sample, and first implementation slice (migration 017, scoped APIs, mobile `/teacher` and `/supervisor` PWA) are complete (16 Nov 2026). Production deployment and account setup are next.
+**Status:** requirements, sample, first implementation slice, and live deployment (migration 017, scoped APIs, mobile `/teacher` and `/supervisor` PWA) are complete (16 Nov 2026). Real account setup and production E2E are next.
 **Scope:** teacher accounts, supervisor account, live attendance, student attendance, teacher earnings, mobile-first UI, notification center.
 
 ---
@@ -331,6 +331,6 @@ The sample encodes: late start; a finish sheet with actual vs scheduled duration
 | **P4** | Supervisor dashboard + absent/unpaid | ✅ first slice; live/absences/unpaid/adjust |
 | **P5** | Notification center + dedupe/read state | ✅ open/resolved, read ≠ resolved, payment trigger |
 | **P6** | Payroll lock/approval + reports | pending |
-| **P7** | Full code review fixes + E2E + production deploy | pending |
+| **P7** | Full code review fixes + E2E + production deploy | deploy ✅; E2E/accounts pending |
 
 P1 is approved. P2 is in progress: migration 017 and the pay policy are done; scoped APIs and the PWA follow.
