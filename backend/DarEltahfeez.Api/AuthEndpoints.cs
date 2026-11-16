@@ -406,8 +406,8 @@ public static partial class AuthEndpoints
                 await using (var audit = new NpgsqlCommand("""
                     INSERT INTO audit_log(actor_user_id, actor_display_name, action_code, entity_type, entity_id, details, request_path, http_method, can_restore)
                     VALUES (@actor, @name, 'user.access.update', 'app_user', @id,
-                            jsonb_build_object('isLocked', @locked, 'teacherId', @teacher),
-                            '/api/admin/users/' || @id || '/access', 'PUT', FALSE);
+                            jsonb_build_object('isLocked', CAST(@locked AS boolean), 'teacherId', CAST(@teacher AS uuid)),
+                            '/api/admin/users/' || CAST(@id AS text) || '/access', 'PUT', FALSE);
                     """, connection, transaction))
                 {
                     audit.Parameters.AddWithValue("actor", actorId);

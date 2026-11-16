@@ -126,10 +126,13 @@ public static partial class AuthEndpoints
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["teacherId"] = ["المعلمة غير موجودة أو غير نشطة."] });
         }
 
-        await using (var linked = db.CreateCommand("SELECT EXISTS(SELECT 1 FROM app_users WHERE teacher_id=@teacher AND (@userId IS NULL OR id<>@userId));"))
+        var linkedSql = userId is null
+            ? "SELECT EXISTS(SELECT 1 FROM app_users WHERE teacher_id=@teacher);"
+            : "SELECT EXISTS(SELECT 1 FROM app_users WHERE teacher_id=@teacher AND id<>@userId);";
+        await using (var linked = db.CreateCommand(linkedSql))
         {
             linked.Parameters.AddWithValue("teacher", teacherId.Value);
-            AddNullable(linked, "userId", userId);
+            if (userId is not null) linked.Parameters.AddWithValue("userId", userId.Value);
             if ((bool)(await linked.ExecuteScalarAsync(ct) ?? false))
                 return Results.Conflict(new { message = "هذه المعلمة مرتبطة بحساب آخر." });
         }
