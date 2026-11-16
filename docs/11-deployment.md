@@ -239,5 +239,5 @@ git pull --ff-only
 - **Rotate the earlier Google OAuth grant** if the Drive config was authorized before the token exposure; re-authorize with the new dedicated client ID.
 - The two hardware stores and the Quran site are not deployed on this host yet.
 - The new Next.js UI is not built; the deployed frontend is the legacy React/Vite SPA.
-- Teacher/supervisor/notification APIs and the mobile PWA are **live** (migration 017, `Dar.Modules.Teaching`, `/teacher` and `/supervisor`). The temporary **supervisor** account is created (password file `/opt/dar/.supervisor-initial-password`, change it and delete the file). Teacher records/link, payroll lock, and production E2E are pending.
+- Teacher/supervisor/notification APIs and the mobile PWA are **live** (migration 017, `Dar.Modules.Teaching`, `/teacher` and `/supervisor`). The temporary **supervisor** account is created (password file `/etc/dar/supervisor-initial-password`, change it and delete the file). Teacher records/link, payroll lock, and production E2E are pending.
 - Rollback artifacts: `/opt/dar/app/legacy.old.20261116-155934`, `/opt/dar/app/legacy.old.20261116-162127`, `/opt/dar/app/api.old.20261116-155934`. Migration 017 is additive; old binaries ignore it.

@@ -22,7 +22,7 @@ Date: 16 Nov 2026
   - `/api/auth/me`, `/api/v1/auth/me`, `/api/v1/teacher/today` → 401 without a session.
   - Bad new-API login → 401.
 - Found and fixed the null `@userId` type inference in the teacher-link check plus typed JSON audit parameters (`485e9f3`); redeployed the legacy API and retested against a disposable DB.
-- Created a live **supervisor** account (`supervisor` / «المشرفة») with the supervisor permission bundle. Temporary password is at `/opt/dar/.supervisor-initial-password` (`root:root`, `600`); it must be changed and the file deleted after first login.
+- Created a live **supervisor** account (`supervisor` / «المشرفة») with the supervisor permission bundle. Temporary password is at `/etc/dar/supervisor-initial-password` (`root:root`, `600`); it must be changed and the file deleted after first login.
 - Live supervisor login → `/api/v1/supervisor/live` → `{sessions:[]}` and `/unpaid` → `{count:0}` (no operational data yet).
 
 ## Verified Before Swap
@@ -36,7 +36,7 @@ Date: 16 Nov 2026
 ## Pending
 
 1. Owner creates the real teacher records and links user accounts through **إدارة الحسابات** (teacher link + teacher permission bundle). The existing `asmaa` account has no permissions or teacher link yet.
-2. Owner changes the supervisor password from **إدارة الحسابات**, then deletes `/opt/dar/.supervisor-initial-password`.
+2. Owner changes the supervisor password from **إدارة الحسابات**, then deletes `/etc/dar/supervisor-initial-password`.
 3. Owner tests lock/unlock for the supervisor account.
 4. Payroll lock/approval and production E2E.
 5. First GitHub Actions run verification (Actions access still not available to the agent).
