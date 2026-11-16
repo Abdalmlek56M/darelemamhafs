@@ -172,3 +172,22 @@ Produce a **static visual sample** (no production wiring) covering:
 5. Supervisor live/absent/unpaid board.
 
 The owner approves or requests changes before any UI implementation.
+
+---
+
+## 7. Supervision + Admin UI Expansion (16 Nov 2026)
+
+The owner approved a full supervision/secretary workspace and an admin UI overhaul. See `docs/16-supervision-workspace-plan.md` for the permission matrix, scope, phases and commands.
+
+UI additions:
+
+- Supervisor/secretary tabs: overview, students, circles, teachers, attendance, requests, notifications, WhatsApp, reports.
+- Teacher detail: attendance rate, hours, overtime/undertime, notes, session history.
+- Student profile: attendance, subscription status (permission-gated), notes, guardian/WhatsApp.
+- Financial surfaces are **removed**, not zeroed, when the permission is off.
+- Admin: responsive sidebar + mobile bottom nav; Users page shows teacher link, lock, scope and permission bundles; notifications page; reports; backup/system health.
+- Teacher: weekly calendar, history, previous login sessions, requests, offline queue.
+- Remove the `v0.8.25.0` label from the UI.
+- Replace hidden-only-active mobile nav with a full, touch-friendly navigation.
+
+Phase A1 starts with financial visibility gating, self-password permission, no-early-start, version removal, clearer notes and teacher login memory.

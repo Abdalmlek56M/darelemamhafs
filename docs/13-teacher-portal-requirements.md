@@ -334,3 +334,25 @@ The sample encodes: late start; a finish sheet with actual vs scheduled duration
 | **P7** | Full code review fixes + E2E + production deploy | deploy ✅; E2E/accounts pending |
 
 P1 is approved. P2 is in progress: migration 017 and the pay policy are done; scoped APIs and the PWA follow.
+
+---
+
+## 12. Supervision Workspace Expansion (16 Nov 2026)
+
+The owner approved the full supervision/secretary expansion. The detailed plan, permission matrix, scope model, phases and commands are in `docs/16-supervision-workspace-plan.md`.
+
+Key additions:
+
+- Supervisor/secretary workspace: students, circles, teachers, attendance, notes, requests, notifications, WhatsApp and reports.
+- Teacher detail: attendance rate, hours, overtime/undertime, notes, student counts, session history.
+- Student profile: attendance, subscription status (permission-gated), notes, guardian/WhatsApp.
+- Scope by circle/teacher; no scope rows = all.
+- Financial surfaces disappear entirely without the financial permission; never show zero/empty money.
+- `account.password.self` permission; default off, admin resets or grants.
+- No start before the scheduled Cairo time; late start is allowed and recorded.
+- Admin/supervisor can edit notes during and after submission, with audit; payroll lock later.
+- Teacher weekly calendar, history, previous login sessions, absence/cancellation/correction requests.
+- Admin notification center, daily alert sync, WhatsApp sender (`wa.me`, no paid API), report/PDF review.
+- Remove the `v0.8.25.0` label; full responsive admin/supervisor UI.
+
+Start with Phase A1: financial visibility gating, password permission, no-early-start, version removal, clearer notes, teacher login memory.

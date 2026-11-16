@@ -217,6 +217,7 @@ This section now covers the **first implementation slice**: migration 017, `Dar.
 - **PWA offline queue:** not implemented; a failed roster submit needs retry/queue.
 - **Forced password change:** the supervisor temp password must be changed manually; add a `must_change_password` flow.
 - **Admin notification center:** the supervisor/teacher notification API is ready, but the legacy admin console has no dedicated notification center; the owner can view alerts through a supervisor account or the API for now.
+- **Supervision expansion (approved):** scoped student/circle/teacher lists, teacher attendance rate/hours/notes, teacher absences, student/teacher notes, absence/cancellation/correction requests, admin notification center, WhatsApp sender, weekly teacher calendar, login history, offline queue, PDF/report redesign, full admin/supervisor responsive UI, and financial UI gating. The full plan is in `docs/16-supervision-workspace-plan.md`.
 
 ### Verdict
 

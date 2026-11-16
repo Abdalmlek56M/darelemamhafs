@@ -39,6 +39,7 @@
 | 1.12.0 | [Teacher portal requirements](teacher-portal-requirements-1.0.md) | ✅ requirements + sample; owner approved with changes |
 | 1.14.0 | [Teacher portal implementation](teacher-portal-implementation-1.0.md) | ✅ first slice |
 | 1.14.1 | [Teacher portal live deploy](teacher-portal-deploy-1.0.md) | ✅ migration + apps live; accounts pending |
+| 1.16.0 | [Supervision workspace plan](supervision-workspace-plan-1.0.md) | ✅ captured; implementation starts at A1 |
 
 ## Next in order
 
