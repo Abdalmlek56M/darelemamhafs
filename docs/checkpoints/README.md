@@ -40,6 +40,7 @@
 | 1.14.0 | [Teacher portal implementation](teacher-portal-implementation-1.0.md) | ✅ first slice |
 | 1.14.1 | [Teacher portal live deploy](teacher-portal-deploy-1.0.md) | ✅ migration + apps live; accounts pending |
 | 1.16.0 | [Supervision workspace plan](supervision-workspace-plan-1.0.md) | ✅ captured; implementation starts at A1 |
+| 1.17.0 | [Supervision A1 live deploy](supervision-a1-deploy-1.0.md) | ✅ live; supervisor permissions granted, owner password/teacher-link pending |
 
 ## Next in order
 

@@ -1,7 +1,7 @@
 # Supervision Workspace, Communications and Admin UX — Plan
 
 **Date:** 16 Nov 2026
-**Status:** A1 implemented and verified locally; deployment pending. Phases A2–E not started.
+**Status:** A1 is live (commit `b50fd94`, migration 018, deploy 2026-11-17 01:12). Phases A2–E not started.
 **Owner approval:** all previously listed gaps and suggestions are approved. Manual adjustments, supervisor scope, offline handling, calendar, requests, admin notifications, WhatsApp sender, reports and the full admin/supervisor UI are in scope.
 
 Related: `docs/13-teacher-portal-requirements.md`, `docs/14-ui-audit-and-mobile-direction.md`, `docs/15-legacy-reuse-audit.md`, `docs/11-deployment.md`.
@@ -387,3 +387,11 @@ Verification (disposable PostgreSQL 17 + local API):
 - Supervisor live returned `payableAmount=null` without `finance.read`; `/supervisor/unpaid` returned `403`; adjust with a manual amount returned `403`; adjust without an amount succeeded with `payableAmount=null`.
 - After granting `supervisor.unpaid` + `finance.read`: `/supervisor/unpaid` returned `200`, and live returned `payableAmount=37.50` for the adjusted 45 minutes at 50/hour.
 - Build: `dotnet build` 0 warnings/0 errors; `dotnet test` 16 unit + 5 integration passed; frontend `tsc -b && vite build` passed.
+
+Deployed live on 17 Nov 2026:
+
+- Pre/post backups `dar-20261117-010642.dump` and `dar-20261117-011725.dump` (214 TOC entries each).
+- Migration 018 applied; ledger 18. Old artifacts retained at `api.old.20261117-011212` / `legacy.old.20261117-011212`.
+- Live `supervisor` account granted the 13 new default supervision permissions (19 total); `account.password.self` and `finance.read` remain off.
+- Smoke passed: ready/ping, `/`, `/teacher`, `/supervisor`, manifests, 401s, supervisor login + live + unpaid, change-password 403 without the permission, version label absent.
+- See `docs/checkpoints/supervision-a1-deploy-1.0.md`.
