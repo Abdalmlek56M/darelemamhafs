@@ -49,6 +49,7 @@ type CircleActionsOptions = {
   setReportView: (value: ReportSnapshot | null) => void
   historyRequestRef: MutableRefObject<number>
   teacherHistoryRequestRef: MutableRefObject<number>
+  circleRosterRequestRef: MutableRefObject<number>
   loadCircles: () => Promise<void>
   loadTeachers: () => Promise<void>
   loadScheduleSlots: () => Promise<void>
@@ -92,6 +93,7 @@ export default function useCircleActions({
   setReportView,
   historyRequestRef,
   teacherHistoryRequestRef,
+  circleRosterRequestRef,
   loadCircles,
   loadTeachers,
   loadScheduleSlots,
@@ -151,16 +153,19 @@ export default function useCircleActions({
       return
     }
     setSaving(true)
+    const canEditFinancials = has('finance.read') && has('finance.edit')
     try {
       const savedCircle = await request<{ id: string }>(editingCircle ? `/api/circles/${editingCircle.id}` : '/api/circles', {
         method: editingCircle ? 'PUT' : 'POST',
         body: JSON.stringify({
-          ...circleForm,
           circleCode: circleForm.circleCode.trim() || null,
+          name: circleForm.name,
           teacherId: circleForm.teacherId || null,
-          ...(has('finance.read') && has('finance.edit') ? { monthlyFee: Number(circleForm.monthlyFee) } : {}),
           scheduleText: circleForm.scheduleText.trim() || null,
+          isActive: circleForm.isActive,
           startsOn: circleForm.startsOn,
+          // The form stores the fee as text; send a number only when the caller may edit finance.
+          ...(canEditFinancials ? { monthlyFee: Number(circleForm.monthlyFee) } : {}),
         }),
       })
       const scheduleErrors: string[] = []
@@ -218,15 +223,20 @@ export default function useCircleActions({
     setPaymentModal(false)
     setChargeModal(false)
     setUserModal(false)
+    const rosterRequestId = ++circleRosterRequestRef.current
     setSelectedCircle(circle)
+    setCircleRoster([])
     setCircleDetailsLoading(true)
     setPage('circles')
     try {
-      setCircleRoster(await request<CircleStudent[]>(`/api/circles/${circle.id}/students`))
+      const roster = await request<CircleStudent[]>(`/api/circles/${circle.id}/students`)
+      if (circleRosterRequestRef.current === rosterRequestId) setCircleRoster(roster)
     } catch (error) {
-      setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر تحميل الطلاب في الحلقة.' })
+      if (circleRosterRequestRef.current === rosterRequestId) {
+        setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر تحميل الطلاب في الحلقة.' })
+      }
     } finally {
-      setCircleDetailsLoading(false)
+      if (circleRosterRequestRef.current === rosterRequestId) setCircleDetailsLoading(false)
     }
   }
 

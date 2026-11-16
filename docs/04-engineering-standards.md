@@ -92,9 +92,8 @@ Features/ApprovePayroll/
 
 ### 2.6 Persistence
 
-- EF Core configurations per entity.
-- No lazy loading.
-- `AsNoTracking()` for reads.
+- Dapper repositories with explicit SQL; **no EF Core** in the target path.
+- No lazy loading or implicit graph loading.
 - Project to DTOs; don't load graphs unnecessarily.
 - Transactions for multi-step writes.
 - Row locks for money/stock-like races.

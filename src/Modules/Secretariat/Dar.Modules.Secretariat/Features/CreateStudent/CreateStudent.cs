@@ -44,7 +44,9 @@ public sealed class CreateStudentHandler(IStudentRepository repository)
             Phone = Normalize(request.Phone),
             GuardianName = Normalize(request.GuardianName),
             GuardianPhone = Normalize(request.GuardianPhone),
-            JoinedOn = request.JoinedOn == default ? DateOnly.FromDateTime(DateTime.UtcNow) : request.JoinedOn,
+            // The Dar operates in Africa/Cairo; DateTime.Today avoids the UTC date rolling
+            // back to "yesterday" for students created between midnight and 02:00 local time.
+            JoinedOn = request.JoinedOn == default ? DateOnly.FromDateTime(DateTime.Today) : request.JoinedOn,
             Status = request.Status,
             Notes = Normalize(request.Notes)
         };

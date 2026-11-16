@@ -361,10 +361,13 @@ public static partial class DomainEndpoints
                         WHEN teacher_attendance.teacher_id IS DISTINCT FROM EXCLUDED.teacher_id THEN EXCLUDED.hourly_rate_snapshot
                         ELSE teacher_attendance.hourly_rate_snapshot
                     END,
-                    scheduled_start=EXCLUDED.scheduled_start,duration_minutes=EXCLUDED.duration_minutes,status=EXCLUDED.status,note=EXCLUDED.note,
+                    scheduled_start=EXCLUDED.scheduled_start,
+                    -- Preserve an explicitly corrected actual duration; re-marking a session
+                    -- must not silently reset payroll to the scheduled slot length.
+                    duration_minutes=teacher_attendance.duration_minutes,status=EXCLUDED.status,note=EXCLUDED.note,
                     marked_by=EXCLUDED.marked_by,marked_at=now(),
                     payable_amount=CASE WHEN EXCLUDED.status='present' THEN
-                        EXCLUDED.duration_minutes * CASE
+                        teacher_attendance.duration_minutes * CASE
                             WHEN teacher_attendance.teacher_id IS DISTINCT FROM EXCLUDED.teacher_id THEN EXCLUDED.hourly_rate_snapshot
                             ELSE teacher_attendance.hourly_rate_snapshot
                         END / 60.0

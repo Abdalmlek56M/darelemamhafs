@@ -1,6 +1,7 @@
-﻿{
+{
   "version": "0.8.25.0",
-  "entrypoint": "RUN_TESTS.bat",
+  "entrypoint": null,
+  "entrypoint_note": "Test Center GUI is archived. Run individual runners under tests/runners or the xUnit projects.",
   "tests": [
     {
       "id": "SYS-TEST-01",
@@ -260,7 +261,7 @@
         "Prepared Dar PostgreSQL 17 cluster on 127.0.0.1:55432",
         "Validated local database secrets"
       ],
-      "impact": "Creates a uniquely named disposable database, applies all 12 SQL migrations, tests pause/resume, full-month pause, later withdrawal, legacy rows, inclusive active end dates and ending an already-paused enrollment using synthetic rows inside a rolled-back transaction, then drops only that disposable database; never connects to or changes production Dar rows."
+      "impact": "Creates a uniquely named disposable database, applies all 14 SQL migrations, tests pause/resume, full-month pause, later withdrawal, legacy rows, inclusive active end dates and ending an already-paused enrollment using synthetic rows inside a rolled-back transaction, then drops only that disposable database; never connects to or changes production Dar rows."
     },
     {
       "id": "SCH-TEST-01",
@@ -282,7 +283,7 @@
         "Local validated database secrets",
         "Verified PostgreSQL client binaries"
       ],
-      "impact": "creates a unique disposable database, applies the current 12 SQL migrations, runs synthetic timetable cases inside a rolled-back transaction, then drops only that database; never connects to or changes the production Dar database"
+      "impact": "creates a unique disposable database, applies the current 14 SQL migrations, runs synthetic timetable cases inside a rolled-back transaction, then drops only that database; never connects to or changes the production Dar database"
     },
     {
       "id": "SCH-TEST-03",
@@ -338,7 +339,7 @@
         "Built .NET 10 API DLL and React wwwroot assets",
         "Ports 5080, 5081 and 5082 free"
       ],
-      "impact": "Creates a unique dar_functional_test_* database, applies all 12 SQL migrations, starts a narrowly gated API child on 127.0.0.1:5082 connected only to that disposable database, exercises student/enrollment/attendance/finance API workflows and permissions, reads production only for a before/after logical signature, stops the exact API child, verifies port release, then drops only the allow-listed disposable database. Run individually; it is skipped by Run All.",
+      "impact": "Creates a unique dar_functional_test_* database, applies all 14 SQL migrations, starts a narrowly gated API child on 127.0.0.1:5082 connected only to that disposable database, exercises student/enrollment/attendance/finance API workflows and permissions, reads production only for a before/after logical signature, stops the exact API child, verifies port release, then drops only the allow-listed disposable database. Run individually; it is skipped by Run All.",
       "interactive": true
     },
     {
@@ -349,7 +350,7 @@
       "requires": [
         "Windows PowerShell 5.1"
       ],
-      "impact": "Read-only source/PowerShell AST inspection. Verifies the API test mode is restricted to loopback port 5082, PostgreSQL 17 port 55432, dar_app and dar_functional_test_* databases; verifies the runner uses a unique disposable database, all 12 migrations, production before/after signatures, guarded cleanup and expected API/finance scenarios. Does not start services or connect to PostgreSQL."
+      "impact": "Read-only source/PowerShell AST inspection. Verifies the API test mode is restricted to loopback port 5082, PostgreSQL 17 port 55432, dar_app and dar_functional_test_* databases; verifies the runner uses a unique disposable database, all 14 migrations, production before/after signatures, guarded cleanup and expected API/finance scenarios. Does not start services or connect to PostgreSQL."
     },
     {
       "id": "OPS-SRC-02",
@@ -382,7 +383,7 @@
         "Built .NET 10 API DLL and runtime wwwroot in this exact project folder",
         "Ports 5080, 5081 and 5082 free"
       ],
-      "impact": "Creates only a strict dar_functional_test_<16 hex> database, applies all 12 migrations, starts a gated child API on 127.0.0.1:5082, tests valid/invalid receipt upload and authorized receipt retrieval, finance.create-only redaction, operating and advertising expense permissions and month proration, collection-report snapshot immutability after a later payment, and production before/after logical signature equality. Stops only its child API and drops only the allow-listed disposable database after confirmed port release. Run individually; skipped by Run All.",
+      "impact": "Creates only a strict dar_functional_test_<16 hex> database, applies all 14 migrations, starts a gated child API on 127.0.0.1:5082, tests valid/invalid receipt upload and authorized receipt retrieval, finance.create-only redaction, operating and advertising expense permissions and month proration, collection-report snapshot immutability after a later payment, and production before/after logical signature equality. Stops only its child API and drops only the allow-listed disposable database after confirmed port release. Run individually; skipped by Run All.",
       "interactive": true,
       "run_all": "skipped by design; isolated API listener and database acceptance must run individually"
     }

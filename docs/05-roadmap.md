@@ -474,8 +474,14 @@
 | Phase | Status |
 |---|---|
 | 0.1 Foundation | ✅ Done |
-| 0.2 Intake | ⏳ Next |
-| 0.3+ | Pending |
+| 0.2 Intake | ✅ Done |
+| 0.3 Baseline | 🟡 Partial (screenshots pending) |
+| 0.4 Audit | ✅ Done |
+| 1.5.1 Legacy backend split | 🟡 `DomainEndpoints` + `SystemAdminEndpoints` partials done |
+| 1.5.2 Frontend split | ✅ All frontend files under 400 lines |
+| 2.x New .NET foundation | 🟡 Identity + Students + OpenAPI + migrations done |
+| 3.x Module replacement | ⏳ Next |
+| 6.5 Host + domain launch | ⏳ Pending — final goal |
 
 ---
 

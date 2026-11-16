@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $localPostgresPath = Join-Path $projectRoot 'tools\LocalPostgres.ps1'
 if (-not (Test-Path -LiteralPath $localPostgresPath -PathType Leaf)) { throw 'LocalPostgres.ps1 is missing.' }
@@ -176,9 +176,9 @@ try {
             '012_teacher_schedule_no_overlap'
         )
         if (@($productionBefore.AppliedMigrations).Count -ne $expectedCurrentMigrations.Count -or (@($productionBefore.AppliedMigrations) -join '|') -cne ($expectedCurrentMigrations -join '|')) {
-            throw ('The current Dar database is not at the expected 12-migration release schema. Applied=[' + (@($productionBefore.AppliedMigrations) -join ', ') + ']. Start Dar once to apply the supported migrations before creating the acceptance backup.')
+            throw ('The current Dar database is not at the expected 14-migration release schema. Applied=[' + (@($productionBefore.AppliedMigrations) -join ', ') + ']. Start Dar once to apply the supported migrations before creating the acceptance backup.')
         }
-        Write-Host ("PASS: Production database signature captured. Tables={0}; Migrations={1}/12; RequiredFunctions={2}; RequiredTriggers={3}." -f $productionBefore.TableCount,$productionBefore.AppliedMigrationCount,$productionBefore.RequiredFunctionCount,$productionBefore.RequiredTriggerCount)
+        Write-Host ("PASS: Production database signature captured. Tables={0}; Migrations={1}/14; RequiredFunctions={2}; RequiredTriggers={3}." -f $productionBefore.TableCount,$productionBefore.AppliedMigrationCount,$productionBefore.RequiredFunctionCount,$productionBefore.RequiredTriggerCount)
 
         $suffix = [Guid]::NewGuid().ToString('N').Substring(0,16)
         $restoreTestDatabase = "dar_restore_test_$suffix"
@@ -196,8 +196,8 @@ try {
         if ($snapshotDifferences.Count -gt 0) {
             throw ('The restored backup does not match the current read-only Dar snapshot. ' + ($snapshotDifferences -join ' | ') + '. Create a new full backup while operations are paused, close Dar, and rerun Test 8 with that archive.')
         }
-        Write-Host ("PASS: Restore matches current production snapshot. Tables={0}; RequiredTables={1}; ForeignKeys={2}; RequiredForeignKeys={3}; RequiredFunctions={4}; RequiredTriggers={5}; Migrations={6}/12; Size={7} bytes." -f $restoreReport.TableCount,$restoreReport.RequiredTableCount,$restoreReport.ForeignKeyCount,$restoreReport.RequiredForeignKeyCount,$restoreReport.RequiredFunctionCount,$restoreReport.RequiredTriggerCount,$restoreReport.AppliedMigrationCount,$restoreReport.DatabaseSizeBytes)
-        Write-Host 'PASS: Every public base-table row count and the complete 12-migration history match the current Dar database.'
+        Write-Host ("PASS: Restore matches current production snapshot. Tables={0}; RequiredTables={1}; ForeignKeys={2}; RequiredForeignKeys={3}; RequiredFunctions={4}; RequiredTriggers={5}; Migrations={6}/14; Size={7} bytes." -f $restoreReport.TableCount,$restoreReport.RequiredTableCount,$restoreReport.ForeignKeyCount,$restoreReport.RequiredForeignKeyCount,$restoreReport.RequiredFunctionCount,$restoreReport.RequiredTriggerCount,$restoreReport.AppliedMigrationCount,$restoreReport.DatabaseSizeBytes)
+        Write-Host 'PASS: Every public base-table row count and the complete 14-migration history match the current Dar database.'
         foreach ($tableName in @('app_users','students','teachers','circles','circle_enrollments','monthly_charges','payments','student_attendance','teacher_attendance')) {
             if ($restoreReport.TableCounts.Contains($tableName)) { Write-Host ("  {0}: {1} rows" -f $tableName,$restoreReport.TableCounts[$tableName]) }
         }

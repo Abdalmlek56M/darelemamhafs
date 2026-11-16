@@ -97,6 +97,7 @@ export default function useDarApplication() {
   const [historyNote, setHistoryNote] = useState('')
   const historyRequestRef = useRef(0)
   const teacherHistoryRequestRef = useRef(0)
+  const circleRosterRequestRef = useRef(0)
   const [selectedCircle, setSelectedCircle] = useState<Circle | null>(null)
   const [circleDetailsLoading, setCircleDetailsLoading] = useState(false)
   const [reportView, setReportView] = useState<ReportSnapshot | null>(null)
@@ -149,9 +150,17 @@ export default function useDarApplication() {
     setAdvertisingExpenses, setOperatingExpenses, setCollections, setReports, setUsers, setPermissions,
   })
 
+  const clearSessionData = () => {
+    setStudents([]); setTeachers([]); setCircles([]); setScheduleSlots([]); setAttendanceRows([])
+    setStudentAttendanceSummaries([]); setAdvertisingExpenses([]); setOperatingExpenses([])
+    setCollections([]); setReports([]); setUsers([]); setPermissions([]); setCircleRoster([])
+    circleRosterRequestRef.current += 1
+    setSelectedTeacherDetails(null); setTeacherHistory(null); setTeacherHistoryLoading(false); setTeacherHistoryError('')
+    setSelectedCircle(null); setCircleDetailsLoading(false); setReportView(null)
+  }
   const { setup, setSetup, login, setLogin, doSetup, doLogin, quickLogin, logout } = useDarAuth({
     setSession, setFirstPage, setGate, setPage, setSaving, setToast, setBranding,
-    setHistory, setSelectedStudent, setSelectedStudentPreview,
+    setHistory, setSelectedStudent, setSelectedStudentPreview, onSessionCleared: clearSessionData,
   })
   useEffect(() => { if (gate === 'ready' && session) void refreshAll() }, [gate, session?.id])
   useEffect(() => { if (gate !== 'ready' || !session) return; if (has('finance.read')) { void loadCollections(currentMonthValue); void loadAdvertisingExpenses(currentMonthValue); void loadOperatingExpenses(currentMonthValue); if (page === 'payments') void loadReports(currentMonthValue) } }, [gate, session?.id, page, currentMonthValue, has, loadCollections, loadReports, loadAdvertisingExpenses, loadOperatingExpenses])
@@ -165,7 +174,7 @@ export default function useDarApplication() {
     catch (error) { setToast({tone:'error',text:error instanceof Error ? error.message : 'تعذر نقل السجل إلى سلة المهملات.'}); return false }
   }
 
-  const closeDetailLayers = () => { historyRequestRef.current += 1; teacherHistoryRequestRef.current += 1; setHistory(null); setSelectedStudent(null); setSelectedStudentPreview(null); setHistoryLoading(false); setSelectedTeacherDetails(null); setTeacherHistory(null); setTeacherHistoryLoading(false); setTeacherHistoryError(''); setSelectedCircle(null); setReportView(null) }
+  const closeDetailLayers = () => { historyRequestRef.current += 1; teacherHistoryRequestRef.current += 1; circleRosterRequestRef.current += 1; setHistory(null); setSelectedStudent(null); setSelectedStudentPreview(null); setHistoryLoading(false); setSelectedTeacherDetails(null); setTeacherHistory(null); setTeacherHistoryLoading(false); setTeacherHistoryError(''); setSelectedCircle(null); setCircleRoster([]); setReportView(null) }
   const {
     openStudentCreate, duplicateStudent, openStudentEdit, saveStudent, changeStudentStatus, deleteStudent,
     openHistory, closeHistory, addStudentNote, deleteStudentNote,
@@ -192,7 +201,7 @@ export default function useDarApplication() {
     setEditingCircle, setCircleForm, setCircleModal, setStudentModal, setTeacherModal, setEnrollmentModal, setPaymentModal,
     setChargeModal, setUserModal, setSelectedCircle, setCircleDetailsLoading, setCircleRoster, setPage, setHistory,
     setHistoryLoading, setSelectedStudent, setSelectedStudentPreview, setSelectedTeacherDetails, setTeacherHistory,
-    setTeacherHistoryLoading, setTeacherHistoryError, setReportView, historyRequestRef, teacherHistoryRequestRef,
+    setTeacherHistoryLoading, setTeacherHistoryError, setReportView, historyRequestRef, teacherHistoryRequestRef, circleRosterRequestRef,
     loadCircles, loadTeachers, loadScheduleSlots, loadAttendance, loadAdvertisingExpenses, loadOperatingExpenses,
   })
 

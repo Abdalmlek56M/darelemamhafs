@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 function Read-Source([string]$RelativePath) {
@@ -33,7 +33,7 @@ $checks = @(
     @{Name='Financial artifact runner uses the dedicated functional-acceptance gate and loopback port 5082'; Pass=$runner.Contains("DAR_ISOLATED_FUNCTIONAL_ACCEPTANCE = '1'") -and $runner.Contains('$apiBase = ''http://127.0.0.1:5082''')},
     @{Name='Financial artifact runner restricts its database to a unique dar_functional_test name'; Pass=$runner.Contains("'dar_functional_test_' + $suffix") -and $runner.Contains('^dar_functional_test_[a-f0-9]{16}$')},
     @{Name='Financial artifact runner assigns verified PostgreSQL runtime before its first identity probe'; Pass=$runner.Contains('$script:DarPgBin = [string]$pgBin') -and $runner.IndexOf('$script:DarPgBin = [string]$pgBin') -lt $runner.IndexOf('Test-DarExpectedPostgresIdentity -Secrets $secrets -Paths $paths')},
-    @{Name='Financial artifact runner applies all 12 migrations before isolated API startup'; Pass=$runner.Contains('$migrationFiles.Count -ne 12') -and $runner.Contains('Disposable database received all 12 migrations before API startup.')},
+    @{Name='Financial artifact runner applies all 14 migrations before isolated API startup'; Pass=$runner.Contains('$migrationFiles.Count -ne 14') -and $runner.Contains('Disposable database received all 14 migrations before API startup.')},
     @{Name='Financial artifact runner compares production logical signatures before and after'; Pass=$runner.Contains('$productionSignatureBefore') -and $runner.Contains('$productionSignatureAfter') -and $runner.Contains('Production Dar logical signature is unchanged after financial-artifacts acceptance.')},
     @{Name='Financial artifact runner drops only the strict disposable database allow-list'; Pass=$runner.Contains('$databaseName -match ''^dar_functional_test_[a-f0-9]{16}$''') -and $runner.Contains('DROP DATABASE IF EXISTS $databaseName WITH (FORCE)')},
     @{Name='Financial artifact runner preserves its database if API process or port cleanup cannot be confirmed'; Pass=$runner.Contains('preserving the disposable database instead of dropping it') -and $runner.Contains('$apiProcessStopped') -and $runner.Contains('$portReleased')},

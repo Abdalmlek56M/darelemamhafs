@@ -77,6 +77,15 @@ public static partial class SystemAdminEndpoints
             if (SystemAdminService.FinancialTrashTypes.Contains(type!))
                 return Results.Conflict(new { message = "لا يمكن الحذف النهائي لسجل مالي أو تاريخي. استخدم إلغاءً أو قيدًا عكسيًا بدل الحذف." });
             if (!SystemAdminService.TrashTables.TryGetValue(type!, out var table)) return Results.BadRequest(new { message = "نوع السجل غير مدعوم." });
+            // A student/circle/teacher parent may own financial children that were moved to trash with it.
+            // Purging the parent must never cascade-delete those children.
+            await using (var financialChildren = new NpgsqlCommand("SELECT EXISTS(SELECT 1 FROM trash_items WHERE parent_trash_id=@id AND restored_at IS NULL AND purged_at IS NULL AND entity_type = ANY(@types));", conn, tx))
+            {
+                financialChildren.Parameters.AddWithValue("id", id);
+                financialChildren.Parameters.Add("types", NpgsqlDbType.Array | NpgsqlDbType.Text).Value = SystemAdminService.FinancialTrashTypes.ToArray();
+                if ((bool)(await financialChildren.ExecuteScalarAsync(ct) ?? false))
+                    return Results.Conflict(new { message = "لا يمكن الحذف النهائي لسجل رئيسي له سجلات مالية أو تاريخية تابعة. استعد السجل أو أبقِه في سلة المهملات." });
+            }
             await PurgeRelatedTrashRecordsAsync(conn, tx, id, ct);
             await using (var del = new NpgsqlCommand($"DELETE FROM public.{table} WHERE id=@id AND is_trashed=TRUE;", conn, tx)) { del.Parameters.AddWithValue("id", entityId); if (await del.ExecuteNonQueryAsync(ct) == 0) return Results.Conflict(new { message = "السجل غير موجود أو لم يُنقل إلى المهملات." }); }
             await using (var mark = new NpgsqlCommand("UPDATE trash_items SET purged_at=now(),purge_error=NULL WHERE id=@id;", conn, tx)) { mark.Parameters.AddWithValue("id", id); await mark.ExecuteNonQueryAsync(ct); }
@@ -197,6 +206,8 @@ public static partial class SystemAdminEndpoints
         }
         foreach (var child in children)
         {
+            if (SystemAdminService.FinancialTrashTypes.Contains(child.Type))
+                throw new InvalidOperationException("لا يمكن الحذف النهائي لسجل مالي أو تاريخي تابع.");
             await using (var delete = new NpgsqlCommand($"DELETE FROM public.{child.Table} WHERE id=@id AND is_trashed=TRUE;", conn, tx))
             { delete.Parameters.AddWithValue("id", child.Id); await delete.ExecuteNonQueryAsync(ct); }
             await using (var mark = new NpgsqlCommand("UPDATE trash_items SET purged_at=now(),purge_error=NULL WHERE parent_trash_id=@parent AND entity_type=@type AND entity_id=@id AND restored_at IS NULL;", conn, tx))

@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $localDbPath = Join-Path $projectRoot 'tools\LocalPostgres.ps1'
 $restoreTestPath = Join-Path $PSScriptRoot 'Verify-BackupRestoreIsolation.ps1'
@@ -39,7 +39,7 @@ $checks = @(
     @{ Name='Isolation test uses a uniquely named temporary restore database'; Text=$runner; Pattern='dar_restore_test_\$suffix' },
     @{ Name='Restore isolation checks the live production API listener before reading the production signature'; Text=$runner; Pattern='Test-DarTcpPortListening\s+-Port\s+5080' },
     @{ Name='Restore isolation reports the listener owner when production API is active'; Text=$runner; Pattern='Get-ListeningProcessSummary\s+5080' },
-    @{ Name='Restore isolation reports production migration version and required lifecycle functions'; Text=$runner; Pattern='Production database signature captured\. Tables=\{0\}; Migrations=\{1\}/12; RequiredFunctions=\{2\}; RequiredTriggers=\{3\}' },
+    @{ Name='Restore isolation reports production migration version and required lifecycle functions'; Text=$runner; Pattern='Production database signature captured\. Tables=\{0\}; Migrations=\{1\}/14; RequiredFunctions=\{2\}; RequiredTriggers=\{3\}' },
     @{ Name='Test Center preflight blocks restore while production API port 5080 is listening'; Text=$center; Pattern='Test-TcpPort\s+5080' },
     @{ Name='Restore isolation starts only an existing cluster and never initializes a new one'; Text=$runner; Pattern='PG_VERSION.*Start-DarPostgresServer|Start-DarPostgresServer.*PG_VERSION' },
     @{ Name='Restore isolation uses the shared PostgreSQL startup mutex'; Text=$runner; Pattern='Global\\DarEltahfeez_Postgres_55432' },
@@ -47,7 +47,7 @@ $checks = @(
     @{ Name='Test Center blocks restore test while API port 5080 is listening'; Text=$center; Pattern="Test-TcpPort 5080" },
     @{ Name='Test cleanup drops only its own disposable database using standalone DROP DATABASE WITH FORCE'; Text=$runner; Pattern='DROP DATABASE IF EXISTS \$Name WITH \(FORCE\)' },
     @{ Name='Isolation test compares production database before and after'; Text=$runner; Pattern='productionSignatureBefore.*productionSignatureAfter' },
-    @{ Name='Restore acceptance requires the exact current 12-migration schema'; Text=$runner; Pattern='expectedCurrentMigrations[\s\S]*?012_teacher_schedule_no_overlap[\s\S]*?AppliedMigrations' },
+    @{ Name='Restore acceptance requires the exact current 14-migration schema'; Text=$runner; Pattern='expectedCurrentMigrations[\s\S]*?012_teacher_schedule_no_overlap[\s\S]*?AppliedMigrations' },
     @{ Name='Restore acceptance requires a completed sidecar manifest for the selected backup'; Text=$localDb; Pattern='function Get-DarVerifiedBackupManifest[\s\S]*?Status -cne .completed.[\s\S]*?FileName' },
     @{ Name='Restore failure emits a durable FAIL marker without Write-Error terminating first'; Text=$runner; Pattern='Write-Host \("FAIL: Backup restore isolation test failed:[\s\S]*?Write-Output .DAR_TEST_RESULT=FAIL.[\s\S]*?exit 1' },
     @{ Name='Restore acceptance verifies backup size and SHA-256 against manifest'; Text=$localDb; Pattern='Get-DarVerifiedBackupManifest[\s\S]*?FileSizeBytes[\s\S]*?Get-FileHash[\s\S]*?manifest\.Sha256' },

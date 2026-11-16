@@ -65,7 +65,7 @@ try {
     Invoke-DarPgTool -Tool 'psql' -Arguments @('-h', '127.0.0.1', '-p', [string]$secrets.Port, '-U', $secrets.AppUser, '-d', $databaseName, '-v', 'ON_ERROR_STOP=1', '-c', "CREATE TABLE public.schema_migrations(version VARCHAR(120) PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());") -Password $secrets.AppPassword | Out-Null
 
     $migrationFiles = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'database') -Filter '*.sql' -File | Sort-Object Name)
-    if ($migrationFiles.Count -ne 12) { throw "Expected 12 database migrations in this candidate; found $($migrationFiles.Count)." }
+    if ($migrationFiles.Count -ne 14) { throw "Expected 14 database migrations in this candidate; found $($migrationFiles.Count)." }
     foreach ($migration in $migrationFiles) {
         $version = [IO.Path]::GetFileNameWithoutExtension($migration.Name)
         if ($version -notmatch '^\d{3}_[a-z0-9_]+$') { throw "Unexpected migration filename: $($migration.Name)" }

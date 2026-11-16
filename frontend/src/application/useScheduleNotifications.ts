@@ -124,7 +124,8 @@ export default function useScheduleNotifications({ gate, scheduleSlots, setToast
       playNotificationSound(notificationSound, notificationDuration)
     }
     for (const slot of scheduleSlots) {
-      if (!isScheduleAlertEnabled(slot.id) || slot.dayOfWeek !== day) continue
+      // Inactive slots are kept for historical attendance; they must not keep firing reminders.
+      if (!slot.isActive || !isScheduleAlertEnabled(slot.id) || slot.dayOfWeek !== day) continue
       const target = sessionDateTime(date, slot.startsAt).getTime()
       const minutesRemaining = target - clockNow
       const reminderKey = `dar-class-reminder10:${slot.id}:${date}`

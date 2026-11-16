@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 function Read-Source([string]$RelativePath) {
@@ -10,7 +10,7 @@ $runner = Read-Source 'tests\runners\Verify-EnrollmentBillingLifecycleRegression
 $sql = Read-Source 'tests\regression\sql\enrollment_month_eligibility.test.sql'
 $checks = @(
     @{ Name='Test 24 writes a persistent diagnostic log under Dar Logs'; Pass=$runner.Contains('test-24-enrollment-billing-') -and $runner.Contains('diagnosticLogPath') },
-    @{ Name='Test 24 records startup and database lifecycle phases'; Pass=$runner.Contains('Starting enrollment lifecycle regression') -and $runner.Contains('Applying all 12 migrations') -and $runner.Contains('Disposable lifecycle regression database created') },
+    @{ Name='Test 24 records startup and database lifecycle phases'; Pass=$runner.Contains('Starting enrollment lifecycle regression') -and $runner.Contains('Applying all 14 migrations') -and $runner.Contains('Disposable lifecycle regression database created') },
     @{ Name='Test 24 has a last-resort trap for failures outside the main try/catch'; Pass=$runner.Contains('trap {') -and $runner.Contains('UNHANDLED: ') -and $runner.Contains('DAR_TEST_RESULT=FAIL') },
     @{ Name='Test 24 records exception and script stack details'; Pass=$runner.Contains('Caught ') -and $runner.Contains('$_.ScriptStackTrace') },
     @{ Name='Test 24 ignores local psqlrc for deterministic disposable database commands'; Pass=([regex]::Matches($runner,"-Arguments @\('-X'")).Count -ge 4 },

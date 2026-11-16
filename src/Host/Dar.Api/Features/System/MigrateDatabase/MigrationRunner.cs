@@ -50,6 +50,7 @@ public static class MigrationRunner
         try
         {
             await EnsureLedgerAsync(connection, ct);
+            await AdoptLegacyLedgerAsync(connection, files, ct);
 
             var applied = 0;
             foreach (var file in files)
@@ -106,6 +107,56 @@ public static class MigrationRunner
             unlock.Parameters.AddWithValue("key", AdvisoryLockKey);
             await unlock.ExecuteNonQueryAsync(CancellationToken.None);
         }
+    }
+
+    /// <summary>
+    /// The legacy desktop app recorded applied migrations in schema_migrations without checksums.
+    /// When the new CLI first runs against that database, seed web_schema_migrations from it so
+    /// already-applied files are not re-run (and 012 is not replayed on live timetable data).
+    /// </summary>
+    private static async Task AdoptLegacyLedgerAsync(
+        NpgsqlConnection connection,
+        string[] files,
+        CancellationToken ct)
+    {
+        await using (var count = new NpgsqlCommand("SELECT COUNT(*) FROM web_schema_migrations;", connection))
+        {
+            if (Convert.ToInt64(await count.ExecuteScalarAsync(ct)) > 0) return;
+        }
+
+        await using (var exists = new NpgsqlCommand("SELECT to_regclass('public.schema_migrations') IS NOT NULL;", connection))
+        {
+            if (!(bool)(await exists.ExecuteScalarAsync(ct) ?? false)) return;
+        }
+
+        var legacyVersions = new List<string>();
+        await using (var read = new NpgsqlCommand("SELECT version FROM schema_migrations ORDER BY version;", connection))
+        await using (var reader = await read.ExecuteReaderAsync(ct))
+        {
+            while (await reader.ReadAsync(ct)) legacyVersions.Add(reader.GetString(0));
+        }
+
+        var adopted = 0;
+        foreach (var version in legacyVersions)
+        {
+            var file = files.FirstOrDefault(candidate =>
+                string.Equals(Path.GetFileNameWithoutExtension(candidate), version, StringComparison.Ordinal));
+            if (file is null)
+                throw new InvalidOperationException(
+                    $"Legacy migration ledger contains '{version}', but no matching SQL file exists. Refusing to guess.");
+
+            var sql = await File.ReadAllTextAsync(file, ct);
+            var checksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sql))).ToLowerInvariant();
+            await using var insert = new NpgsqlCommand(
+                "INSERT INTO web_schema_migrations(version, checksum) VALUES(@version,@checksum) ON CONFLICT (version) DO NOTHING;",
+                connection);
+            insert.Parameters.AddWithValue("version", version);
+            insert.Parameters.AddWithValue("checksum", checksum);
+            adopted += await insert.ExecuteNonQueryAsync(ct);
+        }
+
+        if (adopted > 0)
+            Console.WriteLine($"Adopted {adopted} migration(s) from the legacy schema_migrations ledger.");
     }
 
     private static async Task EnsureLedgerAsync(NpgsqlConnection connection, CancellationToken ct)

@@ -138,15 +138,19 @@ export default function useTeacherActions({
   const saveTeacher = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSaving(true)
+    const canEditFinancials = has('finance.read') && has('finance.edit')
     try {
       await request(editingTeacher ? `/api/teachers/${editingTeacher.id}` : '/api/teachers', {
         method: editingTeacher ? 'PUT' : 'POST',
         body: JSON.stringify({
-          ...teacherForm,
           teacherCode: teacherForm.teacherCode.trim() || null,
+          fullName: teacherForm.fullName,
           phone: teacherForm.phone.trim() || null,
+          status: teacherForm.status,
           notes: teacherForm.notes.trim() || null,
-          ...(has('finance.read') && has('finance.edit') ? { hourlyRate: Number(teacherForm.hourlyRate) } : {}),
+          // Never send the string-backed form value: the API binds decimal? and rejects
+          // numeric strings, and non-finance users must omit the field entirely.
+          ...(canEditFinancials ? { hourlyRate: Number(teacherForm.hourlyRate) } : {}),
         }),
       })
       setTeacherModal(false)

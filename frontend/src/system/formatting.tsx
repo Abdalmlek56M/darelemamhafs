@@ -153,9 +153,11 @@ export function AuditValue({ value, compare, tone, fieldKey }: { value: unknown;
   if (value == null) return <span className={contentClass}>{fieldKey && financialAuditKey.test(fieldKey) ? 'غير متاح دون صلاحية قراءة المالية' : 'لا توجد بيانات'}</span>
   if (Array.isArray(value)) return value.length ? <ol className={`audit-friendly-list ${changed ? `audit-diff-list audit-diff-${tone}` : ''}`}>{value.map((item, index) => <li key={index}><AuditValue value={item} compare={Array.isArray(compare) ? compare[index] : undefined} tone={tone}/></li>)}</ol> : <span className={contentClass}>لا توجد تفاصيل</span>
   if (typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>).filter(([key, item]) => !hiddenAuditKeys.test(key) && auditFieldLabel(key, item) !== null)
+    // Keep unknown but non-sensitive keys visible so a newly added column is never
+    // silently missing from the audit diff; fall back to the raw field name.
+    const entries = Object.entries(value as Record<string, unknown>).filter(([key]) => !hiddenAuditKeys.test(key))
     const compareObject = compare && typeof compare === 'object' && !Array.isArray(compare) ? compare as Record<string, unknown> : {}
-    return entries.length ? <dl className="audit-friendly-data">{entries.map(([key, item]) => { const fieldChanged = tone !== undefined && JSON.stringify(item) !== JSON.stringify(compareObject[key]); return <div key={key} className={fieldChanged ? `audit-field-changed audit-field-${tone}` : undefined}><dt>{auditFieldLabel(key, item)}</dt><dd>{(key === 'scope' || key === 'scope_codes') && typeof item === 'string' ? displayScopes(item) : <AuditValue value={item} compare={compareObject[key]} tone={tone} fieldKey={key}/>}</dd></div> })}</dl> : <span className={contentClass}>لا توجد تفاصيل قابلة للعرض</span>
+    return entries.length ? <dl className="audit-friendly-data">{entries.map(([key, item]) => { const fieldChanged = tone !== undefined && JSON.stringify(item) !== JSON.stringify(compareObject[key]); return <div key={key} className={fieldChanged ? `audit-field-changed audit-field-${tone}` : undefined}><dt>{auditFieldLabel(key, item) ?? key}</dt><dd>{(key === 'scope' || key === 'scope_codes') && typeof item === 'string' ? displayScopes(item) : <AuditValue value={item} compare={compareObject[key]} tone={tone} fieldKey={key}/>}</dd></div> })}</dl> : <span className={contentClass}>لا توجد تفاصيل قابلة للعرض</span>
   }
   return <span className={contentClass}>{auditPrimitive(value)}</span>
 }

@@ -23,6 +23,7 @@
 | 1.5.4 | [Frontend selectors](legacy-split-2.1.md) | ✅ |
 | 1.5.5 | [Frontend hook split](legacy-split-2.2.md) | ✅ |
 | 1.5.6 | [SystemAdminView split](legacy-split-2.3.md) | ✅ |
+| 1.6.0 | [Full code review](code-review-1.0.md) | ✅ |
 
 ## Next in order
 

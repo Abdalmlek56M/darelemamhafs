@@ -17,6 +17,7 @@ type DarAuthOptions = {
   setHistory: (value: HistoryData | null) => void
   setSelectedStudent: (value: Student | null) => void
   setSelectedStudentPreview: (value: SelectedStudentPreview | null) => void
+  onSessionCleared?: () => void
 }
 
 /**
@@ -34,6 +35,7 @@ export default function useDarAuth({
   setHistory,
   setSelectedStudent,
   setSelectedStudentPreview,
+  onSessionCleared,
 }: DarAuthOptions) {
   const [setup, setSetup] = useState({ username: 'admin', displayName: 'مدير الدار', password: '', confirmPassword: '' })
   const [login, setLogin] = useState({ username: '', password: '', rememberMe: false })
@@ -129,6 +131,9 @@ export default function useDarAuth({
     setHistory(null)
     setSelectedStudent(null)
     setSelectedStudentPreview(null)
+    // Scoped data lists are not cleared by the auth state itself; without this the
+    // next account in the same tab can briefly see the previous account's rows.
+    onSessionCleared?.()
   }
 
   return { setup, setSetup, login, setLogin, doSetup, doLogin, quickLogin, logout }

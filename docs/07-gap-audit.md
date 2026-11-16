@@ -75,7 +75,7 @@ START_DAR.bat
 | ID | Status | What changed |
 |---|---|---|
 | P0-01 | 🟡 Partial | Added legacy auth rate limit (10/min/IP) + `auth.login`/`auth.login.failed` audit. Email OTP/Google and lockout still pending. |
-| P0-02 | 🟡 Partial | Blocked permanent purge of financial/history trash types. DB `ON DELETE CASCADE` and hard-delete endpoints still pending. |
+| P0-02 | 🟢 Code fixed; DB FK verified on disposable PostgreSQL 17 | Parent purge now rejects financial descendants; child purge refuses financial tables; migration `014_financial_fk_restrict.sql` restores `RESTRICT` for student→enrollment→charge→payment. Disposable-DB test: all 14 migrations applied; physical student/charge deletes blocked by FK. API-level purge test still pending. Hard-delete endpoints remain (P1-18). |
 | P0-03 | 🔴 Pending | Audit append-only trigger and restore allowlist not implemented yet. |
 | P0-04 | 🔴 Pending | Windows/desktop deployment still present; Linux/Docker migration not started. |
 | P0-05 | 🔴 Pending | Need owner approval for the 3 conflicting schedule times. |
@@ -83,6 +83,49 @@ START_DAR.bat
 | P0-07 | 🔴 Pending | Test modes still inside `Program.cs`. |
 
 Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; audit recorded `auth.login.failed=9` and `auth.login=1`.
+
+---
+
+## 4.1 Code Review — 16 Nov 2026
+
+**Method:** full read of legacy/admin/auth/backup paths, new Identity/Secretariat modules, frontend hooks, CI, migrations, and source tests; plus `dotnet build` (legacy + `Dar.slnx`), `dotnet test` (12 unit + 3 integration), `npm run build`, `dotnet list package --vulnerable`, and `npm audit --omit=dev`. No production data was read or changed.
+
+### Fixed in this pass (code)
+
+| ID | Fix | Evidence |
+|---|---|---|
+| **P0-02a** | Parent purge can no longer delete financial children. `PurgeTrashAsync` rejects a parent with any financial descendant; the child purge loop refuses financial types. | `SystemAdminEndpoints.Trash.cs` (`PurgeTrashAsync`, `PurgeRelatedTrashRecordsAsync`) |
+| **P0-02b** | Migration `014_financial_fk_restrict.sql` restores `ON DELETE RESTRICT` for student→enrollment→charge→payment, undoing the CASCADE added by `002`. | `database/014_financial_fk_restrict.sql` |
+| **P1-21** | Teacher/circle saves no longer send numeric form fields as JSON strings, and omit financial fields for users without `finance.edit`. | `useTeacherActions.ts`, `useCircleActions.ts` |
+| **P1-22** | Inactive/historical schedule slots no longer fire reminders. | `useScheduleNotifications.ts` |
+| **P1-23** | Logout clears all scoped lists/details, so the next account cannot see the previous account's rows. | `useDarAuth.ts`, `useDarApplication.ts` |
+| **P1-24** | Circle roster requests are guarded against stale responses and cleared before loading. | `useCircleActions.ts`, `useDarApplication.ts` |
+| **P1-25** | Re-marking attendance preserves an explicitly corrected duration instead of resetting payroll to the scheduled length. | `DomainEndpoints.ScheduleAttendance.cs` |
+| **P1-26** | `--migrate` adopts the legacy `schema_migrations` ledger before applying files, so migrations are not replayed on the existing database. | `MigrationRunner.cs` |
+| **P2-15** | New students default to the local date, not the UTC date. | `CreateStudent.cs` |
+| **P2-16** | Audit viewer shows unknown non-sensitive fields instead of silently dropping them. | `system/formatting.tsx` |
+
+**Verification:** legacy API 0/0, `Dar.slnx` 0/0, 12 unit + 3 integration pass, frontend build pass. Migration 014 and the purge guard still need a disposable-PostgreSQL test before production.
+
+### Still open (priority order)
+
+| ID | Severity | Finding | Evidence | Required fix |
+|---|---|---|---|---|
+| **P0-03** | P0 | `audit_log` is not append-only; `restore-before` can rewrite financial/attendance fields. | No audit trigger in `database/*.sql`; `SystemAdminService.RestoreColumns` includes `hourly_rate`, `amount_due`, payments/attendance; `SystemAdminEndpoints.cs` restore endpoint | Append-only trigger; restrict restore to descriptive fields; financial corrections via reversal |
+| **P1-27** | P1 | Legacy and new sessions survive password change, permission removal, or deactivation. | `AuthEndpoints.cs` (no session version); `IdentityModule.cs` (no `OnValidatePrincipal`); `DatabaseTicketStore.cs` | Session version/`OnValidatePrincipal`; revoke tickets on credential/email/role changes |
+| **P1-28** | P1 | First-run `/api/setup/admin` is anonymous and claimable by anyone who reaches the host first. | `AuthEndpoints.cs` setup route | One-time setup token or loopback-only bootstrap |
+| **P1-29** | P1 | No CSRF token/Origin check; legacy cookie is `SameSite=Strict`, new cookie is `Lax`. | `Program.cs`, `IdentityModule.cs`, `docs/03-security.md` §2.3 | Antiforgery token + Origin/Referer validation; align SameSite |
+| **P1-30** | P1 | No `ForwardedHeaders`: behind Caddy every request looks like the proxy IP, so the 10/min auth bucket is global and HSTS is not emitted. | `Program.cs`, `src/Host/Dar.Api/Program.cs` | `UseForwardedHeaders` with known proxies before rate limiting |
+| **P1-31** | P1 | Trash operations require only `trash.manage`; a trash manager can hide/restore payments or charges without `finance.*`. | `SystemAdminEndpoints.cs` trash routes | Per-entity permission check |
+| **P1-32** | P1 | Backup/Restore is Windows-only (`pg_dump.exe`, drive-letter path validation) and has no Linux/Docker path. | `SystemAdminService.cs` | Linux `pg_dump`, mounted backup volume, Compose service |
+| **P1-33** | P1 | No Dockerfile/Compose/Caddy deployment yet, despite the final host+domain goal. | repo root | Add deployment stack + staging smoke test |
+| **P1-34** | P1 | Dead physical DELETE endpoints remain in `DomainEndpoints*`; only `AuditMiddleware` blocks them. | `DomainEndpoints*.cs` `MapDelete` | Remove or convert to trash-only |
+| **P1-35** | P1 | OTP pepper is not configured in `appsettings.json`; a process restart invalidates codes and multi-instance deployments fail. | `appsettings.json` `Auth:Otp:Pepper` empty; `OtpCodeHasher.cs` fallback | Require env/file pepper in production; fail closed |
+| **P1-36** | P1 | Source-guard PowerShell suite is partly stale: several runners require the archived Test Center; some path/count assertions were updated but the suite is not green. | `tests/runners/*`, `tests/catalog.json` | Migrate active guards to xUnit/source tests; archive obsolete runners |
+| **P2-17** | P2 | Login timing reveals whether a username exists. | `AuthEndpoints.cs` login path | Dummy PBKDF2 verify for unknown users |
+| **P2-18** | P2 | Reset-all can report success with zero records when the operator lacks read permissions. | `SystemAdminView.tsx` reset flow, `useDarDataLoaders.ts` permission gates | Block reset-all or load IDs server-side |
+| **P2-19** | P2 | Duplicate month loads on login/navigation (effect + `changePage`). | `useDarApplication.ts` | Single loading path |
+| **P2-20** | P2 | Historical session rows still show attendance actions that the API rejects for inactive slots. | `SchedulePage.tsx`, `DomainEndpoints.ScheduleAttendance.cs` | Gate actions on `slot.isActive` or add server historical path |
 
 ---
 
@@ -114,7 +157,7 @@ Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; a
 | **P1-08** | Tests | Test Center تطبيق PowerShell منفصل؛ 39 `.ps1`، 2 C# regression فقط، لا xUnit/Testcontainers/Playwright. | `tests/` | xUnit + Testcontainers + Playwright داخل الحل؛ حذف Test Center |
 | **P1-09** | Ops | لا Dockerfile/Compose/CI/CD؛ لا Linux deploy. | المشروع | Docker Compose + GitHub Actions + staging |
 | **P1-10** | Lists | لا Pagination/Server search؛ القوائم تُرجع كل الصفوف. | `DomainEndpoints.cs` list queries؛ `PROJECT_STATUS...:102` | PagedResult + indexes |
-| **P1-11** | Migrations | Runner بلا Checksum/Advisory Lock، و`ApplyMigrationsOnStartup=true`. | `DatabaseInitializer.cs:7-78`؛ `appsettings.json:2-4`؛ `Program.cs:138-147` | Migration CLI + checksums + lock + منع auto-migrate في الإنتاج |
+| **P1-11** | Migrations | Legacy `DatabaseInitializer` بلا checksum/advisory lock. New `MigrationRunner` يملك checksums + lock + legacy-ledger adoption؛ legacy auto-migrate مقيّد بـDevelopment/desktop. يتبقى توحيد الـledger وإزالة الـinitializer القديم. | `DatabaseInitializer.cs:7-78`؛ `MigrationRunner.cs`؛ `Program.cs:164-173` | Retire legacy initializer؛ single ledger |
 | **P1-12** | Billing | خصم أيام الإيقاف داخل الشهر غير مطبق في API؛ الاقتراح في الواجهة فقط. | `FINANCIAL_WORKFLOW...:40-46, 260-267`؛ `DomainEndpoints.cs:1222-1251` | سياسة مالية + حساب خادمي + اختبارات |
 | **P1-13** | Substitution | البديلة تستبدل صف الحضور؛ لا سجل صريح للأصلية/البديلة خارج Note/Audit. | `DomainEndpoints.cs:931-973` | `session_teacher_assignment` أو Original/Substitute columns |
 | **P1-14** | Backup | Backup/Restore Windows Task Scheduler + `pg_dump.exe`؛ لا Offsite مشفر. | `SystemAdminService.cs`؛ `OPERATIONS_RUNBOOK_AR.md` | Backup service على Linux + Offsite + Restore drill |

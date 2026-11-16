@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $localPostgresPath = Join-Path $projectRoot 'tools\LocalPostgres.ps1'
 if (-not (Test-Path -LiteralPath $localPostgresPath -PathType Leaf)) { throw 'LocalPostgres.ps1 is missing.' }
@@ -153,9 +153,9 @@ try {
             '012_teacher_schedule_no_overlap'
         )
         if (@($productionBefore.AppliedMigrations).Count -ne $expectedCurrentMigrations.Count -or (@($productionBefore.AppliedMigrations) -join '|') -cne ($expectedCurrentMigrations -join '|')) {
-            throw ('Production Dar database is not at the expected 12-migration schema. Applied=[' + (@($productionBefore.AppliedMigrations) -join ', ') + '].')
+            throw ('Production Dar database is not at the expected 14-migration schema. Applied=[' + (@($productionBefore.AppliedMigrations) -join ', ') + '].')
         }
-        Write-Step ("Current production schema: migrations={0}/12; required lifecycle functions={1}; triggers={2}." -f $productionBefore.AppliedMigrationCount,$productionBefore.RequiredFunctionCount,$productionBefore.RequiredTriggerCount)
+        Write-Step ("Current production schema: migrations={0}/14; required lifecycle functions={1}; triggers={2}." -f $productionBefore.AppliedMigrationCount,$productionBefore.RequiredFunctionCount,$productionBefore.RequiredTriggerCount)
 
         $suffix=[Guid]::NewGuid().ToString('N').Substring(0,16)
         $stagingDatabase='dar_migration_rehearsal_' + $suffix
@@ -167,12 +167,12 @@ try {
         $stagingBefore=Get-DarDatabaseRestoreReport -Secrets $secrets -DatabaseName $stagingDatabase
         $stagingSignatureBefore=Get-ReportSignature $stagingBefore
         if ($stagingBefore.AppliedMigrationCount -ne $productionBefore.AppliedMigrationCount -or (@($stagingBefore.AppliedMigrations) -join '|') -cne (@($productionBefore.AppliedMigrations) -join '|')) {
-            throw ('Selected rehearsal backup is not from the current 12-migration schema. Production=[' + (@($productionBefore.AppliedMigrations) -join ', ') + ']; backup=[' + (@($stagingBefore.AppliedMigrations) -join ', ') + '].')
+            throw ('Selected rehearsal backup is not from the current 14-migration schema. Production=[' + (@($productionBefore.AppliedMigrations) -join ', ') + ']; backup=[' + (@($stagingBefore.AppliedMigrations) -join ', ') + '].')
         }
         if ($stagingSignatureBefore -cne $productionSignatureBefore) {
             throw 'Selected rehearsal backup does not match the current production database logical snapshot. Recreate a full backup with Dar System Center, stop writes, and select the new archive.'
         }
-        Write-Host ("PASS: Backup restored and matched current Dar logical snapshot. Tables={0}; ForeignKeys={1}; Migrations={2}/12; RequiredFunctions={3}; RequiredTriggers={4}; Size={5} bytes." -f $stagingBefore.TableCount,$stagingBefore.ForeignKeyCount,$stagingBefore.AppliedMigrationCount,$stagingBefore.RequiredFunctionCount,$stagingBefore.RequiredTriggerCount,$stagingBefore.DatabaseSizeBytes)
+        Write-Host ("PASS: Backup restored and matched current Dar logical snapshot. Tables={0}; ForeignKeys={1}; Migrations={2}/14; RequiredFunctions={3}; RequiredTriggers={4}; Size={5} bytes." -f $stagingBefore.TableCount,$stagingBefore.ForeignKeyCount,$stagingBefore.AppliedMigrationCount,$stagingBefore.RequiredFunctionCount,$stagingBefore.RequiredTriggerCount,$stagingBefore.DatabaseSizeBytes)
 
         $stamp=Get-Date -Format 'yyyyMMdd_HHmmss_fff'
         $reportPath=Join-Path $paths.Logs "migration-rehearsal-$stamp.json"

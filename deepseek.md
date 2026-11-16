@@ -66,13 +66,14 @@
 - **Phase 2.6:** CI baseline — ✅ done (backend/frontend/api-client/security jobs).
 - **Phase 3.1:** Secretariat — 🟡 students list/get/create done.
 - **Phase 1.5.1:** Legacy backend split — 🟡 `DomainEndpoints` fully split (13 files, max 376); `SystemAdminEndpoints` partial (main 304 + Export/Trash/Helpers); Test Center GUI archived.
-- **Phase 1.5.2:** Frontend split — ✅ `useDarApplication` 889 → **363 lines**; `SystemAdminView` 456 → **307 lines** with `src/system/*`. All frontend files under 400. Next: full code review + gap audit update.
+- **Phase 1.5.2:** Frontend split — ✅ `useDarApplication` 889 → **363 lines**; `SystemAdminView` 456 → **307 lines** with `src/system/*`. All frontend files under 400.
+- **Phase 1.6:** Full code review — ✅ `docs/10-code-review.md` written; P0 purge cascade fixed in code + migration `014_financial_fk_restrict.sql`; several P1 frontend/migration fixes applied. Open P0: financial `restore-before` policy, append-only audit log. Open P1: session revocation, setup bootstrap, CSRF, forwarded headers, trash permission split, Linux backups/deploy, stale source tests.
 - **UI gate:** no UI implementation before the owner approves a visual sample.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.
 - **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` pushed (`d8c7b29`).
 - **Git rule:** every completed checkpoint = commit + push. No force-push.
-- **Next:** finish the legacy backend split (1.5.1), then frontend split (1.5.2), tests (1.5.3), then security gate (2.7), DB hardening (2.8), UI sample gate (5.0), Next.js shell (5.1).
+- **Next:** verify migration 014 + purge guard on a disposable PostgreSQL DB, then fix the open P0 (financial restore policy, append-only audit), then session/setup/CSRF hardening, then Linux/Docker deployment, then tests migration, then UI sample gate (5.0) and Next.js shell (5.1).
 - **Legacy stack:** .NET 10 minimal API + React 19/Vite + PostgreSQL 17 + WPF/WebView2 + PowerShell Test Center. No `.bat` files remain.
 
 ### What Was Done vs. What Was Not

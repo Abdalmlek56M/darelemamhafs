@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 function Read-FunctionalSource([string]$RelativePath) {
@@ -29,7 +29,7 @@ $checks = @(
     @{ Name='Functional API disables migration startup because the isolated runner applies migrations first'; Pass=$program.Contains('Database:ApplyMigrationsOnStartup') -and $program.Contains('"false"') },
     @{ Name='Functional runner parses without PowerShell syntax errors'; Pass=$psSyntaxValid },
     @{ Name='Functional runner generates a strict unique disposable database name'; Pass=$runner.Contains("'dar_functional_test_' + `$suffix") -and $runner.Contains('^dar_functional_test_[a-f0-9]{16}$') },
-    @{ Name='Functional runner applies exactly 12 migrations before API startup'; Pass=$runner.Contains('$migrationFiles.Count -ne 12') -and $runner.Contains("'Disposable database received all 12 migrations before API startup.'") },
+    @{ Name='Functional runner applies exactly 14 migrations before API startup'; Pass=$runner.Contains('$migrationFiles.Count -ne 14') -and $runner.Contains("'Disposable database received all 14 migrations before API startup.'") },
     @{ Name='Functional runner reads the production signature before and after, then requires equality'; Pass=$runner.Contains('productionSignatureBefore') -and $runner.Contains('productionSignatureAfter') -and $runner.Contains('Production Dar logical signature is unchanged after isolated API acceptance.') },
     @{ Name='Functional runner drops only a strictly allow-listed disposable database'; Pass=$runner.Contains('$databaseName -match ''^dar_functional_test_[a-f0-9]{16}$''') -and $runner.Contains('DROP DATABASE IF EXISTS $databaseName WITH (FORCE)') },
     @{ Name='Functional runner preserves the disposable database if isolated API process or port cleanup cannot be confirmed'; Pass=$runner.Contains('preserving the disposable database instead of dropping it') -and $runner.Contains('apiLaunchAttempted') -and $runner.Contains('apiProcessStopped') -and $runner.Contains('portReleased') },

@@ -510,7 +510,8 @@ database/013_auth_email_otp.sql
 
 ### Resolved
 
-- **Auth:** Email OTP + Google، بدون كلمات مرور أو SMS.
+- **Auth (target):** Email OTP + Google، بدون SMS.
+- **Auth (current):** OTP + Google (Google مؤجل) مع كلمة مرور مؤقتة لحين ترحيل كل الحسابات النشطة.
 - **Language:** Arabic + English.
 - **DB:** PostgreSQL on the same server.
 - **Tests:** projects inside the solution, not a separate app.

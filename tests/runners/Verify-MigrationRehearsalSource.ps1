@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $failedChecks = New-Object System.Collections.Generic.List[string]
 try {
@@ -27,7 +27,7 @@ try {
         @{ Name='Rehearsal failure diagnostics include stack trace'; Pattern='ScriptStackTrace'; Text=$runner },
         @{ Name='Rehearsal creates uniquely named staging database'; Pattern='dar_migration_rehearsal_'; Text=$runner },
         @{ Name='Rehearsal validates the verified sidecar manifest before selecting backup'; Pattern='Get-DarVerifiedBackupManifest[\s\S]*?Test-DarBackupArchive'; Text=$runner },
-        @{ Name='Rehearsal requires the current 12 migration sequence'; Pattern='expectedCurrentMigrations[\s\S]*?012_teacher_schedule_no_overlap[\s\S]*?AppliedMigrations'; Text=$runner },
+        @{ Name='Rehearsal requires the current 14 migration sequence'; Pattern='expectedCurrentMigrations[\s\S]*?012_teacher_schedule_no_overlap[\s\S]*?AppliedMigrations'; Text=$runner },
         @{ Name='Rehearsal compares restored staging snapshot to production before API launch'; Pattern='stagingSignatureBefore -cne \$productionSignatureBefore'; Text=$runner },
         @{ Name='Rehearsal checks production API is closed'; Pattern='Test-DarTcpPortListening\s+-Port\s+5080'; Text=$runner },
         @{ Name='Rehearsal drops only its own allow-listed staging database'; Pattern='\^dar_migration_rehearsal_\[a-f0-9\]\{16\}\$'; Text=$runner },

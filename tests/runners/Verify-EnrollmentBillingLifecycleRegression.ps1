@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $script:diagnosticLogPath = $null
@@ -86,8 +86,8 @@ try {
     Invoke-DarPgTool -Tool 'psql' -Arguments @('-X','-h','127.0.0.1','-p',[string]$secrets.Port,'-U',$secrets.AppUser,'-d',$databaseName,'-v','ON_ERROR_STOP=1','-c',"CREATE TABLE public.schema_migrations(version VARCHAR(120) PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());") -Password $secrets.AppPassword | Out-Null
 
     $migrationFiles = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'database') -Filter '*.sql' -File | Sort-Object Name)
-    if ($migrationFiles.Count -ne 12) { throw "Expected 12 database migrations in this candidate; found $($migrationFiles.Count)." }
-    Write-EnrollmentRegressionTrace 'Applying all 12 migrations to the disposable database.'
+    if ($migrationFiles.Count -ne 14) { throw "Expected 14 database migrations in this candidate; found $($migrationFiles.Count)." }
+    Write-EnrollmentRegressionTrace 'Applying all 14 migrations to the disposable database.'
     foreach ($migration in $migrationFiles) {
         $version = [IO.Path]::GetFileNameWithoutExtension($migration.Name)
         if ($version -notmatch '^\d{3}_[a-z0-9_]+$') { throw "Unexpected migration filename: $($migration.Name)" }

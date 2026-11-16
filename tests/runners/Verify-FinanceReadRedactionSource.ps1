@@ -24,8 +24,10 @@ if ($missingFiles.Count -gt 0) {
     exit 1
 }
 
-$domain = [System.IO.File]::ReadAllText($domainPath)
-$admin = [System.IO.File]::ReadAllText($adminPath)
+# Domain/SystemAdmin endpoints are split into partial files; concatenate all partials
+# so source guards keep checking the real implementation after the refactor.
+$domain = (Get-ChildItem -LiteralPath (Split-Path -Parent $domainPath) -Filter 'DomainEndpoints*.cs' | Sort-Object Name | ForEach-Object { [System.IO.File]::ReadAllText($_.FullName) }) -join "`n"
+$admin = (Get-ChildItem -LiteralPath (Split-Path -Parent $adminPath) -Filter 'SystemAdminEndpoints*.cs' | Sort-Object Name | ForEach-Object { [System.IO.File]::ReadAllText($_.FullName) }) -join "`n"
 $types = [System.IO.File]::ReadAllText($typesPath)
 $ui = @{}
 foreach ($relativePath in $uiPaths) { $ui[$relativePath] = [System.IO.File]::ReadAllText((Join-Path $projectRoot $relativePath)) }
@@ -68,7 +70,7 @@ $checks = [ordered]@{
     'enrollment defaults represent hidden fee as null without stringifying null' = $ui['frontend\src\domain\defaults.ts'].Contains('fee: number | null = 0') -and $ui['frontend\src\domain\defaults.ts'].Contains("agreedMonthlyFee: fee == null ? '' : String(fee)")
     'payments page hides ledgers, summaries and saved reports without finance.read' = [System.IO.File]::ReadAllText((Join-Path $projectRoot 'frontend\src\pages\PaymentsPage.tsx')).Contains("const canReadFinance = ctx.has('finance.read')") -and (Get-Content -LiteralPath (Join-Path $projectRoot 'frontend\src\pages\PaymentsPage.tsx') -Raw).Contains('{canReadFinance &&')
     'trash labels do not include advertising amounts' = [System.IO.File]::ReadAllText((Join-Path $projectRoot 'frontend\src\application\useDarApplication.ts')).Contains('`إعلان ${ad.circleName}`') -and -not ([System.IO.File]::ReadAllText((Join-Path $projectRoot 'frontend\src\application\useDarApplication.ts')).Contains('إعلان ${ad.circleName} · ${money(ad.totalAmount)}'))
-    'system audit view labels redacted financial nulls as unavailable' = [System.IO.File]::ReadAllText((Join-Path $projectRoot 'frontend\src\SystemAdminView.tsx')).Contains('غير متاح دون صلاحية قراءة المالية')
+    'system audit view labels redacted financial nulls as unavailable' = [System.IO.File]::ReadAllText((Join-Path $projectRoot 'frontend\src\system\formatting.tsx')).Contains('غير متاح دون صلاحية قراءة المالية')
 }
 
 $failed = 0

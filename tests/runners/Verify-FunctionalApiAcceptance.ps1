@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
@@ -260,7 +260,7 @@ try {
         '009_teacher_notes','010_circle_start_date','011_enrollment_lifecycle_audit_index',
         '012_teacher_schedule_no_overlap'
     )
-    Assert-Functional ((@($productionBefore.AppliedMigrations) -join '|') -ceq ($expectedMigrations -join '|')) 'Production schema reports the expected 12 migration versions before functional acceptance.'
+    Assert-Functional ((@($productionBefore.AppliedMigrations) -join '|') -ceq ($expectedMigrations -join '|')) 'Production schema reports the expected 14 migration versions before functional acceptance.'
     $script:checks['productionSignatureBeforeCaptured'] = 'PASS'
 
     $script:failureStage = 'temporary-database-create'
@@ -273,7 +273,7 @@ try {
     $databaseCreated = $true
     Invoke-DarPgTool -Tool 'psql' -Arguments @('-X','-h','127.0.0.1','-p',[string]$secrets.Port,'-U',$secrets.AppUser,'-d',$databaseName,'-v','ON_ERROR_STOP=1','-c',"CREATE TABLE public.schema_migrations(version VARCHAR(120) PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());") -Password $secrets.AppPassword | Out-Null
     $migrationFiles = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'database') -Filter '*.sql' -File | Sort-Object Name)
-    if ($migrationFiles.Count -ne 12) { throw "Expected 12 migrations, found $($migrationFiles.Count)." }
+    if ($migrationFiles.Count -ne 14) { throw "Expected 14 migrations, found $($migrationFiles.Count)." }
     foreach ($migration in $migrationFiles) {
         $version = [IO.Path]::GetFileNameWithoutExtension($migration.Name)
         if ($version -notmatch '^\d{3}_[a-z0-9_]+$') { throw ('Unexpected migration filename: ' + $migration.Name) }
@@ -282,7 +282,7 @@ try {
         Invoke-DarPgTool -Tool 'psql' -Arguments @('-X','-h','127.0.0.1','-p',[string]$secrets.Port,'-U',$secrets.AppUser,'-d',$databaseName,'-v','ON_ERROR_STOP=1','-c',("INSERT INTO public.schema_migrations(version) VALUES ('$version');")) -Password $secrets.AppPassword | Out-Null
     }
     $temporaryReport = Get-DarDatabaseRestoreReport -Secrets $secrets -DatabaseName $databaseName
-    Assert-Functional ($temporaryReport.AppliedMigrationCount -eq 12 -and @($temporaryReport.AppliedMigrations).Count -eq 12) 'Disposable database received all 12 migrations before API startup.'
+    Assert-Functional ($temporaryReport.AppliedMigrationCount -eq 14 -and @($temporaryReport.AppliedMigrations).Count -eq 14) 'Disposable database received all 14 migrations before API startup.'
     $script:checks['temporarySchema12Of12'] = 'PASS'
 
     $script:failureStage = 'isolated-api-start'
