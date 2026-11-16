@@ -79,7 +79,7 @@
 - **UI gate:** no UI implementation before the owner approves a visual sample.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.
-- **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` pushed (`1e4b1ad`), including the visual sample and the reuse audit.
+- **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` is the source of truth. Run `git log -1` for the deployed commit; the visual sample and reuse audit are included.
 - **Git rule:** every completed checkpoint = commit + push. No force-push.
 - **Next:** owner reviews `docs/ui-sample/teacher-portal.html`; decide the three P0 items in `docs/15-legacy-reuse-audit.md` (15-minute minimum, Cairo date handling, teacher link); after sample approval, implement the teacher DB/API foundation, then the mobile PWA/supervisor/notification UI. Offsite backup is complete.
 - **Legacy stack:** .NET 10 minimal API + React 19/Vite + PostgreSQL 17 + WPF/WebView2 + PowerShell Test Center. No `.bat` files remain.
