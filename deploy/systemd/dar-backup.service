@@ -1,0 +1,10 @@
+[Unit]
+Description=Dar PostgreSQL backup
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=dar
+Group=dar
+ExecStart=/usr/local/bin/dar-backup
