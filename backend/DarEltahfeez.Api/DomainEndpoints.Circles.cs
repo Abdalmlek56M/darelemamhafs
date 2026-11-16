@@ -94,15 +94,5 @@ public static partial class DomainEndpoints
             { return Results.Conflict(new { message = "لا يمكن إسناد هذه المعلمة للحلقة أو تفعيلها؛ لديها حصة أخرى تتداخل مع أحد مواعيد الحلقة. عدّل المواعيد أولًا." }); }
         }).RequireAuthorization("circles.edit");
 
-        route.MapDelete("/{id:guid}",async Task<IResult> (Guid id,NpgsqlDataSource db,CancellationToken ct)=>
-        {
-            await using var cmd=db.CreateCommand("DELETE FROM circles WHERE id=@id AND NOT EXISTS(SELECT 1 FROM circle_enrollments WHERE circle_id=@id) RETURNING id;");cmd.Parameters.AddWithValue("id",id);
-            try
-            {
-                if (await cmd.ExecuteScalarAsync(ct) is null) return Results.Conflict(new { message = "لا يمكن حذف الحلقة إذا لم تكن موجودة أو كان لها سجل التحاقات تاريخي. عطّلها بدل حذف سجلها." });
-                return Results.Ok(new { id, deleted = true });
-            }
-            catch(PostgresException ex) when(ex.SqlState=="23503"){return Results.Conflict(new{message="الحلقة مرتبطة بسجلات مالية ولا يمكن حذفها نهائيًا."});}
-        }).RequireAuthorization("circles.delete");
     }
 }

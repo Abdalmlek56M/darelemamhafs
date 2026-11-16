@@ -79,16 +79,5 @@ public static partial class DomainEndpoints
             catch(PostgresException ex) when(ex.SqlState=="23505"){return Results.Conflict(new {message="كود المعلمة مستخدم بالفعل."});}
         }).RequireAuthorization("teachers.edit");
 
-        route.MapDelete("/{id:guid}", async Task<IResult> (Guid id, NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            await using var cmd=db.CreateCommand("DELETE FROM teachers WHERE id=@id AND NOT EXISTS(SELECT 1 FROM circles WHERE teacher_id=@id) RETURNING id;");
-            cmd.Parameters.AddWithValue("id",id);
-            try
-            {
-                if (await cmd.ExecuteScalarAsync(ct) is null) return Results.Conflict(new { message = "لم تُحذف المعلمة: ربما لا توجد، أو ما زالت مرتبطة بحلقات. انقل الحلقات أو احذفها أولًا." });
-                return Results.Ok(new { id, deleted = true });
-            }
-            catch(PostgresException ex) when(ex.SqlState=="23503"){return Results.Conflict(new {message="المعلمة مرتبطة بسجلات أخرى ولا يمكن حذفها حاليًا."});}
-        }).RequireAuthorization("teachers.delete");
     }
 }

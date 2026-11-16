@@ -52,15 +52,5 @@ public static partial class DomainEndpoints
             catch(PostgresException ex) when(ex.SqlState=="23503"){return Results.Conflict(new{message="تعذر ربط المصروف بالحلقة المحددة."});}
         }).RequireAuthorization("finance.create");
 
-        app.MapDelete("/api/advertising-expenses/{id:guid}", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            await using var conn=await db.OpenConnectionAsync(ct);await using var tx=await conn.BeginTransactionAsync(ct);
-            decimal amount;Guid circleId;
-            await using(var del=new NpgsqlCommand("DELETE FROM advertising_expenses WHERE id=@id RETURNING circle_id,total_amount;",conn,tx))
-            {del.Parameters.AddWithValue("id",id);await using var reader=await del.ExecuteReaderAsync(ct);if(!await reader.ReadAsync(ct))return Results.NotFound();circleId=reader.GetGuid(0);amount=reader.GetDecimal(1);}
-            await using(var audit=new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'advertising.delete','advertising_expense',@id,jsonb_build_object('circleId',@circle,'totalAmount',@amount));",conn,tx))
-            {audit.Parameters.AddWithValue("actor",ActorId(principal));audit.Parameters.AddWithValue("id",id);audit.Parameters.AddWithValue("circle",circleId);audit.Parameters.AddWithValue("amount",amount);await audit.ExecuteNonQueryAsync(ct);}
-            await tx.CommitAsync(ct);return Results.Ok(new{id,deleted=true});
-        }).RequireAuthorization("finance.delete");
     }
 }

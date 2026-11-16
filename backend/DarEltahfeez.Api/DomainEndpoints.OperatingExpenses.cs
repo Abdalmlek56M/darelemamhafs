@@ -104,23 +104,6 @@ public static partial class DomainEndpoints
             }
         }).RequireAuthorization("finance.edit", "finance.read");
 
-        app.MapDelete("/api/operating-expenses/{id:guid}", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            await using var conn = await db.OpenConnectionAsync(ct); await using var tx = await conn.BeginTransactionAsync(ct);
-            DateOnly expenseDate; string category, description; decimal amount;
-            await using (var delete = new NpgsqlCommand("DELETE FROM operating_expenses WHERE id=@id RETURNING expense_date,category,description,amount;", conn, tx))
-            {
-                delete.Parameters.AddWithValue("id", id); await using var reader = await delete.ExecuteReaderAsync(ct);
-                if (!await reader.ReadAsync(ct)) return Results.NotFound(new { message = "المصروف غير موجود." });
-                expenseDate = reader.GetFieldValue<DateOnly>(0); category = reader.GetString(1); description = reader.GetString(2); amount = reader.GetDecimal(3);
-            }
-            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'operating_expense.delete','operating_expense',@id,jsonb_build_object('category',@category,'description',@description,'amount',@amount,'expenseDate',@date));", conn, tx))
-            {
-                audit.Parameters.AddWithValue("actor", ActorId(principal)); audit.Parameters.AddWithValue("id", id); audit.Parameters.AddWithValue("category", category);
-                audit.Parameters.AddWithValue("description", description); audit.Parameters.AddWithValue("amount", amount); audit.Parameters.AddWithValue("date", expenseDate); await audit.ExecuteNonQueryAsync(ct);
-            }
-            await tx.CommitAsync(ct); return Results.Ok(new { id, deleted = true });
-        }).RequireAuthorization("finance.delete");
     }
 
     private static Dictionary<string, string[]>? ValidateOperatingExpense(OperatingExpenseWriteRequest request)

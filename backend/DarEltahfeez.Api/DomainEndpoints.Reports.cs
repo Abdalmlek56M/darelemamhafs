@@ -39,11 +39,5 @@ public static partial class DomainEndpoints
             return Results.Ok(new{id,title=reader.GetString(1),billingMonth=reader.GetFieldValue<DateOnly>(2),snapshot,createdAt=reader.GetFieldValue<DateTimeOffset>(4)});
         }).RequireAuthorization("finance.read");
 
-        app.MapDelete("/api/collection-reports/{id:guid}",async Task<IResult> (Guid id,NpgsqlDataSource db,CancellationToken ct)=>
-        {
-            await using var cmd=db.CreateCommand("DELETE FROM collection_reports WHERE id=@id RETURNING id;");cmd.Parameters.AddWithValue("id",id);
-            if (await cmd.ExecuteScalarAsync(ct) is null) return Results.NotFound();
-            return Results.Ok(new { id, deleted = true });
-        }).RequireAuthorization("finance.delete");
     }
 }

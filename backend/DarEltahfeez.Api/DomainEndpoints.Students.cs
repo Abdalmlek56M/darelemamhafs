@@ -166,30 +166,6 @@ public static partial class DomainEndpoints
             }
         }).RequireAuthorization("students.edit");
 
-        route.MapDelete("/{id:guid}", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            await using var conn = await db.OpenConnectionAsync(ct);
-            await using var tx = await conn.BeginTransactionAsync(ct);
-            string? code;
-            string? name;
-            await using (var delete = new NpgsqlCommand("DELETE FROM students WHERE id=@id RETURNING student_code, full_name;", conn, tx))
-            {
-                delete.Parameters.AddWithValue("id", id);
-                await using var reader = await delete.ExecuteReaderAsync(ct);
-                if (!await reader.ReadAsync(ct)) return Results.NotFound();
-                code = reader.GetString(0); name = reader.GetString(1);
-            }
-            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'student.delete','student',@id,jsonb_build_object('code',@code,'name',@name));", conn, tx))
-            {
-                audit.Parameters.AddWithValue("actor", ActorId(principal));
-                audit.Parameters.AddWithValue("id", id);
-                audit.Parameters.AddWithValue("code", code!);
-                audit.Parameters.AddWithValue("name", name!);
-                await audit.ExecuteNonQueryAsync(ct);
-            }
-            await tx.CommitAsync(ct);
-            return Results.Ok(new { id, message = "تم حذف الطالب وسجلاته المرتبطة نهائيًا." });
-        }).RequireAuthorization("students.delete");
 
         route.MapGet("/{id:guid}/history", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await StudentHistory(db, id, principal, ct))
             .RequireAuthorization("students.read");
@@ -211,12 +187,5 @@ public static partial class DomainEndpoints
             catch (PostgresException ex) when (ex.SqlState == "23503") { return Results.NotFound(); }
         }).RequireAuthorization("students.edit");
 
-        route.MapDelete("/{studentId:guid}/notes/{noteId:guid}", async Task<IResult> (Guid studentId, Guid noteId, NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            await using var cmd = db.CreateCommand("DELETE FROM student_notes WHERE id=@note AND student_id=@student RETURNING id;");
-            cmd.Parameters.AddWithValue("note", noteId); cmd.Parameters.AddWithValue("student", studentId);
-            if (await cmd.ExecuteScalarAsync(ct) is null) return Results.NotFound();
-            return Results.Ok(new { deleted = true });
-        }).RequireAuthorization("students.edit");
     }
 }

@@ -92,31 +92,6 @@ public static partial class DomainEndpoints
             catch(PostgresException ex) when(ex.SqlState=="23503"){return Results.NotFound(new{message="سجل الالتحاق غير موجود."});}
         }).RequireAuthorization("finance.create");
 
-        app.MapDelete("/api/charges/{id:guid}", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            await using var conn = await db.OpenConnectionAsync(ct);
-            await using var tx = await conn.BeginTransactionAsync(ct);
-            decimal due, paid;
-            await using (var check = new NpgsqlCommand("SELECT amount_due,COALESCE((SELECT SUM(amount) FROM payments WHERE monthly_charge_id=mc.id AND is_trashed=FALSE),0) FROM monthly_charges mc WHERE id=@id AND is_trashed=FALSE FOR UPDATE;", conn, tx))
-            {
-                check.Parameters.AddWithValue("id", id);
-                await using var reader = await check.ExecuteReaderAsync(ct);
-                if (!await reader.ReadAsync(ct)) return Results.NotFound();
-                due = reader.GetDecimal(0); paid = reader.GetDecimal(1);
-            }
-            await using (var delete = new NpgsqlCommand("DELETE FROM monthly_charges WHERE id=@id;", conn, tx))
-            {
-                delete.Parameters.AddWithValue("id", id);
-                await delete.ExecuteNonQueryAsync(ct);
-            }
-            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'charge.delete','monthly_charge',@id,jsonb_build_object('amountDue',@due,'amountPaid',@paid));", conn, tx))
-            {
-                audit.Parameters.AddWithValue("actor", ActorId(principal)); audit.Parameters.AddWithValue("id", id); audit.Parameters.AddWithValue("due", due); audit.Parameters.AddWithValue("paid", paid);
-                await audit.ExecuteNonQueryAsync(ct);
-            }
-            await tx.CommitAsync(ct);
-            return Results.Ok(new { id, deleted = true, message = "تم حذف الاستحقاق والدفعات المرتبطة به." });
-        }).RequireAuthorization("finance.delete");
 
         app.MapPut("/api/charges/{id:guid}", async Task<IResult> (Guid id, ChargeUpdateRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -239,19 +214,6 @@ public static partial class DomainEndpoints
             return Results.File(data,contentType);
         }).RequireAuthorization("finance.read");
 
-        app.MapDelete("/api/payments/{id:guid}",async Task<IResult> (Guid id,ClaimsPrincipal principal,NpgsqlDataSource db,CancellationToken ct)=>
-        {
-            await using var conn=await db.OpenConnectionAsync(ct);await using var tx=await conn.BeginTransactionAsync(ct);
-            decimal amount;Guid charge;
-            await using(var del=new NpgsqlCommand("DELETE FROM payments WHERE id=@id RETURNING monthly_charge_id,amount;",conn,tx))
-            {
-                del.Parameters.AddWithValue("id",id);await using var reader=await del.ExecuteReaderAsync(ct);
-                if(!await reader.ReadAsync(ct))return Results.NotFound();charge=reader.GetGuid(0);amount=reader.GetDecimal(1);
-            }
-            await using(var audit=new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'payment.delete','payment',@id,jsonb_build_object('chargeId',@charge,'amount',@amount));",conn,tx))
-            {audit.Parameters.AddWithValue("actor",ActorId(principal));audit.Parameters.AddWithValue("id",id);audit.Parameters.AddWithValue("charge",charge);audit.Parameters.AddWithValue("amount",amount);await audit.ExecuteNonQueryAsync(ct);}
-            await tx.CommitAsync(ct);return Results.Ok(new{id,deleted=true});
-        }).RequireAuthorization("finance.delete");
     }
     private static async Task<CollectionRow[]> LoadCollections(NpgsqlDataSource db,DateOnly month,CancellationToken ct)
     {

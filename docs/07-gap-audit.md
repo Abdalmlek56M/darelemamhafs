@@ -164,7 +164,7 @@ Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; a
 | **P1-15** | Errors | لا Global ProblemDetails؛ بعض المسارات ترجع `ex.Message`. | `SystemAdminEndpoints.cs:275`؛ `Program.cs` | Global handler + RFC 9457 |
 | **P1-16** | Concurrency | لا `row_version`؛ بعض المسارات تعتمد `FOR UPDATE` فقط. | schema؛ endpoints | Optimistic concurrency |
 | **P1-17** | Permissions | جداول `roles`/`role_permissions`/`user_roles` غير مستخدمة؛ `user_permissions` مسطحة. | `001:12-35`؛ `Security.cs` | Roles/Permissions model أو إزالة الجداول الميتة |
-| **P1-18** | Dead Code | مسارات `DELETE` قديمة للطلاب/الاستحقاقات/الدفعات/التقارير/المصروفات ما زالت موجودة، رغم حجب Middleware. | `DomainEndpoints.cs:210-233, 1253-1277, 1400-1412, 1447-1452`؛ `AuditMiddleware.cs:20-27` | حذف المسارات الميتة |
+| **P1-18** | Dead Code | ✅ تم حذف كل مسارات `MapDelete` القديمة من `DomainEndpoints*` (10 مسارات). `AuditMiddleware` يحتفظ بحجب DELETE كطبقة دفاع إضافية. | `DomainEndpoints*.cs`؛ `AuditMiddleware.cs:20-27` | Done |
 | **P1-19** | Health | `/health` فقط؛ لا `/health/live`/`ready`، لا readiness للـDB/migrations. | `Program.cs:149-161` | Health endpoints + checks |
 | **P1-20** | CI | لا Build/Test Pipeline؛ لا Contract diff؛ لا Secret scan. | المشروع | GitHub Actions |
 

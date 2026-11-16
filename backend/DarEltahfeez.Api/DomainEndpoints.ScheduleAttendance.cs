@@ -58,24 +58,6 @@ public static partial class DomainEndpoints
             { return Results.Conflict(new { message = "توجد حصة أخرى للمعلمة نفسها تتداخل مع هذا الموعد. اختر وقتًا غير متداخل؛ يُسمح بالمواعيد المتتالية." }); }
         }).RequireAuthorization("schedule.edit");
 
-        app.MapDelete("/api/schedule-slots/{id:guid}", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            await using var conn = await db.OpenConnectionAsync(ct);
-            await using var tx = await conn.BeginTransactionAsync(ct);
-            bool exists, hasAttendance;
-            await using (var check = new NpgsqlCommand("SELECT EXISTS(SELECT 1 FROM circle_schedule_slots WHERE id=@id AND is_trashed=FALSE), (EXISTS(SELECT 1 FROM teacher_attendance WHERE schedule_slot_id=@id AND is_trashed=FALSE) OR EXISTS(SELECT 1 FROM student_attendance WHERE schedule_slot_id=@id AND is_trashed=FALSE));", conn, tx))
-            {
-                check.Parameters.AddWithValue("id", id); await using var reader = await check.ExecuteReaderAsync(ct);
-                if (!await reader.ReadAsync(ct)) return Results.NotFound(); exists = reader.GetBoolean(0); hasAttendance = reader.GetBoolean(1);
-            }
-            if (!exists) return Results.NotFound();
-            await using (var change = new NpgsqlCommand(hasAttendance ? "UPDATE circle_schedule_slots SET is_active=FALSE WHERE id=@id;" : "DELETE FROM circle_schedule_slots WHERE id=@id;", conn, tx))
-            { change.Parameters.AddWithValue("id", id); await change.ExecuteNonQueryAsync(ct); }
-            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'schedule.remove','circle_schedule_slot',@id,jsonb_build_object('preservedAttendance',@preserved));", conn, tx))
-            { audit.Parameters.AddWithValue("actor", ActorId(principal)); audit.Parameters.AddWithValue("id", id); audit.Parameters.AddWithValue("preserved", hasAttendance); await audit.ExecuteNonQueryAsync(ct); }
-            await tx.CommitAsync(ct);
-            return Results.Ok(new { id, removed = true, historicalAttendancePreserved = hasAttendance });
-        }).RequireAuthorization("schedule.edit");
 
         app.MapGet("/api/teacher-attendance", async Task<IResult> (string? month, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {

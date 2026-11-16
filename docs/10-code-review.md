@@ -89,7 +89,7 @@ Tested on disposable PostgreSQL 17: direct `details` update blocked, delete bloc
 | **P1-5** | Trash API bypasses domain permissions. | Fixed: move/restore/purge now require the owning permission as well as `trash.manage`; frontend hides/disables unauthorized rows. | A trash manager can no longer hide/restore financial records without `finance.delete`. | Verified on disposable PostgreSQL 17: limited `trash.manage` user got 403 for payment/student trash, purge, and restore; admin purge still 200. |
 | **P1-6** | Backup/restore is Windows-only. | `SystemAdminService.cs` looks for `pg_dump.exe`, validates drive-letter paths, writes to `%LOCALAPPDATA%`. | The final Ubuntu host cannot create or restore backups; container restarts may lose files. | Linux `pg_dump`, mounted backup volume, Compose service, restore drill. |
 | **P1-7** | No Docker/Compose/Caddy deployment yet. | Repo root; roadmap 6.5 pending. | Final host+domain goal is not achievable yet. | Add deployment stack, staging smoke test, TLS/DNS, rollback. |
-| **P1-8** | Dead physical DELETE endpoints remain. | `DomainEndpoints*.cs` `MapDelete` blocks; only `AuditMiddleware` returns 409. | If middleware order changes, physical deletes can erase history. | Remove or convert to trash-only. |
+| **P1-8** | Dead physical DELETE endpoints remain. | Fixed: all 10 `MapDelete` blocks removed from `DomainEndpoints*`; `AuditMiddleware` still blocks DELETE as defense in depth. | No code path can physically delete a business record. | Fixed. |
 | **P1-9** | OTP pepper is empty by default. | Fixed: `Dar.Api` refuses to start outside Development without `Auth:Otp:Pepper`; the hasher also fails closed. | No process-local key in production; multi-instance OTP verification is safe once the secret is configured. | Fixed. |
 | **P1-10** | Test suite is partly stale. | Runners require `TestCenter.ps1`/`Start-TestCenter.ps1`; some count/path assertions were updated but the suite is not green. | “No behavior change” claims are not actually verified by the old suite. | Move active checks to xUnit/source tests; archive obsolete runners; keep CI green. |
 | **P1-11** | Teacher/circle save payload sent numeric strings. | Fixed: `useTeacherActions.ts`, `useCircleActions.ts` now build explicit payloads and omit financial fields without `finance.edit`. | Non-finance users could not save teachers/circles (400). | Fixed. |
@@ -152,7 +152,7 @@ Tested on disposable PostgreSQL 17: direct `details` update blocked, delete bloc
 3. ✅ Add `audit_log` append-only trigger; optional DB-role hardening remains.
 4. Add session revalidation/revocation in both hosts.
 5. Add setup token, CSRF/Origin checks, forwarded headers.
-6. Remove dead DELETE endpoints.
+6. ✅ Remove dead DELETE endpoints.
 7. Build the Linux/Docker deployment stack and a restore drill.
 8. Migrate the active PowerShell source guards to xUnit or a single maintained source-test project.
 9. Continue module replacement (Students → Teachers → Circles → Schedule → Finance) behind the OpenAPI contract.
