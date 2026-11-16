@@ -448,17 +448,49 @@
 **Checkpoint:** `docs/checkpoints/6.4-monitoring.md`
 
 ### 6.5 Staging + production
-- [x] Docker Compose + Caddy stack authored (`deploy/`).
-- [x] Images build; local stack smoke test passed (16 migrations, both APIs healthy).
-- [ ] Staging deploy.
-- [ ] Smoke tests on the real host.
-- [ ] Production deploy on the final host.
-- [ ] Final domain (`darelemamhaf.rigxhardware.com`) + DNS/TLS.
+- [x] Host stack deployed: Nginx + Certbot + systemd + PostgreSQL 17 + .NET 10.
+- [x] Final domain (`dar-elemam-hafs.rigxhardware.com`) + TLS.
+- [x] Smoke tests on the real host (health, ping, login, backup).
+- [x] Certbot DNS-01 renewal dry-run.
+- [ ] Offsite backup + restore drill.
 - [ ] Rollback verified.
+- [ ] First GitHub Actions run verified.
 
 **Final goal:** النظام كاملًا يعمل على host + domain إنتاجي، وليس محليًا فقط. كل Build قبل الـPush هدفه التحقق من سلامة الملفات المرفوعة ومنع الكسر.
 
 **Checkpoint:** `docs/checkpoints/6.5-launch.md`
+
+---
+
+## Phase 7 — Teacher Portal & Mobile UI
+
+> Requirements: `docs/13-teacher-portal-requirements.md`
+> UI audit/direction: `docs/14-ui-audit-and-mobile-direction.md`
+
+- [ ] Owner approves the visual sample (teacher home / live session / roster / notifications / supervisor board).
+- [ ] DB: `app_users.teacher_id`, `teacher_sessions`, `notifications`, `notification_reads`.
+- [ ] Teacher permission bundle + server-side scoping by `teacher_id`.
+- [ ] Teacher APIs: today, start/end session, roster, attendance, earnings.
+- [ ] Mobile-first teacher PWA at `/teacher`.
+- [ ] Supervisor role + live/absent/unpaid board.
+- [ ] Persistent notification center with read state, quiet hours, dedupe.
+- [ ] Absent/unpaid follow-up screens.
+- [ ] Remove desktop auto-start / connection check / connection settings from the web UI (done).
+- [ ] Tests: teacher scoping, session races, notification dedupe, mobile E2E.
+
+**Checkpoint:** `docs/checkpoints/7.0-teacher-portal.md`
+
+---
+
+## Phase 8 — Payroll Lock, Follow-up & Reports
+
+- [ ] Attendance approval/correction workflow.
+- [ ] Payroll run → review → approve → lock → payslip.
+- [ ] Teacher earnings history.
+- [ ] Absent/unpaid follow-up reports.
+- [ ] Supervisor audit trail.
+
+**Checkpoint:** `docs/checkpoints/8.0-payroll-followup.md`
 
 ### 6.6 Training + handover
 - [ ] Admin guide.
@@ -483,7 +515,9 @@
 | 1.5.2 Frontend split | ✅ All frontend files under 400 lines |
 | 2.x New .NET foundation | 🟡 Identity + Students + OpenAPI + migrations done |
 | 3.x Module replacement | ⏳ Next |
-| 6.5 Host + domain launch | ⏳ Pending — final goal |
+| 6.5 Host + domain launch | ✅ Live at `dar-elemam-hafs.rigxhardware.com`; offsite/rollback pending |
+| 7.0 Teacher portal + mobile UI | ⏳ Awaiting visual sample approval |
+| 8.0 Payroll + follow-up | ⏳ Pending |
 
 ---
 

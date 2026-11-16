@@ -147,15 +147,15 @@ Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; a
 
 | ID | Area | Finding | Evidence | Required fix |
 |---|---|---|---|---|
-| **P1-01** | Architecture | Endpoints عملاقة: `DomainEndpoints.cs` 1,680 سطر، `SystemAdminEndpoints.cs` 697، `AuthEndpoints.cs` 352؛ SQL داخل الـEndpoints. | ملفات API | Modular Monolith + Vertical Slices + Repositories |
+| **P1-01** | Architecture | 🟡 `DomainEndpoints` split into 13 partials (max 376), `SystemAdminEndpoints` into 4 (main 304), `AuthEndpoints` into 3 (main 325). SQL remains inside endpoint files; final `src/Modules/*` migration still pending. | ملفات API | Modular Monolith + Vertical Slices + Repositories |
 | **P1-02** | Payroll | لا `payroll_runs`/`payslips`/lock/approval. الأجر يُحسب on-the-fly من الحضور. | schema؛ `DomainEndpoints.cs:903-974`؛ Dashboard sums | Payroll Run → Review → Approve → Lock → Payslip → Payment |
 | **P1-03** | Treasury | لا Accounts/Journal/Period Close. “Net” الحالي استحقاقي وليس نقديًا. | `FINANCIAL_WORKFLOW_AND_RULES_AR.md:7-9, 145-149`؛ schema | Treasury + double-entry ledger + period close |
 | **P1-04** | Receipts | لا Receipt Number/Document Sequence؛ الإيصال صورة اختيارية أو لا شيء. | `payments` schema `001:101-111`؛ `003:32-35` | `receipt_no` ذري + إيصال غير قابل للتعديل |
 | **P1-05** | Money | لا Idempotency-Key؛ الاعتماد على `FOR UPDATE` + sum فقط. | `DomainEndpoints.cs:1313-1386` | Idempotency table + header |
-| **P1-06** | API Contract | لا OpenAPI؛ أنواع TS مكتوبة يدويًا وقد تنحرف. | `frontend/src/domain/types.ts` | OpenAPI 3.1 + generated client + contract test |
-| **P1-07** | Frontend | SPA Vite، Hook مركزي 874 سطر، لا Router، عربي فقط. | `useDarApplication.ts`؛ `App.tsx` | Next.js 16 + feature modules + ar/en + BFF |
+| **P1-06** | API Contract | 🟡 New `/api/v1` has OpenAPI 3.1 + generated TS client. Legacy `/api/*` is not covered by the contract; frontend legacy types are still hand-written. | `packages/api-client/openapi.v1.json`؛ `schema.d.ts` | Cover legacy during module replacement + contract diff |
+| **P1-07** | Frontend | 🟡 Vite SPA still in use; hook split to 363 lines + feature hooks; `SystemAdminView` 307; all files under 400. No Router/i18n; Next.js shell pending. | `useDarApplication.ts`؛ `App.tsx` | Next.js 16 + feature modules + ar/en + BFF |
 | **P1-08** | Tests | 🟡 xUnit (12) + integration (5) + Vitest (7) now exist and run in CI. PowerShell Test Center is archived; several source guards are stale. No Testcontainers/Playwright yet. | `tests/`، `frontend/src/application/selectors.test.ts`، CI | Testcontainers + Playwright later |
-| **P1-09** | Ops | لا Dockerfile/Compose/CI/CD؛ لا Linux deploy. | المشروع | Docker Compose + GitHub Actions + staging |
+| **P1-09** | Ops | ✅ Docker/Compose, GitHub Actions, and Linux host deployment exist. Live on Nginx/systemd/PostgreSQL; offsite backup, restore drill, and rollback verification remain. | `deploy/`؛ `.github/workflows/ci.yml`؛ `docs/11-deployment.md` | Finish offsite/rollback |
 | **P1-10** | Lists | لا Pagination/Server search؛ القوائم تُرجع كل الصفوف. | `DomainEndpoints.cs` list queries؛ `PROJECT_STATUS...:102` | PagedResult + indexes |
 | **P1-11** | Migrations | Legacy `DatabaseInitializer` بلا checksum/advisory lock. New `MigrationRunner` يملك checksums + lock + legacy-ledger adoption؛ legacy auto-migrate مقيّد بـDevelopment/desktop. يتبقى توحيد الـledger وإزالة الـinitializer القديم. | `DatabaseInitializer.cs:7-78`؛ `MigrationRunner.cs`؛ `Program.cs:164-173` | Retire legacy initializer؛ single ledger |
 | **P1-12** | Billing | خصم أيام الإيقاف داخل الشهر غير مطبق في API؛ الاقتراح في الواجهة فقط. | `FINANCIAL_WORKFLOW...:40-46, 260-267`؛ `DomainEndpoints.cs:1222-1251` | سياسة مالية + حساب خادمي + اختبارات |
@@ -167,6 +167,22 @@ Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; a
 | **P1-18** | Dead Code | ✅ تم حذف كل مسارات `MapDelete` القديمة من `DomainEndpoints*` (10 مسارات). `AuditMiddleware` يحتفظ بحجب DELETE كطبقة دفاع إضافية. | `DomainEndpoints*.cs`؛ `AuditMiddleware.cs:20-27` | Done |
 | **P1-19** | Health | ✅ `Dar.Api` and legacy both expose live/ready endpoints; Docker/Compose healthchecks use `/health/ready`. | `Program.cs`؛ `HealthEndpoints.cs`؛ `deploy/*` | Done |
 | **P1-20** | CI | ✅ GitHub Actions now builds legacy + new solution, runs tests, frontend build, API-client typecheck, .NET/npm vulnerability audits, gitleaks, and Compose validation. First run still needs verification on GitHub. | `.github/workflows/ci.yml` | Verify first run |
+
+---
+
+## 6.1 Teacher Portal & Mobile Gaps — 16 Nov 2026
+
+| ID | Severity | Finding | Evidence | Required fix |
+|---|---|---|---|---|
+| **P1-21** | Teacher accounts | Teachers have no `app_users` link, login, or scoped session. | `teachers` schema; `AuthEndpoints` only app_users; no teacher route | Add `app_users.teacher_id` + teacher permission bundle |
+| **P1-22** | Teacher scoping | Broad `attendance.edit`/`students.read` would expose all circles to a teacher. | `Program.cs` policies; `DomainEndpoints` filters by permission only | Server-side `teacher_id` scoping on every teacher endpoint |
+| **P1-23** | Live session | No start/end timer; `teacher_attendance` is admin-entered. | `teacher_attendance` schema; `DomainEndpoints.ScheduleAttendance` | `teacher_sessions` + start/end/submit flow |
+| **P1-24** | Notifications | Alerts are toast/browser/localStorage only; no persistence/read state/dedupe. | `useScheduleNotifications.ts`; `PersonalReminderCenter.tsx` | Persistent notification center + `notification_reads` |
+| **P1-25** | Mobile UI | Mobile hides all nav items except active; dense tables; no PWA. | `foundation.css` `@media(max-width:760px)`; pages | Bottom nav/drawer, card lists, PWA, 44px targets |
+| **P1-26** | Supervisor | No supervisor role or live/absent/unpaid board. | permissions flat; dashboard only | Supervisor bundle + board |
+| **P1-27** | Absent/unpaid follow-up | Data exists but no dedicated actionable screens. | dashboard/collections; no absent list | Supervisor screens + filters |
+| **P2-15** | Password policy | Minimum password lowered to 6 by owner request; weakens brute-force resistance. | `AuthEndpoints.Helpers.cs`; `AuthPage.tsx` | Raise to 10–12 after onboarding; add lockout/2FA |
+| **P2-16** | Web UI clutter | Desktop auto-start and connection controls removed; desktop wording remains in docs. | `SystemPage.tsx` | Keep web UI server-hosted wording |
 
 ---
 
@@ -187,7 +203,7 @@ Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; a
 | **P2-11** | Audit details قد تحتوي PII/مبالغ؛ Redaction مالي فقط. | `AuditMiddleware.cs:206-218` | Redaction شامل + اختبارات |
 | **P2-12** | الصور/الشعار/الأفاتار BYTEA داخل DB. | `payments.receipt_data`, `school_settings.logo_data`, `app_users.avatar_data` | Object storage + signed URLs |
 | **P2-13** | Docs تاريخية/handoff كثيرة؛ لا مصدر حقيقة واحد. | `docs/` | استبدالها بهيكل `docs/` الجديد |
-| **P2-14** | لا Git history؛ لا rollback/review. | `Test-Path .git` = False | Git repo بقرار المالك (لا إنشاء تلقائي) |
+| **P2-14** | Git history/rollback | ✅ Git repo + `origin/main` on GitHub; deploy key on server; rollback drill still pending. | `git log`؛ `/opt/dar` checkout | Verify rollback |
 
 ---
 
