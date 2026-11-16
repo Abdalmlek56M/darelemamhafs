@@ -75,12 +75,13 @@
 - **Phase 1.10:** Live deployment — ✅ Contabo VPS `31.220.76.171` is live at **https://dar-elemam-hafs.rigxhardware.com** on **Nginx + Certbot + systemd + host PostgreSQL 17 + .NET 10**; 16 migrations restored, both APIs healthy, admin login verified, first backup created. Docker/Caddy stack retired; volumes retained.
 - **Phase 1.11:** Host hardening — ✅ UFW, key-only SSH, fail2ban, unattended upgrades, Certbot certificate, daily backup timer. Cloudflare DNS-01 renewal works (dry-run passed); GitHub deploy key added and `/opt/dar` tracks `origin/main` (`git pull` verified). Admin password rotated and temporary file deleted. Google Drive offsite backup configured and restore-tested (local + remote 30-day retention). Pending: dedicated rclone OAuth client ID + Cloudflare token rotation.
 - **Phase 1.12:** Teacher portal requirements — ✅ captured in `docs/13-teacher-portal-requirements.md` + `docs/14-ui-audit-and-mobile-direction.md`; 5-screen interactive sample at `docs/ui-sample/teacher-portal.html`. Password minimum lowered to 6 (owner request); desktop auto-start/connection controls removed. No teacher UI implemented yet — sample awaits owner approval.
+- **Phase 1.13:** Legacy reuse audit — ✅ `docs/15-legacy-reuse-audit.md` confirms students, schedule, teacher/student attendance, payroll math, charges/payments/receipts/collections, and the audit log already exist. Reuse them; do not rebuild. P0 decisions: 15-minute minimum, explicit `Africa/Cairo` date handling, and `app_users.teacher_id`.
 - **UI gate:** no UI implementation before the owner approves a visual sample.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.
-- **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` pushed (`21e8729`; the teacher sample commit follows immediately).
+- **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` pushed (`1e4b1ad`), including the visual sample and the reuse audit.
 - **Git rule:** every completed checkpoint = commit + push. No force-push.
-- **Next:** owner reviews `docs/ui-sample/teacher-portal.html`; after approval, implement the teacher DB/API foundation, then the mobile PWA/supervisor/notification UI. Offsite backup is complete.
+- **Next:** owner reviews `docs/ui-sample/teacher-portal.html`; decide the three P0 items in `docs/15-legacy-reuse-audit.md` (15-minute minimum, Cairo date handling, teacher link); after sample approval, implement the teacher DB/API foundation, then the mobile PWA/supervisor/notification UI. Offsite backup is complete.
 - **Legacy stack:** .NET 10 minimal API + React 19/Vite + PostgreSQL 17 + WPF/WebView2 + PowerShell Test Center. No `.bat` files remain.
 
 ### What Was Done vs. What Was Not
