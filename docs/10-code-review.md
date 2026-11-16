@@ -29,7 +29,7 @@
 
 ### P0-1. Parent purge permanently deleted financial/history children
 
-**Status:** fixed in code. Migration 014 was applied to a disposable PostgreSQL 17 container and the FK `RESTRICT` behavior was verified. The API-level purge call still needs an end-to-end check (the local API test process was not usable).
+**Status:** fixed and verified end-to-end. Migration 014 was applied to a disposable PostgreSQL 17 container; FK `RESTRICT` blocked physical student/charge deletes. The legacy API then created a full student→enrollment→charge→payment chain, moved the student to trash, and `DELETE /api/admin/trash/{id}` returned **409**; the payment and charge still existed afterwards (1 each). The test API/container were removed.
 
 **Evidence (before fix):**
 - `SystemAdminEndpoints.Trash.cs` — `PurgeTrashAsync` checked `FinancialTrashTypes` only for the selected row.
@@ -48,23 +48,33 @@
 
 ### P0-2. `restore-before` can rewrite financial and attendance history
 
-**Status:** open — product/security decision required.
+**Status:** fixed — restore is now limited to descriptive fields.
 
 **Evidence:** `SystemAdminService.RestoreColumns` includes `hourly_rate`, `amount_due`, `paid_at`, `payable_amount`, payment/attendance tables, and relationship IDs. `SystemAdminEndpoints.cs` allows the restore with `audit.restore` + a field-name heuristic; `ContainsFinancialJsonFields` only checks a hard-coded key list.
 
 **Impact:** an `audit.restore` holder can alter historical money/attendance values (and enrollment dates/status) instead of using a reversal entry. This is a history rewrite, not a correction trail.
 
-**Recommended fix:** restrict restore to descriptive fields (names, phone, notes, schedule text), and use explicit reversal/void entries for money. If owner wants financial restore, make it a separate, strongly audited "correction" action with before/after and a mandatory reason.
+**Fix applied:** `SystemAdminService.RestoreColumns` now contains only:
+- `students`: code, name, age, phone, guardian fields, joined date, status, notes.
+- `teachers`: code, name, phone, status, notes.
+- `circles`: code, name, schedule text.
+- `student_notes` / `teacher_notes`: note text.
+
+All financial, attendance, enrollment-lifecycle, schedule-assignment, and trash-flag restores are disabled; the UI button disappears because `can_restore` is derived from this dictionary. If the owner later wants a financial correction workflow, it must be a separate reversal/void action with a mandatory reason.
 
 ### P0-3. Audit log is not append-only
 
-**Status:** open.
+**Status:** fixed and verified.
 
 **Evidence:** no `CREATE TRIGGER` on `audit_log` in `database/*.sql`; the table can be updated/deleted by anyone with DB access. The app itself updates `restored_at`/`can_restore` (expected metadata), but there is no DB-level protection against tampering.
 
 **Impact:** the audit trail is not reliable evidence in a dispute or security incident.
 
-**Recommended fix:** add a trigger that rejects `UPDATE`/`DELETE` except the narrow restore-metadata columns, or move audit rows to an append-only table/partition with a restricted DB role. Also add `REVOKE DELETE ON audit_log FROM dar_app`.
+**Fix applied:** `database/015_audit_log_append_only.sql` adds `trg_audit_log_append_only`, which:
+- rejects all `DELETE`;
+- allows only `restored_at` / `can_restore` changes on a finalized row;
+- allows the `AuditMiddleware` enrichment of a just-created placeholder row (`request_path`/`http_method` were null).
+Tested on disposable PostgreSQL 17: direct `details` update blocked, delete blocked, enrichment allowed, restore metadata allowed, `action_code` rewrite blocked.
 
 ---
 
@@ -137,9 +147,9 @@
 
 ## 6. Recommended Order
 
-1. Apply migration 014 + purge-guard test on a disposable PostgreSQL database.
-2. Decide the financial-restore policy and restrict `RestoreColumns`.
-3. Add `audit_log` append-only trigger + DB role restrictions.
+1. ✅ Apply migration 014 + purge-guard test on a disposable PostgreSQL database.
+2. ✅ Restrict `restore-before` to descriptive fields (no financial/attendance history).
+3. ✅ Add `audit_log` append-only trigger; optional DB-role hardening remains.
 4. Add session revalidation/revocation in both hosts.
 5. Add setup token, CSRF/Origin checks, forwarded headers.
 6. Remove dead DELETE endpoints.

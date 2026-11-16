@@ -75,8 +75,8 @@ START_DAR.bat
 | ID | Status | What changed |
 |---|---|---|
 | P0-01 | 🟡 Partial | Added legacy auth rate limit (10/min/IP) + `auth.login`/`auth.login.failed` audit. Email OTP/Google and lockout still pending. |
-| P0-02 | 🟢 Code fixed; DB FK verified on disposable PostgreSQL 17 | Parent purge now rejects financial descendants; child purge refuses financial tables; migration `014_financial_fk_restrict.sql` restores `RESTRICT` for student→enrollment→charge→payment. Disposable-DB test: all 14 migrations applied; physical student/charge deletes blocked by FK. API-level purge test still pending. Hard-delete endpoints remain (P1-18). |
-| P0-03 | 🔴 Pending | Audit append-only trigger and restore allowlist not implemented yet. |
+| P0-02 | ✅ Fixed and verified end-to-end | Parent purge rejects financial descendants; child purge refuses financial tables; migration `014_financial_fk_restrict.sql` restores `RESTRICT` for student→enrollment→charge→payment. Disposable-DB test: all 14 migrations applied; FK blocked physical deletes; API created a full payment chain, trashed the student, and purge returned **409** with payment/charge still present. Hard-delete endpoints remain (P1-18). |
+| P0-03 | ✅ Fixed and verified | Migration `015_audit_log_append_only.sql` blocks DELETE and substantive UPDATE; only request enrichment and restore metadata are allowed. `RestoreColumns` now excludes money, attendance, enrollment lifecycle, schedule assignments, and trash flags; only descriptive profile/note fields can be restored. Tested on disposable PostgreSQL 17: direct details update blocked, delete blocked, enrichment allowed, restore metadata allowed, substantive rewrite blocked. |
 | P0-04 | 🔴 Pending | Windows/desktop deployment still present; Linux/Docker migration not started. |
 | P0-05 | 🔴 Pending | Need owner approval for the 3 conflicting schedule times. |
 | P0-06 | 🟡 Partial | Added `X-Frame-Options`, CSP `frame-ancestors`, Permissions-Policy, HSTS on HTTPS. CSRF token and web BFF still pending. |
@@ -111,7 +111,6 @@ Verified: build 0 warnings/errors; login rate limit returned `401×9, 429×3`; a
 
 | ID | Severity | Finding | Evidence | Required fix |
 |---|---|---|---|---|
-| **P0-03** | P0 | `audit_log` is not append-only; `restore-before` can rewrite financial/attendance fields. | No audit trigger in `database/*.sql`; `SystemAdminService.RestoreColumns` includes `hourly_rate`, `amount_due`, payments/attendance; `SystemAdminEndpoints.cs` restore endpoint | Append-only trigger; restrict restore to descriptive fields; financial corrections via reversal |
 | **P1-27** | P1 | Legacy and new sessions survive password change, permission removal, or deactivation. | `AuthEndpoints.cs` (no session version); `IdentityModule.cs` (no `OnValidatePrincipal`); `DatabaseTicketStore.cs` | Session version/`OnValidatePrincipal`; revoke tickets on credential/email/role changes |
 | **P1-28** | P1 | First-run `/api/setup/admin` is anonymous and claimable by anyone who reaches the host first. | `AuthEndpoints.cs` setup route | One-time setup token or loopback-only bootstrap |
 | **P1-29** | P1 | No CSRF token/Origin check; legacy cookie is `SameSite=Strict`, new cookie is `Lax`. | `Program.cs`, `IdentityModule.cs`, `docs/03-security.md` §2.3 | Antiforgery token + Origin/Referer validation; align SameSite |

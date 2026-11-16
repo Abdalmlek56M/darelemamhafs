@@ -42,7 +42,12 @@ Date: 16 Nov 2026
   - Student delete blocked by FK `RESTRICT`.
   - Charge delete blocked by payment FK `RESTRICT`.
 - The container and test data were removed afterwards.
-- The API-level `POST /api/admin/trash` → `DELETE /api/admin/trash/{id}` = `409` test was **not** completed because the legacy API test process used the machine's shared connection settings and returned 503. The code guard is built but still needs that end-to-end check.
+- API-level acceptance test passed in `DAR_ISOLATED_FUNCTIONAL_ACCEPTANCE=1` mode on a disposable database:
+  - Created teacher → circle → student → enrollment → charge → payment.
+  - Moved the student to trash.
+  - `DELETE /api/admin/trash/{id}` returned **409**.
+  - Database check afterwards: payment = **1**, charge = **1**, financial trash rows = **3** — nothing was purged.
+- The API process and container were stopped/removed afterwards.
 
 ## Still Open
 - P0: financial `restore-before` policy; append-only `audit_log`.

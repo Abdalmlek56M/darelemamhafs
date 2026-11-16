@@ -67,7 +67,7 @@
 - **Phase 3.1:** Secretariat — 🟡 students list/get/create done.
 - **Phase 1.5.1:** Legacy backend split — 🟡 `DomainEndpoints` fully split (13 files, max 376); `SystemAdminEndpoints` partial (main 304 + Export/Trash/Helpers); Test Center GUI archived.
 - **Phase 1.5.2:** Frontend split — ✅ `useDarApplication` 889 → **363 lines**; `SystemAdminView` 456 → **307 lines** with `src/system/*`. All frontend files under 400.
-- **Phase 1.6:** Full code review — ✅ `docs/10-code-review.md` written; P0 purge cascade fixed in code + migration `014_financial_fk_restrict.sql`; several P1 frontend/migration fixes applied. Open P0: financial `restore-before` policy, append-only audit log. Open P1: session revocation, setup bootstrap, CSRF, forwarded headers, trash permission split, Linux backups/deploy, stale source tests.
+- **Phase 1.6:** Full code review — ✅ `docs/10-code-review.md` written. P0 fixes verified: purge cascade blocked end-to-end (migration 014 + FK RESTRICT + API 409); audit log append-only (migration 015); financial/attendance restore disabled (descriptive fields only). Several P1 frontend/migration fixes applied. Open P1: session revocation, setup bootstrap, CSRF, forwarded headers, trash permission split, Linux backups/deploy, stale source tests.
 - **UI gate:** no UI implementation before the owner approves a visual sample.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.

@@ -24,6 +24,7 @@
 | 1.5.5 | [Frontend hook split](legacy-split-2.2.md) | ✅ |
 | 1.5.6 | [SystemAdminView split](legacy-split-2.3.md) | ✅ |
 | 1.6.0 | [Full code review](code-review-1.0.md) | ✅ |
+| 1.6.1 | [P0 hardening: purge, audit, restore](p0-hardening-1.0.md) | ✅ |
 
 ## Next in order
 

@@ -44,22 +44,20 @@ public sealed class SystemAdminService(NpgsqlDataSource dataSource, ILogger<Syst
         ["admin"] = ["app_users", "permissions", "user_permissions", "audit_log", "school_settings", "trash_items", "system_backups"]
     };
 
+    /// <summary>
+    /// Audit restore is intentionally limited to descriptive profile fields.
+    /// Money, attendance, enrollment lifecycle, schedule assignments, and trash flags are
+    /// excluded: correcting those requires a reversal/void entry, never a history rewrite.
+    /// Removing a table here also removes its "restore previous values" button because
+    /// AuditMiddleware derives can_restore from this dictionary.
+    /// </summary>
     internal static readonly IReadOnlyDictionary<string, string[]> RestoreColumns = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
     {
-        ["students"] = ["student_code", "full_name", "age_years", "phone", "guardian_name", "guardian_phone", "joined_on", "status", "notes", "is_trashed"],
-        ["teachers"] = ["teacher_code", "full_name", "phone", "hourly_rate", "status", "notes", "is_trashed"],
-        ["circles"] = ["circle_code", "name", "teacher_id", "monthly_fee", "schedule_text", "is_active", "is_trashed"],
-        ["student_notes"] = ["student_id", "note_text", "is_trashed"],
-        ["teacher_notes"] = ["teacher_id", "note_text", "created_by", "is_trashed"],
-        ["circle_enrollments"] = ["student_id", "circle_id", "starts_on", "ends_on", "agreed_monthly_fee", "status", "is_trashed"],
-        ["monthly_charges"] = ["enrollment_id", "billing_month", "amount_due", "note", "is_trashed"],
-        ["payments"] = ["monthly_charge_id", "amount", "paid_at", "method", "reference", "note", "recorded_by", "is_trashed"],
-        ["collection_reports"] = ["title", "billing_month", "snapshot", "saved_by", "is_trashed"],
-        ["circle_schedule_slots"] = ["circle_id", "day_of_week", "starts_at", "duration_minutes", "is_active", "is_trashed"],
-        ["teacher_attendance"] = ["schedule_slot_id", "circle_id", "teacher_id", "session_date", "scheduled_start", "duration_minutes", "status", "hourly_rate_snapshot", "payable_amount", "note", "marked_by", "is_trashed"],
-        ["student_attendance"] = ["schedule_slot_id", "enrollment_id", "session_date", "status", "note", "marked_by", "marked_at", "is_trashed"],
-        ["advertising_expenses"] = ["circle_id", "platform", "start_date", "days_count", "daily_cost", "note", "is_trashed"],
-        ["operating_expenses"] = ["expense_date", "category", "description", "amount", "circle_id", "note", "is_trashed"]
+        ["students"] = ["student_code", "full_name", "age_years", "phone", "guardian_name", "guardian_phone", "joined_on", "status", "notes"],
+        ["teachers"] = ["teacher_code", "full_name", "phone", "status", "notes"],
+        ["circles"] = ["circle_code", "name", "schedule_text"],
+        ["student_notes"] = ["note_text"],
+        ["teacher_notes"] = ["note_text"]
     };
 
     private string BackupRoot
