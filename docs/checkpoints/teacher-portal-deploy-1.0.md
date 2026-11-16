@@ -24,6 +24,7 @@ Date: 16 Nov 2026
 - Found and fixed the null `@userId` type inference in the teacher-link check plus typed JSON audit parameters (`485e9f3`); redeployed the legacy API and retested against a disposable DB.
 - Created a live **supervisor** account (`supervisor` / «المشرفة») with the supervisor permission bundle. Temporary password is at `/etc/dar/supervisor-initial-password` (`root:root`, `600`); it must be changed and the file deleted after first login.
 - Live supervisor login → `/api/v1/supervisor/live` → `{sessions:[]}` and `/unpaid` → `{count:0}` (no operational data yet).
+- **Post-deploy backup:** `dar-20261116-172818.dump` (214 TOC entries) uploaded to Google Drive; `rclone check` 8 matching files / 0 differences; restore drill → 3 users / 17 migrations / teacher_sessions + notifications present.
 
 ## Verified Before Swap
 
