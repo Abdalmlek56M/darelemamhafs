@@ -73,14 +73,14 @@
 - **Phase 1.8:** Host + domain deployment stack — ✅ `deploy/` Dockerfiles + Compose + Caddy; images built and local stack smoke-tested (16 migrations, both APIs healthy). Cross-platform backup path + `pg_dump` support added. Legacy live/ready health, last-admin guard, and per-email OTP throttle added.
 - **Phase 1.9:** Frontend Vitest — ✅ 7 selector tests; `npm test` in CI.
 - **Phase 1.10:** Live deployment — ✅ Contabo VPS `31.220.76.171` is live at **https://dar-elemam-hafs.rigxhardware.com** on **Nginx + Certbot + systemd + host PostgreSQL 17 + .NET 10**; 16 migrations restored, both APIs healthy, admin login verified, first backup created. Docker/Caddy stack retired; volumes retained.
-- **Phase 1.11:** Host hardening — ✅ UFW, key-only SSH, fail2ban, unattended upgrades, Certbot certificate, daily backup timer. Cloudflare DNS-01 renewal works (dry-run passed); GitHub deploy key added and `/opt/dar` tracks `origin/main` (`git pull` verified). Pending: Google Drive rclone offsite, admin password rotation.
-- **Phase 1.12:** Teacher portal requirements — ✅ captured in `docs/13-teacher-portal-requirements.md` + `docs/14-ui-audit-and-mobile-direction.md`. Password minimum lowered to 6 (owner request); desktop auto-start/connection controls removed. No teacher UI implemented yet — visual sample approval required.
+- **Phase 1.11:** Host hardening — ✅ UFW, key-only SSH, fail2ban, unattended upgrades, Certbot certificate, daily backup timer. Cloudflare DNS-01 renewal works (dry-run passed); GitHub deploy key added and `/opt/dar` tracks `origin/main` (`git pull` verified). Admin password rotated and temporary file deleted. Google Drive offsite backup configured and restore-tested (local + remote 30-day retention). Pending: dedicated rclone OAuth client ID + Cloudflare token rotation.
+- **Phase 1.12:** Teacher portal requirements — ✅ captured in `docs/13-teacher-portal-requirements.md` + `docs/14-ui-audit-and-mobile-direction.md`; 5-screen interactive sample at `docs/ui-sample/teacher-portal.html`. Password minimum lowered to 6 (owner request); desktop auto-start/connection controls removed. No teacher UI implemented yet — sample awaits owner approval.
 - **UI gate:** no UI implementation before the owner approves a visual sample.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.
-- **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` pushed (`d8c7b29`).
+- **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` pushed (`21e8729`; the teacher sample commit follows immediately).
 - **Git rule:** every completed checkpoint = commit + push. No force-push.
-- **Next:** produce the teacher portal visual sample (home/live/roster/notifications/supervisor) for owner approval; finish Google Drive offsite + admin password; then implement the teacher DB/API foundation; then mobile UI.
+- **Next:** owner reviews `docs/ui-sample/teacher-portal.html`; after approval, implement the teacher DB/API foundation, then the mobile PWA/supervisor/notification UI. Offsite backup is complete.
 - **Legacy stack:** .NET 10 minimal API + React 19/Vite + PostgreSQL 17 + WPF/WebView2 + PowerShell Test Center. No `.bat` files remain.
 
 ### What Was Done vs. What Was Not
