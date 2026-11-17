@@ -1,7 +1,7 @@
 # Supervision Workspace, Communications and Admin UX — Plan
 
 **Date:** 16 Nov 2026
-**Status:** A1 and A2 are live. E1 supervisor workspace is live. The owner-feedback F1 fixes (financial privacy, teacher-note feed, notification drawer, teacher-nav cleanup) are implemented and verified locally; deployment pending. A3 not started.
+**Status:** A1, A2, E1 and F1 are live. F1 adds finance-gated unpaid/subscription views, the teacher-note feed and the supervisor notification drawer. A3 (requests + WhatsApp + admin notification page) is next.
 **Owner approval:** all previously listed gaps and suggestions are approved. Manual adjustments, supervisor scope, offline handling, calendar, requests, admin notifications, WhatsApp sender, reports and the full admin/supervisor UI are in scope.
 
 Related: `docs/13-teacher-portal-requirements.md`, `docs/14-ui-audit-and-mobile-direction.md`, `docs/15-legacy-reuse-audit.md`, `docs/11-deployment.md`.
@@ -472,3 +472,5 @@ Verified against a disposable PostgreSQL 17 database with a 250 charge + 125 pay
 - Add the teacher-note feed to the admin console too (currently supervisor-only).
 - Add subscription status to the supervisor student list/table (currently detail only).
 - Payroll lock/approval, real teacher record/link, production E2E, GitHub Actions verification.
+
+Deployed live on 17 Nov 2026: commit `22f55fb`, API + frontend, no migration. Pre-deploy backup `dar-20261117-074409.dump`; old API at `api.old.20261117-074853`. Live supervisor no-finance: `/unpaid` returns `canViewAmounts=false`, teacher-notes 200, students 200. See `docs/checkpoints/supervisor-financial-notes-f1-1.0.md`.

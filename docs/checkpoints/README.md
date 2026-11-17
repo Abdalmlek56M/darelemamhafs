@@ -43,6 +43,7 @@
 | 1.17.0 | [Supervision A1 live deploy](supervision-a1-deploy-1.0.md) | ✅ live; supervisor permissions granted, owner password/teacher-link pending |
 | 1.18.0 | [Supervision A2 live deploy](supervision-a2-deploy-1.0.md) | ✅ live; scope read models + admin picker; owner scope review pending |
 | 1.19.0 | [Supervisor workspace E1](supervisor-workspace-e1-1.0.md) | ✅ live; desktop/mobile shell + safe demo mode |
+| 1.20.0 | [Financial privacy + notes F1](supervisor-financial-notes-f1-1.0.md) | ✅ live; amounts gated, notes feed + notification drawer |
 
 ## Next in order
 
