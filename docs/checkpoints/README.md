@@ -46,6 +46,7 @@
 | 1.20.0 | [Financial privacy + notes F1](supervisor-financial-notes-f1-1.0.md) | ✅ live; amounts gated, notes feed + notification drawer |
 | 1.21.0 | [Supervisor context navigation F2](supervisor-context-navigation-f2-1.0.md) | ✅ live; clickable teacher/circle context links |
 | 1.22.0 | [A3.2 requests + scope hardening](supervision-a32-requests-1.0.md) | ✅ live; requests/UI + backend scope; communication UI wiring/tests pending |
+| 1.23.0 | [Public homepage + /management](public-homepage-management-1.0.md) | ✅ live; public entry at `/`, admin at `/management` |
 
 ## Next in order
 
