@@ -61,6 +61,13 @@ export default function TeacherApp({ mode }: Props) {
   const canSelfPassword = has(session, 'account.password.self')
   const canFinance = has(session, 'finance.read')
   const canUnpaid = has(session, 'supervisor.unpaid') || canFinance
+  const canLive = has(session, 'supervisor.live')
+  const canAbsences = has(session, 'supervisor.absences')
+  const canStudents = has(session, 'supervisor.students.read')
+  const canStudentsNotes = has(session, 'supervisor.students.notes')
+  const canCircles = has(session, 'supervisor.circles.read')
+  const canTeachers = has(session, 'supervisor.teachers.read')
+  const canTeacherNotes = has(session, 'supervisor.teachers.notes')
   const canCorrect = has(session, 'supervisor.attendance.correct') || has(session, 'attendance.edit')
   const unread = notifications?.counts.unread ?? 0
 
@@ -333,7 +340,7 @@ export default function TeacherApp({ mode }: Props) {
   }
 
   return (
-    <div className="teacher-app">
+    <div className={`teacher-app ${page === 'supervisor' ? 'is-supervisor' : ''}`}>
       <main className="teacher-main">
         {page === 'home' && canTeacher && (
           <TeacherHome
@@ -405,7 +412,19 @@ export default function TeacherApp({ mode }: Props) {
           />
         )}
         {page === 'supervisor' && canSupervisor && (
-          <SupervisorBoard canCorrect={canCorrect} canUnpaid={canUnpaid} canFinance={canFinance} onLogout={() => void logout()} />
+          <SupervisorBoard
+            canCorrect={canCorrect}
+            canUnpaid={canUnpaid}
+            canFinance={canFinance}
+            canLive={canLive}
+            canAbsences={canAbsences}
+            canStudents={canStudents}
+            canStudentsNotes={canStudentsNotes}
+            canCircles={canCircles}
+            canTeachers={canTeachers}
+            canTeacherNotes={canTeacherNotes}
+            onLogout={() => void logout()}
+          />
         )}
         {page === 'account' && (
           <TeacherAccount

@@ -243,7 +243,11 @@ public static partial class AuthEndpoints
         {
             var list = new List<AdminUserResponse>();
             await using var cmd = db.CreateCommand("""
-                SELECT id, username, display_name, is_active, is_locked, teacher_id, lock_reason, created_at
+                SELECT id, username, display_name, is_active, is_locked, teacher_id, lock_reason, created_at,
+                       COALESCE((SELECT array_agg(scope_id) FROM app_user_scopes s
+                                 WHERE s.user_id = app_users.id AND s.scope_type = 'circle'), ARRAY[]::uuid[]) AS scope_circles,
+                       COALESCE((SELECT array_agg(scope_id) FROM app_user_scopes s
+                                 WHERE s.user_id = app_users.id AND s.scope_type = 'teacher'), ARRAY[]::uuid[]) AS scope_teachers
                 FROM app_users
                 ORDER BY created_at, username;
                 """);
@@ -259,7 +263,9 @@ public static partial class AuthEndpoints
                     reader.IsDBNull(5) ? null : reader.GetGuid(5),
                     reader.IsDBNull(6) ? null : reader.GetString(6),
                     reader.GetFieldValue<DateTimeOffset>(7),
-                    []));
+                    [],
+                    reader.GetFieldValue<Guid[]>(8),
+                    reader.GetFieldValue<Guid[]>(9)));
             }
             await reader.CloseAsync();
             foreach (var user in list)
@@ -367,6 +373,26 @@ public static partial class AuthEndpoints
             var linkError = await ValidateTeacherLinkAsync(db, id, request.TeacherId, ct);
             if (linkError is not null) return linkError;
 
+            var replaceScopes = request.ScopeCircleIds is not null || request.ScopeTeacherIds is not null;
+            var scopeCircles = (request.ScopeCircleIds ?? []).Distinct().ToArray();
+            var scopeTeachers = (request.ScopeTeacherIds ?? []).Distinct().ToArray();
+
+            if (scopeCircles.Length > 0)
+            {
+                await using var valid = db.CreateCommand("SELECT COUNT(*) FROM circles WHERE id = ANY(@ids) AND is_trashed = FALSE;");
+                valid.Parameters.AddWithValue("ids", scopeCircles);
+                if (Convert.ToInt32(await valid.ExecuteScalarAsync(ct) ?? 0) != scopeCircles.Length)
+                    return Results.ValidationProblem(new Dictionary<string, string[]> { ["scopeCircleIds"] = ["بعض الحلقات المحددة غير موجودة."] });
+            }
+
+            if (scopeTeachers.Length > 0)
+            {
+                await using var valid = db.CreateCommand("SELECT COUNT(*) FROM teachers WHERE id = ANY(@ids) AND is_trashed = FALSE;");
+                valid.Parameters.AddWithValue("ids", scopeTeachers);
+                if (Convert.ToInt32(await valid.ExecuteScalarAsync(ct) ?? 0) != scopeTeachers.Length)
+                    return Results.ValidationProblem(new Dictionary<string, string[]> { ["scopeTeacherIds"] = ["بعض المعلمات المحددة غير موجودة."] });
+            }
+
             await using var connection = await db.OpenConnectionAsync(ct);
             await using var transaction = await connection.BeginTransactionAsync(ct);
             try
@@ -403,10 +429,43 @@ public static partial class AuthEndpoints
                     if (await update.ExecuteNonQueryAsync(ct) == 0) return Results.NotFound();
                 }
 
+                if (replaceScopes)
+                {
+                    await using (var clear = new NpgsqlCommand("DELETE FROM app_user_scopes WHERE user_id=@id;", connection, transaction))
+                    {
+                        clear.Parameters.AddWithValue("id", id);
+                        await clear.ExecuteNonQueryAsync(ct);
+                    }
+                    foreach (var circle in scopeCircles)
+                    {
+                        await using var insert = new NpgsqlCommand("""
+                            INSERT INTO app_user_scopes(user_id, scope_type, scope_id, created_by)
+                            VALUES (@user, 'circle', @scope, @actor);
+                            """, connection, transaction);
+                        insert.Parameters.AddWithValue("user", id);
+                        insert.Parameters.AddWithValue("scope", circle);
+                        insert.Parameters.AddWithValue("actor", actorId);
+                        await insert.ExecuteNonQueryAsync(ct);
+                    }
+                    foreach (var teacher in scopeTeachers)
+                    {
+                        await using var insert = new NpgsqlCommand("""
+                            INSERT INTO app_user_scopes(user_id, scope_type, scope_id, created_by)
+                            VALUES (@user, 'teacher', @scope, @actor);
+                            """, connection, transaction);
+                        insert.Parameters.AddWithValue("user", id);
+                        insert.Parameters.AddWithValue("scope", teacher);
+                        insert.Parameters.AddWithValue("actor", actorId);
+                        await insert.ExecuteNonQueryAsync(ct);
+                    }
+                }
+
                 await using (var audit = new NpgsqlCommand("""
                     INSERT INTO audit_log(actor_user_id, actor_display_name, action_code, entity_type, entity_id, details, request_path, http_method, can_restore)
                     VALUES (@actor, @name, 'user.access.update', 'app_user', @id,
-                            jsonb_build_object('isLocked', CAST(@locked AS boolean), 'teacherId', CAST(@teacher AS uuid)),
+                            jsonb_build_object('isLocked', CAST(@locked AS boolean), 'teacherId', CAST(@teacher AS uuid),
+                                               'scopeCircles', COALESCE(CAST(@scopeCircles AS uuid[]), '{}'::uuid[]),
+                                               'scopeTeachers', COALESCE(CAST(@scopeTeachers AS uuid[]), '{}'::uuid[])),
                             '/api/admin/users/' || CAST(@id AS text) || '/access', 'PUT', FALSE);
                     """, connection, transaction))
                 {
@@ -415,6 +474,8 @@ public static partial class AuthEndpoints
                     audit.Parameters.AddWithValue("id", id);
                     audit.Parameters.AddWithValue("locked", request.IsLocked);
                     AddNullable(audit, "teacher", request.TeacherId);
+                    audit.Parameters.AddWithValue("scopeCircles", scopeCircles);
+                    audit.Parameters.AddWithValue("scopeTeachers", scopeTeachers);
                     await audit.ExecuteNonQueryAsync(ct);
                 }
 

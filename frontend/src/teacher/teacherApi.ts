@@ -1,7 +1,9 @@
 import type {
   AttendanceMark, EarningsResponse, EndResponse, NotificationsResponse, RosterResponse,
-  StartResponse, SubscriptionsResponse, SupervisorAbsencesResponse, SupervisorLiveResponse,
-  SupervisorUnpaidResponse, TeacherSession, TodayResponse,
+  StartResponse, SubscriptionsResponse, SupervisorAbsencesResponse, SupervisorCircleDetailResponse,
+  SupervisorCirclesResponse, SupervisorLiveResponse, SupervisorStudentDetailResponse, SupervisorStudentsResponse,
+  SupervisorTeacherAttendanceRow, SupervisorTeacherDetailResponse, SupervisorTeachersResponse,
+  SupervisorUnpaidResponse, SupervisorStudentAttendanceRow, TeacherSession, TodayResponse,
 } from './teacherTypes'
 
 export class TeacherApiError extends Error {
@@ -88,4 +90,51 @@ export const teacherApi = {
       `/api/v1/supervisor/attendance/${attendanceId}/adjust`,
       { method: 'POST', body: JSON.stringify({ payableDurationMinutes, payableAmount, note }) },
     ),
+  supervisorStudents: (search?: string, circleId?: string) => {
+    const params = new URLSearchParams()
+    if (search?.trim()) params.set('search', search.trim())
+    if (circleId) params.set('circleId', circleId)
+    const query = params.size ? `?${params.toString()}` : ''
+    return request<SupervisorStudentsResponse>(`/api/v1/supervisor/students${query}`)
+  },
+  supervisorStudent: (id: string) =>
+    request<SupervisorStudentDetailResponse>(`/api/v1/supervisor/students/${id}`),
+  addStudentNote: (id: string, text: string) =>
+    request<{ id: string; text: string }>(`/api/v1/supervisor/students/${id}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+  supervisorCircles: (search?: string) => {
+    const query = search?.trim() ? `?search=${encodeURIComponent(search.trim())}` : ''
+    return request<SupervisorCirclesResponse>(`/api/v1/supervisor/circles${query}`)
+  },
+  supervisorCircle: (id: string) =>
+    request<SupervisorCircleDetailResponse>(`/api/v1/supervisor/circles/${id}`),
+  supervisorTeachers: (search?: string) => {
+    const query = search?.trim() ? `?search=${encodeURIComponent(search.trim())}` : ''
+    return request<SupervisorTeachersResponse>(`/api/v1/supervisor/teachers${query}`)
+  },
+  supervisorTeacher: (id: string) =>
+    request<SupervisorTeacherDetailResponse>(`/api/v1/supervisor/teachers/${id}`),
+  addTeacherNote: (id: string, text: string) =>
+    request<{ id: string; text: string }>(`/api/v1/supervisor/teachers/${id}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+  supervisorTeacherAttendance: (date?: string, circleId?: string) => {
+    const params = new URLSearchParams()
+    if (date) params.set('date', date)
+    if (circleId) params.set('circleId', circleId)
+    const query = params.size ? `?${params.toString()}` : ''
+    return request<{ date: string; count: number; sessions: SupervisorTeacherAttendanceRow[] }>(
+      `/api/v1/supervisor/attendance/teachers${query}`)
+  },
+  supervisorStudentAttendance: (date?: string, circleId?: string) => {
+    const params = new URLSearchParams()
+    if (date) params.set('date', date)
+    if (circleId) params.set('circleId', circleId)
+    const query = params.size ? `?${params.toString()}` : ''
+    return request<{ date: string; count: number; attendance: SupervisorStudentAttendanceRow[] }>(
+      `/api/v1/supervisor/attendance/students${query}`)
+  },
 }

@@ -11,6 +11,8 @@ export default function UserDialog({ ctx }: Props) {
   const form = ctx.userForm
   const update = (patch: Partial<typeof form>) => ctx.setUserForm((current) => ({ ...current, ...patch }))
   const activeTeachers = ctx.teachers.filter((teacher) => teacher.status === 'active' || teacher.id === form.teacherId)
+  const showScope = form.permissionCodes.some((code) => code.startsWith('supervisor.'))
+    || form.scopeCircleIds.length > 0 || form.scopeTeacherIds.length > 0
 
   return (
     <Modal
@@ -74,6 +76,36 @@ export default function UserDialog({ ctx }: Props) {
                   onChange={(event) => update({ lockReason: event.target.value })}
                 />
               )}
+            </Field>
+          )}
+
+          {showScope && (
+            <Field label="نطاق الإشراف" wide>
+              <div className="scope-grid">
+                <label>
+                  الحلقات
+                  <select
+                    multiple
+                    size={6}
+                    value={form.scopeCircleIds}
+                    onChange={(event) => update({ scopeCircleIds: Array.from(event.target.selectedOptions, (option) => option.value) })}
+                  >
+                    {ctx.circles.map((circle) => <option key={circle.id} value={circle.id}>{circle.name}</option>)}
+                  </select>
+                </label>
+                <label>
+                  المعلمات
+                  <select
+                    multiple
+                    size={6}
+                    value={form.scopeTeacherIds}
+                    onChange={(event) => update({ scopeTeacherIds: Array.from(event.target.selectedOptions, (option) => option.value) })}
+                  >
+                    {ctx.teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.fullName}</option>)}
+                  </select>
+                </label>
+              </div>
+              <small className="sub-cell">بدون تحديد = كل الحلقات والمعلمات. استخدم Ctrl لتحديد أكثر من عنصر. الحفظ يطبق النطاق فورًا.</small>
             </Field>
           )}
         </div>

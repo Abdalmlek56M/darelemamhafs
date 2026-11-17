@@ -240,3 +240,34 @@
 .t-saved-remove { border: 0; background: none; color: var(--muted); padding: 6px; border-radius: 9px; cursor: pointer; }
 .t-saved-remove:hover { color: #f2a3a3; background: rgba(242, 163, 163, .1); }
 .t-saved-profiles .t-hint { font-size: 9px; padding: 7px 9px; }
+
+/* Supervisor workspace */
+.t-page-embedded { padding: 0; }
+.t-row-button { width: 100%; text-align: right; font: inherit; color: inherit; cursor: pointer; }
+.t-row-button:hover { border-color: rgba(113, 213, 192, .28); }
+.t-row-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.t-row-copy .t-row-meta { display: inline-flex; align-items: center; gap: 4px; }
+.t-stat-grid-four { grid-template-columns: repeat(2, 1fr); }
+.t-mini-grid-three { grid-template-columns: repeat(3, 1fr); }
+.t-mini-grid-four { grid-template-columns: repeat(2, 1fr); }
+.t-date-row { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 14px; background: rgba(17, 27, 44, .55); padding: 8px 11px; color: var(--muted); }
+.t-date-row .t-input { flex: 0 0 auto; width: auto; min-height: auto; border: 0; background: transparent; padding: 0; color: var(--text); }
+.t-date-row .t-muted { margin-right: auto; }
+.t-notes { display: flex; flex-direction: column; gap: 7px; }
+.t-notes .t-note { border: 1px solid var(--line); border-radius: 14px; background: rgba(17, 27, 44, .55); padding: 10px 12px; color: var(--text); margin: 0; }
+.t-notes .t-note p { margin: 0; font-size: 11px; line-height: 1.9; }
+.t-notes .t-note small { display: block; color: var(--muted); font-size: 8.5px; margin-top: 5px; }
+.t-note-form { display: flex; flex-direction: column; gap: 7px; border: 1px solid var(--line); border-radius: 16px; background: rgba(17, 27, 44, .55); padding: 12px; }
+.t-note-form .t-primary { width: 100%; }
+
+@media (min-width: 600px) {
+  .t-stat-grid-four { grid-template-columns: repeat(4, 1fr); }
+  .t-mini-grid-four { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (min-width: 900px) {
+  .teacher-app.is-supervisor { width: min(100% - 48px, 980px); }
+  .teacher-app.is-supervisor .teacher-main { padding: 24px 28px 32px; }
+  .teacher-app.is-supervisor .t-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: start; }
+  .teacher-app.is-supervisor .t-supervisor-card { height: 100%; }
+}

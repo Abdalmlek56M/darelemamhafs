@@ -1,16 +1,38 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Clock3, LogOut, RefreshCw, Wallet } from 'lucide-react'
+import { AlertTriangle, Clock3, LogOut, Phone, RefreshCw, Wallet } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
-import type { SupervisorAbsence, SupervisorLiveResponse, SupervisorSession, SupervisorUnpaid, SupervisorUnpaidResponse } from './teacherTypes'
+import type {
+  SupervisorAbsencesResponse, SupervisorLiveResponse, SupervisorSession, SupervisorUnpaidResponse,
+} from './teacherTypes'
 import { money } from './teacherFormat'
+import SupervisorStudents from './SupervisorStudents'
+import SupervisorTeachers from './SupervisorTeachers'
+import SupervisorCircles from './SupervisorCircles'
+import SupervisorAttendance from './SupervisorAttendance'
 
-type Props = { canCorrect: boolean; canUnpaid: boolean; canFinance: boolean; onLogout: () => void }
-type Tab = 'live' | 'absences' | 'unpaid'
+type Props = {
+  canCorrect: boolean
+  canUnpaid: boolean
+  canFinance: boolean
+  canLive: boolean
+  canAbsences: boolean
+  canStudents: boolean
+  canStudentsNotes: boolean
+  canCircles: boolean
+  canTeachers: boolean
+  canTeacherNotes: boolean
+  onLogout: () => void
+}
 
-export default function SupervisorBoard({ canCorrect, canUnpaid, canFinance, onLogout }: Props) {
-  const [tab, setTab] = useState<Tab>('live')
+type Tab = 'live' | 'absences' | 'students' | 'circles' | 'teachers' | 'attendance' | 'unpaid'
+
+export default function SupervisorBoard(props: Props) {
+  const { canCorrect, canUnpaid, canFinance, canLive, canAbsences, canStudents, canCircles, canTeachers, onLogout } = props
+  const firstTab: Tab = canLive ? 'live' : canAbsences ? 'absences' : canStudents ? 'students'
+    : canCircles ? 'circles' : canTeachers ? 'teachers' : canUnpaid ? 'unpaid' : 'live'
+  const [tab, setTab] = useState<Tab>(firstTab)
   const [live, setLive] = useState<SupervisorLiveResponse | null>(null)
-  const [absences, setAbsences] = useState<SupervisorAbsence[]>([])
+  const [absences, setAbsences] = useState<SupervisorAbsencesResponse | null>(null)
   const [unpaid, setUnpaid] = useState<SupervisorUnpaidResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -21,12 +43,12 @@ export default function SupervisorBoard({ canCorrect, canUnpaid, canFinance, onL
     setError(null)
     try {
       const [liveData, absenceData, unpaidData] = await Promise.all([
-        teacherApi.supervisorLive(),
-        teacherApi.supervisorAbsences(),
+        canLive ? teacherApi.supervisorLive() : Promise.resolve(null),
+        canAbsences ? teacherApi.supervisorAbsences() : Promise.resolve(null),
         canUnpaid ? teacherApi.supervisorUnpaid() : Promise.resolve(null),
       ])
       setLive(liveData)
-      setAbsences(absenceData.absences)
+      setAbsences(absenceData)
       setUnpaid(unpaidData)
     } catch (err) {
       setError(err instanceof TeacherApiError ? err.message : 'تعذر تحميل لوحة المشرفة.')
@@ -35,30 +57,48 @@ export default function SupervisorBoard({ canCorrect, canUnpaid, canFinance, onL
     }
   }
 
-  useEffect(() => { void load() }, [canUnpaid])
-  useEffect(() => { if (!canUnpaid && tab === 'unpaid') setTab('live') }, [canUnpaid, tab])
+  useEffect(() => { void load() }, [canLive, canAbsences, canUnpaid])
+  useEffect(() => {
+    const allowed = tab === 'live' ? canLive
+      : tab === 'absences' || tab === 'attendance' ? canAbsences
+        : tab === 'students' ? canStudents
+          : tab === 'circles' ? canCircles
+            : tab === 'teachers' ? canTeachers
+              : canUnpaid
+    if (!allowed) setTab(firstTab)
+  }, [tab, canLive, canAbsences, canStudents, canCircles, canTeachers, canUnpaid, firstTab])
+
+  const isOverview = tab === 'live' || tab === 'absences' || tab === 'unpaid'
+  const studentAbsences = absences?.students ?? []
+  const teacherAbsences = absences?.teachers ?? []
 
   return (
     <div className="t-page">
-      <header className="t-subheader">
-        <span className="t-icon-button"><Clock3 size={20} /></span>
-        <div><span className="t-eyebrow">متابعة تشغيلية</span><h1>لوحة المشرفة</h1></div>
-        <div className="t-header-actions">
-          <button className="t-icon-button" aria-label="تحديث" onClick={() => void load()} disabled={loading}><RefreshCw size={18} /></button>
-          <button className="t-icon-button" aria-label="تسجيل الخروج" onClick={onLogout}><LogOut size={18} /></button>
-        </div>
-      </header>
+      {isOverview && (
+        <header className="t-subheader">
+          <span className="t-icon-button"><Clock3 size={20} /></span>
+          <div><span className="t-eyebrow">متابعة تشغيلية</span><h1>لوحة المشرفة</h1></div>
+          <div className="t-header-actions">
+            <button className="t-icon-button" aria-label="تحديث" onClick={() => void load()} disabled={loading}><RefreshCw size={18} /></button>
+            <button className="t-icon-button" aria-label="تسجيل الخروج" onClick={onLogout}><LogOut size={18} /></button>
+          </div>
+        </header>
+      )}
 
       <div className="t-filter-row">
-        <button className={`t-filter ${tab === 'live' ? 'active' : ''}`} onClick={() => setTab('live')}>الآن ({live?.sessions.length ?? 0})</button>
-        <button className={`t-filter ${tab === 'absences' ? 'active' : ''}`} onClick={() => setTab('absences')}>الغياب ({absences.length})</button>
+        {canLive && <button className={`t-filter ${tab === 'live' ? 'active' : ''}`} onClick={() => setTab('live')}>الآن ({live?.sessions.length ?? 0})</button>}
+        {canAbsences && <button className={`t-filter ${tab === 'absences' ? 'active' : ''}`} onClick={() => setTab('absences')}>الغياب ({studentAbsences.length + teacherAbsences.length})</button>}
+        {canStudents && <button className={`t-filter ${tab === 'students' ? 'active' : ''}`} onClick={() => setTab('students')}>الطالبات</button>}
+        {canCircles && <button className={`t-filter ${tab === 'circles' ? 'active' : ''}`} onClick={() => setTab('circles')}>الحلقات</button>}
+        {canTeachers && <button className={`t-filter ${tab === 'teachers' ? 'active' : ''}`} onClick={() => setTab('teachers')}>المعلمات</button>}
+        {canAbsences && <button className={`t-filter ${tab === 'attendance' ? 'active' : ''}`} onClick={() => setTab('attendance')}>الحضور</button>}
         {canUnpaid && <button className={`t-filter ${tab === 'unpaid' ? 'active' : ''}`} onClick={() => setTab('unpaid')}>المتأخرات ({unpaid?.count ?? 0})</button>}
       </div>
 
-      {loading && !live && <div className="t-empty">جارٍ تحميل اللوحة…</div>}
-      {error && <p className="t-error">{error}</p>}
+      {isOverview && loading && !live && !absences && <div className="t-empty">جارٍ تحميل اللوحة…</div>}
+      {isOverview && error && <p className="t-error">{error}</p>}
 
-      {tab === 'live' && (
+      {tab === 'live' && canLive && (
         <div className="t-list">
           {live?.sessions.length === 0 && !loading && <div className="t-empty">لا توجد حلقات جارية الآن.</div>}
           {live?.sessions.map((session) => (
@@ -73,27 +113,42 @@ export default function SupervisorBoard({ canCorrect, canUnpaid, canFinance, onL
               </div>
               {session.note && <p className="t-note">ملاحظة المعلمة: {session.note}</p>}
               {canCorrect && session.attendanceId && (
-                <button className="t-secondary t-full" onClick={() => setAdjusting(session)}>تعديل الوقت/الأجر</button>
+                <button className="t-secondary t-full" onClick={() => setAdjusting(session)}>تعديل الوقت{canFinance ? '/الأجر' : ''}</button>
               )}
             </article>
           ))}
         </div>
       )}
 
-      {tab === 'absences' && (
-        <div className="t-list">
-          {absences.length === 0 && !loading && <div className="t-empty">لا يوجد غياب اليوم.</div>}
-          {absences.map((item) => (
-            <article className="t-supervisor-card" key={item.attendanceId}>
-              <div className="t-notification-head"><strong>{item.studentName}</strong><span className={`t-badge ${item.status === 'excused' ? 't-badge-gold' : 't-badge-bad'}`}>{item.status === 'excused' ? 'بعذر' : 'بدون عذر'}</span></div>
-              <p className="t-muted">{item.circleName} · {item.teacherName} · {item.studentCode}</p>
-              {item.note && <p className="t-note">{item.note}</p>}
-            </article>
-          ))}
-        </div>
+      {tab === 'absences' && canAbsences && (
+        <>
+          <div className="t-section-title"><strong>معلمات لم يسجلن</strong><span>{teacherAbsences.length}</span></div>
+          <div className="t-list">
+            {teacherAbsences.length === 0 && !loading && <div className="t-empty">لا توجد معلمات متأخرات عن التسجيل.</div>}
+            {teacherAbsences.map((item) => (
+              <article className="t-supervisor-card" key={`${item.scheduleSlotId}-${item.startsAt}`}>
+                <div className="t-notification-head"><strong>{item.teacherName}</strong><span className="t-badge t-badge-bad">لم تسجل</span></div>
+                <p className="t-muted">{item.circleName} · {item.startsAt} · {item.durationMinutes} دقيقة</p>
+                {item.phone && <p className="t-row-meta" dir="ltr"><Phone size={11} /> {item.phone}</p>}
+              </article>
+            ))}
+          </div>
+
+          <div className="t-section-title"><strong>طالبات غائبات</strong><span>{studentAbsences.length}</span></div>
+          <div className="t-list">
+            {studentAbsences.length === 0 && !loading && <div className="t-empty">لا يوجد غياب مسجل اليوم.</div>}
+            {studentAbsences.map((item) => (
+              <article className="t-supervisor-card" key={item.attendanceId}>
+                <div className="t-notification-head"><strong>{item.studentName}</strong><span className={`t-badge ${item.status === 'excused' ? 't-badge-gold' : 't-badge-bad'}`}>{item.status === 'excused' ? 'بعذر' : 'بدون عذر'}</span></div>
+                <p className="t-muted">{item.circleName} · {item.teacherName} · {item.studentCode}</p>
+                {item.note && <p className="t-note">{item.note}</p>}
+              </article>
+            ))}
+          </div>
+        </>
       )}
 
-      {tab === 'unpaid' && (
+      {tab === 'unpaid' && canUnpaid && (
         <div className="t-list">
           <p className="t-hint">تبقى هذه التنبيهات مفتوحة حتى سداد الاشتراك بالكامل. لا تعرض هذه الشاشة إيصالات أو حركات مالية.</p>
           {unpaid?.unpaid.length === 0 && !loading && <div className="t-empty">لا توجد متأخرات مستحقة الآن.</div>}
@@ -106,6 +161,11 @@ export default function SupervisorBoard({ canCorrect, canUnpaid, canFinance, onL
           ))}
         </div>
       )}
+
+      {tab === 'students' && canStudents && <SupervisorStudents canNote={props.canStudentsNotes} />}
+      {tab === 'circles' && canCircles && <SupervisorCircles />}
+      {tab === 'teachers' && canTeachers && <SupervisorTeachers canNote={props.canTeacherNotes} />}
+      {tab === 'attendance' && canAbsences && <SupervisorAttendance />}
 
       {adjusting && <AdjustSheet session={adjusting} canFinance={canFinance} onClose={() => setAdjusting(null)} onSaved={() => { setAdjusting(null); void load() }} />}
     </div>

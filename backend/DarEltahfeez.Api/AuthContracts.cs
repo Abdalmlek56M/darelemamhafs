@@ -5,7 +5,7 @@ public sealed record LoginRequest(string Username, string Password, bool Remembe
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record UserSessionResponse(Guid Id, string Username, string DisplayName, string[] PermissionCodes);
 public sealed record PermissionResponse(string Code, string NameAr);
-public sealed class AdminUserResponse(Guid id, string username, string displayName, bool isActive, bool isLocked, Guid? teacherId, string? lockReason, DateTimeOffset createdAt, string[] permissionCodes)
+public sealed class AdminUserResponse(Guid id, string username, string displayName, bool isActive, bool isLocked, Guid? teacherId, string? lockReason, DateTimeOffset createdAt, string[] permissionCodes, Guid[] scopeCircleIds, Guid[] scopeTeacherIds)
 {
     public Guid Id { get; } = id;
     public string Username { get; } = username;
@@ -16,6 +16,8 @@ public sealed class AdminUserResponse(Guid id, string username, string displayNa
     public string? LockReason { get; } = lockReason;
     public DateTimeOffset CreatedAt { get; } = createdAt;
     public string[] PermissionCodes { get; set; } = permissionCodes;
+    public Guid[] ScopeCircleIds { get; } = scopeCircleIds;
+    public Guid[] ScopeTeacherIds { get; } = scopeTeacherIds;
 }
 public sealed record AdminUserWriteRequest(string Username, string DisplayName, string? Password, bool IsActive, string[] PermissionCodes, Guid? TeacherId = null, bool IsLocked = false, string? LockReason = null);
-public sealed record AdminUserAccessRequest(Guid? TeacherId, bool IsLocked, string? LockReason);
+public sealed record AdminUserAccessRequest(Guid? TeacherId, bool IsLocked, string? LockReason, Guid[]? ScopeCircleIds = null, Guid[]? ScopeTeacherIds = null);

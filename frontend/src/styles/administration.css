@@ -69,6 +69,10 @@
 .permission-group legend { color:var(--accent);padding:0 5px;font-size:11px;font-weight:600; }
 .permission-option { display:flex;align-items:flex-start;gap:8px;padding:7px 0;font-size:10px;line-height:1.7;color:var(--text);cursor:pointer; }
 .permission-option input { margin:3px 0 0;accent-color:var(--accent); }
+.scope-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
+.scope-grid label { display:flex;flex-direction:column;gap:5px;font-size:10px;color:var(--muted); }
+.scope-grid select { min-height:130px;padding:6px;border:1px solid var(--line);border-radius:10px;background:var(--surface-strong);color:var(--text);font:inherit;font-size:11px; }
+@media (max-width:640px){ .scope-grid { grid-template-columns:1fr; } }
 .modal-wide { width:min(1040px,100%); }
 .student-history-body { display:flex;flex-direction:column;gap:18px; }
 .history-overview { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px; }

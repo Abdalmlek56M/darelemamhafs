@@ -21,7 +21,7 @@ export default function useUserActions({
   const openUserCreate = () => {
     closeDetailLayers()
     setEditingUser(null)
-    setUserForm({ username: '', displayName: '', password: '', isActive: true, permissionCodes: ['dashboard.read'], teacherId: null, isLocked: false, lockReason: '' })
+    setUserForm({ username: '', displayName: '', password: '', isActive: true, permissionCodes: ['dashboard.read'], teacherId: null, isLocked: false, lockReason: '', scopeCircleIds: [], scopeTeacherIds: [] })
     setUserModal(true)
   }
 
@@ -38,6 +38,8 @@ export default function useUserActions({
       teacherId: user.teacherId,
       isLocked: user.isLocked,
       lockReason: user.lockReason ?? '',
+      scopeCircleIds: [...(user.scopeCircleIds ?? [])],
+      scopeTeacherIds: [...(user.scopeTeacherIds ?? [])],
     })
     setUserModal(true)
   }
@@ -57,10 +59,26 @@ export default function useUserActions({
         await request(`/api/admin/users/${editingUser.id}`, { method: 'PUT', body: JSON.stringify(payload) })
         await request(`/api/admin/users/${editingUser.id}/access`, {
           method: 'PUT',
-          body: JSON.stringify({ teacherId: payload.teacherId, isLocked: payload.isLocked, lockReason: payload.lockReason }),
+          body: JSON.stringify({
+            teacherId: payload.teacherId,
+            isLocked: payload.isLocked,
+            lockReason: payload.lockReason,
+            scopeCircleIds: payload.scopeCircleIds,
+            scopeTeacherIds: payload.scopeTeacherIds,
+          }),
         })
       } else {
-        await request('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) })
+        const created = await request<{ id: string }>('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) })
+        await request(`/api/admin/users/${created.id}/access`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            teacherId: payload.teacherId,
+            isLocked: payload.isLocked,
+            lockReason: payload.lockReason,
+            scopeCircleIds: payload.scopeCircleIds,
+            scopeTeacherIds: payload.scopeTeacherIds,
+          }),
+        })
       }
       setUserModal(false)
       await loadUsers()

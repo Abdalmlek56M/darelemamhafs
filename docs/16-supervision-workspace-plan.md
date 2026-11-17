@@ -1,7 +1,7 @@
 # Supervision Workspace, Communications and Admin UX — Plan
 
 **Date:** 16 Nov 2026
-**Status:** A1 is live (commit `b50fd94`, migration 018, deploy 2026-11-17 01:12). Phases A2–E not started.
+**Status:** A1 is live (commit `b50fd94`). A2 is implemented and verified locally; deployment pending. Phases A3–E not started.
 **Owner approval:** all previously listed gaps and suggestions are approved. Manual adjustments, supervisor scope, offline handling, calendar, requests, admin notifications, WhatsApp sender, reports and the full admin/supervisor UI are in scope.
 
 Related: `docs/13-teacher-portal-requirements.md`, `docs/14-ui-audit-and-mobile-direction.md`, `docs/15-legacy-reuse-audit.md`, `docs/11-deployment.md`.
@@ -334,13 +334,13 @@ If any default is wrong, the owner can change it before that phase starts.
 
 ## 14. What Is Missing Today
 
-- Supervisor/secretary: no student/circle/teacher lists, teacher detail, teacher attendance rate/hours/notes, teacher absences, student notes, scope, requests, WhatsApp, admin notification page.
+- Supervisor/secretary: student/circle/teacher lists, teacher detail, notes, absences, attendance and scope are implemented in A2 (pending live deploy). Still missing: requests, WhatsApp, admin notification page.
 - Teacher: no weekly calendar, no history screen, no previous login/profile list, no absence/correction request, no offline queue.
 - Financial UI is not fully gated in later report surfaces: report financial columns still need `reports.finance` (A1 covers teacher/supervisor money surfaces and payment notifications).
 - No daily alert sync; unpaid notifications appear when the board is opened.
-- Notes are readable but admin/supervisor editing during/after submission is not a first-class flow.
+- Notes are readable but admin/supervisor editing during/after submission is not a first-class flow; A2 adds student/teacher note timelines for supervisors.
 - A1 added `account.password.self`; later phases still need the full self-service/previous-login surface.
-- No admin notification center; no WhatsApp sender; no supervisor scope.
+- No admin notification center; no WhatsApp sender.
 - Reports are HTML print layouts; no PDF sample review.
 - No production E2E for the new supervision flows.
 
@@ -395,3 +395,31 @@ Deployed live on 17 Nov 2026:
 - Live `supervisor` account granted the 13 new default supervision permissions (19 total); `account.password.self` and `finance.read` remain off.
 - Smoke passed: ready/ping, `/`, `/teacher`, `/supervisor`, manifests, 401s, supervisor login + live + unpaid, change-password 403 without the permission, version label absent.
 - See `docs/checkpoints/supervision-a1-deploy-1.0.md`.
+
+### A2 — Scope + supervision read models
+
+Implemented:
+
+- `database/019_app_user_scopes.sql`: `(user_id, scope_type, scope_id)` with `circle`/`teacher`; no rows = all.
+- `SupervisionScope.LoadAsync`: admin bypass via `users.manage`; circle scopes expand to teachers and teacher scopes expand to circles; both arrays are applied in every supervisor read model.
+- Supervisor read APIs under `/api/v1/supervisor`:
+  - `GET /students` (search, circle filter), `GET /students/{id}` (profile, circles, attendance summary/history, notes, scoped).
+  - `GET /circles`, `GET /circles/{id}` (roster, schedule, recent sessions).
+  - `GET /teachers`, `GET /teachers/{id}` (scheduled vs present rate, hours, overtime/undertime, circles, history, notes; pay/rate only with `finance.read`).
+  - `POST /students/{id}/notes` and `POST /teachers/{id}/notes` with audit.
+  - `GET /absences` now returns absent teachers after session end plus student absences, scoped.
+  - `GET /attendance/teachers` and `GET /attendance/students` by date, scoped.
+  - Admin scope API: `GET /supervisor/scopes`, `GET /supervisor/scopes/options`, `PUT /supervisor/scopes/{userId}` behind `users.manage`.
+- Admin users list/access now carries `scopeCircleIds`/`scopeTeacherIds`; the user dialog has a scoped multi-select for circles/teachers. Empty scope = all. The access save is audited.
+- Supervisor workspace tabs: live, absences, students, circles, teachers, attendance, unpaid (permission-gated). Student/teacher detail, notes timelines, attendance lists, mobile cards and a 2-column desktop list at ≥900px.
+- Development Vite origin (`http://localhost:5173`) is allowed through `Security:AllowedOrigins` in `appsettings.Development.json`; production has no allowed extra origin.
+
+Verified on a disposable PostgreSQL 17 database:
+
+- All 19 migrations applied.
+- All-scope supervisor saw 2 students/2 circles/2 teachers; circle-scoped saw 1/1/1; teacher-scoped saw only that teacher’s circle; out-of-scope detail/notes returned 404.
+- Teacher detail: scheduled 8, present 2, rate 25%, 1.8 hours, 15 undertime; pay null without finance.
+- Absences returned the missing teacher for the day; teacher/student attendance returned the expected rows.
+- Student/teacher notes created and audited; admin scope PUT set all and restored a circle scope; non-admin got 403.
+- Mobile (390×844) and desktop (1280×900) screenshots reviewed; no console errors beyond the expected pre-login 401s.
+- Tests: 16 unit + 6 integration passing; frontend build passing.

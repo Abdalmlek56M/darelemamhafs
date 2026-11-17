@@ -5,7 +5,10 @@ namespace Dar.Api.Infrastructure.Security;
 /// same origin. Non-browser clients that send neither Origin nor Referer are allowed
 /// through because they are not cookie-driven cross-site requests.
 /// </summary>
-public sealed class SameOriginGuardMiddleware(RequestDelegate next, ILogger<SameOriginGuardMiddleware> logger)
+public sealed class SameOriginGuardMiddleware(
+    RequestDelegate next,
+    ILogger<SameOriginGuardMiddleware> logger,
+    IConfiguration configuration)
 {
     private static readonly HashSet<string> UnsafeMethods = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -44,6 +47,14 @@ public sealed class SameOriginGuardMiddleware(RequestDelegate next, ILogger<Same
 
         var expected = $"{context.Request.Scheme}://{context.Request.Host}";
         if (string.Equals(origin.TrimEnd('/'), expected.TrimEnd('/'), StringComparison.OrdinalIgnoreCase))
+        {
+            await next(context);
+            return;
+        }
+
+        // Local Vite development origin. Never configured in production.
+        var allowed = configuration.GetSection("Security:AllowedOrigins").Get<string[]>() ?? [];
+        if (allowed.Any(value => string.Equals(value.TrimEnd('/'), origin.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)))
         {
             await next(context);
             return;

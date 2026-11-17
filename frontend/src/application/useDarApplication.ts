@@ -86,7 +86,7 @@ export default function useDarApplication() {
   const [paymentForm, setPaymentForm] = useState<PaymentForm>(blankPayment())
   const [userModal, setUserModal] = useState(false)
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null)
-  const [userForm, setUserForm] = useState<UserForm>({ username: '', displayName: '', password: '', isActive: true, permissionCodes: [] })
+  const [userForm, setUserForm] = useState<UserForm>({ username: '', displayName: '', password: '', isActive: true, permissionCodes: [], scopeCircleIds: [], scopeTeacherIds: [] })
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [selectedStudentPreview, setSelectedStudentPreview] = useState<{ id: string; fullName: string; studentCode: string } | null>(null)
   const [selectedTeacherDetails, setSelectedTeacherDetails] = useState<Teacher | null>(null)
