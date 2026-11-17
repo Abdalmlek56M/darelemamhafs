@@ -71,6 +71,7 @@ export default function TeacherApp({ mode }: Props) {
   const canTeachers = has(session, 'supervisor.teachers.read')
   const canTeacherNotes = has(session, 'supervisor.teachers.notes')
   const canRequests = has(session, 'supervisor.attendance.requests')
+  const canCommunicate = has(session, 'supervisor.communication')
   const canCorrect = has(session, 'supervisor.attendance.correct') || has(session, 'attendance.edit')
   const unread = notifications?.counts.unread ?? 0
 
@@ -356,6 +357,7 @@ export default function TeacherApp({ mode }: Props) {
         canTeachers={canTeachers}
         canTeacherNotes={canTeacherNotes}
         canRequests={canRequests}
+        canCommunicate={canCommunicate}
         canUnpaid={canUnpaid}
         canFinance={canFinance}
         canCorrect={canCorrect}

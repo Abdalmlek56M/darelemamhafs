@@ -2,13 +2,14 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, Clock3, Plus, Search, UserRound } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorTeacher, SupervisorTeacherDetailResponse } from './teacherTypes'
-import { dateLabel, percent, statusLabel, statusTone, whatsappHref } from './supervisorFormat'
+import { dateLabel, percent, statusLabel, statusTone } from './supervisorFormat'
 import { money } from './teacherFormat'
 import { demoTeacherDetail, demoTeachers } from './supervisorDemo'
+import WhatsAppButton from './WhatsAppButton'
 
-type Props = { canNote: boolean; demo?: boolean; onOpenCircle?: (id: string) => void; focusId?: string; onFocusConsumed?: () => void }
+type Props = { canNote: boolean; demo?: boolean; onOpenCircle?: (id: string) => void; focusId?: string; onFocusConsumed?: () => void; canCommunicate?: boolean }
 
-export default function SupervisorTeachers({ canNote, demo = false, onOpenCircle, focusId, onFocusConsumed }: Props) {
+export default function SupervisorTeachers({ canNote, demo = false, onOpenCircle, focusId, onFocusConsumed, canCommunicate = false }: Props) {
   const [teachers, setTeachers] = useState<SupervisorTeacher[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -51,7 +52,7 @@ export default function SupervisorTeachers({ canNote, demo = false, onOpenCircle
   }
 
   if (selected) {
-    return <TeacherDetail teacher={selected} canNote={canNote} demo={demo} onOpenCircle={onOpenCircle} onBack={() => setSelected(null)} />
+    return <TeacherDetail teacher={selected} canNote={canNote} demo={demo} onOpenCircle={onOpenCircle} canCommunicate={canCommunicate} onBack={() => setSelected(null)} />
   }
 
   return (
@@ -104,7 +105,7 @@ export default function SupervisorTeachers({ canNote, demo = false, onOpenCircle
   )
 }
 
-function TeacherDetail({ teacher, canNote, demo, onOpenCircle, onBack }: { teacher: SupervisorTeacher; canNote: boolean; demo: boolean; onOpenCircle?: (id: string) => void; onBack: () => void }) {
+function TeacherDetail({ teacher, canNote, demo, onOpenCircle, canCommunicate, onBack }: { teacher: SupervisorTeacher; canNote: boolean; demo: boolean; onOpenCircle?: (id: string) => void; canCommunicate: boolean; onBack: () => void }) {
   const [detail, setDetail] = useState<SupervisorTeacherDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -169,9 +170,7 @@ function TeacherDetail({ teacher, canNote, demo, onOpenCircle, onBack }: { teach
           {detail.teacher.phone && (
             <div className="sup-contact">
               <span dir="ltr">{detail.teacher.phone}</span>
-              {whatsappHref(detail.teacher.phone, `مرحبًا ${detail.teacher.fullName}، نود متابعة خطة الحلقات.`) && (
-                <a className="sup-wa" target="_blank" rel="noreferrer" href={whatsappHref(detail.teacher.phone, `مرحبًا ${detail.teacher.fullName}، نود متابعة خطة الحلقات.`)!}>واتساب</a>
-              )}
+              <WhatsAppButton recipientType="teacher" recipientId={detail.teacher.id} templateKey="teacher_followup" canCommunicate={canCommunicate} demo={demo} />
             </div>
           )}
 

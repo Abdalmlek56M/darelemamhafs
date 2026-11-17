@@ -45,6 +45,7 @@
 | 1.19.0 | [Supervisor workspace E1](supervisor-workspace-e1-1.0.md) | ✅ live; desktop/mobile shell + safe demo mode |
 | 1.20.0 | [Financial privacy + notes F1](supervisor-financial-notes-f1-1.0.md) | ✅ live; amounts gated, notes feed + notification drawer |
 | 1.21.0 | [Supervisor context navigation F2](supervisor-context-navigation-f2-1.0.md) | ✅ live; clickable teacher/circle context links |
+| 1.22.0 | [A3.2 requests + scope hardening](supervision-a32-requests-1.0.md) | ✅ live; requests/UI + backend scope; communication UI wiring/tests pending |
 
 ## Next in order
 

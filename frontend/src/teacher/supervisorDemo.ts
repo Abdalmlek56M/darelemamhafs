@@ -55,12 +55,12 @@ export const demoCircles: SupervisorCircle[] = [
 export const demoAbsences: SupervisorAbsencesResponse = {
   date: today,
   absences: [
-    { attendanceId: 'demo-a1', date: today, studentName: 'ملك عمرو', studentCode: 'ST-1004', guardianPhone: '01033334444', circleName: 'حلقة الفرقان', teacherName: 'أسماء عمران', status: 'absent', note: 'بدون عذر', markedAt: new Date().toISOString() },
-    { attendanceId: 'demo-a2', date: today, studentName: 'جنى خالد', studentCode: 'ST-1005', guardianPhone: '01177778888', circleName: 'حلقة جزء تبارك', teacherName: 'هدى مصطفى', status: 'excused', note: 'عذر طبي', markedAt: new Date().toISOString() },
+    { attendanceId: 'demo-a1', date: today, studentId: 'demo-s4', studentName: 'ملك عمرو', studentCode: 'ST-1004', guardianPhone: '01033334444', circleName: 'حلقة الفرقان', teacherName: 'أسماء عمران', status: 'absent', note: 'بدون عذر', markedAt: new Date().toISOString() },
+    { attendanceId: 'demo-a2', date: today, studentId: 'demo-s5', studentName: 'جنى خالد', studentCode: 'ST-1005', guardianPhone: '01177778888', circleName: 'حلقة جزء تبارك', teacherName: 'هدى مصطفى', status: 'excused', note: 'عذر طبي', markedAt: new Date().toISOString() },
   ],
   students: [
-    { attendanceId: 'demo-a1', date: today, studentName: 'ملك عمرو', studentCode: 'ST-1004', guardianPhone: '01033334444', circleName: 'حلقة الفرقان', teacherName: 'أسماء عمران', status: 'absent', note: 'بدون عذر', markedAt: new Date().toISOString() },
-    { attendanceId: 'demo-a2', date: today, studentName: 'جنى خالد', studentCode: 'ST-1005', guardianPhone: '01177778888', circleName: 'حلقة جزء تبارك', teacherName: 'هدى مصطفى', status: 'excused', note: 'عذر طبي', markedAt: new Date().toISOString() },
+    { attendanceId: 'demo-a1', date: today, studentId: 'demo-s4', studentName: 'ملك عمرو', studentCode: 'ST-1004', guardianPhone: '01033334444', circleName: 'حلقة الفرقان', teacherName: 'أسماء عمران', status: 'absent', note: 'بدون عذر', markedAt: new Date().toISOString() },
+    { attendanceId: 'demo-a2', date: today, studentId: 'demo-s5', studentName: 'جنى خالد', studentCode: 'ST-1005', guardianPhone: '01177778888', circleName: 'حلقة جزء تبارك', teacherName: 'هدى مصطفى', status: 'excused', note: 'عذر طبي', markedAt: new Date().toISOString() },
   ],
   teachers: [
     { teacherId: 'demo-t3', teacherName: 'نور الهدى', phone: '01155667788', circleId: 'demo-c4', circleName: 'حلقة الإسراء', scheduleSlotId: 'demo-slot-4', startsAt: '18:00', durationMinutes: 60 },
@@ -81,9 +81,9 @@ export const demoLive: SupervisorLiveResponse = {
 export const demoUnpaid: SupervisorUnpaidResponse = {
   month: today.slice(0, 7), today, canViewAmounts: true, count: 3,
   unpaid: [
-    { chargeId: 'demo-u1', billingMonth: today.slice(0, 7), studentName: 'مريم أحمد', studentCode: 'ST-1001', guardianPhone: '01098765432', joinedOn: day(-120), circleName: 'حلقة النور', teacherName: 'أسماء عمران', amountDue: 350, paidAmount: 150, balance: 200, status: 'partial' },
-    { chargeId: 'demo-u2', billingMonth: today.slice(0, 7), studentName: 'حبيبة يوسف', studentCode: 'ST-1003', guardianPhone: '01276543210', joinedOn: day(-95), circleName: 'حلقة الفرقان', teacherName: 'أسماء عمران', amountDue: 350, paidAmount: 0, balance: 350, status: 'unpaid' },
-    { chargeId: 'demo-u3', billingMonth: today.slice(0, 7), studentName: 'جنى خالد', studentCode: 'ST-1005', guardianPhone: '01177778888', joinedOn: day(-75), circleName: 'حلقة جزء تبارك', teacherName: 'هدى مصطفى', amountDue: 300, paidAmount: 100, balance: 200, status: 'partial' },
+    { chargeId: 'demo-u1', studentId: 'demo-s1', billingMonth: today.slice(0, 7), studentName: 'مريم أحمد', studentCode: 'ST-1001', guardianPhone: '01098765432', joinedOn: day(-120), circleName: 'حلقة النور', teacherName: 'أسماء عمران', amountDue: 350, paidAmount: 150, balance: 200, status: 'partial' },
+    { chargeId: 'demo-u2', studentId: 'demo-s3', billingMonth: today.slice(0, 7), studentName: 'حبيبة يوسف', studentCode: 'ST-1003', guardianPhone: '01276543210', joinedOn: day(-95), circleName: 'حلقة الفرقان', teacherName: 'أسماء عمران', amountDue: 350, paidAmount: 0, balance: 350, status: 'unpaid' },
+    { chargeId: 'demo-u3', studentId: 'demo-s5', billingMonth: today.slice(0, 7), studentName: 'جنى خالد', studentCode: 'ST-1005', guardianPhone: '01177778888', joinedOn: day(-75), circleName: 'حلقة جزء تبارك', teacherName: 'هدى مصطفى', amountDue: 300, paidAmount: 100, balance: 200, status: 'partial' },
   ],
 }
 
@@ -175,4 +175,5 @@ export const demoRequests: SupervisorAttendanceRequest[] = [
   { id: 'demo-r1', type: 'absence', teacherName: 'أسماء عمران', teacherId: 'demo-t1', circleName: 'حلقة النور', circleId: 'demo-c1', date: today, reason: 'ظرف عائلي طارئ، أرجو اعتماد الغياب.', status: 'pending', createdAt: new Date().toISOString(), reviewNote: null, reviewedAt: null, payload: null, attendanceId: null },
   { id: 'demo-r2', type: 'correction', teacherName: 'هدى مصطفى', teacherId: 'demo-t2', circleName: 'حلقة جزء تبارك', circleId: 'demo-c3', date: day(-1), reason: 'الحلقة استمرت 75 دقيقة وتم تسجيل 60 فقط.', status: 'pending', createdAt: new Date().toISOString(), reviewNote: null, reviewedAt: null, payload: '{"durationMinutes":75}', attendanceId: 'demo-att-3' },
 ]
+
 

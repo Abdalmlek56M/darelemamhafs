@@ -6,7 +6,7 @@ namespace Dar.Modules.Teaching.Features.Supervisor;
 public static class UnpaidEndpoint
 {
     private sealed record UnpaidRow(
-        Guid ChargeId, DateOnly BillingMonth, string StudentName, string StudentCode, string? GuardianPhone, DateOnly JoinedOn,
+        Guid ChargeId, Guid StudentId, DateOnly BillingMonth, string StudentName, string StudentCode, string? GuardianPhone, DateOnly JoinedOn,
         string CircleName, string TeacherName, decimal AmountDue, decimal Paid, decimal Balance);
 
     public static async Task<IResult> Handle(string? month, ClaimsPrincipal principal, NpgsqlDataSource dataSource, CancellationToken ct)
@@ -20,7 +20,7 @@ public static class UnpaidEndpoint
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         var scope = await SupervisionScope.LoadAsync(connection, principal, ct);
         await using (var command = new NpgsqlCommand("""
-            SELECT mc.id, mc.billing_month, s.full_name, s.student_code, s.guardian_phone, s.joined_on,
+            SELECT mc.id, s.id, mc.billing_month, s.full_name, s.student_code, s.guardian_phone, s.joined_on,
                    c.name, COALESCE(t.full_name, ''), mc.amount_due, COALESCE(p.paid, 0),
                    mc.amount_due - COALESCE(p.paid, 0) AS balance
             FROM monthly_charges mc
@@ -51,10 +51,10 @@ public static class UnpaidEndpoint
             while (await reader.ReadAsync(ct))
             {
                 rows.Add(new UnpaidRow(
-                    reader.GetGuid(0), reader.GetFieldValue<DateOnly>(1), reader.GetString(2), reader.GetString(3),
-                    reader.IsDBNull(4) ? null : reader.GetString(4),
-                    reader.GetFieldValue<DateOnly>(5), reader.GetString(6), reader.GetString(7),
-                    reader.GetDecimal(8), reader.GetDecimal(9), reader.GetDecimal(10)));
+                    reader.GetGuid(0), reader.GetGuid(1), reader.GetFieldValue<DateOnly>(2), reader.GetString(3), reader.GetString(4),
+                    reader.IsDBNull(5) ? null : reader.GetString(5),
+                    reader.GetFieldValue<DateOnly>(6), reader.GetString(7), reader.GetString(8),
+                    reader.GetDecimal(9), reader.GetDecimal(10), reader.GetDecimal(11)));
             }
         }
 
@@ -67,6 +67,7 @@ public static class UnpaidEndpoint
             unpaid = rows.Select(row => new
             {
                 chargeId = row.ChargeId,
+                studentId = row.StudentId,
                 billingMonth = row.BillingMonth,
                 studentName = row.StudentName,
                 studentCode = row.StudentCode,

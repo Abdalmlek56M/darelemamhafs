@@ -30,6 +30,7 @@ type Props = {
   canTeachers: boolean
   canTeacherNotes: boolean
   canRequests: boolean
+  canCommunicate: boolean
   canUnpaid: boolean
   canFinance: boolean
   canCorrect: boolean
@@ -62,7 +63,7 @@ function initialDemo() {
 export default function SupervisorWorkspace(props: Props) {
   const {
     session, unread, canTeacherPortal, canLive, canAbsences, canStudents, canStudentsNotes,
-    canCircles, canTeachers, canTeacherNotes, canRequests, canUnpaid, canFinance, canCorrect,
+    canCircles, canTeachers, canTeacherNotes, canRequests, canCommunicate, canUnpaid, canFinance, canCorrect,
     onBackToTeacher, onAccount, onLogout,
   } = props
   const [section, setSection] = useState<Section>('overview')
@@ -125,14 +126,14 @@ export default function SupervisorWorkspace(props: Props) {
     if (section === 'overview') {
       return <SupervisorOverview demo={demo} canStudents={canStudents} canCircles={canCircles} canTeachers={canTeachers} canAbsences={canAbsences} canUnpaid={canUnpaid} canFinance={canFinance} canCorrect={canCorrect} onNavigate={go} onDemo={toggleDemo} />
     }
-    if (section === 'students') return <SupervisorStudents demo={demo} canNote={canStudentsNotes} onOpenCircle={openCircle} />
+    if (section === 'students') return <SupervisorStudents demo={demo} canNote={canStudentsNotes} onOpenCircle={openCircle} canCommunicate={canCommunicate} />
     if (section === 'circles') return <SupervisorCircles demo={demo} onOpenTeacher={openTeacher} focusId={focus?.section === 'circles' ? focus.id : undefined} onFocusConsumed={() => setFocus(null)} />
-    if (section === 'teachers') return <SupervisorTeachers demo={demo} canNote={canTeacherNotes} onOpenCircle={openCircle} focusId={focus?.section === 'teachers' ? focus.id : undefined} onFocusConsumed={() => setFocus(null)} />
+    if (section === 'teachers') return <SupervisorTeachers demo={demo} canNote={canTeacherNotes} onOpenCircle={openCircle} focusId={focus?.section === 'teachers' ? focus.id : undefined} onFocusConsumed={() => setFocus(null)} canCommunicate={canCommunicate} />
     if (section === 'notes') return <SupervisorTeacherNotes demo={demo} />
     if (section === 'requests') return <SupervisorRequests demo={demo} />
     if (section === 'attendance') return <SupervisorAttendance demo={demo} onOpenTeacher={openTeacher} onOpenCircle={openCircle} />
-    if (section === 'absences') return <SupervisorAbsences demo={demo} onOpenTeacher={openTeacher} onOpenCircle={openCircle} />
-    return <SupervisorUnpaid demo={demo} canFinance={canFinance} />
+    if (section === 'absences') return <SupervisorAbsences demo={demo} onOpenTeacher={openTeacher} onOpenCircle={openCircle} canCommunicate={canCommunicate} />
+    return <SupervisorUnpaid demo={demo} canFinance={canFinance} canCommunicate={canCommunicate} />
   }
 
   return (

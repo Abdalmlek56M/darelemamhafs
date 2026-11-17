@@ -174,6 +174,7 @@ export type SupervisorSession = {
 export type SupervisorAbsence = {
   attendanceId: string
   date: string
+  studentId: string
   studentName: string
   studentCode: string
   guardianPhone?: string | null
@@ -186,6 +187,7 @@ export type SupervisorAbsence = {
 
 export type SupervisorUnpaid = {
   chargeId: string
+  studentId: string
   billingMonth: string
   studentName: string
   studentCode: string

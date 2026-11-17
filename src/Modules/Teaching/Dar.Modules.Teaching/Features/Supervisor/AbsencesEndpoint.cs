@@ -24,7 +24,7 @@ public static class AbsencesEndpoint
         var students = new List<object>();
         await using (var command = new NpgsqlCommand("""
             SELECT sa.id, sa.session_date, s.full_name, s.student_code, s.guardian_phone,
-                   c.name, COALESCE(t.full_name, ''), sa.status, sa.note, sa.marked_at
+                   c.name, COALESCE(t.full_name, ''), sa.status, sa.note, sa.marked_at, s.id
             FROM student_attendance sa
             JOIN circle_enrollments ce ON ce.id = sa.enrollment_id
             JOIN students s ON s.id = ce.student_id AND s.is_trashed = FALSE
@@ -47,6 +47,7 @@ public static class AbsencesEndpoint
                 {
                     attendanceId = reader.GetGuid(0),
                     date = reader.GetFieldValue<DateOnly>(1),
+                    studentId = reader.GetGuid(10),
                     studentName = reader.GetString(2),
                     studentCode = reader.GetString(3),
                     guardianPhone = reader.IsDBNull(4) ? null : reader.GetString(4),
