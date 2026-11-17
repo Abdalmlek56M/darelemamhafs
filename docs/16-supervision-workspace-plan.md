@@ -1,7 +1,7 @@
 # Supervision Workspace, Communications and Admin UX — Plan
 
 **Date:** 16 Nov 2026
-**Status:** A1 is live (commit `b50fd94`). A2 is implemented and verified locally; deployment pending. Phases A3–E not started.
+**Status:** A1 and A2 are live (A2 commit `f27a3f9`, migration 019, deploy 2026-11-17 02:43). A3–E not started.
 **Owner approval:** all previously listed gaps and suggestions are approved. Manual adjustments, supervisor scope, offline handling, calendar, requests, admin notifications, WhatsApp sender, reports and the full admin/supervisor UI are in scope.
 
 Related: `docs/13-teacher-portal-requirements.md`, `docs/14-ui-audit-and-mobile-direction.md`, `docs/15-legacy-reuse-audit.md`, `docs/11-deployment.md`.
@@ -423,3 +423,10 @@ Verified on a disposable PostgreSQL 17 database:
 - Student/teacher notes created and audited; admin scope PUT set all and restored a circle scope; non-admin got 403.
 - Mobile (390×844) and desktop (1280×900) screenshots reviewed; no console errors beyond the expected pre-login 401s.
 - Tests: 16 unit + 6 integration passing; frontend build passing.
+
+Deployed live on 17 Nov 2026:
+
+- Pre/post backups `dar-20261117-023459.dump` (214 TOC) and `dar-20261117-024931.dump` (220 TOC).
+- Migration 019 applied; ledger 19. Old artifacts retained at `api.old.20261117-024350` / `legacy.old.20261117-024350`.
+- Supervisor remains all-scope (no rows). New endpoints 200; scope API and change-password 403 for the supervisor; admin scope query returns arrays.
+- See `docs/checkpoints/supervision-a2-deploy-1.0.md`.
