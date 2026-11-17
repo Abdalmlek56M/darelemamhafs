@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, Bell, BookOpen, CalendarDays, GraduationCap, LayoutDashboard, LogOut, Menu, MessageSquareText, Sparkles,
+  AlertTriangle, Bell, BookOpen, CalendarDays, ClipboardCheck, GraduationCap, LayoutDashboard, LogOut, Menu, MessageSquareText, Sparkles,
   UserRound, Users, Wallet, X,
 } from 'lucide-react'
 import SupervisorOverview from './SupervisorOverview'
@@ -11,11 +11,12 @@ import SupervisorAttendance from './SupervisorAttendance'
 import SupervisorAbsences from './SupervisorAbsences'
 import SupervisorUnpaid from './SupervisorUnpaid'
 import SupervisorTeacherNotes from './SupervisorTeacherNotes'
+import SupervisorRequests from './SupervisorRequests'
 import SupervisorNotificationsDrawer from './SupervisorNotificationsDrawer'
 import type { TeacherSession } from './teacherTypes'
 import './supervisor.css'
 
-type Section = 'overview' | 'students' | 'circles' | 'teachers' | 'notes' | 'attendance' | 'absences' | 'unpaid'
+type Section = 'overview' | 'students' | 'circles' | 'teachers' | 'notes' | 'requests' | 'attendance' | 'absences' | 'unpaid'
 
 type Props = {
   session: TeacherSession
@@ -28,6 +29,7 @@ type Props = {
   canCircles: boolean
   canTeachers: boolean
   canTeacherNotes: boolean
+  canRequests: boolean
   canUnpaid: boolean
   canFinance: boolean
   canCorrect: boolean
@@ -42,6 +44,7 @@ const sectionTitles: Record<Section, string> = {
   circles: 'الحلقات',
   teachers: 'المعلمات',
   notes: 'ملاحظات المعلمات',
+  requests: 'طلبات المعلمات',
   attendance: 'الحضور',
   absences: 'الغياب',
   unpaid: 'المتأخرات',
@@ -59,7 +62,7 @@ function initialDemo() {
 export default function SupervisorWorkspace(props: Props) {
   const {
     session, unread, canTeacherPortal, canLive, canAbsences, canStudents, canStudentsNotes,
-    canCircles, canTeachers, canTeacherNotes, canUnpaid, canFinance, canCorrect,
+    canCircles, canTeachers, canTeacherNotes, canRequests, canUnpaid, canFinance, canCorrect,
     onBackToTeacher, onAccount, onLogout,
   } = props
   const [section, setSection] = useState<Section>('overview')
@@ -87,6 +90,7 @@ export default function SupervisorWorkspace(props: Props) {
     { id: 'circles' as Section, label: 'الحلقات', icon: BookOpen, show: canCircles },
     { id: 'teachers' as Section, label: 'المعلمات', icon: GraduationCap, show: canTeachers },
     { id: 'notes' as Section, label: 'ملاحظات المعلمات', icon: MessageSquareText, show: canTeachers },
+    { id: 'requests' as Section, label: 'طلبات المعلمات', icon: ClipboardCheck, show: canRequests },
     { id: 'attendance' as Section, label: 'الحضور', icon: CalendarDays, show: canAbsences },
     { id: 'absences' as Section, label: 'الغياب', icon: AlertTriangle, show: canAbsences },
     { id: 'unpaid' as Section, label: 'المتأخرات', icon: Wallet, show: canUnpaid },
@@ -125,6 +129,7 @@ export default function SupervisorWorkspace(props: Props) {
     if (section === 'circles') return <SupervisorCircles demo={demo} onOpenTeacher={openTeacher} focusId={focus?.section === 'circles' ? focus.id : undefined} onFocusConsumed={() => setFocus(null)} />
     if (section === 'teachers') return <SupervisorTeachers demo={demo} canNote={canTeacherNotes} onOpenCircle={openCircle} focusId={focus?.section === 'teachers' ? focus.id : undefined} onFocusConsumed={() => setFocus(null)} />
     if (section === 'notes') return <SupervisorTeacherNotes demo={demo} />
+    if (section === 'requests') return <SupervisorRequests demo={demo} />
     if (section === 'attendance') return <SupervisorAttendance demo={demo} onOpenTeacher={openTeacher} onOpenCircle={openCircle} />
     if (section === 'absences') return <SupervisorAbsences demo={demo} onOpenTeacher={openTeacher} onOpenCircle={openCircle} />
     return <SupervisorUnpaid demo={demo} canFinance={canFinance} />

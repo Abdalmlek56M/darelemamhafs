@@ -1,6 +1,6 @@
 import type {
-  AttendanceMark, EarningsResponse, EndResponse, NotificationsResponse, RosterResponse,
-  StartResponse, SubscriptionsResponse, SupervisorAbsencesResponse, SupervisorCircleDetailResponse,
+  AttendanceMark, AttendanceRequest, CreateAttendanceRequest, EarningsResponse, EndResponse, NotificationsResponse, RosterResponse,
+  StartResponse, SubscriptionsResponse, SupervisorAbsencesResponse, SupervisorAttendanceRequest, SupervisorCircleDetailResponse,
   SupervisorCirclesResponse, SupervisorLiveResponse, SupervisorStudentDetailResponse, SupervisorStudentsResponse,
   SupervisorTeacherAttendanceRow, SupervisorTeacherDetailResponse, SupervisorTeacherNotesResponse, SupervisorTeachersResponse,
   SupervisorUnpaidResponse, SupervisorStudentAttendanceRow, TeacherSession, TodayResponse,
@@ -144,4 +144,24 @@ export const teacherApi = {
     return request<{ date: string; count: number; attendance: SupervisorStudentAttendanceRow[] }>(
       `/api/v1/supervisor/attendance/students${query}`)
   },
+  teacherRequests: () => request<{ count: number; requests: AttendanceRequest[] }>('/api/v1/teacher/requests'),
+  createTeacherRequest: (payload: CreateAttendanceRequest) =>
+    request<{ id: string; status: string }>('/api/v1/teacher/requests', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  cancelTeacherRequest: (id: string) =>
+    request<{ id: string; status: string }>(`/api/v1/teacher/requests/${id}/cancel`, { method: 'POST' }),
+  supervisorRequests: (status = 'pending') =>
+    request<{ count: number; requests: SupervisorAttendanceRequest[] }>(`/api/v1/supervisor/requests?status=${encodeURIComponent(status)}`),
+  reviewRequest: (id: string, approve: boolean, note: string) =>
+    request<{ id: string; status: string }>(`/api/v1/supervisor/requests/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify({ approve, note }),
+    }),
+  whatsapp: (recipientType: 'teacher' | 'student_guardian', recipientId: string, templateKey: string) =>
+    request<{ href: string; phone: string }>('/api/v1/supervisor/communications/whatsapp', {
+      method: 'POST',
+      body: JSON.stringify({ recipientType, recipientId, templateKey }),
+    }),
 }

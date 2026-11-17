@@ -17,6 +17,8 @@ type Props = {
   canSubscriptions: boolean
   canEarnings: boolean
   unread: number
+  canRequests: boolean
+  onRequests: () => void
 }
 
 function SlotStatus({ slot }: { slot: Slot }) {
@@ -46,7 +48,7 @@ function SlotAction({ slot, onStart, onOpenLive, onOpenRoster }: Pick<Props, 'on
 
 export default function TeacherHome({
   today, earnings, loading, error, onRefresh, onStart, onOpenLive, onOpenRoster,
-  onNotifications, onSubscriptions, onLogout, canSubscriptions, canEarnings, unread,
+  onNotifications, onSubscriptions, onLogout, canSubscriptions, canEarnings, unread, canRequests, onRequests,
 }: Props) {
   if (loading && !today) return <div className="t-empty">جارٍ تحميل حلقاتك…</div>
   if (error) return <div className="t-error-card"><p>{error}</p><button className="t-secondary" onClick={onRefresh}>إعادة المحاولة</button></div>
@@ -118,6 +120,7 @@ export default function TeacherHome({
           <Users size={17} /><strong>حضور الطالبات</strong><small>{current?.sessionId ? current.circleName : 'ابدئي حلقة أولًا'}</small>
         </button>
         {canSubscriptions && <button onClick={onSubscriptions}><Wallet size={17} /><strong>الاشتراكات</strong><small>حالة السداد فقط</small></button>}
+        {canRequests && <button onClick={onRequests}><CalendarDays size={17} /><strong>طلباتي</strong><small>غياب أو تصحيح حضور</small></button>}
       </div>
 
       {rest.length > 0 && (

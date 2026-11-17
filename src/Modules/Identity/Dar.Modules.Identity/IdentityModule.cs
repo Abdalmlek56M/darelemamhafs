@@ -161,6 +161,11 @@ public static class IdentityModule
                 policy.RequireAuthenticatedUser().RequireAssertion(context =>
                     context.User.HasClaim("permission", "supervisor.attendance.requests") ||
                     context.User.HasClaim("permission", "users.manage")));
+
+            options.AddPolicy("communication.access", policy =>
+                policy.RequireAuthenticatedUser().RequireAssertion(context =>
+                    context.User.HasClaim("permission", "supervisor.communication") ||
+                    context.User.HasClaim("permission", "users.manage")));
         });
 
         return services;

@@ -12,6 +12,7 @@ import TeacherRoster from './TeacherRoster'
 import TeacherNotifications from './TeacherNotifications'
 import TeacherSubscriptions from './TeacherSubscriptions'
 import TeacherAccount from './TeacherAccount'
+import TeacherRequests from './TeacherRequests'
 import SupervisorWorkspace from './SupervisorWorkspace'
 import TeacherNav from './TeacherNav'
 import './teacher.css'
@@ -59,6 +60,7 @@ export default function TeacherApp({ mode }: Props) {
   const canSubscriptions = has(session, 'teacher.subscriptions.read')
   const canEarnings = has(session, 'teacher.earnings.self')
   const canSelfPassword = has(session, 'account.password.self')
+  const canTeacherRequests = has(session, 'teacher.requests')
   const canFinance = has(session, 'finance.read')
   const canUnpaid = has(session, 'supervisor.unpaid') || canFinance
   const canLive = has(session, 'supervisor.live')
@@ -68,6 +70,7 @@ export default function TeacherApp({ mode }: Props) {
   const canCircles = has(session, 'supervisor.circles.read')
   const canTeachers = has(session, 'supervisor.teachers.read')
   const canTeacherNotes = has(session, 'supervisor.teachers.notes')
+  const canRequests = has(session, 'supervisor.attendance.requests')
   const canCorrect = has(session, 'supervisor.attendance.correct') || has(session, 'attendance.edit')
   const unread = notifications?.counts.unread ?? 0
 
@@ -352,6 +355,7 @@ export default function TeacherApp({ mode }: Props) {
         canCircles={canCircles}
         canTeachers={canTeachers}
         canTeacherNotes={canTeacherNotes}
+        canRequests={canRequests}
         canUnpaid={canUnpaid}
         canFinance={canFinance}
         canCorrect={canCorrect}
@@ -381,6 +385,8 @@ export default function TeacherApp({ mode }: Props) {
             canSubscriptions={canSubscriptions}
             canEarnings={canEarnings}
             unread={unread}
+            canRequests={canTeacherRequests}
+            onRequests={() => setPage('requests')}
           />
         )}
         {page === 'live' && activeSessionId && (
@@ -443,12 +449,14 @@ export default function TeacherApp({ mode }: Props) {
             onLogout={() => void logout()}
           />
         )}
+        {page === 'requests' && canTeacherRequests && <TeacherRequests today={today} />}
       </main>
 
       <TeacherNav
         page={page}
         unread={unread}
         canTeacher={canTeacher}
+        canRequests={canTeacherRequests}
         activeSessionId={activeSessionId}
         onNavigate={setPage}
         onOpenRoster={(sessionId) => void openRoster(sessionId)}

@@ -1,6 +1,6 @@
 import { todayCairo } from './supervisorFormat'
 import type {
-  SupervisorAbsencesResponse, SupervisorCircle, SupervisorCircleDetailResponse,
+  SupervisorAbsencesResponse, SupervisorAttendanceRequest, SupervisorCircle, SupervisorCircleDetailResponse,
   SupervisorLiveResponse, SupervisorStudent, SupervisorStudentAttendanceRow, SupervisorStudentDetailResponse,
   SupervisorTeacher, SupervisorTeacherAttendanceRow, SupervisorTeacherDetailResponse, SupervisorTeacherNote, SupervisorUnpaidResponse,
 } from './teacherTypes'
@@ -169,5 +169,10 @@ export const demoTeacherNotes: SupervisorTeacherNote[] = [
   { kind: 'student', teacherId: 'demo-t1', teacherName: 'أسماء عمران', circleName: 'حلقة النور', date: today, note: 'مريم تحتاج متابعة في أحكام المدود، تم التنبيه عليها.', markedAt: new Date().toISOString(), studentName: 'مريم أحمد', studentCode: 'ST-1001' },
   { kind: 'student', teacherId: 'demo-t2', teacherName: 'هدى مصطفى', circleName: 'حلقة جزء تبارك', date: today, note: 'جنى كانت متعبة اليوم، تم التواصل مع ولي الأمر.', markedAt: new Date().toISOString(), studentName: 'جنى خالد', studentCode: 'ST-1005' },
   { kind: 'session', teacherId: 'demo-t2', teacherName: 'هدى مصطفى', circleName: 'حلقة جزء تبارك', date: day(-1), note: 'تمت مراجعة الجزء كاملًا، والطالبات جاهزات للتسميع القادم.', markedAt: new Date(Date.now() - 86400000).toISOString(), studentName: null, studentCode: null },
+]
+
+export const demoRequests: SupervisorAttendanceRequest[] = [
+  { id: 'demo-r1', type: 'absence', teacherName: 'أسماء عمران', teacherId: 'demo-t1', circleName: 'حلقة النور', circleId: 'demo-c1', date: today, reason: 'ظرف عائلي طارئ، أرجو اعتماد الغياب.', status: 'pending', createdAt: new Date().toISOString(), reviewNote: null, reviewedAt: null, payload: null, attendanceId: null },
+  { id: 'demo-r2', type: 'correction', teacherName: 'هدى مصطفى', teacherId: 'demo-t2', circleName: 'حلقة جزء تبارك', circleId: 'demo-c3', date: day(-1), reason: 'الحلقة استمرت 75 دقيقة وتم تسجيل 60 فقط.', status: 'pending', createdAt: new Date().toISOString(), reviewNote: null, reviewedAt: null, payload: '{"durationMinutes":75}', attendanceId: 'demo-att-3' },
 ]
 

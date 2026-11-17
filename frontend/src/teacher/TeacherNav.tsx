@@ -1,16 +1,17 @@
-import { Bell, CalendarDays, Home, UserRound, Users } from 'lucide-react'
+import { Bell, CalendarDays, ClipboardList, Home, UserRound, Users } from 'lucide-react'
 import type { Page } from './teacherTypes'
 
 type Props = {
   page: Page
   unread: number
   canTeacher: boolean
+  canRequests: boolean
   activeSessionId: string | null
   onNavigate: (page: Page) => void
   onOpenRoster: (sessionId: string) => void
 }
 
-export default function TeacherNav({ page, unread, canTeacher, activeSessionId, onNavigate, onOpenRoster }: Props) {
+export default function TeacherNav({ page, unread, canTeacher, canRequests, activeSessionId, onNavigate, onOpenRoster }: Props) {
   const items = [
     ...(canTeacher ? [
       { id: 'home' as Page, label: 'اليوم', icon: Home, disabled: false },
@@ -18,6 +19,7 @@ export default function TeacherNav({ page, unread, canTeacher, activeSessionId, 
       { id: 'roster' as Page, label: 'الحضور', icon: Users, disabled: !activeSessionId },
     ] : []),
     { id: 'notifications' as Page, label: 'التنبيهات', icon: Bell, disabled: false },
+    ...(canRequests ? [{ id: 'requests' as Page, label: 'الطلبات', icon: ClipboardList, disabled: false }] : []),
     { id: 'account' as Page, label: 'حسابي', icon: UserRound, disabled: false },
   ]
 

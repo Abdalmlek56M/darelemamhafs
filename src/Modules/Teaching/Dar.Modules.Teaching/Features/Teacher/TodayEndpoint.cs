@@ -21,7 +21,8 @@ public static class TodayEndpoint
         string? PayBasis,
         int OvertimeMinutes,
         int UndertimeMinutes,
-        string? Note);
+        string? Note,
+        Guid? AttendanceId);
 
     public static async Task<IResult> Handle(
         ClaimsPrincipal principal,
@@ -45,7 +46,10 @@ public static class TodayEndpoint
                      WHERE ce.circle_id = c.id AND ce.status = 'active' AND ce.is_trashed = FALSE),
                    ts.id, ts.status, ts.started_at, ts.ended_at,
                    ts.actual_duration_minutes, ts.payable_duration_minutes, ts.pay_basis,
-                   ts.overtime_minutes, ts.undertime_minutes, ts.note
+                   ts.overtime_minutes, ts.undertime_minutes, ts.note,
+                   (SELECT ta.id FROM teacher_attendance ta
+                     WHERE ta.schedule_slot_id = ss.id AND ta.session_date = @date AND ta.is_trashed = FALSE
+                     LIMIT 1)
             FROM teachers t
             LEFT JOIN circles c ON c.teacher_id = t.id AND c.is_trashed = FALSE AND c.is_active = TRUE
             LEFT JOIN circle_schedule_slots ss ON ss.circle_id = c.id
@@ -80,7 +84,8 @@ public static class TodayEndpoint
                     reader.IsDBNull(14) ? null : reader.GetString(14),
                     reader.IsDBNull(15) ? 0 : reader.GetInt32(15),
                     reader.IsDBNull(16) ? 0 : reader.GetInt32(16),
-                    reader.IsDBNull(17) ? null : reader.GetString(17)));
+                    reader.IsDBNull(17) ? null : reader.GetString(17),
+                    reader.IsDBNull(18) ? null : reader.GetGuid(18)));
             }
         }
 
@@ -118,7 +123,8 @@ public static class TodayEndpoint
                 payBasis = slot.PayBasis,
                 overtimeMinutes = slot.OvertimeMinutes,
                 undertimeMinutes = slot.UndertimeMinutes,
-                note = slot.Note
+                note = slot.Note,
+                attendanceId = slot.AttendanceId
             };
         }).ToArray();
 

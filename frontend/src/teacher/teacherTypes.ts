@@ -1,4 +1,4 @@
-export type Page = 'home' | 'live' | 'roster' | 'notifications' | 'supervisor' | 'subscriptions' | 'account'
+export type Page = 'home' | 'live' | 'roster' | 'notifications' | 'supervisor' | 'subscriptions' | 'account' | 'requests'
 
 export type TeacherSession = {
   id: string
@@ -32,6 +32,7 @@ export type Slot = {
   overtimeMinutes: number
   undertimeMinutes: number
   note: string | null
+  attendanceId: string | null
 }
 
 export type TodayResponse = {
@@ -242,6 +243,36 @@ export type SupervisorTeacherNote = {
 }
 
 export type SupervisorTeacherNotesResponse = { count: number; notes: SupervisorTeacherNote[] }
+
+export type AttendanceRequest = {
+  id: string
+  type: 'absence' | 'cancellation' | 'correction'
+  circleName: string
+  date: string | null
+  reason: string
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  createdAt: string
+  reviewNote: string | null
+  reviewedAt: string | null
+  payload: string | null
+}
+
+export type SupervisorAttendanceRequest = AttendanceRequest & {
+  teacherName: string
+  teacherId: string
+  circleId: string
+  attendanceId: string | null
+}
+
+export type CreateAttendanceRequest = {
+  type: 'absence' | 'cancellation' | 'correction'
+  scheduleSlotId?: string
+  date?: string
+  attendanceId?: string
+  reason: string
+  proposedDurationMinutes?: number
+  proposedNote?: string
+}
 
 export type SupervisionNote = {
   id: string

@@ -223,11 +223,11 @@ public static class SupervisorRequestEndpoints
                 }
 
                 await using (var update = new NpgsqlCommand("""
-                    UPDATE teacher_attendance
+                    UPDATE teacher_attendance ta
                     SET duration_minutes=@duration, payable_amount=@amount, actual_duration_minutes=@duration,
-                        pay_basis='manual', note=COALESCE(@note, note), marked_by=@reviewer, marked_at=now(),
+                        pay_basis='manual', note=COALESCE(@note, ta.note), marked_by=@reviewer, marked_at=now(),
                         overtime_minutes=0, undertime_minutes=0
-                    WHERE id=@id;
+                    WHERE ta.id=@id;
                     """, connection, transaction))
                 {
                     update.Parameters.AddWithValue("id", attendanceId);
@@ -239,12 +239,11 @@ public static class SupervisorRequestEndpoints
                 }
 
                 await using (var session = new NpgsqlCommand("""
-                    UPDATE teacher_sessions ts
+                    UPDATE teacher_sessions
                     SET actual_duration_minutes=@duration, payable_duration_minutes=@duration,
                         pay_basis='manual', overtime_minutes=0, undertime_minutes=0,
                         note=COALESCE(@note, note), updated_at=now()
-                    FROM teacher_attendance ta
-                    WHERE ta.id=@attendance AND ts.id=ta.teacher_session_id;
+                    WHERE id = (SELECT teacher_session_id FROM teacher_attendance WHERE id=@attendance);
                     """, connection, transaction))
                 {
                     session.Parameters.AddWithValue("attendance", attendanceId);

@@ -53,6 +53,8 @@ public static class SupervisorEndpoints
             .RequireAuthorization("requests.review").WithName("SupervisorRequests");
         group.MapPost("/requests/{id:guid}/review", SupervisorRequestEndpoints.Review)
             .RequireAuthorization("requests.review").WithName("SupervisorReviewRequest");
+        group.MapPost("/communications/whatsapp", CommunicationEndpoint.WhatsApp)
+            .RequireAuthorization("communication.access").WithName("SupervisorWhatsApp");
         return app;
     }
 }
