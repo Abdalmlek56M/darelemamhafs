@@ -1,14 +1,20 @@
 import React, { lazy, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import HomePage from './home/HomePage'
 import './styles/index.css'
 
 const TeacherApp = lazy(() => import('./teacher/TeacherApp'))
 const path = window.location.pathname
+const isHome = path === '/' || path === '/home'
 const isSupervisor = path === '/supervisor' || path.startsWith('/supervisor/')
 const isTeacher = path === '/teacher' || path.startsWith('/teacher/')
 
-if (isTeacher || isSupervisor) {
+if (isHome) {
+  createRoot(document.getElementById('root')!).render(
+    <React.StrictMode><HomePage /></React.StrictMode>,
+  )
+} else if (isTeacher || isSupervisor) {
   document.querySelector('link[rel="manifest"]')?.setAttribute('href', '/manifest-teacher.webmanifest')
   document.title = 'بوابة المعلمة — دار الإمام حفص'
   createRoot(document.getElementById('root')!).render(
