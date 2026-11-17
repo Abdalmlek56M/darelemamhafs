@@ -6,9 +6,9 @@ import { dateLabel, percent, statusLabel, statusTone, whatsappHref } from './sup
 import { money } from './teacherFormat'
 import { demoStudentDetail, demoStudents } from './supervisorDemo'
 
-type Props = { canNote: boolean; demo?: boolean }
+type Props = { canNote: boolean; demo?: boolean; onOpenCircle?: (id: string) => void }
 
-export default function SupervisorStudents({ canNote, demo = false }: Props) {
+export default function SupervisorStudents({ canNote, demo = false, onOpenCircle }: Props) {
   const [students, setStudents] = useState<SupervisorStudent[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -46,7 +46,7 @@ export default function SupervisorStudents({ canNote, demo = false }: Props) {
   }
 
   if (selected) {
-    return <StudentDetail student={selected} canNote={canNote} demo={demo} onBack={() => setSelected(null)} />
+    return <StudentDetail student={selected} canNote={canNote} demo={demo} onOpenCircle={onOpenCircle} onBack={() => setSelected(null)} />
   }
 
   return (
@@ -103,7 +103,7 @@ export default function SupervisorStudents({ canNote, demo = false }: Props) {
   )
 }
 
-function StudentDetail({ student, canNote, demo, onBack }: { student: SupervisorStudent; canNote: boolean; demo: boolean; onBack: () => void }) {
+function StudentDetail({ student, canNote, demo, onOpenCircle, onBack }: { student: SupervisorStudent; canNote: boolean; demo: boolean; onOpenCircle?: (id: string) => void; onBack: () => void }) {
   const [detail, setDetail] = useState<SupervisorStudentDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -167,6 +167,13 @@ function StudentDetail({ student, canNote, demo, onBack }: { student: Supervisor
               <div><span>الانضمام</span><strong>{dateLabel(detail.student.joinedOn)}</strong></div>
               <div><span>الحلقات</span><strong>{detail.student.circles.map((circle) => circle.name).join('، ') || '—'}</strong></div>
             </div>
+            {detail.student.circles.length > 0 && (
+              <div className="sup-context-bar">
+                {detail.student.circles.map((circle) => (
+                  <button className="sup-context-chip" key={circle.id} onClick={() => onOpenCircle?.(circle.id)}>{circle.name}</button>
+                ))}
+              </div>
+            )}
             {detail.student.guardianPhone && whatsappHref(detail.student.guardianPhone, `مرحبًا، نود متابعة ${detail.student.fullName} مع دار الإمام حفص.`) && (
               <a className="sup-wa" target="_blank" rel="noreferrer" href={whatsappHref(detail.student.guardianPhone, `مرحبًا، نود متابعة ${detail.student.fullName} مع دار الإمام حفص.`)!}>واتساب ولي الأمر</a>
             )}

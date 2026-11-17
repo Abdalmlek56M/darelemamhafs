@@ -6,9 +6,9 @@ import { dateLabel, statusLabel, statusTone, todayCairo } from './supervisorForm
 import { demoStudentAttendance, demoTeacherAttendance } from './supervisorDemo'
 
 type Tab = 'teachers' | 'students'
-type Props = { demo?: boolean }
+type Props = { demo?: boolean; onOpenTeacher?: (id: string) => void; onOpenCircle?: (id: string) => void }
 
-export default function SupervisorAttendance({ demo = false }: Props) {
+export default function SupervisorAttendance({ demo = false, onOpenTeacher, onOpenCircle }: Props) {
   const [date, setDate] = useState(todayCairo())
   const [tab, setTab] = useState<Tab>('teachers')
   const [teachers, setTeachers] = useState<SupervisorTeacherAttendanceRow[]>([])
@@ -74,8 +74,8 @@ export default function SupervisorAttendance({ demo = false }: Props) {
               <tbody>
                 {teachers.map((row) => (
                   <tr key={row.scheduleSlotId}>
-                    <td><span className="sup-person"><span className="sup-person-avatar">{row.teacherName.slice(0, 1)}</span><strong>{row.teacherName}</strong></span></td>
-                    <td>{row.circleName}</td>
+                    <td><button className="sup-link" onClick={() => onOpenTeacher?.(row.teacherId)}>{row.teacherName}</button></td>
+                    <td><button className="sup-link" onClick={() => onOpenCircle?.(row.circleId)}>{row.circleName}</button></td>
                     <td>{row.startsAt}</td>
                     <td>{row.durationMinutes} د</td>
                     <td><span className={statusTone(row.status)}>{statusLabel(row.status)}</span></td>
@@ -112,7 +112,7 @@ export default function SupervisorAttendance({ demo = false }: Props) {
                   <tr key={row.attendanceId}>
                     <td><span className="sup-person"><span className="sup-person-avatar">{row.studentName.slice(0, 1)}</span><strong>{row.studentName}</strong></span></td>
                     <td dir="ltr">{row.studentCode}</td>
-                    <td>{row.circleName}</td>
+                    <td><button className="sup-link" onClick={() => onOpenCircle?.(row.circleId)}>{row.circleName}</button></td>
                     <td>{row.startsAt}</td>
                     <td><span className={statusTone(row.status)}>{statusLabel(row.status)}</span></td>
                     <td>{row.note ?? '—'}</td>

@@ -6,9 +6,9 @@ import { dateLabel, percent, statusLabel, statusTone, whatsappHref } from './sup
 import { money } from './teacherFormat'
 import { demoTeacherDetail, demoTeachers } from './supervisorDemo'
 
-type Props = { canNote: boolean; demo?: boolean }
+type Props = { canNote: boolean; demo?: boolean; onOpenCircle?: (id: string) => void; focusId?: string; onFocusConsumed?: () => void }
 
-export default function SupervisorTeachers({ canNote, demo = false }: Props) {
+export default function SupervisorTeachers({ canNote, demo = false, onOpenCircle, focusId, onFocusConsumed }: Props) {
   const [teachers, setTeachers] = useState<SupervisorTeacher[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -39,13 +39,19 @@ export default function SupervisorTeachers({ canNote, demo = false }: Props) {
 
   useEffect(() => { void load() }, [load])
 
+  useEffect(() => {
+    if (!focusId || selected) return
+    const found = teachers.find((item) => item.id === focusId)
+    if (found) { setSelected(found); onFocusConsumed?.() }
+  }, [focusId, teachers, selected, onFocusConsumed])
+
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     void load(search)
   }
 
   if (selected) {
-    return <TeacherDetail teacher={selected} canNote={canNote} demo={demo} onBack={() => setSelected(null)} />
+    return <TeacherDetail teacher={selected} canNote={canNote} demo={demo} onOpenCircle={onOpenCircle} onBack={() => setSelected(null)} />
   }
 
   return (
@@ -98,7 +104,7 @@ export default function SupervisorTeachers({ canNote, demo = false }: Props) {
   )
 }
 
-function TeacherDetail({ teacher, canNote, demo, onBack }: { teacher: SupervisorTeacher; canNote: boolean; demo: boolean; onBack: () => void }) {
+function TeacherDetail({ teacher, canNote, demo, onOpenCircle, onBack }: { teacher: SupervisorTeacher; canNote: boolean; demo: boolean; onOpenCircle?: (id: string) => void; onBack: () => void }) {
   const [detail, setDetail] = useState<SupervisorTeacherDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -174,7 +180,7 @@ function TeacherDetail({ teacher, canNote, demo, onBack }: { teacher: Supervisor
             {detail.circles.length === 0 && <div className="t-empty">لا توجد حلقات مسندة.</div>}
             {detail.circles.map((circle) => (
               <div className="t-row" key={circle.id}>
-                <div className="t-row-copy"><strong>{circle.name}</strong><small>{circle.studentCount} طالبة</small></div>
+                <div className="t-row-copy"><button className="sup-link" onClick={() => onOpenCircle?.(circle.id)}>{circle.name}</button><small>{circle.studentCount} طالبة</small></div>
                 <span className={statusTone(circle.isActive ? 'active' : 'inactive')}>{circle.isActive ? 'نشطة' : 'غير نشطة'}</span>
               </div>
             ))}

@@ -66,6 +66,7 @@ export default function SupervisorWorkspace(props: Props) {
   const [moreOpen, setMoreOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [localUnread, setLocalUnread] = useState(unread)
+  const [focus, setFocus] = useState<{ section: Section; id: string } | null>(null)
   const [demo, setDemo] = useState(initialDemo)
 
   useEffect(() => { setLocalUnread(unread) }, [unread])
@@ -93,7 +94,18 @@ export default function SupervisorWorkspace(props: Props) {
 
   const go = (next: Section) => {
     setSection(next)
+    setFocus(null)
     setMoreOpen(false)
+  }
+
+  const openTeacher = (id: string) => {
+    setFocus({ section: 'teachers', id })
+    setSection('teachers')
+  }
+
+  const openCircle = (id: string) => {
+    setFocus({ section: 'circles', id })
+    setSection('circles')
   }
 
   const toggleDemo = () => setDemo((value) => !value)
@@ -109,12 +121,12 @@ export default function SupervisorWorkspace(props: Props) {
     if (section === 'overview') {
       return <SupervisorOverview demo={demo} canStudents={canStudents} canCircles={canCircles} canTeachers={canTeachers} canAbsences={canAbsences} canUnpaid={canUnpaid} canFinance={canFinance} canCorrect={canCorrect} onNavigate={go} onDemo={toggleDemo} />
     }
-    if (section === 'students') return <SupervisorStudents demo={demo} canNote={canStudentsNotes} />
-    if (section === 'circles') return <SupervisorCircles demo={demo} />
-    if (section === 'teachers') return <SupervisorTeachers demo={demo} canNote={canTeacherNotes} />
+    if (section === 'students') return <SupervisorStudents demo={demo} canNote={canStudentsNotes} onOpenCircle={openCircle} />
+    if (section === 'circles') return <SupervisorCircles demo={demo} onOpenTeacher={openTeacher} focusId={focus?.section === 'circles' ? focus.id : undefined} onFocusConsumed={() => setFocus(null)} />
+    if (section === 'teachers') return <SupervisorTeachers demo={demo} canNote={canTeacherNotes} onOpenCircle={openCircle} focusId={focus?.section === 'teachers' ? focus.id : undefined} onFocusConsumed={() => setFocus(null)} />
     if (section === 'notes') return <SupervisorTeacherNotes demo={demo} />
-    if (section === 'attendance') return <SupervisorAttendance demo={demo} />
-    if (section === 'absences') return <SupervisorAbsences demo={demo} />
+    if (section === 'attendance') return <SupervisorAttendance demo={demo} onOpenTeacher={openTeacher} onOpenCircle={openCircle} />
+    if (section === 'absences') return <SupervisorAbsences demo={demo} onOpenTeacher={openTeacher} onOpenCircle={openCircle} />
     return <SupervisorUnpaid demo={demo} canFinance={canFinance} />
   }
 

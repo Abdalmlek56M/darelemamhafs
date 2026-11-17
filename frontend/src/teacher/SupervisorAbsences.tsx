@@ -5,9 +5,9 @@ import type { SupervisorAbsencesResponse } from './teacherTypes'
 import { dateLabel, statusLabel, statusTone, todayCairo, whatsappHref } from './supervisorFormat'
 import { demoAbsences } from './supervisorDemo'
 
-type Props = { demo: boolean }
+type Props = { demo: boolean; onOpenTeacher?: (id: string) => void; onOpenCircle?: (id: string) => void }
 
-export default function SupervisorAbsences({ demo }: Props) {
+export default function SupervisorAbsences({ demo, onOpenTeacher, onOpenCircle }: Props) {
   const [date, setDate] = useState(todayCairo())
   const [data, setData] = useState<SupervisorAbsencesResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -57,7 +57,7 @@ export default function SupervisorAbsences({ demo }: Props) {
           {teachers.map((item) => (
             <div className="sup-row" key={`${item.scheduleSlotId}-${item.startsAt}`}>
               <span className="sup-kpi-icon is-warn"><Users size={16} /></span>
-              <div className="sup-row-copy"><strong>{item.teacherName}</strong><small>{item.circleName} · {item.startsAt} · {item.durationMinutes} دقيقة</small></div>
+              <div className="sup-row-copy"><strong><button className="sup-link" onClick={() => onOpenTeacher?.(item.teacherId)}>{item.teacherName}</button></strong><small><button className="sup-link" onClick={() => onOpenCircle?.(item.circleId)}>{item.circleName}</button> · {item.startsAt} · {item.durationMinutes} دقيقة</small></div>
               {item.phone && <span className="sup-phone" dir="ltr"><Phone size={12} /> {item.phone}</span>}
               {item.phone && whatsappHref(item.phone, `مرحبًا ${item.teacherName}، نود متابعة تسجيل حضور ${item.circleName} اليوم.`) && (
                 <a className="sup-wa" target="_blank" rel="noreferrer" href={whatsappHref(item.phone, `مرحبًا ${item.teacherName}، نود متابعة تسجيل حضور ${item.circleName} اليوم.`)!}>واتساب</a>

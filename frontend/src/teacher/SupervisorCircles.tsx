@@ -5,9 +5,9 @@ import type { SupervisorCircle, SupervisorCircleDetailResponse } from './teacher
 import { dateLabel, dayNames, statusLabel, statusTone } from './supervisorFormat'
 import { demoCircleDetail, demoCircles } from './supervisorDemo'
 
-type Props = { demo?: boolean }
+type Props = { demo?: boolean; onOpenTeacher?: (id: string) => void; focusId?: string; onFocusConsumed?: () => void }
 
-export default function SupervisorCircles({ demo = false }: Props) {
+export default function SupervisorCircles({ demo = false, onOpenTeacher, focusId, onFocusConsumed }: Props) {
   const [circles, setCircles] = useState<SupervisorCircle[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -38,13 +38,19 @@ export default function SupervisorCircles({ demo = false }: Props) {
 
   useEffect(() => { void load() }, [load])
 
+  useEffect(() => {
+    if (!focusId || selected) return
+    const found = circles.find((item) => item.id === focusId)
+    if (found) { setSelected(found); onFocusConsumed?.() }
+  }, [focusId, circles, selected, onFocusConsumed])
+
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     void load(search)
   }
 
   if (selected) {
-    return <CircleDetail circle={selected} demo={demo} onBack={() => setSelected(null)} />
+    return <CircleDetail circle={selected} demo={demo} onOpenTeacher={onOpenTeacher} onBack={() => setSelected(null)} />
   }
 
   return (
@@ -66,7 +72,7 @@ export default function SupervisorCircles({ demo = false }: Props) {
             {circles.map((circle) => (
               <tr key={circle.id} onClick={() => setSelected(circle)} tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && setSelected(circle)}>
                 <td><span className="sup-person"><span className="sup-person-avatar">{circle.name.slice(0, 1)}</span><strong>{circle.name}</strong></span></td>
-                <td>{circle.teacherName ?? '—'}</td>
+                <td>{circle.teacherId && circle.teacherName ? <button className="sup-link" onClick={(event) => { event.stopPropagation(); onOpenTeacher?.(circle.teacherId!) }}>{circle.teacherName}</button> : '—'}</td>
                 <td>{circle.studentCount}</td>
                 <td>{circle.schedule.map((slot) => `${dayNames[slot.dayOfWeek]} ${slot.startsAt}`).join(' · ') || '—'}</td>
                 <td>{dateLabel(circle.startsOn)}</td>
@@ -96,7 +102,7 @@ export default function SupervisorCircles({ demo = false }: Props) {
   )
 }
 
-function CircleDetail({ circle, demo, onBack }: { circle: SupervisorCircle; demo: boolean; onBack: () => void }) {
+function CircleDetail({ circle, demo, onOpenTeacher, onBack }: { circle: SupervisorCircle; demo: boolean; onOpenTeacher?: (id: string) => void; onBack: () => void }) {
   const [detail, setDetail] = useState<SupervisorCircleDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -136,7 +142,7 @@ function CircleDetail({ circle, demo, onBack }: { circle: SupervisorCircle; demo
               <span className={statusTone(detail.circle.isActive ? 'active' : 'inactive')}>{detail.circle.isActive ? 'نشطة' : 'غير نشطة'}</span>
             </div>
             <div className="t-mini-grid">
-              <div><span>المعلمة</span><strong>{detail.circle.teacherName ?? '—'}</strong></div>
+              <div><span>المعلمة</span><strong>{detail.circle.teacherId && detail.circle.teacherName ? <button className="sup-link" onClick={() => onOpenTeacher?.(detail.circle.teacherId!)}>{detail.circle.teacherName}</button> : '—'}</strong></div>
               <div><span>بداية الحلقة</span><strong>{dateLabel(detail.circle.startsOn)}</strong></div>
               <div><span>المواعيد</span><strong>{detail.schedule.length}</strong></div>
               <div><span>آخر حصة</span><strong>{detail.sessions[0] ? dateLabel(detail.sessions[0].date) : '—'}</strong></div>
