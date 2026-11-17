@@ -211,6 +211,12 @@
   .teacher-app { left: 50%; right: auto; transform: translateX(-50%); width: 520px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); box-shadow: 0 0 80px rgba(0, 0, 0, .35); }
 }
 
+@media (min-width: 900px) {
+  .teacher-app { width: min(100% - 48px, 860px); }
+  .teacher-app .t-page { max-width: 780px; }
+  .teacher-app .teacher-main { padding: 24px 26px 32px; }
+}
+
 @media (max-width: 380px) {
   .teacher-main { padding-left: 11px; padding-right: 11px; }
   .t-status-toggle button { min-width: 34px; font-size: 7.5px; padding: 6px 3px; }
@@ -263,11 +269,4 @@
 @media (min-width: 600px) {
   .t-stat-grid-four { grid-template-columns: repeat(4, 1fr); }
   .t-mini-grid-four { grid-template-columns: repeat(4, 1fr); }
-}
-
-@media (min-width: 900px) {
-  .teacher-app.is-supervisor { width: min(100% - 48px, 980px); }
-  .teacher-app.is-supervisor .teacher-main { padding: 24px 28px 32px; }
-  .teacher-app.is-supervisor .t-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: start; }
-  .teacher-app.is-supervisor .t-supervisor-card { height: 100%; }
 }

@@ -1,7 +1,7 @@
 # Supervision Workspace, Communications and Admin UX — Plan
 
 **Date:** 16 Nov 2026
-**Status:** A1 and A2 are live (A2 commit `f27a3f9`, migration 019, deploy 2026-11-17 02:43). A3–E not started.
+**Status:** A1 and A2 are live (A2 commit `f27a3f9`, migration 019, deploy 2026-11-17 02:43). E1 supervisor workspace overhaul is implemented and verified locally; deployment pending. A3–E2 not started.
 **Owner approval:** all previously listed gaps and suggestions are approved. Manual adjustments, supervisor scope, offline handling, calendar, requests, admin notifications, WhatsApp sender, reports and the full admin/supervisor UI are in scope.
 
 Related: `docs/13-teacher-portal-requirements.md`, `docs/14-ui-audit-and-mobile-direction.md`, `docs/15-legacy-reuse-audit.md`, `docs/11-deployment.md`.
@@ -430,3 +430,17 @@ Deployed live on 17 Nov 2026:
 - Migration 019 applied; ledger 19. Old artifacts retained at `api.old.20261117-024350` / `legacy.old.20261117-024350`.
 - Supervisor remains all-scope (no rows). New endpoints 200; scope API and change-password 403 for the supervisor; admin scope query returns arrays.
 - See `docs/checkpoints/supervision-a2-deploy-1.0.md`.
+
+### E1 — Supervisor desktop workspace (owner-pulled forward)
+
+The owner asked for a PC-grade supervisor workspace instead of the narrow mobile card shell, with populated samples and professional lists like the admin console. Implemented:
+
+- Full desktop shell at ≥1024px: fixed right sidebar, topbar, content area, KPI dashboard, two-column panels, quick actions, and data tables for students/circles/teachers/attendance/absences/unpaid.
+- Mobile shell: compact topbar with page title, five-item bottom navigation (الرئيسية/الطالبات/الحضور/التنبيهات/المزيد), and a “كل الأقسام” sheet for the remaining sections, account, teacher portal and logout.
+- Teacher pages widened from 520px to 860px on ≥900px screens; the supervisor workspace is no longer constrained by the teacher PWA width.
+- Demo mode: `?demo=1` (or the “عرض نموذج بالبيانات” action) switches every supervisor page to realistic built-in sample data (8 students, 4 circles, 3 teachers, live sessions, absences, attendance, notes, unpaid) without writing to the database. A clear banner explains that it is a preview. Disabling it returns to real data and removes `demo=1` from the URL.
+- The existing adjust-time sheet is preserved on the overview for live sessions with `supervisor.attendance.correct`.
+- Real empty state: when the database has no students/circles/teachers, the dashboard offers the demo preview instead of a blank page.
+- Removed the old `SupervisorBoard` and the fixed 980px supervisor override.
+
+Verified locally at 390×844 and 1440×1000: dashboard, student/teacher/circle tables and details, attendance, absences, unpaid, mobile more sheet; no console errors beyond the expected pre-login 401s. Frontend build passes.

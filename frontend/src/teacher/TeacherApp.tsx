@@ -12,7 +12,7 @@ import TeacherRoster from './TeacherRoster'
 import TeacherNotifications from './TeacherNotifications'
 import TeacherSubscriptions from './TeacherSubscriptions'
 import TeacherAccount from './TeacherAccount'
-import SupervisorBoard from './SupervisorBoard'
+import SupervisorWorkspace from './SupervisorWorkspace'
 import TeacherNav from './TeacherNav'
 import './teacher.css'
 
@@ -339,6 +339,30 @@ export default function TeacherApp({ mode }: Props) {
     return <div className="teacher-app"><div className="t-login"><div className="t-login-card"><h1>لا يوجد وصول</h1><p className="t-muted">هذا الحساب غير مرتبط بصلاحية معلمة أو مشرفة. راجع المدير.</p><button className="t-secondary" onClick={() => void logout()}><LogOut size={16} /> خروج</button></div></div></div>
   }
 
+  if (page === 'supervisor' && canSupervisor) {
+    return (
+      <SupervisorWorkspace
+        session={session}
+        unread={unread}
+        canTeacherPortal={canTeacher}
+        canLive={canLive}
+        canAbsences={canAbsences}
+        canStudents={canStudents}
+        canStudentsNotes={canStudentsNotes}
+        canCircles={canCircles}
+        canTeachers={canTeachers}
+        canTeacherNotes={canTeacherNotes}
+        canUnpaid={canUnpaid}
+        canFinance={canFinance}
+        canCorrect={canCorrect}
+        onBackToTeacher={canTeacher ? () => setPage('home') : undefined}
+        onNotifications={() => setPage('notifications')}
+        onAccount={() => setPage('account')}
+        onLogout={() => void logout()}
+      />
+    )
+  }
+
   return (
     <div className={`teacher-app ${page === 'supervisor' ? 'is-supervisor' : ''}`}>
       <main className="teacher-main">
@@ -409,21 +433,6 @@ export default function TeacherApp({ mode }: Props) {
             error={subsError}
             onRefresh={() => void loadSubscriptions()}
             onBack={() => setPage('home')}
-          />
-        )}
-        {page === 'supervisor' && canSupervisor && (
-          <SupervisorBoard
-            canCorrect={canCorrect}
-            canUnpaid={canUnpaid}
-            canFinance={canFinance}
-            canLive={canLive}
-            canAbsences={canAbsences}
-            canStudents={canStudents}
-            canStudentsNotes={canStudentsNotes}
-            canCircles={canCircles}
-            canTeachers={canTeachers}
-            canTeacherNotes={canTeacherNotes}
-            onLogout={() => void logout()}
           />
         )}
         {page === 'account' && (

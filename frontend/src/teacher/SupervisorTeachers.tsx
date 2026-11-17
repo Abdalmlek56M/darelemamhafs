@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { ArrowRight, Clock3, Plus, RefreshCw, Search, UserRound } from 'lucide-react'
+import { ArrowRight, Clock3, Plus, Search, UserRound } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorTeacher, SupervisorTeacherDetailResponse } from './teacherTypes'
 import { dateLabel, percent, statusLabel, statusTone } from './supervisorFormat'
 import { money } from './teacherFormat'
+import { demoTeacherDetail, demoTeachers } from './supervisorDemo'
 
-type Props = { canNote: boolean }
+type Props = { canNote: boolean; demo?: boolean }
 
-export default function SupervisorTeachers({ canNote }: Props) {
+export default function SupervisorTeachers({ canNote, demo = false }: Props) {
   const [teachers, setTeachers] = useState<SupervisorTeacher[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -15,6 +16,15 @@ export default function SupervisorTeachers({ canNote }: Props) {
   const [selected, setSelected] = useState<SupervisorTeacher | null>(null)
 
   const load = useCallback(async (term = '') => {
+    if (demo) {
+      const needle = term.trim().toLowerCase()
+      setTeachers(demoTeachers.filter((teacher) => !needle
+        || teacher.fullName.toLowerCase().includes(needle)
+        || (teacher.phone ?? '').includes(needle)))
+      setLoading(false)
+      setError(null)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -25,7 +35,7 @@ export default function SupervisorTeachers({ canNote }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [demo])
 
   useEffect(() => { void load() }, [load])
 
@@ -35,24 +45,14 @@ export default function SupervisorTeachers({ canNote }: Props) {
   }
 
   if (selected) {
-    return <TeacherDetail teacher={selected} canNote={canNote} onBack={() => setSelected(null)} />
+    return <TeacherDetail teacher={selected} canNote={canNote} demo={demo} onBack={() => setSelected(null)} />
   }
 
   return (
     <div className="t-page t-page-embedded">
-      <header className="t-subheader">
-        <div><span className="t-eyebrow">الإشراف</span><h1>المعلمات</h1></div>
-        <button className="t-icon-button" aria-label="تحديث" onClick={() => void load(search)}><RefreshCw size={18} /></button>
-      </header>
-
       <form className="t-search" onSubmit={submit} role="search">
         <Search size={16} />
-        <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="ابحث باسم المعلمة أو الهاتف"
-          aria-label="بحث المعلمات"
-        />
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ابحث باسم المعلمة أو الهاتف" aria-label="بحث المعلمات" />
         <button className="t-text-button" type="submit">بحث</button>
       </form>
 
@@ -60,14 +60,33 @@ export default function SupervisorTeachers({ canNote }: Props) {
       {loading && teachers.length === 0 && <div className="t-empty">جارٍ تحميل المعلمات…</div>}
       {!loading && !error && teachers.length === 0 && <div className="t-empty">لا توجد معلمات في نطاقك.</div>}
 
-      <div className="t-list">
+      <div className="sup-table-wrap">
+        <table className="sup-table">
+          <thead><tr><th>المعلمة</th><th>الهاتف</th><th>الحلقات</th><th>الطالبات</th><th>حضور الشهر</th><th>غياب الشهر</th><th>الحالة</th></tr></thead>
+          <tbody>
+            {teachers.map((teacher) => (
+              <tr key={teacher.id} onClick={() => setSelected(teacher)} tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && setSelected(teacher)}>
+                <td><span className="sup-person"><span className="sup-person-avatar">{teacher.fullName.slice(0, 1)}</span><strong>{teacher.fullName}</strong></span></td>
+                <td dir="ltr">{teacher.phone ?? '—'}</td>
+                <td>{teacher.circleCount}</td>
+                <td>{teacher.studentCount}</td>
+                <td className="sup-good">{teacher.presentThisMonth}</td>
+                <td className={teacher.missedThisMonth > 0 ? 'sup-warn-text' : undefined}>{teacher.missedThisMonth}</td>
+                <td><span className={statusTone(teacher.status)}>{statusLabel(teacher.status)}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="sup-card-list">
         {teachers.map((teacher) => (
-          <button className="t-row t-row-button" key={teacher.id} onClick={() => setSelected(teacher)}>
-            <span className="t-avatar"><UserRound size={16} /></span>
-            <div className="t-row-copy">
+          <button className="sup-card" key={teacher.id} onClick={() => setSelected(teacher)}>
+            <span className="sup-person-avatar"><UserRound size={16} /></span>
+            <div className="sup-row-copy">
               <strong>{teacher.fullName}</strong>
               <small>{teacher.circleCount} حلقة · {teacher.studentCount} طالبة</small>
-              <small className="t-row-meta">{teacher.presentThisMonth} حضور هذا الشهر · {teacher.missedThisMonth} غياب</small>
+              <small className="sup-phone">{teacher.presentThisMonth} حضور هذا الشهر · {teacher.missedThisMonth} غياب</small>
             </div>
             <span className={statusTone(teacher.status)}>{statusLabel(teacher.status)}</span>
           </button>
@@ -79,7 +98,7 @@ export default function SupervisorTeachers({ canNote }: Props) {
   )
 }
 
-function TeacherDetail({ teacher, canNote, onBack }: { teacher: SupervisorTeacher; canNote: boolean; onBack: () => void }) {
+function TeacherDetail({ teacher, canNote, demo, onBack }: { teacher: SupervisorTeacher; canNote: boolean; demo: boolean; onBack: () => void }) {
   const [detail, setDetail] = useState<SupervisorTeacherDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -88,6 +107,7 @@ function TeacherDetail({ teacher, canNote, onBack }: { teacher: SupervisorTeache
   const [noteError, setNoteError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (demo) { setDetail(demoTeacherDetail(teacher.id)); setLoading(false); setError(null); return }
     setLoading(true)
     setError(null)
     try {
@@ -97,7 +117,7 @@ function TeacherDetail({ teacher, canNote, onBack }: { teacher: SupervisorTeache
     } finally {
       setLoading(false)
     }
-  }, [teacher.id])
+  }, [teacher.id, demo])
 
   useEffect(() => { void load() }, [load])
 
@@ -181,25 +201,17 @@ function TeacherDetail({ teacher, canNote, onBack }: { teacher: SupervisorTeache
             ))}
           </div>
 
-          {canNote && (
+          {canNote && !demo && (
             <form className="t-note-form" onSubmit={addNote}>
               <label className="t-label" htmlFor="teacher-note">إضافة ملاحظة</label>
-              <textarea
-                id="teacher-note"
-                className="t-textarea"
-                rows={3}
-                maxLength={4000}
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                placeholder="ملاحظة متابعة للمعلمة…"
-              />
+              <textarea id="teacher-note" className="t-textarea" rows={3} maxLength={4000} value={note} onChange={(event) => setNote(event.target.value)} placeholder="ملاحظة متابعة للمعلمة…" />
               {noteError && <p className="t-error">{noteError}</p>}
               <button className="t-primary" type="submit" disabled={saving}><Plus size={16} /> {saving ? 'جارٍ الحفظ…' : 'حفظ الملاحظة'}</button>
             </form>
           )}
+          {demo && <p className="t-hint">الوضع التجريبي للعرض فقط — إضافة الملاحظات معطلة.</p>}
         </>
       )}
     </div>
   )
 }
-

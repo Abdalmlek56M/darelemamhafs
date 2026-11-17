@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { ArrowRight, GraduationCap, Phone, Plus, RefreshCw, Search, UserRound } from 'lucide-react'
+import { ArrowRight, GraduationCap, Phone, Plus, Search, UserRound } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorStudent, SupervisorStudentDetailResponse } from './teacherTypes'
 import { dateLabel, percent, statusLabel, statusTone } from './supervisorFormat'
+import { demoStudentDetail, demoStudents } from './supervisorDemo'
 
-type Props = { canNote: boolean }
+type Props = { canNote: boolean; demo?: boolean }
 
-export default function SupervisorStudents({ canNote }: Props) {
+export default function SupervisorStudents({ canNote, demo = false }: Props) {
   const [students, setStudents] = useState<SupervisorStudent[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -14,6 +15,16 @@ export default function SupervisorStudents({ canNote }: Props) {
   const [selected, setSelected] = useState<SupervisorStudent | null>(null)
 
   const load = useCallback(async (term = '') => {
+    if (demo) {
+      const needle = term.trim().toLowerCase()
+      setStudents(demoStudents.filter((student) => !needle
+        || student.fullName.toLowerCase().includes(needle)
+        || student.studentCode.toLowerCase().includes(needle)
+        || (student.guardianPhone ?? '').includes(needle)))
+      setLoading(false)
+      setError(null)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -24,7 +35,7 @@ export default function SupervisorStudents({ canNote }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [demo])
 
   useEffect(() => { void load() }, [load])
 
@@ -34,16 +45,11 @@ export default function SupervisorStudents({ canNote }: Props) {
   }
 
   if (selected) {
-    return <StudentDetail student={selected} canNote={canNote} onBack={() => setSelected(null)} />
+    return <StudentDetail student={selected} canNote={canNote} demo={demo} onBack={() => setSelected(null)} />
   }
 
   return (
     <div className="t-page t-page-embedded">
-      <header className="t-subheader">
-        <div><span className="t-eyebrow">الإشراف</span><h1>الطالبات</h1></div>
-        <button className="t-icon-button" aria-label="تحديث" onClick={() => void load(search)}><RefreshCw size={18} /></button>
-      </header>
-
       <form className="t-search" onSubmit={submit} role="search">
         <Search size={16} />
         <input
@@ -59,20 +65,32 @@ export default function SupervisorStudents({ canNote }: Props) {
       {loading && students.length === 0 && <div className="t-empty">جارٍ تحميل الطالبات…</div>}
       {!loading && !error && students.length === 0 && <div className="t-empty">لا توجد طالبات في نطاقك.</div>}
 
-      <div className="t-list">
+      <div className="sup-table-wrap">
+        <table className="sup-table">
+          <thead><tr><th>الطالبة</th><th>الكود</th><th>الحلقات</th><th>ولي الأمر</th><th>الهاتف</th><th>الحالة</th></tr></thead>
+          <tbody>
+            {students.map((student) => (
+              <tr key={student.id} onClick={() => setSelected(student)} tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && setSelected(student)}>
+                <td><span className="sup-person"><span className="sup-person-avatar">{student.fullName.slice(0, 1)}</span><strong>{student.fullName}</strong></span></td>
+                <td dir="ltr">{student.studentCode}</td>
+                <td>{student.circles.join('، ') || '—'}</td>
+                <td>{student.guardianName ?? '—'}</td>
+                <td dir="ltr">{student.guardianPhone ?? '—'}</td>
+                <td><span className={statusTone(student.status)}>{statusLabel(student.status)}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="sup-card-list">
         {students.map((student) => (
-          <button className="t-row t-row-button" key={student.id} onClick={() => setSelected(student)}>
-            <span className="t-avatar"><UserRound size={16} /></span>
-            <div className="t-row-copy">
+          <button className="sup-card" key={student.id} onClick={() => setSelected(student)}>
+            <span className="sup-person-avatar"><UserRound size={16} /></span>
+            <div className="sup-row-copy">
               <strong>{student.fullName}</strong>
               <small>{student.studentCode} · {student.circles.join('، ') || 'بدون حلقة'}</small>
-              {student.guardianPhone && (
-                <small className="t-row-meta">
-                  <Phone size={10} />
-                  <span>{student.guardianName ?? 'ولي الأمر'}</span>
-                  <span dir="ltr">{student.guardianPhone}</span>
-                </small>
-              )}
+              {student.guardianPhone && <small className="sup-phone"><Phone size={11} /> {student.guardianName ?? 'ولي الأمر'} · <span dir="ltr">{student.guardianPhone}</span></small>}
             </div>
             <span className={statusTone(student.status)}>{statusLabel(student.status)}</span>
           </button>
@@ -84,7 +102,7 @@ export default function SupervisorStudents({ canNote }: Props) {
   )
 }
 
-function StudentDetail({ student, canNote, onBack }: { student: SupervisorStudent; canNote: boolean; onBack: () => void }) {
+function StudentDetail({ student, canNote, demo, onBack }: { student: SupervisorStudent; canNote: boolean; demo: boolean; onBack: () => void }) {
   const [detail, setDetail] = useState<SupervisorStudentDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -93,6 +111,7 @@ function StudentDetail({ student, canNote, onBack }: { student: SupervisorStuden
   const [noteError, setNoteError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (demo) { setDetail(demoStudentDetail(student.id)); setLoading(false); setError(null); return }
     setLoading(true)
     setError(null)
     try {
@@ -102,7 +121,7 @@ function StudentDetail({ student, canNote, onBack }: { student: SupervisorStuden
     } finally {
       setLoading(false)
     }
-  }, [student.id])
+  }, [student.id, demo])
 
   useEffect(() => { void load() }, [load])
 
@@ -183,25 +202,17 @@ function StudentDetail({ student, canNote, onBack }: { student: SupervisorStuden
             ))}
           </div>
 
-          {canNote && (
+          {canNote && !demo && (
             <form className="t-note-form" onSubmit={addNote}>
               <label className="t-label" htmlFor="student-note">إضافة ملاحظة</label>
-              <textarea
-                id="student-note"
-                className="t-textarea"
-                rows={3}
-                maxLength={4000}
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                placeholder="ملاحظة متابعة للطالبة…"
-              />
+              <textarea id="student-note" className="t-textarea" rows={3} maxLength={4000} value={note} onChange={(event) => setNote(event.target.value)} placeholder="ملاحظة متابعة للطالبة…" />
               {noteError && <p className="t-error">{noteError}</p>}
               <button className="t-primary" type="submit" disabled={saving}><Plus size={16} /> {saving ? 'جارٍ الحفظ…' : 'حفظ الملاحظة'}</button>
             </form>
           )}
+          {demo && <p className="t-hint">الوضع التجريبي للعرض فقط — إضافة الملاحظات معطلة.</p>}
         </>
       )}
     </div>
   )
 }
-

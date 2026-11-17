@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CalendarDays, RefreshCw, Users } from 'lucide-react'
+import { CalendarDays, Users } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorStudentAttendanceRow, SupervisorTeacherAttendanceRow } from './teacherTypes'
 import { dateLabel, statusLabel, statusTone, todayCairo } from './supervisorFormat'
+import { demoStudentAttendance, demoTeacherAttendance } from './supervisorDemo'
 
 type Tab = 'teachers' | 'students'
+type Props = { demo?: boolean }
 
-export default function SupervisorAttendance() {
+export default function SupervisorAttendance({ demo = false }: Props) {
   const [date, setDate] = useState(todayCairo())
   const [tab, setTab] = useState<Tab>('teachers')
   const [teachers, setTeachers] = useState<SupervisorTeacherAttendanceRow[]>([])
@@ -15,6 +17,13 @@ export default function SupervisorAttendance() {
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async (day: string) => {
+    if (demo) {
+      setTeachers(demoTeacherAttendance)
+      setStudents(demoStudentAttendance)
+      setLoading(false)
+      setError(null)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -29,7 +38,7 @@ export default function SupervisorAttendance() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [demo])
 
   useEffect(() => { void load(date) }, [date, load])
 
@@ -41,57 +50,46 @@ export default function SupervisorAttendance() {
 
   return (
     <div className="t-page t-page-embedded">
-      <header className="t-subheader">
-        <div><span className="t-eyebrow">الإشراف</span><h1>الحضور</h1></div>
-        <button className="t-icon-button" aria-label="تحديث" onClick={() => void load(date)}><RefreshCw size={18} /></button>
-      </header>
-
-      <div className="t-date-row">
-        <CalendarDays size={16} />
-        <input
-          className="t-input"
-          type="date"
-          value={date}
-          max={todayCairo()}
-          onChange={(event) => setDate(event.target.value || todayCairo())}
-          aria-label="تاريخ الحضور"
-        />
-        <span className="t-muted">{dateLabel(date)}</span>
-      </div>
-
-      <div className="t-filter-row">
-        <button className={`t-filter ${tab === 'teachers' ? 'active' : ''}`} onClick={() => setTab('teachers')}>
-          المعلمات ({teachers.length})
-        </button>
-        <button className={`t-filter ${tab === 'students' ? 'active' : ''}`} onClick={() => setTab('students')}>
-          الطالبات ({students.length})
-        </button>
+      <div className="sup-toolbar">
+        <label className="sup-date"><CalendarDays size={16} /><input type="date" value={date} max={todayCairo()} onChange={(event) => setDate(event.target.value || todayCairo())} aria-label="تاريخ الحضور" /><span>{dateLabel(date)}</span></label>
+        <div className="sup-segment">
+          <button className={tab === 'teachers' ? 'active' : ''} onClick={() => setTab('teachers')}>المعلمات ({teachers.length})</button>
+          <button className={tab === 'students' ? 'active' : ''} onClick={() => setTab('students')}>الطالبات ({students.length})</button>
+        </div>
       </div>
 
       {error && <div className="t-error-card"><p>{error}</p><button className="t-secondary" onClick={() => void load(date)}>إعادة المحاولة</button></div>}
 
       {tab === 'teachers' && (
         <>
-          <div className="t-mini-grid t-mini-grid-three">
-            <div><span>حاضرات</span><strong>{teacherPresent}</strong></div>
-            <div><span>لم تسجل</span><strong>{teacherMissing}</strong></div>
-            <div><span>إجمالي الحصص</span><strong>{teachers.length}</strong></div>
+          <div className="sup-kpi-grid sup-kpi-grid-three">
+            <div className="sup-kpi"><span className="sup-kpi-icon"><Users size={18} /></span><span>حاضرات</span><strong>{teacherPresent}</strong><small>من {teachers.length}</small></div>
+            <div className="sup-kpi"><span className="sup-kpi-icon is-warn"><Users size={18} /></span><span>لم تسجل</span><strong>{teacherMissing}</strong><small>تحتاج متابعة</small></div>
+            <div className="sup-kpi"><span className="sup-kpi-icon"><CalendarDays size={18} /></span><span>إجمالي الحصص</span><strong>{teachers.length}</strong><small>{dateLabel(date)}</small></div>
           </div>
           {loading && teachers.length === 0 && <div className="t-empty">جارٍ تحميل حضور المعلمات…</div>}
-          {!loading && teachers.length === 0 && <div className="t-empty">لا توجد حصص مجدولة في هذا اليوم.</div>}
-          <div className="t-list">
+          <div className="sup-table-wrap">
+            <table className="sup-table">
+              <thead><tr><th>المعلمة</th><th>الحلقة</th><th>الوقت</th><th>المدة</th><th>الحالة</th><th>الملاحظة</th></tr></thead>
+              <tbody>
+                {teachers.map((row) => (
+                  <tr key={row.scheduleSlotId}>
+                    <td><span className="sup-person"><span className="sup-person-avatar">{row.teacherName.slice(0, 1)}</span><strong>{row.teacherName}</strong></span></td>
+                    <td>{row.circleName}</td>
+                    <td>{row.startsAt}</td>
+                    <td>{row.durationMinutes} د</td>
+                    <td><span className={statusTone(row.status)}>{statusLabel(row.status)}</span></td>
+                    <td>{row.note ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="sup-card-list">
             {teachers.map((row) => (
-              <div className="t-row" key={row.scheduleSlotId}>
-                <div className="t-row-copy">
-                  <strong>{row.teacherName}</strong>
-                  <small>{row.circleName} · {row.startsAt} · {row.durationMinutes} دقيقة</small>
-                  {row.note && <small>{row.note}</small>}
-                </div>
-                <div className="t-row-actions">
-                  <span className={statusTone(row.status)}>{statusLabel(row.status)}</span>
-                  {row.status === 'present' && row.overtimeMinutes > 0 && <span className="t-chip t-chip-warn">+{row.overtimeMinutes} د</span>}
-                  {row.status === 'present' && row.undertimeMinutes > 0 && <span className="t-chip">نقص {row.undertimeMinutes} د</span>}
-                </div>
+              <div className="sup-card" key={row.scheduleSlotId}>
+                <div className="sup-row-copy"><strong>{row.teacherName}</strong><small>{row.circleName} · {row.startsAt} · {row.durationMinutes} دقيقة</small>{row.note && <small>{row.note}</small>}</div>
+                <span className={statusTone(row.status)}>{statusLabel(row.status)}</span>
               </div>
             ))}
           </div>
@@ -100,23 +98,33 @@ export default function SupervisorAttendance() {
 
       {tab === 'students' && (
         <>
-          <div className="t-mini-grid t-mini-grid-four">
-            <div><span>حاضرات</span><strong>{studentPresent}</strong></div>
-            <div><span>غائبات</span><strong>{studentAbsent}</strong></div>
-            <div><span>بعذر</span><strong>{studentExcused}</strong></div>
-            <div><span>إجمالي السجلات</span><strong>{students.length}</strong></div>
+          <div className="sup-kpi-grid sup-kpi-grid-three">
+            <div className="sup-kpi"><span className="sup-kpi-icon"><Users size={18} /></span><span>حاضرات</span><strong>{studentPresent}</strong><small>من {students.length}</small></div>
+            <div className="sup-kpi"><span className="sup-kpi-icon is-warn"><Users size={18} /></span><span>غائبات</span><strong>{studentAbsent}</strong><small>بدون عذر</small></div>
+            <div className="sup-kpi"><span className="sup-kpi-icon"><CalendarDays size={18} /></span><span>بعذر</span><strong>{studentExcused}</strong><small>{dateLabel(date)}</small></div>
           </div>
           {loading && students.length === 0 && <div className="t-empty">جارٍ تحميل حضور الطالبات…</div>}
-          {!loading && students.length === 0 && <div className="t-empty">لا يوجد حضور مسجل في هذا اليوم.</div>}
-          <div className="t-list">
+          <div className="sup-table-wrap">
+            <table className="sup-table">
+              <thead><tr><th>الطالبة</th><th>الكود</th><th>الحلقة</th><th>الوقت</th><th>الحالة</th><th>الملاحظة</th></tr></thead>
+              <tbody>
+                {students.map((row) => (
+                  <tr key={row.attendanceId}>
+                    <td><span className="sup-person"><span className="sup-person-avatar">{row.studentName.slice(0, 1)}</span><strong>{row.studentName}</strong></span></td>
+                    <td dir="ltr">{row.studentCode}</td>
+                    <td>{row.circleName}</td>
+                    <td>{row.startsAt}</td>
+                    <td><span className={statusTone(row.status)}>{statusLabel(row.status)}</span></td>
+                    <td>{row.note ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="sup-card-list">
             {students.map((row) => (
-              <div className="t-row" key={row.attendanceId}>
-                <span className="t-avatar"><Users size={14} /></span>
-                <div className="t-row-copy">
-                  <strong>{row.studentName}</strong>
-                  <small>{row.circleName} · {row.startsAt} · {row.studentCode}</small>
-                  {row.note && <small>{row.note}</small>}
-                </div>
+              <div className="sup-card" key={row.attendanceId}>
+                <div className="sup-row-copy"><strong>{row.studentName}</strong><small>{row.circleName} · {row.startsAt} · {row.studentCode}</small>{row.note && <small>{row.note}</small>}</div>
                 <span className={statusTone(row.status)}>{statusLabel(row.status)}</span>
               </div>
             ))}
@@ -128,4 +136,3 @@ export default function SupervisorAttendance() {
     </div>
   )
 }
-
