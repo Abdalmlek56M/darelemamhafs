@@ -474,3 +474,5 @@ Verified against a disposable PostgreSQL 17 database with a 250 charge + 125 pay
 - Payroll lock/approval, real teacher record/link, production E2E, GitHub Actions verification.
 
 Deployed live on 17 Nov 2026: commit `22f55fb`, API + frontend, no migration. Pre-deploy backup `dar-20261117-074409.dump`; old API at `api.old.20261117-074853`. Live supervisor no-finance: `/unpaid` returns `canViewAmounts=false`, teacher-notes 200, students 200. See `docs/checkpoints/supervisor-financial-notes-f1-1.0.md`.
+
+A3.1 WhatsApp follow-up links were added in `72e312d`: `wa.me` links on absences (teacher/guardian), unpaid (guardian), student detail (guardian) and teacher detail. Phone normalization defaults to +20; no paid API. Templates and the communication log are still A3.2.

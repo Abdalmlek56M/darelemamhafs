@@ -33,6 +33,7 @@ Date: 17 Nov 2026
   - `/health/ready`, `/`, `/teacher`, `/supervisor?demo=1` → 200.
   - Supervisor login → 200; `/unpaid` → `canViewAmounts=false`; `/teacher-notes` → 200; `/students` → 200.
   - Live teacher-notes page and notification drawer rendered at 1440×1000.
+- **A3.1 WhatsApp follow-up links (commit `72e312d`):** `wa.me` links on supervisor absences (teacher + guardian), unpaid (guardian), student detail (guardian) and teacher detail (teacher). Phone normalization defaults to Egypt +20; no paid WhatsApp API. The unpaid endpoint now returns `guardianPhone`. A communication log and templates remain A3.2.
 
 ## Pending
 
