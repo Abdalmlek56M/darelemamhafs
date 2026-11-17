@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, Clock3, Plus, Search, UserRound } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorTeacher, SupervisorTeacherDetailResponse } from './teacherTypes'
-import { dateLabel, percent, statusLabel, statusTone } from './supervisorFormat'
+import { dateLabel, percent, statusLabel, statusTone, whatsappHref } from './supervisorFormat'
 import { money } from './teacherFormat'
 import { demoTeacherDetail, demoTeachers } from './supervisorDemo'
 
@@ -158,6 +158,15 @@ function TeacherDetail({ teacher, canNote, demo, onBack }: { teacher: Supervisor
 
           {detail.teacher.hourlyRate !== null && (
             <div className="t-pay-banner compact"><span>أجر الساعة</span><strong>{money(detail.teacher.hourlyRate)}</strong><small>مرئي بصلاحية المالية</small></div>
+          )}
+
+          {detail.teacher.phone && (
+            <div className="sup-contact">
+              <span dir="ltr">{detail.teacher.phone}</span>
+              {whatsappHref(detail.teacher.phone, `مرحبًا ${detail.teacher.fullName}، نود متابعة خطة الحلقات.`) && (
+                <a className="sup-wa" target="_blank" rel="noreferrer" href={whatsappHref(detail.teacher.phone, `مرحبًا ${detail.teacher.fullName}، نود متابعة خطة الحلقات.`)!}>واتساب</a>
+              )}
+            </div>
           )}
 
           <div className="t-section-title"><strong>الحلقات</strong><span>{detail.circles.length} حلقة</span></div>

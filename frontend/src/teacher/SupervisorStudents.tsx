@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, GraduationCap, Phone, Plus, Search, UserRound } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorStudent, SupervisorStudentDetailResponse } from './teacherTypes'
-import { dateLabel, percent, statusLabel, statusTone } from './supervisorFormat'
+import { dateLabel, percent, statusLabel, statusTone, whatsappHref } from './supervisorFormat'
 import { money } from './teacherFormat'
 import { demoStudentDetail, demoStudents } from './supervisorDemo'
 
@@ -167,6 +167,9 @@ function StudentDetail({ student, canNote, demo, onBack }: { student: Supervisor
               <div><span>الانضمام</span><strong>{dateLabel(detail.student.joinedOn)}</strong></div>
               <div><span>الحلقات</span><strong>{detail.student.circles.map((circle) => circle.name).join('، ') || '—'}</strong></div>
             </div>
+            {detail.student.guardianPhone && whatsappHref(detail.student.guardianPhone, `مرحبًا، نود متابعة ${detail.student.fullName} مع دار الإمام حفص.`) && (
+              <a className="sup-wa" target="_blank" rel="noreferrer" href={whatsappHref(detail.student.guardianPhone, `مرحبًا، نود متابعة ${detail.student.fullName} مع دار الإمام حفص.`)!}>واتساب ولي الأمر</a>
+            )}
           </div>
 
           <div className="t-section-title"><strong>الحضور</strong><span>من {dateLabel(detail.period.from)} إلى {dateLabel(detail.period.to)}</span></div>

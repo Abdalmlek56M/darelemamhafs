@@ -6,7 +6,7 @@ namespace Dar.Modules.Teaching.Features.Supervisor;
 public static class UnpaidEndpoint
 {
     private sealed record UnpaidRow(
-        Guid ChargeId, DateOnly BillingMonth, string StudentName, string StudentCode, DateOnly JoinedOn,
+        Guid ChargeId, DateOnly BillingMonth, string StudentName, string StudentCode, string? GuardianPhone, DateOnly JoinedOn,
         string CircleName, string TeacherName, decimal AmountDue, decimal Paid, decimal Balance);
 
     public static async Task<IResult> Handle(string? month, ClaimsPrincipal principal, NpgsqlDataSource dataSource, CancellationToken ct)
@@ -19,7 +19,7 @@ public static class UnpaidEndpoint
         var rows = new List<UnpaidRow>();
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         await using (var command = new NpgsqlCommand("""
-            SELECT mc.id, mc.billing_month, s.full_name, s.student_code, s.joined_on,
+            SELECT mc.id, mc.billing_month, s.full_name, s.student_code, s.guardian_phone, s.joined_on,
                    c.name, COALESCE(t.full_name, ''), mc.amount_due, COALESCE(p.paid, 0),
                    mc.amount_due - COALESCE(p.paid, 0) AS balance
             FROM monthly_charges mc
@@ -48,8 +48,9 @@ public static class UnpaidEndpoint
             {
                 rows.Add(new UnpaidRow(
                     reader.GetGuid(0), reader.GetFieldValue<DateOnly>(1), reader.GetString(2), reader.GetString(3),
-                    reader.GetFieldValue<DateOnly>(4), reader.GetString(5), reader.GetString(6),
-                    reader.GetDecimal(7), reader.GetDecimal(8), reader.GetDecimal(9)));
+                    reader.IsDBNull(4) ? null : reader.GetString(4),
+                    reader.GetFieldValue<DateOnly>(5), reader.GetString(6), reader.GetString(7),
+                    reader.GetDecimal(8), reader.GetDecimal(9), reader.GetDecimal(10)));
             }
         }
 
@@ -74,6 +75,7 @@ public static class UnpaidEndpoint
                 billingMonth = row.BillingMonth,
                 studentName = row.StudentName,
                 studentCode = row.StudentCode,
+                guardianPhone = row.GuardianPhone,
                 joinedOn = row.JoinedOn,
                 circleName = row.CircleName,
                 teacherName = row.TeacherName,

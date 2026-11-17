@@ -81,9 +81,9 @@ export const demoLive: SupervisorLiveResponse = {
 export const demoUnpaid: SupervisorUnpaidResponse = {
   month: today.slice(0, 7), today, canViewAmounts: true, count: 3,
   unpaid: [
-    { chargeId: 'demo-u1', billingMonth: today.slice(0, 7), studentName: 'مريم أحمد', studentCode: 'ST-1001', joinedOn: day(-120), circleName: 'حلقة النور', teacherName: 'أسماء عمران', amountDue: 350, paidAmount: 150, balance: 200, status: 'partial' },
-    { chargeId: 'demo-u2', billingMonth: today.slice(0, 7), studentName: 'حبيبة يوسف', studentCode: 'ST-1003', joinedOn: day(-95), circleName: 'حلقة الفرقان', teacherName: 'أسماء عمران', amountDue: 350, paidAmount: 0, balance: 350, status: 'unpaid' },
-    { chargeId: 'demo-u3', billingMonth: today.slice(0, 7), studentName: 'جنى خالد', studentCode: 'ST-1005', joinedOn: day(-75), circleName: 'حلقة جزء تبارك', teacherName: 'هدى مصطفى', amountDue: 300, paidAmount: 100, balance: 200, status: 'partial' },
+    { chargeId: 'demo-u1', billingMonth: today.slice(0, 7), studentName: 'مريم أحمد', studentCode: 'ST-1001', guardianPhone: '01098765432', joinedOn: day(-120), circleName: 'حلقة النور', teacherName: 'أسماء عمران', amountDue: 350, paidAmount: 150, balance: 200, status: 'partial' },
+    { chargeId: 'demo-u2', billingMonth: today.slice(0, 7), studentName: 'حبيبة يوسف', studentCode: 'ST-1003', guardianPhone: '01276543210', joinedOn: day(-95), circleName: 'حلقة الفرقان', teacherName: 'أسماء عمران', amountDue: 350, paidAmount: 0, balance: 350, status: 'unpaid' },
+    { chargeId: 'demo-u3', billingMonth: today.slice(0, 7), studentName: 'جنى خالد', studentCode: 'ST-1005', guardianPhone: '01177778888', joinedOn: day(-75), circleName: 'حلقة جزء تبارك', teacherName: 'هدى مصطفى', amountDue: 300, paidAmount: 100, balance: 200, status: 'partial' },
   ],
 }
 
@@ -170,3 +170,4 @@ export const demoTeacherNotes: SupervisorTeacherNote[] = [
   { kind: 'student', teacherId: 'demo-t2', teacherName: 'هدى مصطفى', circleName: 'حلقة جزء تبارك', date: today, note: 'جنى كانت متعبة اليوم، تم التواصل مع ولي الأمر.', markedAt: new Date().toISOString(), studentName: 'جنى خالد', studentCode: 'ST-1005' },
   { kind: 'session', teacherId: 'demo-t2', teacherName: 'هدى مصطفى', circleName: 'حلقة جزء تبارك', date: day(-1), note: 'تمت مراجعة الجزء كاملًا، والطالبات جاهزات للتسميع القادم.', markedAt: new Date(Date.now() - 86400000).toISOString(), studentName: null, studentCode: null },
 ]
+

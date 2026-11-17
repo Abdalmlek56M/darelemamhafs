@@ -3,6 +3,7 @@ import { RefreshCw, Wallet } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorUnpaidResponse } from './teacherTypes'
 import { money } from './teacherFormat'
+import { whatsappHref } from './supervisorFormat'
 import { demoUnpaid } from './supervisorDemo'
 
 type Props = { demo: boolean; canFinance: boolean }
@@ -67,6 +68,9 @@ export default function SupervisorUnpaid({ demo, canFinance }: Props) {
               <span className="sup-kpi-icon"><Wallet size={16} /></span>
               <div className="sup-row-copy"><strong>{item.studentName}</strong><small>{item.circleName} · {item.teacherName} · {item.studentCode}</small></div>
               {showAmounts && item.balance !== null && <div className="sup-money"><strong>{money(item.balance)}</strong><small>من {money(item.amountDue)}</small></div>}
+              {item.guardianPhone && whatsappHref(item.guardianPhone, `مرحبًا، نود التذكير بمتابعة اشتراك ${item.studentName} في ${item.circleName}.`) && (
+                <a className="sup-wa" target="_blank" rel="noreferrer" href={whatsappHref(item.guardianPhone, `مرحبًا، نود التذكير بمتابعة اشتراك ${item.studentName} في ${item.circleName}.`)!}>واتساب</a>
+              )}
               <span className="t-badge t-badge-gold">{item.status === 'partial' ? 'جزئي' : 'متأخر'}</span>
             </div>
           ))}

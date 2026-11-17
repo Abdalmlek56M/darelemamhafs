@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { CalendarDays, Phone, RefreshCw, UserRound, Users } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorAbsencesResponse } from './teacherTypes'
-import { dateLabel, statusLabel, statusTone, todayCairo } from './supervisorFormat'
+import { dateLabel, statusLabel, statusTone, todayCairo, whatsappHref } from './supervisorFormat'
 import { demoAbsences } from './supervisorDemo'
 
 type Props = { demo: boolean }
@@ -59,6 +59,9 @@ export default function SupervisorAbsences({ demo }: Props) {
               <span className="sup-kpi-icon is-warn"><Users size={16} /></span>
               <div className="sup-row-copy"><strong>{item.teacherName}</strong><small>{item.circleName} · {item.startsAt} · {item.durationMinutes} دقيقة</small></div>
               {item.phone && <span className="sup-phone" dir="ltr"><Phone size={12} /> {item.phone}</span>}
+              {item.phone && whatsappHref(item.phone, `مرحبًا ${item.teacherName}، نود متابعة تسجيل حضور ${item.circleName} اليوم.`) && (
+                <a className="sup-wa" target="_blank" rel="noreferrer" href={whatsappHref(item.phone, `مرحبًا ${item.teacherName}، نود متابعة تسجيل حضور ${item.circleName} اليوم.`)!}>واتساب</a>
+              )}
               <span className="t-badge t-badge-bad">لم تسجل</span>
             </div>
           ))}
@@ -75,6 +78,9 @@ export default function SupervisorAbsences({ demo }: Props) {
               <span className="sup-kpi-icon"><UserRound size={16} /></span>
               <div className="sup-row-copy"><strong>{item.studentName}</strong><small>{item.circleName} · {item.teacherName} · {item.studentCode}</small>{item.note && <small>{item.note}</small>}</div>
               {item.guardianPhone && <span className="sup-phone" dir="ltr"><Phone size={12} /> {item.guardianPhone}</span>}
+              {item.guardianPhone && whatsappHref(item.guardianPhone, `مرحبًا، نود متابعة غياب ${item.studentName} عن ${item.circleName}.`) && (
+                <a className="sup-wa" target="_blank" rel="noreferrer" href={whatsappHref(item.guardianPhone, `مرحبًا، نود متابعة غياب ${item.studentName} عن ${item.circleName}.`)!}>واتساب</a>
+              )}
               <span className={statusTone(item.status)}>{statusLabel(item.status)}</span>
             </div>
           ))}

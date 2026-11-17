@@ -115,6 +115,7 @@ export type EarningsResponse = {
 export type SubscriptionStudent = {
   studentName: string
   studentCode: string
+  guardianPhone?: string | null
   circleName: string
   startsOn: string
   joinedOn: string
@@ -187,6 +188,7 @@ export type SupervisorUnpaid = {
   billingMonth: string
   studentName: string
   studentCode: string
+  guardianPhone: string | null
   joinedOn: string
   circleName: string
   teacherName: string
