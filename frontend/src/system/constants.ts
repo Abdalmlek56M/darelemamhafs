@@ -77,4 +77,10 @@ export const defaultSettings = (value: Branding): AdminSettings => ({
   tiktokUrl: value.tiktokUrl ?? '',
   whatsappUrl: value.whatsappUrl ?? '',
   trashRetentionDays: 30,
+  whatsappTemplateAbsence: 'مرحبًا، نود متابعة غياب {name} عن {circle}.',
+  whatsappTemplateUnpaid: 'مرحبًا، نود التذكير بمتابعة اشتراك {name} في {circle}.',
+  whatsappTemplateTeacherFollowup: 'مرحبًا {name}، نود متابعة خطة الحلقة.',
+  whatsappTemplateStudentFollowup: 'مرحبًا، نود متابعة {name} مع {brand}.',
+  teacherNotesBanner: '',
+  teacherNotesBannerActive: true,
 })

@@ -32,13 +32,15 @@ public static partial class SystemAdminEndpoints
 
         app.MapGet("/api/admin/settings", async Task<IResult> (NpgsqlDataSource db, CancellationToken ct) =>
         {
-            await using var cmd = db.CreateCommand("SELECT brand_name,logo_data,logo_content_type,facebook_url,tiktok_url,whatsapp_url,trash_retention_days,updated_at FROM school_settings WHERE id=1;");
+            await using var cmd = db.CreateCommand("SELECT brand_name,logo_data,logo_content_type,facebook_url,tiktok_url,whatsapp_url,trash_retention_days,updated_at,whatsapp_template_absence,whatsapp_template_unpaid,whatsapp_template_teacher_followup,whatsapp_template_student_followup,teacher_notes_banner,teacher_notes_banner_active FROM school_settings WHERE id=1;");
             await using var r = await cmd.ExecuteReaderAsync(ct);
             if (!await r.ReadAsync(ct)) return Results.Problem("إعدادات الدار غير مهيأة.");
             return Results.Ok(new AdminSettingsResponse(
                 r.GetString(0), r.IsDBNull(1) ? null : $"data:{(r.IsDBNull(2) ? "image/png" : r.GetString(2))};base64,{Convert.ToBase64String((byte[])r[1])}",
                 r.IsDBNull(3) ? "" : r.GetString(3), r.IsDBNull(4) ? "" : r.GetString(4), r.IsDBNull(5) ? "" : r.GetString(5),
-                r.GetInt32(6), r.GetFieldValue<DateTimeOffset>(7)));
+                r.GetInt32(6), r.GetFieldValue<DateTimeOffset>(7),
+                r.GetString(8), r.GetString(9), r.GetString(10), r.GetString(11),
+                r.GetString(12), r.GetBoolean(13)));
         }).RequireAuthorization("settings.manage");
 
         app.MapPut("/api/admin/settings", async Task<IResult> (AdminSettingsWriteRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
@@ -49,6 +51,16 @@ public static partial class SystemAdminEndpoints
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["trashRetentionDays"] = ["مدة الاحتفاظ يجب أن تكون من يوم إلى 3650 يومًا."] });
             foreach (var (field, url) in new[] { ("facebookUrl", request.FacebookUrl), ("tiktokUrl", request.TiktokUrl), ("whatsappUrl", request.WhatsappUrl) })
                 if (!IsSafeHttpsUrl(url)) return Results.ValidationProblem(new Dictionary<string, string[]> { [field] = ["استخدم رابطًا كاملًا يبدأ بـ https:// أو اترك الحقل فارغًا."] });
+            foreach (var (field, value, max) in new[]
+            {
+                ("whatsappTemplateAbsence", request.WhatsappTemplateAbsence, 1000),
+                ("whatsappTemplateUnpaid", request.WhatsappTemplateUnpaid, 1000),
+                ("whatsappTemplateTeacherFollowup", request.WhatsappTemplateTeacherFollowup, 1000),
+                ("whatsappTemplateStudentFollowup", request.WhatsappTemplateStudentFollowup, 1000),
+                ("teacherNotesBanner", request.TeacherNotesBanner, 600)
+            })
+                if (value is not null && value.Length > max)
+                    return Results.ValidationProblem(new Dictionary<string, string[]> { [field] = [$"النص يجب ألا يتجاوز {max} حرفًا."] });
 
             byte[]? logoBytes = null; string? logoType = null;
             if (!string.IsNullOrWhiteSpace(request.LogoDataUrl))
@@ -67,6 +79,12 @@ public static partial class SystemAdminEndpoints
                   logo_data=CASE WHEN @clearLogo THEN NULL WHEN @newLogo THEN @logo ELSE logo_data END,
                   logo_content_type=CASE WHEN @clearLogo THEN NULL WHEN @newLogo THEN @contentType ELSE logo_content_type END,
                   facebook_url=@facebook,tiktok_url=@tiktok,whatsapp_url=@whatsapp,
+                  whatsapp_template_absence=COALESCE(@waAbsence,whatsapp_template_absence),
+                  whatsapp_template_unpaid=COALESCE(@waUnpaid,whatsapp_template_unpaid),
+                  whatsapp_template_teacher_followup=COALESCE(@waTeacher,whatsapp_template_teacher_followup),
+                  whatsapp_template_student_followup=COALESCE(@waStudent,whatsapp_template_student_followup),
+                  teacher_notes_banner=COALESCE(@notesBanner,teacher_notes_banner),
+                  teacher_notes_banner_active=COALESCE(@notesBannerActive,teacher_notes_banner_active),
                   trash_retention_days=@retention,
                   updated_by=@actor,updated_at=now() WHERE id=1;
                 """);
@@ -74,6 +92,12 @@ public static partial class SystemAdminEndpoints
             cmd.Parameters.AddWithValue("newLogo", logoBytes is not null); cmd.Parameters.AddWithValue("logo", (object?)logoBytes ?? DBNull.Value);
             cmd.Parameters.AddWithValue("contentType", (object?)logoType ?? DBNull.Value); cmd.Parameters.AddWithValue("facebook", NullIfEmpty(request.FacebookUrl));
             cmd.Parameters.AddWithValue("tiktok", NullIfEmpty(request.TiktokUrl)); cmd.Parameters.AddWithValue("whatsapp", NullIfEmpty(request.WhatsappUrl));
+            cmd.Parameters.AddWithValue("waAbsence", NpgsqlDbType.Text, (object?)(request.WhatsappTemplateAbsence?.Trim()) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("waUnpaid", NpgsqlDbType.Text, (object?)(request.WhatsappTemplateUnpaid?.Trim()) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("waTeacher", NpgsqlDbType.Text, (object?)(request.WhatsappTemplateTeacherFollowup?.Trim()) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("waStudent", NpgsqlDbType.Text, (object?)(request.WhatsappTemplateStudentFollowup?.Trim()) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("notesBanner", NpgsqlDbType.Text, (object?)(request.TeacherNotesBanner?.Trim()) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("notesBannerActive", NpgsqlDbType.Boolean, (object?)request.TeacherNotesBannerActive ?? DBNull.Value);
             cmd.Parameters.AddWithValue("retention", request.TrashRetentionDays);
             cmd.Parameters.AddWithValue("actor", DbGuid(ActorId(principal)));
             await cmd.ExecuteNonQueryAsync(ct);
@@ -316,8 +340,8 @@ public static partial class SystemAdminEndpoints
 
 
     private sealed record BrandingResponse(string BrandName, string? LogoDataUrl, string? FacebookUrl, string? TiktokUrl, string? WhatsappUrl);
-    private sealed record AdminSettingsResponse(string BrandName, string? LogoDataUrl, string FacebookUrl, string TiktokUrl, string WhatsappUrl, int TrashRetentionDays, DateTimeOffset UpdatedAt);
-    private sealed record AdminSettingsWriteRequest(string BrandName, string? LogoDataUrl, bool ClearLogo, string? FacebookUrl, string? TiktokUrl, string? WhatsappUrl, int TrashRetentionDays);
+    private sealed record AdminSettingsResponse(string BrandName, string? LogoDataUrl, string FacebookUrl, string TiktokUrl, string WhatsappUrl, int TrashRetentionDays, DateTimeOffset UpdatedAt, string WhatsappTemplateAbsence, string WhatsappTemplateUnpaid, string WhatsappTemplateTeacherFollowup, string WhatsappTemplateStudentFollowup, string TeacherNotesBanner, bool TeacherNotesBannerActive);
+    private sealed record AdminSettingsWriteRequest(string BrandName, string? LogoDataUrl, bool ClearLogo, string? FacebookUrl, string? TiktokUrl, string? WhatsappUrl, int TrashRetentionDays, string? WhatsappTemplateAbsence = null, string? WhatsappTemplateUnpaid = null, string? WhatsappTemplateTeacherFollowup = null, string? WhatsappTemplateStudentFollowup = null, string? TeacherNotesBanner = null, bool? TeacherNotesBannerActive = null);
     private sealed record ProfileAvatarRequest(string DataUrl);
     private sealed record TrashCreateRequest(string? EntityType, Guid EntityId);
     private sealed record BackupCreateRequest(string[]? Scopes);

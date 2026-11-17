@@ -221,7 +221,7 @@ public static partial class SystemAdminEndpoints
 
     private static async Task<string?> ReadBrandingAuditSnapshotAsync(NpgsqlDataSource db, CancellationToken ct)
     {
-        await using var cmd = db.CreateCommand("SELECT jsonb_build_object('brand_name',brand_name,'has_logo',logo_data IS NOT NULL,'logo_content_type',logo_content_type,'facebook_url',facebook_url,'tiktok_url',tiktok_url,'whatsapp_url',whatsapp_url,'trash_retention_days',trash_retention_days)::text FROM school_settings WHERE id=1;");
+        await using var cmd = db.CreateCommand("SELECT jsonb_build_object('brand_name',brand_name,'has_logo',logo_data IS NOT NULL,'logo_content_type',logo_content_type,'facebook_url',facebook_url,'tiktok_url',tiktok_url,'whatsapp_url',whatsapp_url,'trash_retention_days',trash_retention_days,'whatsapp_template_absence',whatsapp_template_absence,'whatsapp_template_unpaid',whatsapp_template_unpaid,'whatsapp_template_teacher_followup',whatsapp_template_teacher_followup,'whatsapp_template_student_followup',whatsapp_template_student_followup,'teacher_notes_banner',teacher_notes_banner,'teacher_notes_banner_active',teacher_notes_banner_active)::text FROM school_settings WHERE id=1;");
         return (string?)await cmd.ExecuteScalarAsync(ct);
     }
 

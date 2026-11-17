@@ -160,6 +160,9 @@
 .sup-segment { display: inline-flex; border: 1px solid var(--line); border-radius: 13px; background: rgba(17, 27, 44, .55); padding: 3px; gap: 2px; }
 .sup-segment button { border: 0; border-radius: 9px; background: transparent; color: var(--muted); padding: 7px 11px; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
 .sup-segment button.active { background: rgba(113, 213, 192, .12); color: var(--accent); }
+.sup-notes-banner { display: flex; align-items: flex-start; gap: 9px; border: 1px solid rgba(230, 189, 106, .28); border-radius: 14px; background: rgba(230, 189, 106, .09); color: #f0d59c; padding: 11px 13px; }
+.sup-notes-banner p { margin: 0; font-size: 11px; line-height: 1.9; color: #f0d59c; }
+.sup-notes-banner svg { flex: 0 0 auto; margin-top: 2px; }
 
 .sup-table-wrap { display: block; border: 1px solid var(--line); border-radius: 18px; background: rgba(17, 27, 44, .55); overflow: auto; }
 .sup-table { width: 100%; border-collapse: collapse; font-size: 11px; }

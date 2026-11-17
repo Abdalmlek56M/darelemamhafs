@@ -244,7 +244,7 @@ export type SupervisorTeacherNote = {
   studentCode: string | null
 }
 
-export type SupervisorTeacherNotesResponse = { count: number; notes: SupervisorTeacherNote[] }
+export type SupervisorTeacherNotesResponse = { count: number; notes: SupervisorTeacherNote[]; banner: string | null }
 
 export type AttendanceRequest = {
   id: string

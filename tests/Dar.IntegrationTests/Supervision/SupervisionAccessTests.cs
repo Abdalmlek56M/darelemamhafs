@@ -148,6 +148,71 @@ public sealed class SupervisionAccessTests(SupervisionFixture fixture) : IClassF
         Assert.StartsWith("https://wa.me/", json.GetProperty("href").GetString());
     }
 
+    [Fact]
+    public async Task Communication_UsesAdminConfiguredTemplate()
+    {
+        const string template = "تنبيه مخصص: {name} في {circle} — {brand}";
+        await using var connection = new NpgsqlConnection(fixture.ConnectionString);
+        await connection.OpenAsync();
+        try
+        {
+            await using (var update = new NpgsqlCommand("UPDATE school_settings SET whatsapp_template_absence=@body WHERE id=1;", connection))
+            {
+                update.Parameters.AddWithValue("body", template);
+                await update.ExecuteNonQueryAsync();
+            }
+
+            using var client = Client();
+            await LoginAsync(client, "comm_c1");
+            var response = await client.PostAsJsonAsync("/api/v1/supervisor/communications/whatsapp", new
+            {
+                recipientType = "student_guardian",
+                recipientId = SupervisionFixture.S1,
+                templateKey = "absence"
+            });
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+            const string expected = "تنبيه مخصص: طالبة أولى في حلقة أولى — دار الإمام حفص للقرآن والتجويد";
+            Assert.Equal(expected, json.GetProperty("message").GetString());
+            Assert.Contains(Uri.EscapeDataString(expected), json.GetProperty("href").GetString());
+        }
+        finally
+        {
+            await using var restore = new NpgsqlCommand("UPDATE school_settings SET whatsapp_template_absence='مرحبًا، نود متابعة غياب {name} عن {circle}.' WHERE id=1;", connection);
+            await restore.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task TeacherNotes_ReturnsActiveBannerAndHidesItWhenDisabled()
+    {
+        await using var connection = new NpgsqlConnection(fixture.ConnectionString);
+        await connection.OpenAsync();
+        try
+        {
+            await using (var update = new NpgsqlCommand("UPDATE school_settings SET teacher_notes_banner=@banner, teacher_notes_banner_active=TRUE WHERE id=1;", connection))
+            {
+                update.Parameters.AddWithValue("banner", "رسالة إدارية تجريبية");
+                await update.ExecuteNonQueryAsync();
+            }
+
+            using var client = Client();
+            await LoginAsync(client, "scope_c1");
+            var json = await GetJson(client, "/api/v1/supervisor/teacher-notes");
+            Assert.Equal("رسالة إدارية تجريبية", json.GetProperty("banner").GetString());
+
+            await using (var disable = new NpgsqlCommand("UPDATE school_settings SET teacher_notes_banner_active=FALSE WHERE id=1;", connection))
+                await disable.ExecuteNonQueryAsync();
+            var disabled = await GetJson(client, "/api/v1/supervisor/teacher-notes");
+            Assert.Equal(JsonValueKind.Null, disabled.GetProperty("banner").ValueKind);
+        }
+        finally
+        {
+            await using var restore = new NpgsqlCommand("UPDATE school_settings SET teacher_notes_banner='', teacher_notes_banner_active=TRUE WHERE id=1;", connection);
+            await restore.ExecuteNonQueryAsync();
+        }
+    }
+
     private static async Task<JsonElement> GetJson(HttpClient client, string path)
     {
         var response = await client.GetAsync(path);

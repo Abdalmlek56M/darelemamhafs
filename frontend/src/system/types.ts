@@ -1,6 +1,15 @@
 import type { Branding } from '../domain/types'
 
-export type AdminSettings = Branding & { trashRetentionDays: number; updatedAt?: string }
+export type AdminSettings = Branding & {
+  trashRetentionDays: number
+  whatsappTemplateAbsence: string
+  whatsappTemplateUnpaid: string
+  whatsappTemplateTeacherFollowup: string
+  whatsappTemplateStudentFollowup: string
+  teacherNotesBanner: string
+  teacherNotesBannerActive: boolean
+  updatedAt?: string
+}
 
 export type AuditRecord = {
   id: number

@@ -82,7 +82,10 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
     setLoading(true); setRefreshing(true)
     const minimumFeedback = new Promise(resolve => window.setTimeout(resolve, 1000))
     try {
-      if (requested === 'settings' && can('settings.manage')) setSettings(await api<AdminSettings>('/api/admin/settings'))
+      if (requested === 'settings' && can('settings.manage')) {
+        const loaded = await api<AdminSettings>('/api/admin/settings')
+        setSettings(current => ({ ...current, ...loaded }))
+      }
       if (requested === 'audit' && can('audit.read')) setAuditRows(await api<AuditRecord[]>(`/api/admin/audit-log?limit=10000&month=${encodeURIComponent(auditMonth)}`))
       if (requested === 'trash' && can('trash.manage')) setTrashRows(await api<TrashRecord[]>('/api/admin/trash'))
       if (requested === 'backups' && can('backup.manage')) setBackupRows(await api<BackupRecord[]>('/api/admin/backups'))
@@ -115,7 +118,7 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
     try {
       let logoDataUrl = clearLogo ? null : settings.logoDataUrl
       if (logoFile) logoDataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('تعذرت قراءة صورة الشعار.')); reader.onerror = () => reject(new Error('تعذرت قراءة صورة الشعار.')); reader.readAsDataURL(logoFile) })
-      const payload = { brandName: settings.brandName.trim(), logoDataUrl, clearLogo, facebookUrl: settings.facebookUrl || null, tiktokUrl: settings.tiktokUrl || null, whatsappUrl: settings.whatsappUrl || null, trashRetentionDays: Number(settings.trashRetentionDays) }
+      const payload = { brandName: settings.brandName.trim(), logoDataUrl, clearLogo, facebookUrl: settings.facebookUrl || null, tiktokUrl: settings.tiktokUrl || null, whatsappUrl: settings.whatsappUrl || null, trashRetentionDays: Number(settings.trashRetentionDays), whatsappTemplateAbsence: settings.whatsappTemplateAbsence.trim(), whatsappTemplateUnpaid: settings.whatsappTemplateUnpaid.trim(), whatsappTemplateTeacherFollowup: settings.whatsappTemplateTeacherFollowup.trim(), whatsappTemplateStudentFollowup: settings.whatsappTemplateStudentFollowup.trim(), teacherNotesBanner: settings.teacherNotesBanner.trim(), teacherNotesBannerActive: settings.teacherNotesBannerActive }
       await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify(payload) })
       const nextBranding: Branding = { brandName: payload.brandName, logoDataUrl, facebookUrl: payload.facebookUrl, tiktokUrl: payload.tiktokUrl, whatsappUrl: payload.whatsappUrl }
       onBrandingSaved(nextBranding); setSettings(s => ({ ...s, ...nextBranding })); setLogoFile(null); setClearLogo(false)
@@ -282,6 +285,14 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
         <label className="form-field"><span>رابط Facebook</span><input type="url" placeholder="https://facebook.com/..." value={settings.facebookUrl ?? ''} onChange={e => setSettings(s => ({ ...s, facebookUrl: e.target.value }))}/></label>
         <label className="form-field"><span>رابط TikTok</span><input type="url" placeholder="https://www.tiktok.com/@..." value={settings.tiktokUrl ?? ''} onChange={e => setSettings(s => ({ ...s, tiktokUrl: e.target.value }))}/></label>
         <label className="form-field"><span>رابط WhatsApp</span><input type="url" placeholder="https://wa.me/20..." value={settings.whatsappUrl ?? ''} onChange={e => setSettings(s => ({ ...s, whatsappUrl: e.target.value }))}/></label>
+        <div className="form-field wide system-note"><span>رسائل واتساب</span><small>{'تُستخدم عند الضغط على زر واتساب من مساحة الإشراف. المتغيرات المتاحة: {name} لاسم المستلم، {circle} للحلقة، {brand} لاسم الدار. اترك القالب فارغًا لاستخدام النص الافتراضي.'}</small></div>
+        <label className="form-field"><span>قالب غياب طالبة</span><textarea rows={3} maxLength={1000} value={settings.whatsappTemplateAbsence} onChange={e => setSettings(s => ({ ...s, whatsappTemplateAbsence: e.target.value }))}/></label>
+        <label className="form-field"><span>قالب تذكير الاشتراك</span><textarea rows={3} maxLength={1000} value={settings.whatsappTemplateUnpaid} onChange={e => setSettings(s => ({ ...s, whatsappTemplateUnpaid: e.target.value }))}/></label>
+        <label className="form-field"><span>قالب متابعة معلمة</span><textarea rows={3} maxLength={1000} value={settings.whatsappTemplateTeacherFollowup} onChange={e => setSettings(s => ({ ...s, whatsappTemplateTeacherFollowup: e.target.value }))}/></label>
+        <label className="form-field"><span>قالب متابعة ولي أمر</span><textarea rows={3} maxLength={1000} value={settings.whatsappTemplateStudentFollowup} onChange={e => setSettings(s => ({ ...s, whatsappTemplateStudentFollowup: e.target.value }))}/></label>
+        <div className="form-field wide system-note"><span>رسالة أعلى ملاحظات المعلمات</span><small>تظهر كشريط تنبيه أعلى صفحة «ملاحظات المعلمات» في مساحة الإشراف. استخدمها للتنبيهات أو التوجيهات المؤقتة.</small></div>
+        <label className="form-field wide"><span>نص الرسالة</span><textarea rows={2} maxLength={600} value={settings.teacherNotesBanner} onChange={e => setSettings(s => ({ ...s, teacherNotesBanner: e.target.value }))} placeholder="مثال: يُرجى كتابة ملاحظة واضحة لكل طالبة قبل إنهاء الحصة."/></label>
+        <label className="system-toggle-field wide"><input type="checkbox" checked={settings.teacherNotesBannerActive} onChange={e => setSettings(s => ({ ...s, teacherNotesBannerActive: e.target.checked }))}/><span><strong>إظهار الرسالة في مساحة الإشراف</strong><small>عند الإيقاف يُخفى الشريط ولا تُفقد الرسالة.</small></span></label>
         <label className="form-field"><span>الاحتفاظ بسلة المهملات (بالأيام)</span><input type="number" min="1" max="3650" required value={settings.trashRetentionDays} onChange={e => setSettings(s => ({ ...s, trashRetentionDays: Number(e.target.value) }))}/><small>يتم حذف السجلات المنقولة للمهملات تلقائيًا بعد انتهاء المدة، إذا لم تمنع علاقة قاعدة بيانات الحذف.</small></label>
         <div className="form-field wide system-note"><span>النسخ الاحتياطي التلقائي</span><small>تتم إدارة الجدولة المستقلة من Dar System Center عبر Windows Task Scheduler، وتعمل حتى عند إغلاق واجهة التطبيق. افتح مركز النظام ثم تبويب «النسخ المجدول» لضبط الموعد والاحتفاظ وتشغيل نسخة فورية.</small></div>
       </div>

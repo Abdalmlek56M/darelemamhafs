@@ -75,6 +75,16 @@ public static class TeacherNotesFeedEndpoint
             }
         }
 
-        return Results.Ok(new { count = rows.Count, notes = rows });
+        string? banner = null;
+        await using (var bannerCommand = new NpgsqlCommand("""
+            SELECT teacher_notes_banner FROM school_settings
+            WHERE id = 1 AND teacher_notes_banner_active = TRUE;
+            """, connection))
+        {
+            if (await bannerCommand.ExecuteScalarAsync(ct) is string text && !string.IsNullOrWhiteSpace(text))
+                banner = text.Trim();
+        }
+
+        return Results.Ok(new { count = rows.Count, notes = rows, banner });
     }
 }

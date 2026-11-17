@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { MessageSquareText, RefreshCw } from 'lucide-react'
+import { MessageSquareText, Megaphone, RefreshCw } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorTeacherNote } from './teacherTypes'
 import { dateLabel } from './supervisorFormat'
@@ -10,6 +10,7 @@ type Filter = 'all' | 'session' | 'student'
 
 export default function SupervisorTeacherNotes({ demo }: Props) {
   const [notes, setNotes] = useState<SupervisorTeacherNote[]>([])
+  const [banner, setBanner] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -17,6 +18,7 @@ export default function SupervisorTeacherNotes({ demo }: Props) {
   const load = useCallback(async (kind: Filter) => {
     if (demo) {
       setNotes(kind === 'all' ? demoTeacherNotes : demoTeacherNotes.filter((item) => item.kind === kind))
+      setBanner('يُرجى كتابة ملاحظة واضحة لكل طالبة قبل إنهاء الحصة. هذه رسالة تجريبية يتحكم بها مدير الدار من الإعدادات.')
       setLoading(false)
       setError(null)
       return
@@ -26,6 +28,7 @@ export default function SupervisorTeacherNotes({ demo }: Props) {
     try {
       const data = await teacherApi.supervisorTeacherNotes(kind)
       setNotes(data.notes)
+      setBanner(data.banner)
     } catch (err) {
       setError(err instanceof TeacherApiError ? err.message : 'تعذر تحميل ملاحظات المعلمات.')
     } finally {
@@ -41,6 +44,8 @@ export default function SupervisorTeacherNotes({ demo }: Props) {
         <div><span className="sup-eyebrow">متابعة تعليمية</span><h1>ملاحظات المعلمات</h1><p>ملاحظات الحصص وملاحظات الطالبات التي كتبتها المعلمات أثناء الحضور.</p></div>
         <button className="sup-icon-button" onClick={() => void load(filter)} disabled={loading} aria-label="تحديث"><RefreshCw size={18} /></button>
       </div>
+
+      {banner && <div className="sup-notes-banner"><Megaphone size={16} /><p>{banner}</p></div>}
 
       <div className="sup-segment">
         {(['all', 'session', 'student'] as const).map((value) => (
