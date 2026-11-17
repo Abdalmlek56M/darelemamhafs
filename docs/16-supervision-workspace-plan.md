@@ -1,7 +1,7 @@
 # Supervision Workspace, Communications and Admin UX — Plan
 
 **Date:** 16 Nov 2026
-**Status:** A1, A2, E1, F1, F2, A3.1, A3.2 and the public homepage/`/management` split are live. Remaining: permanent integration tests, admin console parity/refactor, settings-controlled communications, teacher UI parity.
+**Status:** A1, A2, E1, F1, F2, A3.1, A3.2, the permanent integration tests and the public homepage/`/management` split are live. Remaining: admin console parity/refactor, settings-controlled communications, teacher UI parity.
 **Owner approval:** all previously listed gaps and suggestions are approved. Manual adjustments, supervisor scope, offline handling, calendar, requests, admin notifications, WhatsApp sender, reports and the full admin/supervisor UI are in scope.
 
 Related: `docs/13-teacher-portal-requirements.md`, `docs/14-ui-audit-and-mobile-direction.md`, `docs/15-legacy-reuse-audit.md`, `docs/11-deployment.md`.
@@ -386,7 +386,7 @@ Verification (disposable PostgreSQL 17 + local API):
 - Change password returned `200`; the old cookie returned `401`, the old password `401`, and the new password `200`.
 - Supervisor live returned `payableAmount=null` without `finance.read`; `/supervisor/unpaid` returned `403`; adjust with a manual amount returned `403`; adjust without an amount succeeded with `payableAmount=null`.
 - After granting `supervisor.unpaid` + `finance.read`: `/supervisor/unpaid` returned `200`, and live returned `payableAmount=37.50` for the adjusted 45 minutes at 50/hour.
-- Build: `dotnet build` 0 warnings/0 errors; `dotnet test` 16 unit + 5 integration passed; frontend `tsc -b && vite build` passed.
+- Build: `dotnet build` 0 warnings/0 errors; `dotnet test` 16 unit + 5 integration passed (current suite is now 16 unit + 13 integration); frontend `tsc -b && vite build` passed.
 
 Deployed live on 17 Nov 2026:
 
@@ -477,7 +477,7 @@ Deployed live on 17 Nov 2026: commit `22f55fb`, API + frontend, no migration. Pr
 
 A3.1 WhatsApp follow-up links were added in `72e312d`: `wa.me` links on absences (teacher/guardian), unpaid (guardian), student detail (guardian) and teacher detail. Phone normalization defaults to +20; no paid API. Templates and the communication log are still A3.2.
 
-### A3.2 backend foundation + second review (working tree, not live)
+### A3.2 requests, scope hardening, communication and tests — live
 
 - `database/020_requests_notifications_communication.sql`: `attendance_requests`, notification `scope_circle_id`/`scope_teacher_id`, `communication_log`, and default grants for `teacher.requests` / `supervisor.attendance.requests`.
 - Request backend: teacher create/list/cancel, supervisor list/review (`requests.review`), approval applies absence/cancellation attendance rows or correction duration/pay; audit and notifications on submit/review.
@@ -488,6 +488,11 @@ A3.1 WhatsApp follow-up links were added in `72e312d`: `wa.me` links on absences
   - Notifications list/counts/read/read-all/resolve filter by `scope_circle_id`/`scope_teacher_id`; admins bypass.
   - Teacher-notes `kind` filter moved into SQL before `LIMIT`.
   - Unpaid notifications removed from GET; `NotificationSyncService` runs every 6 hours and upserts scoped payment notifications.
-- Remaining for A3.2: teacher/supervisor request UI, `supervisor.communication` server-verified WhatsApp endpoint/buttons, integration tests, migration application, deploy.
-- Not done: `supervisor.communication` enforcement on WhatsApp paths (A3.2), admin notification page, admin 502 investigation.
+- `CommunicationEndpoint` (`POST /api/v1/supervisor/communications/whatsapp`) enforces `supervisor.communication` + scope, normalizes +20, returns the `wa.me` href and writes `communication_log`; all supervisor WhatsApp buttons call it.
+- Teacher request page + supervisor review page; admin user list query fixed for notification scope columns.
+- Permanent integration tests in `tests/Dar.IntegrationTests/Supervision/` using Testcontainers `postgres:17`:
+  - `SupervisionFixture` applies every migration and seeds two circles/teachers, students, enrollments, charges/payments, slots, attendance, scoped supervisor accounts and scoped notifications.
+  - `SupervisionAccessTests` covers finance/scope on unpaid, out-of-scope adjust → 403, notification list/read scope, scoped student subscription, notes-kind filtering before `LIMIT`, teacher request approval applying an attendance correction (75 min → 62.50 at 50/hour), and communication permission + `wa.me` output.
+  - Full suite: **16 unit + 13 integration** passing via `dotnet test Dar.slnx`.
+- Live: migration 020 applied (ledger 20), API/frontend deployed, request approval verified manually, WhatsApp endpoint wrote `communication_log` rows, and the admin 502 was traced to Nginx header size (fixed).
 

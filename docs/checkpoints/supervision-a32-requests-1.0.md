@@ -42,11 +42,14 @@ Date: 17 Nov 2026
   - Ledger 20.
   - WhatsApp endpoint: teacher and student guardian returned `https://wa.me/20...` and wrote 2 `communication_log` rows.
 - Pre-deploy backup `dar-20261117-210547.dump`; post-deploy `dar-20261117-211434.dump` (237 TOC); WhatsApp wiring backup `dar-20261117-231837.dump`.
+- Permanent integration suite (commit `156ad69`):
+  - `tests/Dar.IntegrationTests/Supervision/SupervisionFixture.cs` spins up Testcontainers `postgres:17`, applies all 20 migrations and seeds scoped data.
+  - `SupervisionAccessTests.cs` adds 7 tests: unpaid finance/scope, out-of-scope adjust 403, notification list/read scope, scoped student subscription, notes-kind filter before limit, request approval applying 75 min → 62.50, communication permission + `wa.me`.
+  - `dotnet test Dar.slnx` → **16 unit + 13 integration passing**.
 
 ## Pending
 
-1. Add permanent integration tests for scope, notifications, requests and communication. Current verification is manual/disposable-DB.
-2. Admin 502 re-test after Nginx buffer fix.
-3. Admin teacher-notes/notification pages; admin 250/125 UI audit.
-4. Homepage `/` + admin at `/management`; settings-controlled WhatsApp templates; teacher UI parity; full file/folder/OOP refactor.
-5. Owner changes the supervisor password and deletes `/etc/dar/supervisor-initial-password`.
+1. Admin 502 re-test after Nginx buffer fix.
+2. Admin teacher-notes/notification pages; admin 250/125 UI audit.
+3. Settings-controlled WhatsApp templates; teacher UI parity; full file/folder/OOP refactor.
+4. Owner changes the supervisor password and deletes `/etc/dar/supervisor-initial-password`.
