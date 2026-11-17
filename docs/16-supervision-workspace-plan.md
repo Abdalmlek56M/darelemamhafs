@@ -1,7 +1,7 @@
 # Supervision Workspace, Communications and Admin UX — Plan
 
 **Date:** 16 Nov 2026
-**Status:** A1 and A2 are live (A2 commit `f27a3f9`, migration 019, deploy 2026-11-17 02:43). E1 supervisor workspace overhaul is implemented and verified locally; deployment pending. A3–E2 not started.
+**Status:** A1 and A2 are live (A2 commit `f27a3f9`, migration 019, deploy 2026-11-17 02:43). E1 supervisor workspace overhaul is live (commit `b2eac18`). A3–E2 not started.
 **Owner approval:** all previously listed gaps and suggestions are approved. Manual adjustments, supervisor scope, offline handling, calendar, requests, admin notifications, WhatsApp sender, reports and the full admin/supervisor UI are in scope.
 
 Related: `docs/13-teacher-portal-requirements.md`, `docs/14-ui-audit-and-mobile-direction.md`, `docs/15-legacy-reuse-audit.md`, `docs/11-deployment.md`.
@@ -444,3 +444,5 @@ The owner asked for a PC-grade supervisor workspace instead of the narrow mobile
 - Removed the old `SupervisorBoard` and the fixed 980px supervisor override.
 
 Verified locally at 390×844 and 1440×1000: dashboard, student/teacher/circle tables and details, attendance, absences, unpaid, mobile more sheet; no console errors beyond the expected pre-login 401s. Frontend build passes.
+
+Deployed live on 17 Nov 2026: commit `b2eac18`, frontend static only, no migration. Live demo at `/supervisor?demo=1`; supervisor login verified at 1440×1000 and 390×844. See `docs/checkpoints/supervisor-workspace-e1-1.0.md`.
