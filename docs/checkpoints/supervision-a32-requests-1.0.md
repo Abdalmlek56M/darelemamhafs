@@ -18,10 +18,11 @@ Date: 17 Nov 2026
   - Notifications list/counts/read/read-all/resolve filter by `scope_circle_id`/`scope_teacher_id`; admins bypass.
   - Teacher-notes `kind` filter moved into SQL before `LIMIT`.
   - Unpaid notification writes removed from `GET /unpaid`; `NotificationSyncService` runs every 6 hours.
-- `CommunicationEndpoint` (`POST /api/v1/supervisor/communications/whatsapp`) deployed:
+- `CommunicationEndpoint` (`POST /api/v1/supervisor/communications/whatsapp`) deployed and wired to the UI:
   - Requires `supervisor.communication` or admin.
   - Validates recipient scope, normalizes +20, returns a `wa.me` href, writes `communication_log`.
-  - **UI buttons still use direct links**; wiring them to this endpoint is the remaining step.
+  - Supervisor absences (teacher/guardian), unpaid guardian, student detail guardian and teacher detail now call this endpoint instead of building client-side links.
+  - `canCommunicate` hides the buttons entirely when the permission is missing.
 - Frontend:
   - Teacher request page + nav + home quick link.
   - Supervisor request page + nav.
@@ -39,13 +40,13 @@ Date: 17 Nov 2026
   - `/health/ready`, `/`, `/teacher`, `/supervisor?demo=1` → 200.
   - Supervisor login → 200; `/supervisor/requests` → 200; `/notifications` → 200; `/unpaid` → 200.
   - Ledger 20.
-- Pre-deploy backup `dar-20261117-210547.dump`; post-deploy `dar-20261117-211434.dump` (237 TOC).
+  - WhatsApp endpoint: teacher and student guardian returned `https://wa.me/20...` and wrote 2 `communication_log` rows.
+- Pre-deploy backup `dar-20261117-210547.dump`; post-deploy `dar-20261117-211434.dump` (237 TOC); WhatsApp wiring backup `dar-20261117-231837.dump`.
 
 ## Pending
 
-1. Wire all WhatsApp buttons to the server communication endpoint (scope + permission + log), remove direct client-built links.
-2. Add permanent integration tests for scope, notifications, requests and communication. Current verification is manual/disposable-DB.
-3. Admin 502 re-test after Nginx buffer fix.
-4. Admin teacher-notes/notification pages; admin 250/125 UI audit.
-5. Homepage `/` + admin at `/management`; settings-controlled WhatsApp templates; teacher UI parity; full file/folder/OOP refactor.
-6. Owner changes the supervisor password and deletes `/etc/dar/supervisor-initial-password`.
+1. Add permanent integration tests for scope, notifications, requests and communication. Current verification is manual/disposable-DB.
+2. Admin 502 re-test after Nginx buffer fix.
+3. Admin teacher-notes/notification pages; admin 250/125 UI audit.
+4. Homepage `/` + admin at `/management`; settings-controlled WhatsApp templates; teacher UI parity; full file/folder/OOP refactor.
+5. Owner changes the supervisor password and deletes `/etc/dar/supervisor-initial-password`.

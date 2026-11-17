@@ -1,7 +1,7 @@
 # Supervision Workspace, Communications and Admin UX — Plan
 
 **Date:** 16 Nov 2026
-**Status:** A1, A2, E1, F1, F2, A3.1 and A3.2 are live. A3.2 adds the request workflow, scope hardening, the secure WhatsApp endpoint and the teacher/supervisor request UI. Remaining: wire all WhatsApp buttons to the secure endpoint, permanent integration tests, then the queued admin/homepage/refactor work.
+**Status:** A1, A2, E1, F1, F2, A3.1 and A3.2 are live. A3.2 includes the request workflow, scope hardening, secure WhatsApp endpoint + UI wiring and the teacher/supervisor request UI. Remaining: permanent integration tests, then the queued admin/homepage/refactor work.
 **Owner approval:** all previously listed gaps and suggestions are approved. Manual adjustments, supervisor scope, offline handling, calendar, requests, admin notifications, WhatsApp sender, reports and the full admin/supervisor UI are in scope.
 
 Related: `docs/13-teacher-portal-requirements.md`, `docs/14-ui-audit-and-mobile-direction.md`, `docs/15-legacy-reuse-audit.md`, `docs/11-deployment.md`.
