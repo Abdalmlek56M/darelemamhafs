@@ -40,6 +40,8 @@
 .system-toggle-field{display:flex;gap:10px;align-items:flex-start;padding:13px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--surface) 70%,transparent)}
 .system-toggle-field input{margin-top:4px;accent-color:var(--accent)}
 .system-toggle-field span{display:flex;flex-direction:column;gap:4px}.system-toggle-field strong{font-size:11px}.system-toggle-field small{font-size:10px;color:var(--muted);line-height:1.8}
+.settings-reset-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.settings-reset-row small{color:var(--muted);font-size:10px;line-height:1.8}
 .scope-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:15px 0}
 .scope-option{display:flex;align-items:flex-start;gap:9px;padding:11px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--surface) 70%,transparent);font-size:11px;line-height:1.7;cursor:pointer}
 .scope-option input{margin-top:3px;accent-color:var(--accent)}

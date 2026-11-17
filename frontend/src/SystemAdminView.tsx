@@ -8,7 +8,7 @@ import {
   ImagePlus, LoaderCircle, RotateCcw, Save, Settings2, ShieldCheck, Trash2, XCircle, DatabaseZap,
 } from 'lucide-react'
 import { api } from './system/api'
-import { defaultSettings, emptyResetCandidates, resetTypeLabels, scopeOptions, systemTabs, trashPermissionFor, type SystemTab } from './system/constants'
+import { defaultSettings, defaultWhatsappTemplates, emptyResetCandidates, resetTypeLabels, scopeOptions, systemTabs, trashPermissionFor, type SystemTab } from './system/constants'
 import { AuditValue, actionLabel, bytes, displayScopes, downloadBlob, entityLabel, formatDate, payloadToXml } from './system/formatting'
 import type { AdminSettings, AuditRecord, BackupRecord, ResetCandidate, ResetCandidates, ResetType, TrashRecord } from './system/types'
 
@@ -290,6 +290,7 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
         <label className="form-field"><span>قالب تذكير الاشتراك</span><textarea rows={3} maxLength={1000} value={settings.whatsappTemplateUnpaid} onChange={e => setSettings(s => ({ ...s, whatsappTemplateUnpaid: e.target.value }))}/></label>
         <label className="form-field"><span>قالب متابعة معلمة</span><textarea rows={3} maxLength={1000} value={settings.whatsappTemplateTeacherFollowup} onChange={e => setSettings(s => ({ ...s, whatsappTemplateTeacherFollowup: e.target.value }))}/></label>
         <label className="form-field"><span>قالب متابعة ولي أمر</span><textarea rows={3} maxLength={1000} value={settings.whatsappTemplateStudentFollowup} onChange={e => setSettings(s => ({ ...s, whatsappTemplateStudentFollowup: e.target.value }))}/></label>
+        <div className="form-field wide settings-reset-row"><button type="button" className="secondary-button compact-button" onClick={() => { setSettings(s => ({ ...s, ...defaultWhatsappTemplates })); notify('info', 'تم استرجاع القوالب الافتراضية في النموذج. اضغط حفظ الإعدادات لتثبيتها.') }}><RotateCcw size={14}/> إعادة القوالب الافتراضية</button><small>يستعيد القوالب الأربعة فقط. لن تُحفظ حتى تضغط «حفظ الإعدادات».</small></div>
         <div className="form-field wide system-note"><span>رسالة أعلى ملاحظات المعلمات</span><small>تظهر كشريط تنبيه أعلى صفحة «ملاحظات المعلمات» في مساحة الإشراف. استخدمها للتنبيهات أو التوجيهات المؤقتة.</small></div>
         <label className="form-field wide"><span>نص الرسالة</span><textarea rows={2} maxLength={600} value={settings.teacherNotesBanner} onChange={e => setSettings(s => ({ ...s, teacherNotesBanner: e.target.value }))} placeholder="مثال: يُرجى كتابة ملاحظة واضحة لكل طالبة قبل إنهاء الحصة."/></label>
         <label className="system-toggle-field wide"><input type="checkbox" checked={settings.teacherNotesBannerActive} onChange={e => setSettings(s => ({ ...s, teacherNotesBannerActive: e.target.checked }))}/><span><strong>إظهار الرسالة في مساحة الإشراف</strong><small>عند الإيقاف يُخفى الشريط ولا تُفقد الرسالة.</small></span></label>

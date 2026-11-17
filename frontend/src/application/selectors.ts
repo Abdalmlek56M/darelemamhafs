@@ -109,25 +109,6 @@ export function getMonthlyTeacherPay(attendanceRows: AttendanceRow[]) {
   return Array.from(acc.values()).sort((a, b) => a.teacherName.localeCompare(b.teacherName, 'ar'))
 }
 
-export function getSuggestedFirstMonthCharge(row: CollectionRow, monthValue: string) {
-  const [year, month] = monthValue.split('-').map(Number)
-  if (!year || !month) return row.agreedMonthlyFee
-  const monthStart = new Date(year, month - 1, 1, 12)
-  const monthEnd = new Date(year, month, 0, 12)
-  const toLocalDate = (value: Date) =>
-    `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
-  const start = [row.circleStartsOn, row.enrollmentStartsOn, toLocalDate(monthStart)].sort().at(-1)!
-  const end = row.enrollmentEndsOn && row.enrollmentEndsOn < toLocalDate(monthEnd)
-    ? row.enrollmentEndsOn
-    : toLocalDate(monthEnd)
-  if (start > end || start > toLocalDate(monthEnd)) return 0
-  const startDay = Number(start.slice(8, 10))
-  const endDay = Number(end.slice(8, 10))
-  const daysInMonth = monthEnd.getDate()
-  const activeDays = Math.max(0, endDay - startDay + 1)
-  return Math.round(row.agreedMonthlyFee * activeDays / daysInMonth * 100) / 100
-}
-
 export function getFilteredStudents(students: Student[], query: string, statusFilter: 'all' | StudentStatus) {
   return students.filter(student => {
     const term = query.trim().toLocaleLowerCase('ar')

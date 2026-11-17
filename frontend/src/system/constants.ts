@@ -71,16 +71,20 @@ export function trashPermissionFor(entityType: string): string | null {
   }
 }
 
+export const defaultWhatsappTemplates = {
+  whatsappTemplateAbsence: 'مرحبًا، نود متابعة غياب {name} عن {circle}.',
+  whatsappTemplateUnpaid: 'مرحبًا، نود التذكير بمتابعة اشتراك {name} في {circle}.',
+  whatsappTemplateTeacherFollowup: 'مرحبًا {name}، نود متابعة خطة الحلقة.',
+  whatsappTemplateStudentFollowup: 'مرحبًا، نود متابعة {name} مع {brand}.',
+}
+
 export const defaultSettings = (value: Branding): AdminSettings => ({
   ...value,
   facebookUrl: value.facebookUrl ?? '',
   tiktokUrl: value.tiktokUrl ?? '',
   whatsappUrl: value.whatsappUrl ?? '',
   trashRetentionDays: 30,
-  whatsappTemplateAbsence: 'مرحبًا، نود متابعة غياب {name} عن {circle}.',
-  whatsappTemplateUnpaid: 'مرحبًا، نود التذكير بمتابعة اشتراك {name} في {circle}.',
-  whatsappTemplateTeacherFollowup: 'مرحبًا {name}، نود متابعة خطة الحلقة.',
-  whatsappTemplateStudentFollowup: 'مرحبًا، نود متابعة {name} مع {brand}.',
+  ...defaultWhatsappTemplates,
   teacherNotesBanner: '',
   teacherNotesBannerActive: true,
 })

@@ -7,7 +7,6 @@ import {
   getDashboardProfit,
   getFilteredStudents,
   getFilteredTeachers,
-  getSuggestedFirstMonthCharge,
 } from './selectors'
 
 const student = (overrides: Partial<Student>): Student => ({
@@ -94,27 +93,6 @@ describe('selectors', () => {
     ])
 
     expect(totals).toEqual({ due: 500, paid: 100, balance: 400 })
-  })
-
-  it('prorates the first month by active days', () => {
-    const row = collection({
-      agreedMonthlyFee: 300,
-      enrollmentStartsOn: '2026-01-16',
-      circleStartsOn: '2026-01-01',
-    })
-
-    // 16 active days out of 31 in January.
-    expect(getSuggestedFirstMonthCharge(row, '2026-01')).toBe(154.84)
-  })
-
-  it('returns zero when the enrollment starts after the month', () => {
-    const row = collection({
-      agreedMonthlyFee: 300,
-      enrollmentStartsOn: '2026-02-01',
-      circleStartsOn: '2026-02-01',
-    })
-
-    expect(getSuggestedFirstMonthCharge(row, '2026-01')).toBe(0)
   })
 
   it('computes dashboard profit and missing-data counters', () => {

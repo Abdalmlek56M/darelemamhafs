@@ -20,7 +20,6 @@ import {
   getNextSessions,
   getMonthSessions,
   getMonthlyTeacherPay,
-  getSuggestedFirstMonthCharge as suggestedFirstMonthCharge,
   getFilteredStudents,
   getFilteredTeachers,
   getCurrentMonthTotals,
@@ -271,7 +270,7 @@ export default function useDarApplication() {
     finally { setSaving(false) }
   }
 
-  const openChargeCreate = (row: CollectionRow) => { closeDetailLayers(); setEditingChargeId(null); setChargeForm(blankCharge(row.enrollmentId, currentMonthValue, suggestedFirstMonthCharge(row, currentMonthValue))); setChargeModal(true) }
+  const openChargeCreate = (row: CollectionRow) => { closeDetailLayers(); setEditingChargeId(null); setChargeForm(blankCharge(row.enrollmentId, currentMonthValue, row.agreedMonthlyFee)); setChargeModal(true) }
   const saveCharge = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSaving(true); try { if (editingChargeId) await request(`/api/charges/${editingChargeId}`, { method: 'PUT', body: JSON.stringify({ amountDue: Number(chargeForm.amountDue), note: chargeForm.note.trim() || null }) }); else await request('/api/charges', { method: 'POST', body: JSON.stringify({ ...chargeForm, amountDue: Number(chargeForm.amountDue) }) }); setChargeModal(false); setEditingChargeId(null); await loadCollections(); setToast({ tone: 'success', text: editingChargeId ? 'تم تعديل الاستحقاق.' : 'تم تسجيل استحقاق الشهر للحلقة والطالب.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ الاستحقاق.' }) } finally { setSaving(false) } }
   const deleteCharge = async (row: CollectionRow) => { if (!row.chargeId || !await moveRecordToTrash('monthly-charge', row.chargeId, `استحقاق ${row.studentName} · ${row.circleName} · ${currentMonthValue}`)) return; await Promise.all([loadCollections(), loadStudents()]) }
   const deleteReport = async (report: SavedReport) => { if (!await moveRecordToTrash('collection-report', report.id, report.title)) return; await loadReports() }
