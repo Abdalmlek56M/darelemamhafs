@@ -52,7 +52,7 @@
 - **Auth:** Email OTP + Google; temporary password fallback during migration.
 - **Language:** Arabic + English.
 - **No `.bat` files.**
-- **Tests:** 12 unit + 3 integration passing; isolated DB/environment; no test panel.
+- **Tests:** 16 unit + 15 integration passing; isolated DB/environment; no test panel.
 
 ---
 

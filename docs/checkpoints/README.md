@@ -45,8 +45,10 @@
 | 1.19.0 | [Supervisor workspace E1](supervisor-workspace-e1-1.0.md) | ✅ live; desktop/mobile shell + safe demo mode |
 | 1.20.0 | [Financial privacy + notes F1](supervisor-financial-notes-f1-1.0.md) | ✅ live; amounts gated, notes feed + notification drawer |
 | 1.21.0 | [Supervisor context navigation F2](supervisor-context-navigation-f2-1.0.md) | ✅ live; clickable teacher/circle context links |
-| 1.22.0 | [A3.2 requests + scope hardening](supervision-a32-requests-1.0.md) | ✅ live; requests/UI + backend scope; communication UI wiring/tests pending |
+| 1.22.0 | [A3.2 requests + scope hardening](supervision-a32-requests-1.0.md) | ✅ live; requests/UI, backend scope, secure communication, permanent tests |
 | 1.23.0 | [Public homepage + /management](public-homepage-management-1.0.md) | ✅ live; public entry at `/`, admin at `/management` |
+| 1.24.0 | [Permanent supervision integration tests](supervision-a32-requests-1.0.md) | ✅ 16 unit + 15 integration (Testcontainers PostgreSQL 17) |
+| 1.25.0 | [Communication templates + notes banner](communication-templates-1.0.md) | ✅ live; settings-controlled WhatsApp templates and notes banner |
 
 ## Next in order
 

@@ -45,7 +45,7 @@ Date: 17 Nov 2026
 - Permanent integration suite (commit `156ad69`):
   - `tests/Dar.IntegrationTests/Supervision/SupervisionFixture.cs` spins up Testcontainers `postgres:17`, applies all 20 migrations and seeds scoped data.
   - `SupervisionAccessTests.cs` adds 7 tests: unpaid finance/scope, out-of-scope adjust 403, notification list/read scope, scoped student subscription, notes-kind filter before limit, request approval applying 75 min → 62.50, communication permission + `wa.me`.
-  - `dotnet test Dar.slnx` → **16 unit + 13 integration passing**.
+  - `dotnet test Dar.slnx` → **16 unit + 15 integration passing**.
 
 ## Pending
 

@@ -495,7 +495,7 @@ src/Modules/Identity          Email OTP, Google ID token, password fallback, ses
 src/Modules/Secretariat       students list/get/create, paged search, audit
 packages/api-client           OpenAPI 3.1 spec + generated TS types + openapi-fetch client
 tests/Dar.UnitTests           xUnit domain/identity tests (16 passing)
-tests/Dar.IntegrationTests    WebApplicationFactory + Testcontainers tests (13 passing: health, same-origin, supervision scope/requests/communication)
+tests/Dar.IntegrationTests    WebApplicationFactory + Testcontainers tests (15 passing: health, same-origin, supervision scope/requests/communication/templates)
 database/013_auth_email_otp.sql
 ```
 

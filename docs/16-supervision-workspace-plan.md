@@ -1,7 +1,7 @@
 # Supervision Workspace, Communications and Admin UX — Plan
 
 **Date:** 16 Nov 2026
-**Status:** A1, A2, E1, F1, F2, A3.1, A3.2, the permanent integration tests and the public homepage/`/management` split are live. Remaining: admin console parity/refactor, settings-controlled communications, teacher UI parity.
+**Status:** A1, A2, E1, F1, F2, A3.1, A3.2, the permanent integration tests, settings-controlled communication templates, the notes banner and the public homepage/`/management` split are live. Remaining: admin console parity/refactor, teacher UI parity.
 **Owner approval:** all previously listed gaps and suggestions are approved. Manual adjustments, supervisor scope, offline handling, calendar, requests, admin notifications, WhatsApp sender, reports and the full admin/supervisor UI are in scope.
 
 Related: `docs/13-teacher-portal-requirements.md`, `docs/14-ui-audit-and-mobile-direction.md`, `docs/15-legacy-reuse-audit.md`, `docs/11-deployment.md`.
@@ -386,7 +386,7 @@ Verification (disposable PostgreSQL 17 + local API):
 - Change password returned `200`; the old cookie returned `401`, the old password `401`, and the new password `200`.
 - Supervisor live returned `payableAmount=null` without `finance.read`; `/supervisor/unpaid` returned `403`; adjust with a manual amount returned `403`; adjust without an amount succeeded with `payableAmount=null`.
 - After granting `supervisor.unpaid` + `finance.read`: `/supervisor/unpaid` returned `200`, and live returned `payableAmount=37.50` for the adjusted 45 minutes at 50/hour.
-- Build: `dotnet build` 0 warnings/0 errors; `dotnet test` 16 unit + 5 integration passed (current suite is now 16 unit + 13 integration); frontend `tsc -b && vite build` passed.
+- Build: `dotnet build` 0 warnings/0 errors; `dotnet test` 16 unit + 5 integration passed (current suite is now 16 unit + 15 integration); frontend `tsc -b && vite build` passed.
 
 Deployed live on 17 Nov 2026:
 
@@ -493,6 +493,15 @@ A3.1 WhatsApp follow-up links were added in `72e312d`: `wa.me` links on absences
 - Permanent integration tests in `tests/Dar.IntegrationTests/Supervision/` using Testcontainers `postgres:17`:
   - `SupervisionFixture` applies every migration and seeds two circles/teachers, students, enrollments, charges/payments, slots, attendance, scoped supervisor accounts and scoped notifications.
   - `SupervisionAccessTests` covers finance/scope on unpaid, out-of-scope adjust → 403, notification list/read scope, scoped student subscription, notes-kind filtering before `LIMIT`, teacher request approval applying an attendance correction (75 min → 62.50 at 50/hour), and communication permission + `wa.me` output.
-  - Full suite: **16 unit + 13 integration** passing via `dotnet test Dar.slnx`.
+  - Full suite: **16 unit + 15 integration** passing via `dotnet test Dar.slnx`.
 - Live: migration 020 applied (ledger 20), API/frontend deployed, request approval verified manually, WhatsApp endpoint wrote `communication_log` rows, and the admin 502 was traced to Nginx header size (fixed).
+
+### Communication templates + notes banner — live (18 Nov 2026)
+
+- `database/021_communication_templates.sql` adds four `school_settings` WhatsApp templates and `teacher_notes_banner` / `teacher_notes_banner_active`; ledger **21**.
+- Admin settings (`/management` → النظام والصيانة → هوية الدار) now edits the four templates with `{name}`, `{circle}`, `{brand}` placeholders and controls the banner text/visibility.
+- `CommunicationEndpoint` loads the saved template, renders placeholders, falls back to built-in defaults, returns the rendered `message` and still writes `communication_log`.
+- `GET /api/v1/supervisor/teacher-notes` returns `banner`; the supervisor page renders it as a gold bar on PC/mobile (sample in demo mode). Settings changes are captured in the audit snapshot.
+- Tests: 2 new integration cases (template rendering, banner active/disabled) → **16 unit + 15 integration**.
+- Live verified: pages 200, supervisor login, default WhatsApp message rendered, notes banner `null` with no configured text, PC/mobile demo screenshots. Pre/post backups `dar-20261118-001645.dump` / `dar-20261118-002144.dump`. See `docs/checkpoints/communication-templates-1.0.md`.
 
