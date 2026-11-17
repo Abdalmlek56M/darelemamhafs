@@ -3,6 +3,7 @@ import { ArrowRight, GraduationCap, Phone, Plus, Search, UserRound } from 'lucid
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorStudent, SupervisorStudentDetailResponse } from './teacherTypes'
 import { dateLabel, percent, statusLabel, statusTone } from './supervisorFormat'
+import { money } from './teacherFormat'
 import { demoStudentDetail, demoStudents } from './supervisorDemo'
 
 type Props = { canNote: boolean; demo?: boolean }
@@ -188,6 +189,20 @@ function StudentDetail({ student, canNote, demo, onBack }: { student: Supervisor
                 </div>
                 <span className={statusTone(row.status)}>{statusLabel(row.status)}</span>
               </div>
+            ))}
+          </div>
+
+          <div className="t-section-title"><strong>الاشتراك</strong><span>الشهر الحالي</span></div>
+          <div className="t-notes">
+            {(!detail.subscription || detail.subscription.length === 0) && <p className="t-muted">لا يوجد استحقاق اشتراك مسجل لهذا الشهر.</p>}
+            {(detail.subscription ?? []).map((item, index) => (
+              <article className="t-note" key={`${item.circleName}-${index}`}>
+                <div className="sup-sub-row">
+                  <strong>{item.circleName}</strong>
+                  <span className={statusTone(item.status)}>{item.status === 'paid' ? 'مسدد' : item.status === 'partial' ? 'جزئي' : 'متأخر'}</span>
+                </div>
+                {item.balance !== null && <small>المتبقي: {money(item.balance)} · المستحق: {money(item.amountDue)}</small>}
+              </article>
             ))}
           </div>
 

@@ -51,6 +51,9 @@
 }
 .sup-side-nav button:hover,
 .sup-side-extra button:hover { color: var(--text); }
+.sup-side-nav button:focus:not(:focus-visible),
+.sup-side-extra button:focus:not(:focus-visible),
+.sup-mobile-nav button:focus:not(:focus-visible) { outline: none; }
 .sup-side-nav button.active { color: var(--accent); border-color: rgba(113, 213, 192, .22); background: rgba(113, 213, 192, .09); }
 .sup-side-extra { margin-top: auto; display: flex; flex-direction: column; gap: 2px; padding-top: 12px; border-top: 1px solid var(--line); }
 .sup-side-extra button em { margin-right: auto; min-width: 18px; height: 18px; border-radius: 999px; background: #ff8a8a; color: #2a0808; font-size: 9px; font-style: normal; display: grid; place-items: center; padding: 0 5px; }
@@ -121,6 +124,8 @@
 .sup-money { text-align: left; margin-left: 6px; }
 .sup-money strong { display: block; font-size: 12px; }
 .sup-money small { color: var(--muted); font-size: 8.5px; }
+.sup-sub-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sup-sub-row strong { font-size: 12px; }
 
 .sup-quick-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .sup-quick { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; border: 1px solid var(--line); border-radius: 16px; background: rgba(17, 27, 44, .45); color: var(--accent); padding: 13px; font: inherit; text-align: right; cursor: pointer; }
@@ -144,6 +149,8 @@
 .sup-table { width: 100%; border-collapse: collapse; font-size: 11px; }
 .sup-table th { text-align: right; color: var(--muted); font-size: 9px; font-weight: 700; padding: 11px 12px; border-bottom: 1px solid var(--line); background: rgba(8, 14, 24, .35); white-space: nowrap; }
 .sup-table td { padding: 11px 12px; border-bottom: 1px solid rgba(255, 255, 255, .045); vertical-align: middle; }
+.sup-table td[dir="ltr"] { direction: ltr; text-align: right; }
+.sup-note-cell { max-width: 360px; color: var(--muted); line-height: 1.8; }
 .sup-table tbody tr { cursor: pointer; }
 .sup-table tbody tr:hover { background: rgba(113, 213, 192, .045); }
 .sup-table tbody tr:last-child td { border-bottom: 0; }
@@ -171,6 +178,34 @@
 .sup-sheet-grid button.active { color: var(--accent); border-color: rgba(113, 213, 192, .25); background: rgba(113, 213, 192, .08); }
 .sup-sheet-grid button em { position: absolute; top: 5px; left: 5px; min-width: 15px; height: 15px; border-radius: 999px; background: #ff8a8a; color: #2a0808; font-size: 8px; font-style: normal; display: grid; place-items: center; }
 .sup-sheet-logout { display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(255, 138, 138, .25); border-radius: 12px; background: rgba(255, 138, 138, .06); color: #ffb0b0; padding: 10px; font: inherit; font-size: 11px; font-weight: 700; }
+
+/* Notification drawer */
+.sup-drawer-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(2, 6, 12, .62); display: flex; justify-content: flex-start; }
+.sup-drawer { width: min(420px, 100%); height: 100%; background: #0a1220; border-left: 1px solid var(--line); box-shadow: -20px 0 60px rgba(0, 0, 0, .35); display: flex; flex-direction: column; gap: 10px; padding: 16px; overflow: hidden; }
+.sup-drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.sup-drawer-head h2 { margin: 3px 0 0; font-size: 18px; }
+.sup-drawer-head h2 small { color: var(--muted); font-size: 9px; font-weight: 500; margin-right: 6px; }
+.sup-drawer-head > div:last-child { display: flex; gap: 6px; }
+.sup-drawer-filters { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; }
+.sup-drawer-filters::-webkit-scrollbar { display: none; }
+.sup-drawer-filters button { white-space: nowrap; border: 1px solid var(--line); border-radius: 999px; background: rgba(17, 27, 44, .6); color: var(--muted); padding: 6px 9px; font: inherit; font-size: 9px; font-weight: 700; cursor: pointer; }
+.sup-drawer-filters button.active { color: var(--accent); border-color: rgba(113, 213, 192, .28); background: rgba(113, 213, 192, .09); }
+.sup-drawer-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-left: 2px; }
+.sup-notification { border: 1px solid var(--line); border-radius: 14px; background: rgba(17, 27, 44, .6); padding: 11px; display: flex; flex-direction: column; gap: 4px; }
+.sup-notification.unread { border-color: rgba(113, 213, 192, .24); }
+.sup-notification.resolved { opacity: .72; }
+.sup-notification-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.sup-notification-head strong { font-size: 12px; }
+.sup-notification p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.8; }
+.sup-notification small { color: var(--muted); font-size: 8px; }
+.sup-notification-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.sup-resolve { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+.sup-resolve-actions { display: flex; gap: 5px; }
+.sup-resolve-actions .t-primary, .sup-resolve-actions .t-secondary { flex: 1; font-size: 9px; padding: 7px; }
+
+@media (max-width: 1023px) {
+  .sup-drawer { width: 100%; border-left: 0; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+}
 
 /* Reuse the teacher cards, but let the workspace control width and density. */
 .supervisor-app .t-page { max-width: none; margin: 0; }

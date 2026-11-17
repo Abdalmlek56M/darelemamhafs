@@ -5,13 +5,12 @@ type Props = {
   page: Page
   unread: number
   canTeacher: boolean
-  canSupervisor: boolean
   activeSessionId: string | null
   onNavigate: (page: Page) => void
   onOpenRoster: (sessionId: string) => void
 }
 
-export default function TeacherNav({ page, unread, canTeacher, canSupervisor, activeSessionId, onNavigate, onOpenRoster }: Props) {
+export default function TeacherNav({ page, unread, canTeacher, activeSessionId, onNavigate, onOpenRoster }: Props) {
   const items = [
     ...(canTeacher ? [
       { id: 'home' as Page, label: 'اليوم', icon: Home, disabled: false },
@@ -19,7 +18,6 @@ export default function TeacherNav({ page, unread, canTeacher, canSupervisor, ac
       { id: 'roster' as Page, label: 'الحضور', icon: Users, disabled: !activeSessionId },
     ] : []),
     { id: 'notifications' as Page, label: 'التنبيهات', icon: Bell, disabled: false },
-    ...(canSupervisor ? [{ id: 'supervisor' as Page, label: 'المشرفة', icon: Users, disabled: false }] : []),
     { id: 'account' as Page, label: 'حسابي', icon: UserRound, disabled: false },
   ]
 

@@ -356,7 +356,6 @@ export default function TeacherApp({ mode }: Props) {
         canFinance={canFinance}
         canCorrect={canCorrect}
         onBackToTeacher={canTeacher ? () => setPage('home') : undefined}
-        onNotifications={() => setPage('notifications')}
         onAccount={() => setPage('account')}
         onLogout={() => void logout()}
       />
@@ -381,6 +380,7 @@ export default function TeacherApp({ mode }: Props) {
             onLogout={() => void logout()}
             canSubscriptions={canSubscriptions}
             canEarnings={canEarnings}
+            unread={unread}
           />
         )}
         {page === 'live' && activeSessionId && (
@@ -449,7 +449,6 @@ export default function TeacherApp({ mode }: Props) {
         page={page}
         unread={unread}
         canTeacher={canTeacher}
-        canSupervisor={canSupervisor}
         activeSessionId={activeSessionId}
         onNavigate={setPage}
         onOpenRoster={(sessionId) => void openRoster(sessionId)}

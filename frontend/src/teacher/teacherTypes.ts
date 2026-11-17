@@ -190,10 +190,10 @@ export type SupervisorUnpaid = {
   joinedOn: string
   circleName: string
   teacherName: string
-  amountDue: number
-  paidAmount: number
-  balance: number
-  status: string
+  amountDue: number | null
+  paidAmount: number | null
+  balance: number | null
+  status: 'unpaid' | 'partial'
 }
 
 export type SupervisorLiveResponse = { now: string; date: string; sessions: SupervisorSession[] }
@@ -217,7 +217,29 @@ export type SupervisorAbsencesResponse = {
   counts: { students: number; teachers: number }
 }
 
-export type SupervisorUnpaidResponse = { month: string; today: string; count: number; unpaid: SupervisorUnpaid[] }
+export type SupervisorUnpaidResponse = { month: string; today: string; canViewAmounts: boolean; count: number; unpaid: SupervisorUnpaid[] }
+
+export type SupervisorSubscription = {
+  circleName: string
+  status: 'paid' | 'partial' | 'unpaid'
+  amountDue: number | null
+  paidAmount: number | null
+  balance: number | null
+}
+
+export type SupervisorTeacherNote = {
+  kind: 'session' | 'student'
+  teacherId: string
+  teacherName: string
+  circleName: string
+  date: string
+  note: string
+  markedAt: string
+  studentName: string | null
+  studentCode: string | null
+}
+
+export type SupervisorTeacherNotesResponse = { count: number; notes: SupervisorTeacherNote[] }
 
 export type SupervisionNote = {
   id: string
@@ -257,6 +279,7 @@ export type SupervisorStudentDetailResponse = {
   attendance: { present: number; absent: number; excused: number; marked: number; rate: number | null }
   history: { date: string; circleName: string; startsAt: string; status: string; note: string | null }[]
   notes: SupervisionNote[]
+  subscription: SupervisorSubscription[] | null
 }
 
 export type SupervisorScheduleEntry = { dayOfWeek: number; startsAt: string; durationMinutes: number }

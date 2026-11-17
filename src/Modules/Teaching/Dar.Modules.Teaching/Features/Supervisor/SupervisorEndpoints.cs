@@ -32,6 +32,8 @@ public static class SupervisorEndpoints
             .RequireAuthorization("supervisor.teachers.read").WithName("SupervisorTeacherDetail");
         group.MapPost("/teachers/{id:guid}/notes", SupervisionNotesEndpoint.AddTeacherNote)
             .RequireAuthorization("supervisor.teachers.notes").WithName("SupervisorAddTeacherNote");
+        group.MapGet("/teacher-notes", TeacherNotesFeedEndpoint.Handle)
+            .RequireAuthorization("supervisor.teachers.read").WithName("SupervisorTeacherNotes");
 
         group.MapGet("/attendance/teachers", AttendanceEndpoints.TeacherAttendance)
             .RequireAuthorization("supervisor.absences").WithName("SupervisorTeacherAttendance");

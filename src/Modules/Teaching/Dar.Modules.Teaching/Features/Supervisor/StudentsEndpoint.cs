@@ -198,6 +198,45 @@ public static class StudentsEndpoint
         }
 
         var notes = new List<object>();
+        var subscription = new List<object>();
+        var canFinance = TeachingPrincipal.Has(principal, "finance.read");
+        var canUnpaid = canFinance || TeachingPrincipal.Has(principal, "supervisor.unpaid") || TeachingPrincipal.Has(principal, "users.manage");
+        if (canUnpaid)
+        {
+            await using var subscriptionCommand = new NpgsqlCommand("""
+                SELECT c.name, mc.amount_due, COALESCE(p.paid, 0)
+                FROM monthly_charges mc
+                JOIN circle_enrollments ce ON ce.id = mc.enrollment_id AND ce.is_trashed = FALSE
+                JOIN circles c ON c.id = ce.circle_id AND c.is_trashed = FALSE
+                LEFT JOIN LATERAL (
+                    SELECT COALESCE(SUM(amount), 0) AS paid
+                    FROM payments
+                    WHERE monthly_charge_id = mc.id AND is_trashed = FALSE
+                ) p ON TRUE
+                WHERE ce.student_id = @id AND mc.is_trashed = FALSE
+                  AND mc.billing_month = date_trunc('month', @today::date)::date
+                ORDER BY c.name
+                LIMIT 20;
+                """, connection);
+            subscriptionCommand.Parameters.AddWithValue("id", id);
+            subscriptionCommand.Parameters.AddWithValue("today", CairoTime.Today());
+            await using var reader = await subscriptionCommand.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                var due = reader.GetDecimal(1);
+                var paid = reader.GetDecimal(2);
+                var balance = due - paid;
+                subscription.Add(new
+                {
+                    circleName = reader.GetString(0),
+                    status = balance <= 0 ? "paid" : paid > 0 ? "partial" : "unpaid",
+                    amountDue = canFinance ? due : (decimal?)null,
+                    paidAmount = canFinance ? paid : (decimal?)null,
+                    balance = canFinance ? balance : (decimal?)null
+                });
+            }
+        }
+
         await using (var notesCommand = new NpgsqlCommand("""
             SELECT sn.id, sn.note_text, sn.created_at, u.display_name
             FROM student_notes sn
@@ -246,7 +285,8 @@ public static class StudentsEndpoint
                 rate = marked == 0 ? (double?)null : Math.Round(present * 100.0 / marked, 1)
             },
             history,
-            notes
+            notes,
+            subscription = canUnpaid ? subscription : null
         });
     }
 }

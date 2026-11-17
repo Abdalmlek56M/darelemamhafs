@@ -1,4 +1,4 @@
-using System.Globalization;
+using System.Security.Claims;
 using Npgsql;
 
 namespace Dar.Modules.Teaching.Features.Supervisor;
@@ -9,8 +9,9 @@ public static class UnpaidEndpoint
         Guid ChargeId, DateOnly BillingMonth, string StudentName, string StudentCode, DateOnly JoinedOn,
         string CircleName, string TeacherName, decimal AmountDue, decimal Paid, decimal Balance);
 
-    public static async Task<IResult> Handle(string? month, NpgsqlDataSource dataSource, CancellationToken ct)
+    public static async Task<IResult> Handle(string? month, ClaimsPrincipal principal, NpgsqlDataSource dataSource, CancellationToken ct)
     {
+        var hasFinance = TeachingPrincipal.Has(principal, "finance.read");
         if (!TryMonth(month, out var billingMonth))
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["month"] = ["حدد الشهر بصيغة YYYY-MM."] });
 
@@ -55,7 +56,7 @@ public static class UnpaidEndpoint
         await using var transaction = await connection.BeginTransactionAsync(ct);
         foreach (var row in rows)
         {
-            var body = $"{row.StudentName} — {row.CircleName} · متأخر {row.Balance.ToString("0.00", CultureInfo.InvariantCulture)} ج.م";
+            var body = $"{row.StudentName} — {row.CircleName} · متابعة تحصيل مطلوبة";
             await TeachingNotifications.OpenAsync(connection, transaction, null, "supervisor", "payment", "warning",
                 "اشتراك غير مدفوع", body, "monthly_charge", row.ChargeId, "/supervisor/unpaid", $"unpaid:{row.ChargeId}", ct);
         }
@@ -65,6 +66,7 @@ public static class UnpaidEndpoint
         {
             month = billingMonth.ToString("yyyy-MM"),
             today,
+            canViewAmounts = hasFinance,
             count = rows.Count,
             unpaid = rows.Select(row => new
             {
@@ -75,10 +77,10 @@ public static class UnpaidEndpoint
                 joinedOn = row.JoinedOn,
                 circleName = row.CircleName,
                 teacherName = row.TeacherName,
-                amountDue = row.AmountDue,
-                paidAmount = row.Paid,
-                balance = row.Balance,
-                status = "unpaid"
+                amountDue = hasFinance ? row.AmountDue : (decimal?)null,
+                paidAmount = hasFinance ? row.Paid : (decimal?)null,
+                balance = hasFinance ? row.Balance : (decimal?)null,
+                status = row.Paid > 0 ? "partial" : "unpaid"
             })
         });
     }

@@ -1,7 +1,7 @@
 # Supervision Workspace, Communications and Admin UX — Plan
 
 **Date:** 16 Nov 2026
-**Status:** A1 and A2 are live (A2 commit `f27a3f9`, migration 019, deploy 2026-11-17 02:43). E1 supervisor workspace overhaul is live (commit `b2eac18`). A3–E2 not started.
+**Status:** A1 and A2 are live. E1 supervisor workspace is live. The owner-feedback F1 fixes (financial privacy, teacher-note feed, notification drawer, teacher-nav cleanup) are implemented and verified locally; deployment pending. A3 not started.
 **Owner approval:** all previously listed gaps and suggestions are approved. Manual adjustments, supervisor scope, offline handling, calendar, requests, admin notifications, WhatsApp sender, reports and the full admin/supervisor UI are in scope.
 
 Related: `docs/13-teacher-portal-requirements.md`, `docs/14-ui-audit-and-mobile-direction.md`, `docs/15-legacy-reuse-audit.md`, `docs/11-deployment.md`.
@@ -446,3 +446,29 @@ The owner asked for a PC-grade supervisor workspace instead of the narrow mobile
 Verified locally at 390×844 and 1440×1000: dashboard, student/teacher/circle tables and details, attendance, absences, unpaid, mobile more sheet; no console errors beyond the expected pre-login 401s. Frontend build passes.
 
 Deployed live on 17 Nov 2026: commit `b2eac18`, frontend static only, no migration. Live demo at `/supervisor?demo=1`; supervisor login verified at 1440×1000 and 390×844. See `docs/checkpoints/supervisor-workspace-e1-1.0.md`.
+
+### F1 — Owner feedback: financial privacy, notes and notification drawer
+
+Implemented after the E1 review:
+
+- **Unpaid amounts are now finance-gated**: `/supervisor/unpaid` returns `amountDue/paidAmount/balance = null` and `canViewAmounts=false` without `finance.read`. The list still shows who is late, the circle/teacher, and `unpaid`/`partial` status. Payment notification bodies no longer contain amounts. A second supervisor with `finance.read` sees the amounts.
+- **Student profile subscription**: the supervisor student detail now shows a subscription card with the circle and `مسدد/جزئي/متأخر` status. Amounts are only included with `finance.read`; otherwise the card is status-only.
+- **Teacher notes feed**: `GET /api/v1/supervisor/teacher-notes` returns session notes (`teacher_attendance.note`) and per-student notes (`student_attendance.note`), scoped by circle/teacher. The workspace has a “ملاحظات المعلمات” section with a type filter and both table and mobile-card layouts.
+- **Notification drawer**: the supervisor topbar bell, sidebar item, mobile nav and more sheet open a right-side drawer on PC / full-screen sheet on mobile. It supports categories, open/resolved/all filters, read, read-all and resolve. The old jump to the narrow teacher notifications page is gone for supervisors.
+- **Supervisor navigation removed from the teacher portal**: `TeacherNav` no longer renders a “المشرفة” item. Supervisors enter `/supervisor` directly (or via a permission-protected account); ordinary teachers no longer see any supervision item.
+- **Teacher home**: added a quick-links grid (notifications/unread, refresh, roster, subscriptions when allowed), so the page is useful even with a light schedule.
+- **Phone alignment**: LTR phone cells in supervisor tables are right-aligned inside their column so the number sits under the “الهاتف” header; mini-grid phone values are right-aligned too.
+- **Sidebar focus**: pointer focus no longer leaves a second box on a previously clicked menu item.
+
+Verified against a disposable PostgreSQL 17 database with a 250 charge + 125 payment:
+
+- No-finance supervisor: unpaid has `amount=null`, `status=partial`; student subscription is status-only; teacher notes returns 2 notes; payment notification body has no amount.
+- Finance supervisor: unpaid returns 250/125/125; student subscription returns the same amounts.
+
+### Queued audit tasks (owner-requested, not changed yet)
+
+- Audit the admin monthly-charge flow when creating a 250 charge and then recording a 125 payment: confirm the charge is stored as 250 (not half) and the payment leaves 125. The API/DB test above confirms the current model behaves correctly; the admin UI path still needs a dedicated end-to-end audit.
+- Audit the admin console broadly (collections, payments, receipts, reports, notification center) for display/rounding/permission issues.
+- Add the teacher-note feed to the admin console too (currently supervisor-only).
+- Add subscription status to the supervisor student list/table (currently detail only).
+- Payroll lock/approval, real teacher record/link, production E2E, GitHub Actions verification.

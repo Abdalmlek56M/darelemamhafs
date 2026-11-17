@@ -2,7 +2,7 @@ import { todayCairo } from './supervisorFormat'
 import type {
   SupervisorAbsencesResponse, SupervisorCircle, SupervisorCircleDetailResponse,
   SupervisorLiveResponse, SupervisorStudent, SupervisorStudentAttendanceRow, SupervisorStudentDetailResponse,
-  SupervisorTeacher, SupervisorTeacherAttendanceRow, SupervisorTeacherDetailResponse, SupervisorUnpaidResponse,
+  SupervisorTeacher, SupervisorTeacherAttendanceRow, SupervisorTeacherDetailResponse, SupervisorTeacherNote, SupervisorUnpaidResponse,
 } from './teacherTypes'
 
 const today = todayCairo()
@@ -79,7 +79,7 @@ export const demoLive: SupervisorLiveResponse = {
 }
 
 export const demoUnpaid: SupervisorUnpaidResponse = {
-  month: today.slice(0, 7), today, count: 3,
+  month: today.slice(0, 7), today, canViewAmounts: true, count: 3,
   unpaid: [
     { chargeId: 'demo-u1', billingMonth: today.slice(0, 7), studentName: 'مريم أحمد', studentCode: 'ST-1001', joinedOn: day(-120), circleName: 'حلقة النور', teacherName: 'أسماء عمران', amountDue: 350, paidAmount: 150, balance: 200, status: 'partial' },
     { chargeId: 'demo-u2', billingMonth: today.slice(0, 7), studentName: 'حبيبة يوسف', studentCode: 'ST-1003', joinedOn: day(-95), circleName: 'حلقة الفرقان', teacherName: 'أسماء عمران', amountDue: 350, paidAmount: 0, balance: 350, status: 'unpaid' },
@@ -125,6 +125,7 @@ export function demoStudentDetail(id: string): SupervisorStudentDetailResponse {
       { date: day(-9), circleName: student.circles[0], startsAt: '16:00', status: 'present', note: null },
     ],
     notes: [note('demo-n1', 'تحسن واضح في التلاوة هذا الشهر، تحتاج متابعة في المدود.', 3), note('demo-n2', 'تم التواصل مع ولي الأمر بخصوص الغياب.', 8)],
+    subscription: [{ circleName: student.circles[0], status: 'partial', amountDue: null, paidAmount: null, balance: null }],
   }
 }
 
@@ -162,3 +163,10 @@ export function demoCircleDetail(id: string): SupervisorCircleDetailResponse {
     ],
   }
 }
+
+export const demoTeacherNotes: SupervisorTeacherNote[] = [
+  { kind: 'session', teacherId: 'demo-t1', teacherName: 'أسماء عمران', circleName: 'حلقة النور', date: today, note: 'بدأت في الموعد، ومجموعة التلاوة كانت ممتازة.', markedAt: new Date().toISOString(), studentName: null, studentCode: null },
+  { kind: 'student', teacherId: 'demo-t1', teacherName: 'أسماء عمران', circleName: 'حلقة النور', date: today, note: 'مريم تحتاج متابعة في أحكام المدود، تم التنبيه عليها.', markedAt: new Date().toISOString(), studentName: 'مريم أحمد', studentCode: 'ST-1001' },
+  { kind: 'student', teacherId: 'demo-t2', teacherName: 'هدى مصطفى', circleName: 'حلقة جزء تبارك', date: today, note: 'جنى كانت متعبة اليوم، تم التواصل مع ولي الأمر.', markedAt: new Date().toISOString(), studentName: 'جنى خالد', studentCode: 'ST-1005' },
+  { kind: 'session', teacherId: 'demo-t2', teacherName: 'هدى مصطفى', circleName: 'حلقة جزء تبارك', date: day(-1), note: 'تمت مراجعة الجزء كاملًا، والطالبات جاهزات للتسميع القادم.', markedAt: new Date(Date.now() - 86400000).toISOString(), studentName: null, studentCode: null },
+]

@@ -2,7 +2,7 @@ import type {
   AttendanceMark, EarningsResponse, EndResponse, NotificationsResponse, RosterResponse,
   StartResponse, SubscriptionsResponse, SupervisorAbsencesResponse, SupervisorCircleDetailResponse,
   SupervisorCirclesResponse, SupervisorLiveResponse, SupervisorStudentDetailResponse, SupervisorStudentsResponse,
-  SupervisorTeacherAttendanceRow, SupervisorTeacherDetailResponse, SupervisorTeachersResponse,
+  SupervisorTeacherAttendanceRow, SupervisorTeacherDetailResponse, SupervisorTeacherNotesResponse, SupervisorTeachersResponse,
   SupervisorUnpaidResponse, SupervisorStudentAttendanceRow, TeacherSession, TodayResponse,
 } from './teacherTypes'
 
@@ -121,6 +121,13 @@ export const teacherApi = {
       method: 'POST',
       body: JSON.stringify({ text }),
     }),
+  supervisorTeacherNotes: (kind?: string, teacherId?: string) => {
+    const params = new URLSearchParams()
+    if (kind && kind !== 'all') params.set('kind', kind)
+    if (teacherId) params.set('teacherId', teacherId)
+    const query = params.size ? `?${params.toString()}` : ''
+    return request<SupervisorTeacherNotesResponse>(`/api/v1/supervisor/teacher-notes${query}`)
+  },
   supervisorTeacherAttendance: (date?: string, circleId?: string) => {
     const params = new URLSearchParams()
     if (date) params.set('date', date)

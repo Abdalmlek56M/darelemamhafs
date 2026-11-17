@@ -16,6 +16,7 @@ type Props = {
   onLogout: () => void
   canSubscriptions: boolean
   canEarnings: boolean
+  unread: number
 }
 
 function SlotStatus({ slot }: { slot: Slot }) {
@@ -45,7 +46,7 @@ function SlotAction({ slot, onStart, onOpenLive, onOpenRoster }: Pick<Props, 'on
 
 export default function TeacherHome({
   today, earnings, loading, error, onRefresh, onStart, onOpenLive, onOpenRoster,
-  onNotifications, onSubscriptions, onLogout, canSubscriptions, canEarnings,
+  onNotifications, onSubscriptions, onLogout, canSubscriptions, canEarnings, unread,
 }: Props) {
   if (loading && !today) return <div className="t-empty">جارٍ تحميل حلقاتك…</div>
   if (error) return <div className="t-error-card"><p>{error}</p><button className="t-secondary" onClick={onRefresh}>إعادة المحاولة</button></div>
@@ -108,6 +109,16 @@ export default function TeacherHome({
           <small>حالة السداد والمتبقي — بدون تفاصيل مالية إدارية.</small>
         </button>
       )}
+
+      <div className="t-section-title"><strong>روابط سريعة</strong><span>كل ما تحتاجينه</span></div>
+      <div className="t-quick-grid">
+        <button onClick={onNotifications}><Bell size={17} /><strong>التنبيهات</strong><small>{unread > 0 ? `${unread} غير مقروء` : 'لا جديد'}</small></button>
+        <button onClick={onRefresh}><CalendarDays size={17} /><strong>تحديث الحلقات</strong><small>{loading ? 'جارٍ التحديث' : 'اسحبي أحدث حالة'}</small></button>
+        <button onClick={() => current?.sessionId && onOpenRoster(current.sessionId)} disabled={!current?.sessionId}>
+          <Users size={17} /><strong>حضور الطالبات</strong><small>{current?.sessionId ? current.circleName : 'ابدئي حلقة أولًا'}</small>
+        </button>
+        {canSubscriptions && <button onClick={onSubscriptions}><Wallet size={17} /><strong>الاشتراكات</strong><small>حالة السداد فقط</small></button>}
+      </div>
 
       {rest.length > 0 && (
         <>

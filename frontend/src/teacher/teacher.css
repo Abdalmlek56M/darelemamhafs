@@ -132,6 +132,7 @@
 .t-mini-grid div { border: 1px solid var(--line); border-radius: 13px; background: rgba(17, 27, 44, .55); padding: 9px 10px; }
 .t-mini-grid span { display: block; color: var(--muted); font-size: 8px; }
 .t-mini-grid strong { display: block; font-size: 14px; margin-top: 2px; }
+.t-mini-grid strong[dir="ltr"] { text-align: right; }
 
 .t-summary-row { display: flex; flex-wrap: wrap; gap: 5px; }
 .t-pill { border: 1px solid var(--line); border-radius: 999px; padding: 5px 8px; color: var(--muted); font-size: 9px; }
@@ -265,6 +266,11 @@
 .t-notes .t-note small { display: block; color: var(--muted); font-size: 8.5px; margin-top: 5px; }
 .t-note-form { display: flex; flex-direction: column; gap: 7px; border: 1px solid var(--line); border-radius: 16px; background: rgba(17, 27, 44, .55); padding: 12px; }
 .t-note-form .t-primary { width: 100%; }
+.t-quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.t-quick-grid button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; border: 1px solid var(--line); border-radius: 15px; background: rgba(17, 27, 44, .55); color: var(--accent); padding: 11px; font: inherit; text-align: right; cursor: pointer; }
+.t-quick-grid button:disabled { opacity: .55; cursor: default; }
+.t-quick-grid strong { color: var(--text); font-size: 11px; }
+.t-quick-grid small { color: var(--muted); font-size: 8.5px; }
 
 @media (min-width: 600px) {
   .t-stat-grid-four { grid-template-columns: repeat(4, 1fr); }

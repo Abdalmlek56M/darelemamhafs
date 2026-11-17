@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, Bell, BookOpen, CalendarDays, GraduationCap, LayoutDashboard, LogOut, Menu, Sparkles,
+  AlertTriangle, Bell, BookOpen, CalendarDays, GraduationCap, LayoutDashboard, LogOut, Menu, MessageSquareText, Sparkles,
   UserRound, Users, Wallet, X,
 } from 'lucide-react'
 import SupervisorOverview from './SupervisorOverview'
@@ -10,10 +10,12 @@ import SupervisorCircles from './SupervisorCircles'
 import SupervisorAttendance from './SupervisorAttendance'
 import SupervisorAbsences from './SupervisorAbsences'
 import SupervisorUnpaid from './SupervisorUnpaid'
+import SupervisorTeacherNotes from './SupervisorTeacherNotes'
+import SupervisorNotificationsDrawer from './SupervisorNotificationsDrawer'
 import type { TeacherSession } from './teacherTypes'
 import './supervisor.css'
 
-type Section = 'overview' | 'students' | 'circles' | 'teachers' | 'attendance' | 'absences' | 'unpaid'
+type Section = 'overview' | 'students' | 'circles' | 'teachers' | 'notes' | 'attendance' | 'absences' | 'unpaid'
 
 type Props = {
   session: TeacherSession
@@ -30,7 +32,6 @@ type Props = {
   canFinance: boolean
   canCorrect: boolean
   onBackToTeacher?: () => void
-  onNotifications: () => void
   onAccount: () => void
   onLogout: () => void
 }
@@ -40,6 +41,7 @@ const sectionTitles: Record<Section, string> = {
   students: 'الطالبات',
   circles: 'الحلقات',
   teachers: 'المعلمات',
+  notes: 'ملاحظات المعلمات',
   attendance: 'الحضور',
   absences: 'الغياب',
   unpaid: 'المتأخرات',
@@ -58,11 +60,15 @@ export default function SupervisorWorkspace(props: Props) {
   const {
     session, unread, canTeacherPortal, canLive, canAbsences, canStudents, canStudentsNotes,
     canCircles, canTeachers, canTeacherNotes, canUnpaid, canFinance, canCorrect,
-    onBackToTeacher, onNotifications, onAccount, onLogout,
+    onBackToTeacher, onAccount, onLogout,
   } = props
   const [section, setSection] = useState<Section>('overview')
   const [moreOpen, setMoreOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [localUnread, setLocalUnread] = useState(unread)
   const [demo, setDemo] = useState(initialDemo)
+
+  useEffect(() => { setLocalUnread(unread) }, [unread])
 
   useEffect(() => {
     try {
@@ -79,6 +85,7 @@ export default function SupervisorWorkspace(props: Props) {
     { id: 'students' as Section, label: 'الطالبات', icon: Users, show: canStudents },
     { id: 'circles' as Section, label: 'الحلقات', icon: BookOpen, show: canCircles },
     { id: 'teachers' as Section, label: 'المعلمات', icon: GraduationCap, show: canTeachers },
+    { id: 'notes' as Section, label: 'ملاحظات المعلمات', icon: MessageSquareText, show: canTeachers },
     { id: 'attendance' as Section, label: 'الحضور', icon: CalendarDays, show: canAbsences },
     { id: 'absences' as Section, label: 'الغياب', icon: AlertTriangle, show: canAbsences },
     { id: 'unpaid' as Section, label: 'المتأخرات', icon: Wallet, show: canUnpaid },
@@ -105,9 +112,10 @@ export default function SupervisorWorkspace(props: Props) {
     if (section === 'students') return <SupervisorStudents demo={demo} canNote={canStudentsNotes} />
     if (section === 'circles') return <SupervisorCircles demo={demo} />
     if (section === 'teachers') return <SupervisorTeachers demo={demo} canNote={canTeacherNotes} />
+    if (section === 'notes') return <SupervisorTeacherNotes demo={demo} />
     if (section === 'attendance') return <SupervisorAttendance demo={demo} />
     if (section === 'absences') return <SupervisorAbsences demo={demo} />
-    return <SupervisorUnpaid demo={demo} />
+    return <SupervisorUnpaid demo={demo} canFinance={canFinance} />
   }
 
   return (
@@ -131,7 +139,7 @@ export default function SupervisorWorkspace(props: Props) {
           <button className={section === 'overview' && demo ? 'active' : ''} onClick={toggleDemo}>
             <Sparkles size={18} /><span>{demo ? 'إيقاف البيانات التجريبية' : 'عرض نموذج بالبيانات'}</span>
           </button>
-          <button onClick={onNotifications}><Bell size={18} /><span>التنبيهات</span>{unread > 0 && <em>{unread}</em>}</button>
+          <button onClick={() => setNotificationsOpen(true)}><Bell size={18} /><span>التنبيهات</span>{localUnread > 0 && <em>{localUnread}</em>}</button>
           <button onClick={onAccount}><UserRound size={18} /><span>حسابي</span></button>
           {canTeacherPortal && onBackToTeacher && <button onClick={onBackToTeacher}><GraduationCap size={18} /><span>بوابة المعلمة</span></button>}
         </div>
@@ -147,7 +155,7 @@ export default function SupervisorWorkspace(props: Props) {
           <div className="sup-top-title"><span>مساحة الإشراف</span><h1>{sectionTitles[section]}</h1></div>
           <div className="sup-top-actions">
             {demo && <button className="sup-demo-chip" onClick={toggleDemo}><Sparkles size={13} /> بيانات تجريبية</button>}
-            <button className="sup-icon-button" onClick={onNotifications} aria-label="التنبيهات"><Bell size={18} />{unread > 0 && <em>{unread}</em>}</button>
+            <button className="sup-icon-button" onClick={() => setNotificationsOpen(true)} aria-label="التنبيهات"><Bell size={18} />{localUnread > 0 && <em>{localUnread}</em>}</button>
             <button className="sup-avatar" onClick={onAccount} aria-label="حسابي">{session.displayName.slice(0, 1)}</button>
           </div>
         </header>
@@ -168,7 +176,7 @@ export default function SupervisorWorkspace(props: Props) {
           const Icon = item.icon
           return <button key={item.id} className={section === item.id ? 'active' : ''} onClick={() => go(item.id)}><Icon size={20} /><span>{item.label}</span></button>
         })}
-        <button onClick={onNotifications}><Bell size={20} />{unread > 0 && <em>{unread}</em>}<span>التنبيهات</span></button>
+        <button onClick={() => setNotificationsOpen(true)}><Bell size={20} />{localUnread > 0 && <em>{localUnread}</em>}<span>التنبيهات</span></button>
         <button onClick={() => setMoreOpen(true)}><Menu size={20} /><span>المزيد</span></button>
       </nav>
 
@@ -181,7 +189,7 @@ export default function SupervisorWorkspace(props: Props) {
                 const Icon = item.icon
                 return <button key={item.id} className={section === item.id ? 'active' : ''} onClick={() => go(item.id)}><Icon size={19} /><span>{item.label}</span></button>
               })}
-              <button onClick={() => { setMoreOpen(false); onNotifications() }}><Bell size={19} /><span>التنبيهات</span>{unread > 0 && <em>{unread}</em>}</button>
+              <button onClick={() => { setMoreOpen(false); setNotificationsOpen(true) }}><Bell size={19} /><span>التنبيهات</span>{localUnread > 0 && <em>{localUnread}</em>}</button>
               <button onClick={() => { setMoreOpen(false); onAccount() }}><UserRound size={19} /><span>حسابي</span></button>
               {canTeacherPortal && onBackToTeacher && <button onClick={() => { setMoreOpen(false); onBackToTeacher() }}><GraduationCap size={19} /><span>بوابة المعلمة</span></button>}
               <button onClick={() => { toggleDemo(); setMoreOpen(false) }}><Sparkles size={19} /><span>{demo ? 'إيقاف البيانات التجريبية' : 'عرض نموذج بالبيانات'}</span></button>
@@ -190,6 +198,14 @@ export default function SupervisorWorkspace(props: Props) {
           </div>
         </div>
       )}
+
+      <SupervisorNotificationsDrawer
+        open={notificationsOpen}
+        canResolve={canCorrect}
+        unread={localUnread}
+        onClose={() => setNotificationsOpen(false)}
+        onUnreadChange={setLocalUnread}
+      />
     </div>
   )
 }
