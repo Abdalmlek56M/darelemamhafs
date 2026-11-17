@@ -30,6 +30,7 @@ public static class TeacherNotesFeedEndpoint
               AND ta.note IS NOT NULL AND btrim(ta.note) <> ''
               AND (@all OR c.id = ANY(@circles))
               AND (@teacher::uuid IS NULL OR t.id = @teacher)
+              AND (@kind = 'all' OR @kind = 'session')
 
             UNION ALL
 
@@ -44,6 +45,7 @@ public static class TeacherNotesFeedEndpoint
               AND sa.note IS NOT NULL AND btrim(sa.note) <> ''
               AND (@all OR c.id = ANY(@circles))
               AND (@teacher::uuid IS NULL OR t.id = @teacher)
+              AND (@kind = 'all' OR @kind = 'student')
 
             ORDER BY session_date DESC, marked_at DESC
             LIMIT 120;
@@ -51,13 +53,13 @@ public static class TeacherNotesFeedEndpoint
         command.Parameters.AddWithValue("all", scope.All);
         command.Parameters.AddWithValue("circles", scope.CircleIds);
         command.Parameters.AddWithValue("teacher", (object?)teacherId ?? DBNull.Value);
+        command.Parameters.AddWithValue("kind", filterKind);
 
         await using (var reader = await command.ExecuteReaderAsync(ct))
         {
             while (await reader.ReadAsync(ct))
             {
                 var rowKind = reader.GetString(0);
-                if (filterKind != "all" && rowKind != filterKind) continue;
                 rows.Add(new
                 {
                     kind = rowKind,

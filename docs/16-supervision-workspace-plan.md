@@ -1,7 +1,7 @@
 # Supervision Workspace, Communications and Admin UX — Plan
 
 **Date:** 16 Nov 2026
-**Status:** A1, A2, E1 and F1 are live. F1 adds finance-gated unpaid/subscription views, the teacher-note feed and the supervisor notification drawer. A3 (requests + WhatsApp + admin notification page) is next.
+**Status:** A1, A2, E1, F1 and the A3.1 WhatsApp links are live. The A3.2 request workflow, notification-scope hardening and the second-review backend fixes are implemented in the working tree but **not deployed** (migration 020 not applied). UI/tests for A3.2 remain.
 **Owner approval:** all previously listed gaps and suggestions are approved. Manual adjustments, supervisor scope, offline handling, calendar, requests, admin notifications, WhatsApp sender, reports and the full admin/supervisor UI are in scope.
 
 Related: `docs/13-teacher-portal-requirements.md`, `docs/14-ui-audit-and-mobile-direction.md`, `docs/15-legacy-reuse-audit.md`, `docs/11-deployment.md`.
@@ -476,3 +476,18 @@ Verified against a disposable PostgreSQL 17 database with a 250 charge + 125 pay
 Deployed live on 17 Nov 2026: commit `22f55fb`, API + frontend, no migration. Pre-deploy backup `dar-20261117-074409.dump`; old API at `api.old.20261117-074853`. Live supervisor no-finance: `/unpaid` returns `canViewAmounts=false`, teacher-notes 200, students 200. See `docs/checkpoints/supervisor-financial-notes-f1-1.0.md`.
 
 A3.1 WhatsApp follow-up links were added in `72e312d`: `wa.me` links on absences (teacher/guardian), unpaid (guardian), student detail (guardian) and teacher detail. Phone normalization defaults to +20; no paid API. Templates and the communication log are still A3.2.
+
+### A3.2 backend foundation + second review (working tree, not live)
+
+- `database/020_requests_notifications_communication.sql`: `attendance_requests`, notification `scope_circle_id`/`scope_teacher_id`, `communication_log`, and default grants for `teacher.requests` / `supervisor.attendance.requests`.
+- Request backend: teacher create/list/cancel, supervisor list/review (`requests.review`), approval applies absence/cancellation attendance rows or correction duration/pay; audit and notifications on submit/review.
+- Scope hardening:
+  - `UnpaidEndpoint` now filters by `SupervisionScope`; amounts remain null without `finance.read`.
+  - `AdjustEndpoint` checks circle + teacher scope before updating.
+  - Student-detail subscription query filters by scope.
+  - Notifications list/counts/read/read-all/resolve filter by `scope_circle_id`/`scope_teacher_id`; admins bypass.
+  - Teacher-notes `kind` filter moved into SQL before `LIMIT`.
+  - Unpaid notifications removed from GET; `NotificationSyncService` runs every 6 hours and upserts scoped payment notifications.
+- Remaining for A3.2: teacher/supervisor request UI, `supervisor.communication` server-verified WhatsApp endpoint/buttons, integration tests, migration application, deploy.
+- Not done: `supervisor.communication` enforcement on WhatsApp paths (A3.2), admin notification page, admin 502 investigation.
+

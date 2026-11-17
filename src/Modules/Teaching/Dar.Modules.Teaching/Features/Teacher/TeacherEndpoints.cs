@@ -1,5 +1,7 @@
 namespace Dar.Modules.Teaching.Features.Teacher;
 
+using Dar.Modules.Teaching.Features.Requests;
+
 public static class TeacherEndpoints
 {
     public static IEndpointRouteBuilder MapTeacherEndpoints(this IEndpointRouteBuilder app)
@@ -21,6 +23,13 @@ public static class TeacherEndpoints
             .RequireAuthorization("teacher.earnings.self").WithName("TeacherEarnings");
         group.MapGet("/subscriptions", MoneyEndpoints.Subscriptions)
             .RequireAuthorization("teacher.subscriptions.read").WithName("TeacherSubscriptions");
+
+        group.MapGet("/requests", TeacherRequestEndpoints.List)
+            .RequireAuthorization("teacher.requests").WithName("TeacherRequests");
+        group.MapPost("/requests", TeacherRequestEndpoints.Create)
+            .RequireAuthorization("teacher.requests").WithName("TeacherCreateRequest");
+        group.MapPost("/requests/{id:guid}/cancel", TeacherRequestEndpoints.Cancel)
+            .RequireAuthorization("teacher.requests").WithName("TeacherCancelRequest");
 
         return app;
     }

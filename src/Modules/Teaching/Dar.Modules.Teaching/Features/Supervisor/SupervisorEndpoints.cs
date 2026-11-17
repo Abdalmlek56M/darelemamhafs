@@ -1,5 +1,7 @@
 namespace Dar.Modules.Teaching.Features.Supervisor;
 
+using Dar.Modules.Teaching.Features.Requests;
+
 public static class SupervisorEndpoints
 {
     public static IEndpointRouteBuilder MapSupervisorEndpoints(this IEndpointRouteBuilder app)
@@ -46,6 +48,11 @@ public static class SupervisorEndpoints
             .RequireAuthorization("users.manage").WithName("SupervisorScopeOptions");
         group.MapPut("/scopes/{id:guid}", SupervisionScopeEndpoints.Set)
             .RequireAuthorization("users.manage").WithName("SupervisorScopeSet");
+
+        group.MapGet("/requests", SupervisorRequestEndpoints.List)
+            .RequireAuthorization("requests.review").WithName("SupervisorRequests");
+        group.MapPost("/requests/{id:guid}/review", SupervisorRequestEndpoints.Review)
+            .RequireAuthorization("requests.review").WithName("SupervisorReviewRequest");
         return app;
     }
 }

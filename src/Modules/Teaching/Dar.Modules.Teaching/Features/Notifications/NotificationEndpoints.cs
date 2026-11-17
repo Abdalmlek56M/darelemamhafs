@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Dar.Modules.Teaching.Features.Supervisor;
 using Npgsql;
 
 namespace Dar.Modules.Teaching.Features.Notifications;
@@ -34,19 +35,27 @@ public static class NotificationEndpoints
         int openCount;
         int unreadCount;
         await using var connection = await dataSource.OpenConnectionAsync(ct);
+        var scope = isAdmin ? SupervisionScope.AllScope
+            : isSupervisor ? await SupervisionScope.LoadAsync(connection, principal, ct)
+            : SupervisionScope.AllScope;
         await using (var counts = new NpgsqlCommand("""
             SELECT COUNT(*) FILTER (WHERE n.status='open') AS open_count,
                    COUNT(*) FILTER (WHERE n.status='open' AND nr.read_at IS NULL) AS unread_count
             FROM notifications n
             LEFT JOIN notification_reads nr ON nr.notification_id=n.id AND nr.user_id=@user
             WHERE (n.user_id=@user OR (@supervisor AND n.role_scope='supervisor') OR (@admin AND n.role_scope IN ('supervisor','admin')))
-              AND (n.category <> 'payment' OR @canFinance);
+              AND (n.category <> 'payment' OR @canFinance)
+              AND (n.scope_circle_id IS NULL OR @scopeAll OR n.scope_circle_id = ANY(@scopeCircles))
+              AND (n.scope_teacher_id IS NULL OR @scopeAll OR n.scope_teacher_id = ANY(@scopeTeachers));
             """, connection))
         {
             counts.Parameters.AddWithValue("user", userId);
             counts.Parameters.AddWithValue("supervisor", isSupervisor);
             counts.Parameters.AddWithValue("admin", isAdmin);
             counts.Parameters.AddWithValue("canFinance", canFinance);
+            counts.Parameters.AddWithValue("scopeAll", scope.All);
+            counts.Parameters.AddWithValue("scopeCircles", scope.CircleIds);
+            counts.Parameters.AddWithValue("scopeTeachers", scope.TeacherIds);
             await using var reader = await counts.ExecuteReaderAsync(ct);
             await reader.ReadAsync(ct);
             openCount = (int)reader.GetInt64(0);
@@ -60,6 +69,8 @@ public static class NotificationEndpoints
             LEFT JOIN notification_reads nr ON nr.notification_id=n.id AND nr.user_id=@user
             WHERE (n.user_id=@user OR (@supervisor AND n.role_scope='supervisor') OR (@admin AND n.role_scope IN ('supervisor','admin')))
               AND (n.category <> 'payment' OR @canFinance)
+              AND (n.scope_circle_id IS NULL OR @scopeAll OR n.scope_circle_id = ANY(@scopeCircles))
+              AND (n.scope_teacher_id IS NULL OR @scopeAll OR n.scope_teacher_id = ANY(@scopeTeachers))
               AND (@status='all' OR n.status=@status)
             ORDER BY (n.status='open') DESC, n.created_at DESC
             LIMIT 200;
@@ -69,6 +80,9 @@ public static class NotificationEndpoints
             command.Parameters.AddWithValue("supervisor", isSupervisor);
             command.Parameters.AddWithValue("admin", isAdmin);
             command.Parameters.AddWithValue("canFinance", canFinance);
+            command.Parameters.AddWithValue("scopeAll", scope.All);
+            command.Parameters.AddWithValue("scopeCircles", scope.CircleIds);
+            command.Parameters.AddWithValue("scopeTeachers", scope.TeacherIds);
             command.Parameters.AddWithValue("status", filter);
             await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
@@ -126,18 +140,26 @@ public static class NotificationEndpoints
         var canFinance = isAdmin || TeachingPrincipal.Has(principal, "finance.read") || TeachingPrincipal.Has(principal, "supervisor.unpaid");
 
         await using var connection = await dataSource.OpenConnectionAsync(ct);
+        var scope = isAdmin ? SupervisionScope.AllScope
+            : isSupervisor ? await SupervisionScope.LoadAsync(connection, principal, ct)
+            : SupervisionScope.AllScope;
         await using var command = new NpgsqlCommand("""
             INSERT INTO notification_reads(notification_id, user_id)
             SELECT n.id, @user
             FROM notifications n
             WHERE (n.user_id=@user OR (@supervisor AND n.role_scope='supervisor') OR (@admin AND n.role_scope IN ('supervisor','admin')))
               AND (n.category <> 'payment' OR @canFinance)
+              AND (n.scope_circle_id IS NULL OR @scopeAll OR n.scope_circle_id = ANY(@scopeCircles))
+              AND (n.scope_teacher_id IS NULL OR @scopeAll OR n.scope_teacher_id = ANY(@scopeTeachers))
             ON CONFLICT (notification_id, user_id) DO NOTHING;
             """, connection);
         command.Parameters.AddWithValue("user", userId);
         command.Parameters.AddWithValue("supervisor", isSupervisor);
         command.Parameters.AddWithValue("admin", isAdmin);
         command.Parameters.AddWithValue("canFinance", canFinance);
+        command.Parameters.AddWithValue("scopeAll", scope.All);
+        command.Parameters.AddWithValue("scopeCircles", scope.CircleIds);
+        command.Parameters.AddWithValue("scopeTeachers", scope.TeacherIds);
         var count = await command.ExecuteNonQueryAsync(ct);
         return Results.Ok(new { read = count });
     }
@@ -203,12 +225,17 @@ public static class NotificationEndpoints
         var isAdmin = TeachingPrincipal.Has(principal, "users.manage");
         var canFinance = isAdmin || TeachingPrincipal.Has(principal, "finance.read") || TeachingPrincipal.Has(principal, "supervisor.unpaid");
         await using var connection = await dataSource.OpenConnectionAsync(ct);
+        var scope = isAdmin ? SupervisionScope.AllScope
+            : isSupervisor ? await SupervisionScope.LoadAsync(connection, principal, ct)
+            : SupervisionScope.AllScope;
         await using var command = new NpgsqlCommand("""
             SELECT EXISTS(
                 SELECT 1 FROM notifications
                 WHERE id=@id
                   AND (user_id=@user OR (@supervisor AND role_scope='supervisor') OR (@admin AND role_scope IN ('supervisor','admin')))
                   AND (category <> 'payment' OR @canFinance)
+                  AND (scope_circle_id IS NULL OR @scopeAll OR scope_circle_id = ANY(@scopeCircles))
+                  AND (scope_teacher_id IS NULL OR @scopeAll OR scope_teacher_id = ANY(@scopeTeachers))
             );
             """, connection);
         command.Parameters.AddWithValue("id", id);
@@ -216,6 +243,9 @@ public static class NotificationEndpoints
         command.Parameters.AddWithValue("supervisor", isSupervisor);
         command.Parameters.AddWithValue("admin", isAdmin);
         command.Parameters.AddWithValue("canFinance", canFinance);
+        command.Parameters.AddWithValue("scopeAll", scope.All);
+        command.Parameters.AddWithValue("scopeCircles", scope.CircleIds);
+        command.Parameters.AddWithValue("scopeTeachers", scope.TeacherIds);
         return (bool)(await command.ExecuteScalarAsync(ct) ?? false);
     }
 }

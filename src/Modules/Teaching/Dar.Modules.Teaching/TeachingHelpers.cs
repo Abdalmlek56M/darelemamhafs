@@ -77,14 +77,17 @@ public static class TeachingNotifications
         Guid entityId,
         string actionUrl,
         string dedupeKey,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? scopeCircleId = null,
+        Guid? scopeTeacherId = null)
     {
         await using var command = new NpgsqlCommand("""
-            INSERT INTO notifications(user_id, role_scope, category, status, severity, title, body, entity_type, entity_id, action_url, dedupe_key)
-            VALUES (@user, @role, @category, 'open', @severity, @title, @body, @type, @id, @url, @dedupe)
+            INSERT INTO notifications(user_id, role_scope, category, status, severity, title, body, entity_type, entity_id, action_url, dedupe_key, scope_circle_id, scope_teacher_id)
+            VALUES (@user, @role, @category, 'open', @severity, @title, @body, @type, @id, @url, @dedupe, @scopeCircle, @scopeTeacher)
             ON CONFLICT (dedupe_key) DO UPDATE
             SET status='open', resolved_at=NULL, resolved_by=NULL, resolution_note=NULL,
-                title=EXCLUDED.title, body=EXCLUDED.body, action_url=EXCLUDED.action_url;
+                title=EXCLUDED.title, body=EXCLUDED.body, action_url=EXCLUDED.action_url,
+                scope_circle_id=EXCLUDED.scope_circle_id, scope_teacher_id=EXCLUDED.scope_teacher_id;
             """, connection, transaction);
         AddNullable(command, "user", userId);
         AddNullable(command, "role", roleScope);
@@ -96,6 +99,8 @@ public static class TeachingNotifications
         command.Parameters.AddWithValue("id", entityId);
         command.Parameters.AddWithValue("url", actionUrl);
         command.Parameters.AddWithValue("dedupe", dedupeKey);
+        AddNullable(command, "scopeCircle", scopeCircleId);
+        AddNullable(command, "scopeTeacher", scopeTeacherId);
         await command.ExecuteNonQueryAsync(ct);
     }
 

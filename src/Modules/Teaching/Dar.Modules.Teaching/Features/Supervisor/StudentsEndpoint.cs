@@ -215,11 +215,14 @@ public static class StudentsEndpoint
                 ) p ON TRUE
                 WHERE ce.student_id = @id AND mc.is_trashed = FALSE
                   AND mc.billing_month = date_trunc('month', @today::date)::date
+                  AND (@all OR c.id = ANY(@circles))
                 ORDER BY c.name
                 LIMIT 20;
                 """, connection);
             subscriptionCommand.Parameters.AddWithValue("id", id);
             subscriptionCommand.Parameters.AddWithValue("today", CairoTime.Today());
+            subscriptionCommand.Parameters.AddWithValue("all", scope.All);
+            subscriptionCommand.Parameters.AddWithValue("circles", scope.CircleIds);
             await using var reader = await subscriptionCommand.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {

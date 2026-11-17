@@ -156,6 +156,11 @@ public static class IdentityModule
                     context.User.HasClaim("permission", "supervisor.unpaid") ||
                     context.User.HasClaim("permission", "finance.read") ||
                     context.User.HasClaim("permission", "users.manage")));
+
+            options.AddPolicy("requests.review", policy =>
+                policy.RequireAuthenticatedUser().RequireAssertion(context =>
+                    context.User.HasClaim("permission", "supervisor.attendance.requests") ||
+                    context.User.HasClaim("permission", "users.manage")));
         });
 
         return services;

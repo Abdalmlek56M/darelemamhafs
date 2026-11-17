@@ -18,6 +18,7 @@ public static class UnpaidEndpoint
         var today = CairoTime.Today();
         var rows = new List<UnpaidRow>();
         await using var connection = await dataSource.OpenConnectionAsync(ct);
+        var scope = await SupervisionScope.LoadAsync(connection, principal, ct);
         await using (var command = new NpgsqlCommand("""
             SELECT mc.id, mc.billing_month, s.full_name, s.student_code, s.guardian_phone, s.joined_on,
                    c.name, COALESCE(t.full_name, ''), mc.amount_due, COALESCE(p.paid, 0),
@@ -35,6 +36,7 @@ public static class UnpaidEndpoint
             WHERE mc.is_trashed = FALSE
               AND mc.billing_month = @month
               AND mc.amount_due > COALESCE(p.paid, 0)
+              AND (@all OR c.id = ANY(@circles))
               AND (@today >= (mc.billing_month + INTERVAL '1 month - 1 day')
                    OR @today >= (s.joined_on + INTERVAL '1 month'))
             ORDER BY s.full_name
@@ -43,6 +45,8 @@ public static class UnpaidEndpoint
         {
             command.Parameters.AddWithValue("month", billingMonth);
             command.Parameters.AddWithValue("today", today);
+            command.Parameters.AddWithValue("all", scope.All);
+            command.Parameters.AddWithValue("circles", scope.CircleIds);
             await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
@@ -53,15 +57,6 @@ public static class UnpaidEndpoint
                     reader.GetDecimal(8), reader.GetDecimal(9), reader.GetDecimal(10)));
             }
         }
-
-        await using var transaction = await connection.BeginTransactionAsync(ct);
-        foreach (var row in rows)
-        {
-            var body = $"{row.StudentName} — {row.CircleName} · متابعة تحصيل مطلوبة";
-            await TeachingNotifications.OpenAsync(connection, transaction, null, "supervisor", "payment", "warning",
-                "اشتراك غير مدفوع", body, "monthly_charge", row.ChargeId, "/supervisor/unpaid", $"unpaid:{row.ChargeId}", ct);
-        }
-        await transaction.CommitAsync(ct);
 
         return Results.Ok(new
         {

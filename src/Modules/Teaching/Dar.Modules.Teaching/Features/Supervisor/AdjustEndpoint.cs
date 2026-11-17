@@ -22,6 +22,7 @@ public static class AdjustEndpoint
             return Results.Json(new { message = "لا تملك صلاحية تعديل الأجر." }, statusCode: StatusCodes.Status403Forbidden);
 
         await using var connection = await dataSource.OpenConnectionAsync(ct);
+        var scope = await SupervisionScope.LoadAsync(connection, principal, ct);
         await using var transaction = await connection.BeginTransactionAsync(ct);
 
         decimal rate;
@@ -29,8 +30,11 @@ public static class AdjustEndpoint
         decimal oldAmount;
         string? oldNote;
         Guid? sessionId;
+        Guid circleId;
+        Guid teacherId;
         await using (var current = new NpgsqlCommand("""
-            SELECT hourly_rate_snapshot, duration_minutes, payable_amount, note, teacher_session_id
+            SELECT hourly_rate_snapshot, duration_minutes, payable_amount, note, teacher_session_id,
+                   circle_id, teacher_id
             FROM teacher_attendance
             WHERE id=@id AND is_trashed=FALSE
             FOR UPDATE;
@@ -44,6 +48,14 @@ public static class AdjustEndpoint
             oldAmount = reader.GetDecimal(2);
             oldNote = reader.IsDBNull(3) ? null : reader.GetString(3);
             sessionId = reader.IsDBNull(4) ? null : reader.GetGuid(4);
+            circleId = reader.GetGuid(5);
+            teacherId = reader.GetGuid(6);
+        }
+
+        if (!scope.All && (!scope.AllowsCircle(circleId) || !scope.AllowsTeacher(teacherId)))
+        {
+            await transaction.RollbackAsync(ct);
+            return Results.Json(new { message = "سجل الحضور خارج نطاقك." }, statusCode: StatusCodes.Status403Forbidden);
         }
 
         decimal amount;
