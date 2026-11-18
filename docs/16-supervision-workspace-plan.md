@@ -338,7 +338,7 @@ If any default is wrong, the owner can change it before that phase starts.
 - **Admin schedule + teacher attendance (done):** pay math/snapshots, month totals, filters, duration editing, weekday/future guards and inactive-circle handling verified. Open: device-local countdown vs Cairo; wide table on mobile.
 - **Admin requests review (done):** supervisors and admins can review attendance requests from `/management`; approval applies audited attendance/pay effects.
 - **Teacher:** weekly calendar and session/login history are implemented. Attendance has an offline IndexedDB outbox; session end/notes still require connectivity.
-- **Reports:** print/PDF exists through browser print, but financial report columns still check `finance.read` instead of `reports.finance`; the formal PDF sample/review approval is still pending.
+- **Reports:** print/PDF exists through browser print; financial report columns now require `reports.finance` in addition to `finance.read`; the formal PDF sample/review approval is still pending.
 - **Payroll lock/approval:** not implemented.
 - **Admin console parity:** notifications and teacher-notes pages are live; finance, users, reports, dashboard and the settings visual check still need the full PC/mobile review.
 - **Owner actions:** re-test saving admin permissions after the Nginx buffer fix, link the `asmaa` account to a teacher record and grant permissions, change the supervisor temporary password and delete `/etc/dar/supervisor-initial-password`.

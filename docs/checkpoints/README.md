@@ -55,6 +55,7 @@
 | 1.29.0 | [Admin requests review](admin-requests-review-1.0.md) | ✅ live; pending/approved filters, approve/reject with audited effects |
 | 1.30.0 | [Teacher calendar + history](teacher-calendar-history-1.0.md) | ✅ live; weekly calendar, session/pay history, last logins |
 | 1.31.0 | [Teacher offline attendance outbox](teacher-offline-outbox-1.0.md) | ✅ live; IndexedDB queue, auto-flush, connectivity banner |
+| 1.32.0 | [Reports finance gate + supervisor subscription status](reports-finance-subscription-status-1.0.md) | ✅ live; reports.finance required, list status without amounts |
 
 ## Next in order
 
