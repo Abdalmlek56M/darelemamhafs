@@ -75,10 +75,10 @@
 .sup-top-title span { color: var(--accent); font-size: 10px; font-weight: 700; }
 .sup-top-title h1 { margin: 2px 0 0; font-size: 22px; line-height: 1.2; }
 .sup-top-actions { display: flex; align-items: center; gap: 8px; }
-.sup-icon-button { position: relative; width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 11px; background: rgba(17, 27, 44, .65); color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.sup-icon-button { position: relative; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 11px; background: rgba(17, 27, 44, .65); color: var(--muted); display: grid; place-items: center; cursor: pointer; }
 .sup-icon-button:hover { color: var(--accent); border-color: rgba(113, 213, 192, .28); }
 .sup-icon-button em { position: absolute; top: -5px; left: -5px; min-width: 17px; height: 17px; border-radius: 999px; background: #ff8a8a; color: #2a0808; font-size: 8px; font-style: normal; font-weight: 800; display: grid; place-items: center; padding: 0 4px; }
-.sup-avatar { width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 12px; background: linear-gradient(140deg, rgba(113, 213, 192, .22), rgba(140, 157, 255, .2)); color: var(--accent); font: inherit; font-weight: 800; font-size: 13px; cursor: pointer; }
+.sup-avatar { width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 12px; background: linear-gradient(140deg, rgba(113, 213, 192, .22), rgba(140, 157, 255, .2)); color: var(--accent); font: inherit; font-weight: 800; font-size: 13px; cursor: pointer; }
 .sup-demo-chip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(230, 189, 106, .3); border-radius: 999px; background: rgba(230, 189, 106, .08); color: #f0d59c; padding: 6px 10px; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
 
 .sup-content { flex: 1; min-height: 0; overflow-y: auto; padding: 24px 28px 40px; scrollbar-width: thin; }
@@ -283,4 +283,22 @@
   .sup-kpi { padding: 11px; }
   .sup-kpi strong { font-size: 21px; }
   .sup-sheet-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Pro Max readability pass: keep secondary copy legible on phones. */
+@media (max-width: 1023px) {
+  .supervisor-app .sup-muted,
+  .supervisor-app .sup-empty-card p,
+  .supervisor-app .sup-notes-banner p,
+  .supervisor-app .sup-notification p { font-size: 12px; }
+  .supervisor-app .sup-kpi small,
+  .supervisor-app .sup-kpi > span:not(.sup-kpi-icon),
+  .supervisor-app .sup-row-copy small,
+  .supervisor-app .sup-add-student small,
+  .supervisor-app .sup-attendance-row,
+  .supervisor-app .sup-attendance-details summary { font-size: 10.5px; }
+  .supervisor-app .sup-footnote,
+  .supervisor-app .sup-mobile-brand small,
+  .supervisor-app .sup-eyebrow { font-size: 10px; }
+  .sup-mobile-nav button { font-size: 9.5px; }
 }

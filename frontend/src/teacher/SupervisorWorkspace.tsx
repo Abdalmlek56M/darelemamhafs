@@ -148,7 +148,7 @@ export default function SupervisorWorkspace(props: Props) {
           {navItems.map((item) => {
             const Icon = item.icon
             return (
-              <button key={item.id} className={section === item.id ? 'active' : ''} onClick={() => go(item.id)}>
+              <button key={item.id} className={section === item.id ? 'active' : ''} aria-current={section === item.id ? 'page' : undefined} onClick={() => go(item.id)}>
                 <Icon size={18} /><span>{item.label}</span>
               </button>
             )
@@ -193,7 +193,7 @@ export default function SupervisorWorkspace(props: Props) {
       <nav className="sup-mobile-nav" aria-label="تنقل الإشراف">
         {mobilePrimary.map((item) => {
           const Icon = item.icon
-          return <button key={item.id} className={section === item.id ? 'active' : ''} onClick={() => go(item.id)}><Icon size={20} /><span>{item.label}</span></button>
+          return <button key={item.id} className={section === item.id ? 'active' : ''} aria-current={section === item.id ? 'page' : undefined} onClick={() => go(item.id)}><Icon size={20} /><span>{item.label}</span></button>
         })}
         <button onClick={() => setNotificationsOpen(true)}><Bell size={20} />{localUnread > 0 && <em>{localUnread}</em>}<span>التنبيهات</span></button>
         <button onClick={() => setMoreOpen(true)}><Menu size={20} /><span>المزيد</span></button>
@@ -206,7 +206,7 @@ export default function SupervisorWorkspace(props: Props) {
             <div className="sup-sheet-grid">
               {navItems.map((item) => {
                 const Icon = item.icon
-                return <button key={item.id} className={section === item.id ? 'active' : ''} onClick={() => go(item.id)}><Icon size={19} /><span>{item.label}</span></button>
+                return <button key={item.id} className={section === item.id ? 'active' : ''} aria-current={section === item.id ? 'page' : undefined} onClick={() => go(item.id)}><Icon size={19} /><span>{item.label}</span></button>
               })}
               <button onClick={() => { setMoreOpen(false); setNotificationsOpen(true) }}><Bell size={19} /><span>التنبيهات</span>{localUnread > 0 && <em>{localUnread}</em>}</button>
               <button onClick={() => { setMoreOpen(false); onAccount() }}><UserRound size={19} /><span>حسابي</span></button>

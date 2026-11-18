@@ -30,6 +30,7 @@ function SlotStatus({ slot }: { slot: Slot }) {
   if (slot.sessionStatus === 'completed') return <span className="t-badge t-badge-ok">تم تسجيلها</span>
   if (slot.isCurrent) return <span className="t-badge t-badge-live">وقت الحلقة</span>
   if (slot.isNext) return <span className="t-badge">القادمة</span>
+  if (slot.canStart) return <span className="t-badge t-badge-muted">لم تُسجل</span>
   return <span className="t-badge t-badge-muted">لم تبدأ</span>
 }
 

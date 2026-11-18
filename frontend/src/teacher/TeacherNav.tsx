@@ -36,6 +36,7 @@ export default function TeacherNav({ page, unread, canTeacher, canRequests, acti
           <button
             key={item.id}
             className={page === item.id ? 'active' : ''}
+            aria-current={page === item.id ? 'page' : undefined}
             disabled={item.disabled}
             onClick={() => item.id === 'roster' && activeSessionId ? onOpenRoster(activeSessionId) : onNavigate(item.id)}
           >

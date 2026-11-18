@@ -43,7 +43,7 @@
 .t-error-card p { margin: 0; color: #ffb0b0; font-size: 11px; }
 
 .t-icon-button {
-  width: 40px; height: 40px; flex: 0 0 auto;
+  width: 44px; height: 44px; flex: 0 0 auto;
   display: grid; place-items: center;
   border: 1px solid var(--line); border-radius: 13px;
   background: rgba(17, 27, 44, .72); color: var(--text);
@@ -349,4 +349,23 @@
 @media (min-width: 600px) {
   .t-stat-grid-four { grid-template-columns: repeat(4, 1fr); }
   .t-mini-grid-four { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* Pro Max readability pass: keep secondary copy legible on phones. */
+@media (max-width: 1023px) {
+  .teacher-app .t-muted { font-size: 12px; }
+  .teacher-app .t-row-copy small,
+  .teacher-app .t-history-meta,
+  .teacher-app .t-link-card small { font-size: 10.5px; }
+  .teacher-app .t-quick-grid small,
+  .teacher-app .t-calendar-session small { font-size: 10px; }
+  .teacher-app .t-badge,
+  .teacher-app .t-chip,
+  .teacher-app .t-filter,
+  .teacher-app .t-footnote,
+  .teacher-app .t-eyebrow { font-size: 10px; }
+  .teacher-app .t-quick-grid strong { font-size: 12px; }
+  .teacher-app .t-stat span,
+  .teacher-app .t-stat small { font-size: 10px; }
+  .teacher-nav button { font-size: 9.5px; }
 }

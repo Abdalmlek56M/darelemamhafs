@@ -23,5 +23,6 @@ Every skill below was scanned with `skill-security-auditor` before installation.
 | `thermo-nuclear-code-quality-review` | `cursor/plugins` |
 | `grill-me` | `mattpocock/skills` |
 | `skill-security-auditor` | `alirezarezvani/claude-skills` |
+| `ui-ux-pro-max` | `nextlevelbuilder/ui-ux-pro-max-skill` (WARN reviewed; see checkpoint) |
 
 These are guidance documents. They never run project code, call external APIs, or bypass the repository's security rules.
