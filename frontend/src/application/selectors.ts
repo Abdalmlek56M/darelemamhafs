@@ -24,7 +24,7 @@ export type MonthSession = {
 export function getNextSessions(scheduleSlots: ScheduleSlot[], circles: Circle[], clockNow: number) {
   const todayKey = localDateKey(new Date(clockNow))
   return scheduleSlots
-    .filter(slot => slot.isActive)
+    .filter(slot => slot.isActive && slot.circleIsActive !== false)
     .map(slot => {
       const [hour, minute] = timeLabel(slot.startsAt).split(':').map(Number)
       const circleStart = circles.find(circle => circle.id === slot.circleId)?.startsOn

@@ -13,7 +13,7 @@ public static partial class DomainEndpoints
         {
             var rows = new List<object>();
             await using var cmd = db.CreateCommand("""
-                SELECT ss.id,ss.circle_id,c.name,c.teacher_id,COALESCE(t.full_name,''),ss.day_of_week,ss.starts_at,ss.duration_minutes,ss.is_active
+                SELECT ss.id,ss.circle_id,c.name,c.teacher_id,COALESCE(t.full_name,''),ss.day_of_week,ss.starts_at,ss.duration_minutes,ss.is_active,c.is_active
                 FROM circle_schedule_slots ss JOIN circles c ON c.id=ss.circle_id
                 LEFT JOIN teachers t ON t.id=c.teacher_id
                 WHERE ss.is_trashed=FALSE AND c.is_trashed=FALSE
@@ -26,7 +26,7 @@ public static partial class DomainEndpoints
             {
                 id = reader.GetGuid(0), circleId = reader.GetGuid(1), circleName = reader.GetString(2),
                 teacherId = reader.IsDBNull(3) ? (Guid?)null : reader.GetGuid(3), teacherName = reader.GetString(4),
-                dayOfWeek = reader.GetInt16(5), startsAt = reader.GetFieldValue<TimeOnly>(6).ToString("HH:mm"), durationMinutes = reader.GetInt32(7), isActive = reader.GetBoolean(8)
+                dayOfWeek = reader.GetInt16(5), startsAt = reader.GetFieldValue<TimeOnly>(6).ToString("HH:mm"), durationMinutes = reader.GetInt32(7), isActive = reader.GetBoolean(8), circleIsActive = reader.GetBoolean(9)
             });
             return Results.Ok(rows);
         }).RequireAuthorization("schedule.access");
