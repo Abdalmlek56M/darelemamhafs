@@ -247,6 +247,32 @@ public sealed class SupervisionAccessTests(SupervisionFixture fixture) : IClassF
         Assert.Equal(JsonValueKind.Array, json.GetProperty("logins").ValueKind);
     }
 
+    [Fact]
+    public async Task SupervisorAdjust_BlockedWhenPayrollLocked()
+    {
+        await using var connection = new NpgsqlConnection(fixture.ConnectionString);
+        await connection.OpenAsync();
+        try
+        {
+            await using (var lockCommand = new NpgsqlCommand("""
+                INSERT INTO payroll_locks(billing_month,is_locked,note) VALUES(date_trunc('month',CURRENT_DATE)::date,TRUE,'اختبار قفل')
+                ON CONFLICT(billing_month) DO UPDATE SET is_locked=TRUE;
+                """, connection))
+                await lockCommand.ExecuteNonQueryAsync();
+
+            using var client = Client();
+            await LoginAsync(client, "scope_all");
+            var response = await client.PostAsJsonAsync($"/api/v1/supervisor/attendance/{SupervisionFixture.A1}/adjust",
+                new { payableDurationMinutes = 30, payableAmount = (decimal?)null, note = "محاولة بعد القفل" });
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        }
+        finally
+        {
+            await using var clear = new NpgsqlCommand("DELETE FROM payroll_locks WHERE billing_month=date_trunc('month',CURRENT_DATE)::date;", connection);
+            await clear.ExecuteNonQueryAsync();
+        }
+    }
+
     private static async Task<JsonElement> GetJson(HttpClient client, string path)
     {
         var response = await client.GetAsync(path);

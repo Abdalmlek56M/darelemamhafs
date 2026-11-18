@@ -20,6 +20,16 @@ public static class CairoTime
     public static TimeOnly ToLocalTime(DateTimeOffset value) => TimeOnly.FromDateTime(TimeZoneInfo.ConvertTime(value, Zone).DateTime);
 }
 
+public static class PayrollLock
+{
+    public static async Task<bool> IsLockedAsync(NpgsqlConnection connection, NpgsqlTransaction? transaction, DateOnly date, CancellationToken ct)
+    {
+        await using var command = new NpgsqlCommand("SELECT is_locked FROM payroll_locks WHERE billing_month=date_trunc('month',@date::date)::date;", connection, transaction);
+        command.Parameters.AddWithValue("date", date);
+        return await command.ExecuteScalarAsync(ct) is bool locked && locked;
+    }
+}
+
 public static class TeachingPrincipal
 {
     public static Guid UserId(ClaimsPrincipal principal) =>

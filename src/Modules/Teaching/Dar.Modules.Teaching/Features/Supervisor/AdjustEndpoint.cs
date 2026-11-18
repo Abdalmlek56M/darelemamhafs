@@ -32,9 +32,10 @@ public static class AdjustEndpoint
         Guid? sessionId;
         Guid circleId;
         Guid teacherId;
+        DateOnly sessionDate;
         await using (var current = new NpgsqlCommand("""
             SELECT hourly_rate_snapshot, duration_minutes, payable_amount, note, teacher_session_id,
-                   circle_id, teacher_id
+                   circle_id, teacher_id, session_date
             FROM teacher_attendance
             WHERE id=@id AND is_trashed=FALSE
             FOR UPDATE;
@@ -50,6 +51,13 @@ public static class AdjustEndpoint
             sessionId = reader.IsDBNull(4) ? null : reader.GetGuid(4);
             circleId = reader.GetGuid(5);
             teacherId = reader.GetGuid(6);
+            sessionDate = reader.GetFieldValue<DateOnly>(7);
+        }
+
+        if (await PayrollLock.IsLockedAsync(connection, transaction, sessionDate, ct))
+        {
+            await transaction.RollbackAsync(ct);
+            return Results.Conflict(new { message = "مسير رواتب هذا الشهر مقفل. افتح المسير قبل تعديل الحضور أو الأجر." });
         }
 
         if (!scope.All && (!scope.AllowsCircle(circleId) || !scope.AllowsTeacher(teacherId)))

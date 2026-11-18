@@ -92,7 +92,8 @@ public static partial class DomainEndpoints
             string? before;
             decimal hourlyRateSnapshot;
             string? savedStatus;
-            await using (var read = new NpgsqlCommand("SELECT to_jsonb(a)::text,a.hourly_rate_snapshot,a.status FROM teacher_attendance a WHERE id=@id AND is_trashed=FALSE FOR UPDATE;", conn, tx))
+            DateOnly sessionDate;
+            await using (var read = new NpgsqlCommand("SELECT to_jsonb(a)::text,a.hourly_rate_snapshot,a.status,a.session_date FROM teacher_attendance a WHERE id=@id AND is_trashed=FALSE FOR UPDATE;", conn, tx))
             {
                 read.Parameters.AddWithValue("id", id);
                 await using var reader = await read.ExecuteReaderAsync(ct);
@@ -100,8 +101,11 @@ public static partial class DomainEndpoints
                 before = reader.GetString(0);
                 hourlyRateSnapshot = reader.GetDecimal(1);
                 savedStatus = reader.GetString(2);
+                sessionDate = reader.GetFieldValue<DateOnly>(3);
             }
             if (savedStatus != "present") return Results.Conflict(new { message = "لا يمكن تعديل مدة حصة عند تسجيل المعلمة غائبة أو إلغاء الحصة. سجّل الحضور أولًا إذا كانت الحالة غير صحيحة." });
+            if (await PayrollLockService.IsLockedAsync(db, sessionDate, ct))
+                return Results.Conflict(new { message = "مسير رواتب هذا الشهر مقفل. افتح المسير من شاشة المواعيد قبل تعديل المدة أو الأجر." });
             if (!MoneyRules.TryCalculateTeacherPayableAmount(hourlyRateSnapshot, request.DurationMinutes, out var normalizedPayable))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["durationMinutes"] = ["قيمة المستحق الناتج تتجاوز الحد المالي المسموح لهذه الحصة."] });
             await using var update = new NpgsqlCommand("UPDATE teacher_attendance SET duration_minutes=@duration,payable_amount=@payable,marked_by=@actor,marked_at=now() WHERE id=@id AND status='present' RETURNING id,duration_minutes,payable_amount,hourly_rate_snapshot,status;", conn, tx);
@@ -316,6 +320,8 @@ public static partial class DomainEndpoints
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["attendance"] = ["تاريخ الحصة لا يطابق يوم الموعد الأسبوعي المحدد."] });
             if (request.SessionDate > DateOnly.FromDateTime(DateTime.Today))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["attendance"] = ["لا يمكن تسجيل حضور المعلمة بتاريخ مستقبلي."] });
+            if (await PayrollLockService.IsLockedAsync(db, request.SessionDate, ct))
+                return Results.Conflict(new { message = "مسير رواتب هذا الشهر مقفل. افتح المسير من شاشة المواعيد قبل تسجيل أو تعديل الحضور." });
             var teacherId = request.TeacherId ?? assignedTeacherId;
             if (!teacherId.HasValue) return Results.Conflict(new { message = "لا توجد معلمة مسندة للحلقة؛ اختر معلمة لهذه الحصة أولًا." });
             string selectedTeacherName; decimal hourlyRate;

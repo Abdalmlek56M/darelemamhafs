@@ -65,11 +65,14 @@ public static partial class SystemAdminEndpoints
             await using var transaction = await connection.BeginTransactionAsync(ct);
             string type, status, reason, payloadJson;
             Guid teacherId, circleId, slotId, attendanceId;
-            DateOnly? requestDate;
+            DateOnly? requestDate, attendanceDate;
 
             await using (var read = new NpgsqlCommand("""
-                SELECT request_type,status,reason,teacher_id,circle_id,schedule_slot_id,attendance_id,request_date,COALESCE(requested_payload::text,'{}')
-                FROM attendance_requests WHERE id=@id FOR UPDATE;
+                SELECT r.request_type,r.status,r.reason,r.teacher_id,r.circle_id,r.schedule_slot_id,r.attendance_id,r.request_date,
+                       COALESCE(r.requested_payload::text,'{}'),ta.session_date
+                FROM attendance_requests r
+                LEFT JOIN teacher_attendance ta ON ta.id=r.attendance_id
+                WHERE r.id=@id FOR UPDATE OF r;
                 """, connection, transaction))
             {
                 read.Parameters.AddWithValue("id", id);
@@ -88,12 +91,28 @@ public static partial class SystemAdminEndpoints
                 attendanceId = reader.IsDBNull(6) ? Guid.Empty : reader.GetGuid(6);
                 requestDate = reader.IsDBNull(7) ? null : reader.GetFieldValue<DateOnly>(7);
                 payloadJson = reader.GetString(8);
+                attendanceDate = reader.IsDBNull(9) ? null : reader.GetFieldValue<DateOnly>(9);
             }
 
             if (status != "pending")
             {
                 await transaction.RollbackAsync(ct);
                 return Results.Conflict(new { message = "تمت مراجعة هذا الطلب بالفعل." });
+            }
+
+            if (request.Approve)
+            {
+                var lockDate = type == "correction" ? attendanceDate : requestDate;
+                if (lockDate is not null)
+                {
+                    await using var lockCheck = new NpgsqlCommand("SELECT is_locked FROM payroll_locks WHERE billing_month=date_trunc('month',@date::date)::date;", connection, transaction);
+                    lockCheck.Parameters.AddWithValue("date", lockDate.Value);
+                    if (await lockCheck.ExecuteScalarAsync(ct) is bool locked && locked)
+                    {
+                        await transaction.RollbackAsync(ct);
+                        return Results.Conflict(new { message = "مسير رواتب هذا الشهر مقفل. افتح المسير قبل اعتماد الطلب." });
+                    }
+                }
             }
 
             var nextStatus = request.Approve ? "approved" : "rejected";
