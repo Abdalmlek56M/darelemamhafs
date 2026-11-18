@@ -24,10 +24,12 @@ Date: 18 Nov 2026
 - Pre-deploy DB backup: `dar-20261118-215031.dump`. Post-deploy DB backup: `dar-20261118-215411.dump`.
 - Previous `wwwroot` retained at `/var/lib/dar/backups/frontend-` as a rollback copy.
 - Live routes returned 200: `/`, `/management`, `/teacher`, `/supervisor`; the served admin bundle was `index-DOW_95cH.js`.
+- Live PC/mobile smoke screenshots of `/` and the `/management` login were reviewed; no overflow or broken assets.
 
 ## Verification
 
 - `npm run build --prefix frontend` - passed.
+- `npm test --prefix frontend -- --run` - 6 tests passed.
 - `dotnet build Dar.slnx -c Release` - passed, 0 warnings, 0 errors.
 - `dotnet test Dar.slnx -c Release --no-build` - 16 unit + 20 integration passed.
 - QA environment used disposable PostgreSQL 17 on port 5478, legacy API 5080, new API 5081 and Vite 5173. All processes, the QA container, generated `wwwroot`, the temporary Vite proxy and the QA settings file were removed/restored before commit.
