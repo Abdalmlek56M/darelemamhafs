@@ -1,3 +1,20 @@
+/* Charge audit panel (payments page). */
+.charge-audit-panel { display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; }
+.charge-audit-panel.is-clean { flex-direction: row; align-items: center; gap: 11px; color: var(--accent); }
+.charge-audit-panel.is-clean strong { display: block; font-size: 12px; color: var(--text); }
+.charge-audit-panel.is-clean small { display: block; color: var(--muted); font-size: 10px; margin-top: 2px; }
+.charge-audit-panel.is-clean .text-link { margin-right: auto; }
+.charge-audit-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.charge-audit-head h3 { margin: 3px 0 0; font-size: 16px; }
+.charge-audit-head p { margin: 4px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.8; }
+.charge-audit-table td { vertical-align: top; }
+
+@media (max-width: 760px) {
+  .charge-audit-head { flex-direction: column; }
+  .charge-audit-panel.is-clean { flex-wrap: wrap; }
+  .charge-audit-panel.is-clean .text-link { margin-right: 0; }
+}
+
 /* Admin notifications and teacher-notes pages + mobile navigation polish. */
 .admin-insights-page { display: flex; flex-direction: column; gap: 16px; }
 .admin-insight-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }

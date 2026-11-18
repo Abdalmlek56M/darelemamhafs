@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using System.Text.Json;
 using Npgsql;
@@ -151,6 +152,61 @@ public static partial class SystemAdminEndpoints
             await transaction.CommitAsync(ct);
             return Results.Ok(new { id, status = "resolved", alreadyResolved = false });
         }).RequireAuthorization();
+
+        app.MapGet("/api/admin/charge-audit", async Task<IResult> (string? month, NpgsqlDataSource db, CancellationToken ct) =>
+        {
+            if (!DateOnly.TryParseExact($"{month}-01", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var billingMonth)
+                || billingMonth > DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(1)))
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["month"] = ["حدد الشهر بصيغة YYYY-MM."] });
+
+            var rows = new List<object>();
+            await using var connection = await db.OpenConnectionAsync(ct);
+            await using (var command = new NpgsqlCommand("""
+                SELECT mc.id, ce.id, s.full_name, s.student_code, c.name,
+                       mc.amount_due, ce.agreed_monthly_fee, COALESCE(p.paid,0) AS paid
+                FROM monthly_charges mc
+                JOIN circle_enrollments ce ON ce.id=mc.enrollment_id AND ce.is_trashed=FALSE
+                JOIN students s ON s.id=ce.student_id AND s.is_trashed=FALSE
+                JOIN circles c ON c.id=ce.circle_id AND c.is_trashed=FALSE
+                LEFT JOIN (
+                    SELECT monthly_charge_id, SUM(amount) AS paid
+                    FROM payments WHERE is_trashed=FALSE GROUP BY monthly_charge_id
+                ) p ON p.monthly_charge_id=mc.id
+                WHERE mc.billing_month=@month AND mc.is_trashed=FALSE
+                  AND mc.amount_due <> ce.agreed_monthly_fee
+                ORDER BY c.name, s.full_name;
+                """, connection))
+            {
+                command.Parameters.AddWithValue("month", billingMonth);
+                await using var reader = await command.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct))
+                {
+                    var amountDue = reader.GetDecimal(5);
+                    var agreedFee = reader.GetDecimal(6);
+                    var paid = reader.GetDecimal(7);
+                    rows.Add(new
+                    {
+                        chargeId = reader.GetGuid(0),
+                        enrollmentId = reader.GetGuid(1),
+                        studentName = reader.GetString(2),
+                        studentCode = reader.GetString(3),
+                        circleName = reader.GetString(4),
+                        amountDue,
+                        agreedFee,
+                        paid,
+                        difference = agreedFee - amountDue,
+                        balanceAfterCorrection = agreedFee - paid
+                    });
+                }
+            }
+
+            return Results.Ok(new
+            {
+                month = billingMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture),
+                count = rows.Count,
+                rows
+            });
+        }).RequireAuthorization("finance.read");
 
         app.MapGet("/api/admin/teacher-notes", async Task<IResult> (string? kind, Guid? teacherId, NpgsqlDataSource db, CancellationToken ct) =>
         {

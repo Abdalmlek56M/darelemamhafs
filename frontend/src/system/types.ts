@@ -49,6 +49,25 @@ export type AdminTeacherNotesResponse = {
   banner: string | null
 }
 
+export type ChargeAuditRow = {
+  chargeId: string
+  enrollmentId: string
+  studentName: string
+  studentCode: string
+  circleName: string
+  amountDue: number
+  agreedFee: number
+  paid: number
+  difference: number
+  balanceAfterCorrection: number
+}
+
+export type ChargeAuditResponse = {
+  month: string
+  count: number
+  rows: ChargeAuditRow[]
+}
+
 export type AuditRecord = {
   id: number
   actorName: string
