@@ -337,7 +337,7 @@ If any default is wrong, the owner can change it before that phase starts.
 - **Subscriptions/collections (P0):** full review still pending. The automatic proration was removed, but the live DB still has 9 trial-student charges for 2026-11 at 125.00/116.67 against 250.00 agreed fees; two have payments totaling 250. They need an approved correction path.
 - **Admin schedule + teacher attendance (done):** pay math/snapshots, month totals, filters, duration editing, weekday/future guards and inactive-circle handling verified. Open: device-local countdown vs Cairo; wide table on mobile.
 - **Admin requests review (done):** supervisors and admins can review attendance requests from `/management`; approval applies audited attendance/pay effects.
-- **Teacher:** weekly calendar and session/login history are implemented. Offline queue for roster/notes is still missing.
+- **Teacher:** weekly calendar and session/login history are implemented. Attendance has an offline IndexedDB outbox; session end/notes still require connectivity.
 - **Reports:** print/PDF exists through browser print, but financial report columns still check `finance.read` instead of `reports.finance`; the formal PDF sample/review approval is still pending.
 - **Payroll lock/approval:** not implemented.
 - **Admin console parity:** notifications and teacher-notes pages are live; finance, users, reports, dashboard and the settings visual check still need the full PC/mobile review.
