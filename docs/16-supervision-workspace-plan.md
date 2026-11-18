@@ -332,17 +332,20 @@ If any default is wrong, the owner can change it before that phase starts.
 
 ---
 
-## 14. What Is Missing Today
+## 14. What Is Missing Today (as of 18 Nov 2026)
 
-- Supervisor/secretary: student/circle/teacher lists, teacher detail, notes, absences, attendance and scope are implemented in A2 (pending live deploy). Still missing: requests, WhatsApp, admin notification page.
-- Teacher: no weekly calendar, no history screen, no previous login/profile list, no absence/correction request, no offline queue.
-- Financial UI is not fully gated in later report surfaces: report financial columns still need `reports.finance` (A1 covers teacher/supervisor money surfaces and payment notifications).
-- No daily alert sync; unpaid notifications appear when the board is opened.
-- Notes are readable but admin/supervisor editing during/after submission is not a first-class flow; A2 adds student/teacher note timelines for supervisors.
-- A1 added `account.password.self`; later phases still need the full self-service/previous-login surface.
-- No admin notification center; no WhatsApp sender.
-- Reports are HTML print layouts; no PDF sample review.
-- No production E2E for the new supervision flows.
+- **Subscriptions/collections (P0):** full review still pending. The automatic proration was removed, but the live DB still has 9 trial-student charges for 2026-11 at 125.00/116.67 against 250.00 agreed fees; two have payments totaling 250. They need an approved correction path.
+- **Admin schedule + teacher attendance:** the lists and pay calculations need an end-to-end review on PC/mobile.
+- **Admin requests review:** supervisors can review attendance requests; there is no dedicated admin requests page yet.
+- **Teacher:** no weekly calendar screen, no session/login history screen, no offline queue. Requests are implemented.
+- **Reports:** print/PDF exists through browser print, but financial report columns still check `finance.read` instead of `reports.finance`; the formal PDF sample/review approval is still pending.
+- **Payroll lock/approval:** not implemented.
+- **Admin console parity:** notifications and teacher-notes pages are live; finance, users, reports, dashboard and the settings visual check still need the full PC/mobile review.
+- **Owner actions:** re-test saving admin permissions after the Nginx buffer fix, link the `asmaa` account to a teacher record and grant permissions, change the supervisor temporary password and delete `/etc/dar/supervisor-initial-password`.
+- **Production E2E + GitHub Actions:** the supervision E2E suite and the first GitHub Actions run still need verification.
+- **File/folder/OOP refactor:** feature folders exist, but the largest files still need splitting (`TeacherApp.tsx` 433, `teacherTypes.ts` 404, `useDarApplication.ts` 373, `ManagementReportBuilder.tsx` 360, `SystemAdminView.tsx` 327, `AuthEndpoints.cs` 472, `DomainEndpoints.ScheduleAttendance.cs` 361).
+
+Implemented and live: supervisor workspace/scope, requests, WhatsApp templates and log, admin notifications and teacher-notes pages, public homepage/`/management`, teacher PC shell and mobile shell, settings-controlled notes banner.
 
 ---
 
