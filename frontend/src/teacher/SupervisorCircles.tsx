@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { ArrowRight, BookOpen, Search, Users } from 'lucide-react'
+import { ArrowRight, BookOpen, Plus, Search, Users } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
-import type { SupervisorCircle, SupervisorCircleDetailResponse } from './teacherTypes'
+import type { SupervisorCircle, SupervisorCircleDetailResponse, SupervisorStudent } from './teacherTypes'
 import { dateLabel, dayNames, statusLabel, statusTone, formatTime12 } from './supervisorFormat'
-import { demoCircleDetail, demoCircles } from './supervisorDemo'
+import { demoCircleDetail, demoCircles, demoStudents } from './supervisorDemo'
 
-type Props = { demo?: boolean; onOpenTeacher?: (id: string) => void; focusId?: string; onFocusConsumed?: () => void }
+type Props = { demo?: boolean; onOpenTeacher?: (id: string) => void; focusId?: string; onFocusConsumed?: () => void; canAddStudents?: boolean }
 
-export default function SupervisorCircles({ demo = false, onOpenTeacher, focusId, onFocusConsumed }: Props) {
+export default function SupervisorCircles({ demo = false, onOpenTeacher, focusId, onFocusConsumed, canAddStudents = false }: Props) {
   const [circles, setCircles] = useState<SupervisorCircle[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -50,7 +50,7 @@ export default function SupervisorCircles({ demo = false, onOpenTeacher, focusId
   }
 
   if (selected) {
-    return <CircleDetail circle={selected} demo={demo} onOpenTeacher={onOpenTeacher} onBack={() => setSelected(null)} />
+    return <CircleDetail circle={selected} demo={demo} onOpenTeacher={onOpenTeacher} canAddStudents={canAddStudents} onBack={() => setSelected(null)} />
   }
 
   return (
@@ -102,10 +102,16 @@ export default function SupervisorCircles({ demo = false, onOpenTeacher, focusId
   )
 }
 
-function CircleDetail({ circle, demo, onOpenTeacher, onBack }: { circle: SupervisorCircle; demo: boolean; onOpenTeacher?: (id: string) => void; onBack: () => void }) {
+function CircleDetail({ circle, demo, onOpenTeacher, canAddStudents, onBack }: { circle: SupervisorCircle; demo: boolean; onOpenTeacher?: (id: string) => void; canAddStudents: boolean; onBack: () => void }) {
   const [detail, setDetail] = useState<SupervisorCircleDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [addOpen, setAddOpen] = useState(false)
+  const [available, setAvailable] = useState<SupervisorStudent[]>([])
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [addSearch, setAddSearch] = useState('')
+  const [addBusy, setAddBusy] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (demo) { setDetail(demoCircleDetail(circle.id)); setLoading(false); setError(null); return }
@@ -121,6 +127,46 @@ function CircleDetail({ circle, demo, onOpenTeacher, onBack }: { circle: Supervi
   }, [circle.id, demo])
 
   useEffect(() => { void load() }, [load])
+
+  const openAdd = async () => {
+    setAddError(null)
+    setSelectedIds([])
+    setAddSearch('')
+    setAddOpen(true)
+    if (demo) {
+      const existing = new Set(detail?.roster.map((row) => row.id) ?? [])
+      setAvailable(demoStudents.filter((student) => !existing.has(student.id)))
+      return
+    }
+    try {
+      const data = await teacherApi.supervisorStudents('')
+      const existing = new Set((detail?.roster ?? []).map((row) => row.id))
+      setAvailable(data.students.filter((student) => !existing.has(student.id)))
+    } catch (err) {
+      setAddError(err instanceof TeacherApiError ? err.message : 'تعذر تحميل الطالبات المتاحات.')
+    }
+  }
+
+  const addStudents = async () => {
+    if (selectedIds.length === 0) { setAddError('اختر طالبة واحدة على الأقل.'); return }
+    if (demo) { setAddError('الإضافة غير متاحة في وضع الديمو.'); return }
+    setAddBusy(true)
+    setAddError(null)
+    try {
+      await teacherApi.addCircleStudents(circle.id, selectedIds)
+      setAddOpen(false)
+      await load()
+    } catch (err) {
+      setAddError(err instanceof TeacherApiError ? err.message : 'تعذر إضافة الطالبات.')
+    } finally {
+      setAddBusy(false)
+    }
+  }
+
+  const filteredAvailable = available.filter((student) => {
+    const term = addSearch.trim()
+    return !term || student.fullName.includes(term) || student.studentCode.includes(term)
+  })
 
   return (
     <div className="t-page t-page-embedded">
@@ -157,7 +203,7 @@ function CircleDetail({ circle, demo, onOpenTeacher, onBack }: { circle: Supervi
             ))}
           </div>
 
-          <div className="t-section-title"><strong>الطالبات</strong><span>{detail.roster.length}</span></div>
+          <div className="t-section-title"><strong>الطالبات</strong><span>{detail.roster.length}</span>{canAddStudents && <button type="button" className="t-secondary" onClick={() => void openAdd()}><Plus size={14} /> إضافة طالبات</button>}</div>
           <div className="t-list">
             {detail.roster.length === 0 && <div className="t-empty">لا توجد طالبات مسجلات.</div>}
             {detail.roster.map((student) => (
@@ -181,12 +227,52 @@ function CircleDetail({ circle, demo, onOpenTeacher, onBack }: { circle: Supervi
                   <strong>{dateLabel(session.date)} · {formatTime12(session.startsAt)}</strong>
                   <small>حضور {session.presentStudents} · غياب {session.missingStudents}</small>
                   {session.note && <small>{session.note}</small>}
+                  {session.studentAttendance.length > 0 && (
+                    <details className="sup-attendance-details">
+                      <summary>تفصيل حضور الطالبات ({session.studentAttendance.length})</summary>
+                      <div className="sup-attendance-list">
+                        {session.studentAttendance.map((student) => (
+                          <div className="sup-attendance-row" key={`${student.studentCode}-${student.studentName}`}>
+                            <span>{student.studentName}</span>
+                            <span className={statusTone(student.status)}>{statusLabel(student.status)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
                 <span className={statusTone(session.status)}>{statusLabel(session.status)}</span>
               </div>
             ))}
           </div>
         </>
+      )}
+
+      {addOpen && (
+        <div className="t-sheet-backdrop" role="dialog" aria-modal="true">
+          <div className="t-sheet">
+            <div className="t-sheet-head"><Users size={20} /><div><strong>إضافة طالبات إلى {circle.name}</strong><small>اختر الطالبات من قائمة الطالبات المتاحة في نطاقك.</small></div></div>
+            <div className="t-search"><Search size={16} /><input value={addSearch} onChange={(event) => setAddSearch(event.target.value)} placeholder="ابحث بالاسم أو الكود" /></div>
+            {addError && <p className="t-error">{addError}</p>}
+            <div className="sup-add-student-list">
+              {filteredAvailable.length === 0 && <div className="t-empty">لا توجد طالبات متاحات للإضافة.</div>}
+              {filteredAvailable.map((student) => (
+                <label className="sup-add-student" key={student.id}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(student.id)}
+                    onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, student.id] : current.filter((value) => value !== student.id))}
+                  />
+                  <span><strong>{student.fullName}</strong><small>{student.studentCode} · {student.circles.join('، ') || 'بدون حلقة'}</small></span>
+                </label>
+              ))}
+            </div>
+            <div className="t-sheet-actions">
+              <button type="button" className="t-primary" onClick={() => void addStudents()} disabled={addBusy || selectedIds.length === 0}>{addBusy ? 'جارٍ الإضافة…' : `إضافة المحدد (${selectedIds.length})`}</button>
+              <button type="button" className="t-secondary" onClick={() => setAddOpen(false)} disabled={addBusy}>إلغاء</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

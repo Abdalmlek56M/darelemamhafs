@@ -56,6 +56,68 @@ public static partial class DomainEndpoints
             catch (PostgresException ex) when (ex.SqlState == "23505") { return Results.Conflict(new { message = "الطالب ملتحق بالفعل بهذه الحلقة. أنهِ الالتحاق السابق أولًا إذا كان المقصود تسجيل التحاق جديد." }); }
         }).RequireAuthorization("students.edit");
 
+        app.MapPost("/api/circle-enrollments/bulk", async Task<IResult> (BulkEnrollmentWriteRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
+        {
+            if (request.CircleId == Guid.Empty || request.StudentIds is null || request.StudentIds.Count == 0)
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["enrollment"] = ["اختر الحلقة وطالبة واحدة على الأقل."] });
+            if (request.StartsOn == default)
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["startsOn"] = ["حدد تاريخ بداية الالتحاق."] });
+            if (request.AllowClosedCircle && !principal.HasClaim("permission", "circles.edit")) return Results.Forbid();
+            var studentIds = request.StudentIds.Where(value => value != Guid.Empty).Distinct().Take(200).ToArray();
+            if (studentIds.Length == 0)
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["studentIds"] = ["اختر طالبة واحدة على الأقل."] });
+
+            await using var conn = await db.OpenConnectionAsync(ct);
+            await using var tx = await conn.BeginTransactionAsync(ct);
+            bool circleActive;
+            await using (var circle = new NpgsqlCommand("SELECT is_active FROM circles WHERE id=@circle AND is_trashed=FALSE;", conn, tx))
+            {
+                circle.Parameters.AddWithValue("circle", request.CircleId);
+                var value = await circle.ExecuteScalarAsync(ct);
+                if (value is null) return Results.NotFound(new { message = "الحلقة غير موجودة." });
+                circleActive = (bool)value;
+            }
+            if (!circleActive && !request.AllowClosedCircle)
+                return Results.Conflict(new { message = "الحلقة متوقفة. فعّلها أولًا أو استخدم خيار السماح بالحلقة المتوقفة." });
+
+            var added = new List<(Guid EnrollmentId, Guid StudentId)>();
+            await using (var insert = new NpgsqlCommand("""
+                INSERT INTO circle_enrollments(student_id,circle_id,starts_on,agreed_monthly_fee,status)
+                SELECT s.id,c.id,@starts,c.monthly_fee,'active'
+                FROM students s CROSS JOIN circles c
+                WHERE s.id=ANY(@students) AND s.is_trashed=FALSE AND s.status='active'
+                  AND c.id=@circle AND c.is_trashed=FALSE
+                  AND NOT EXISTS (
+                      SELECT 1 FROM circle_enrollments existing
+                      WHERE existing.student_id=s.id AND existing.circle_id=c.id
+                        AND existing.is_trashed=FALSE AND existing.status IN ('active','paused'))
+                ON CONFLICT (student_id,circle_id) WHERE status='active' DO NOTHING
+                RETURNING id,student_id;
+                """, conn, tx))
+            {
+                insert.Parameters.AddWithValue("students", studentIds);
+                insert.Parameters.AddWithValue("circle", request.CircleId);
+                insert.Parameters.AddWithValue("starts", request.StartsOn);
+                await using var reader = await insert.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct)) added.Add((reader.GetGuid(0), reader.GetGuid(1)));
+            }
+
+            foreach (var (enrollmentId, _) in added)
+                await InsertEnrollmentStatusEventAsync(conn, tx, enrollmentId, "enrollment.status.baseline", "active", request.StartsOn, "بداية الالتحاق الجماعي.", ActorId(principal), ct);
+
+            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'enrollment.bulk_create','circle',@circle,jsonb_build_object('requested',@requested,'added',@added,'startsOn',@starts));", conn, tx))
+            {
+                audit.Parameters.AddWithValue("actor", ActorId(principal));
+                audit.Parameters.AddWithValue("circle", request.CircleId);
+                audit.Parameters.AddWithValue("requested", studentIds.Length);
+                audit.Parameters.AddWithValue("added", added.Count);
+                audit.Parameters.AddWithValue("starts", request.StartsOn);
+                await audit.ExecuteNonQueryAsync(ct);
+            }
+            await tx.CommitAsync(ct);
+            return Results.Ok(new { added = added.Count, skipped = studentIds.Length - added.Count });
+        }).RequireAuthorization("students.edit");
+
         app.MapPatch("/api/enrollments/{id:guid}/pause", async Task<IResult> (Guid id, EnrollmentStatusChangeRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
             if (request.Reason?.Length > 500) return Results.ValidationProblem(new Dictionary<string, string[]> { ["reason"] = ["سبب الإيقاف يجب ألا يتجاوز 500 حرف."] });
@@ -158,3 +220,5 @@ public static partial class DomainEndpoints
         }).RequireAuthorization("students.edit");
     }
 }
+
+public sealed record BulkEnrollmentWriteRequest(Guid CircleId, DateOnly StartsOn, List<Guid>? StudentIds, bool AllowClosedCircle = false);

@@ -125,9 +125,12 @@ public static class SupervisorRequestEndpoints
         }
 
         var nextStatus = request.Approve ? "approved" : "rejected";
+        string? effectBefore = null;
+        string? effectAfter = null;
 
         if (request.Approve)
         {
+            effectBefore = await ReadEffectAsync(connection, transaction, slotId, requestDate, attendanceId, ct);
             if (type is "absence" or "cancellation")
             {
                 if (slotId == Guid.Empty || requestDate is null)
@@ -150,7 +153,7 @@ public static class SupervisorRequestEndpoints
                         status = EXCLUDED.status,
                         duration_minutes = EXCLUDED.duration_minutes,
                         payable_amount = 0,
-                        note = EXCLUDED.note,
+                        note = CASE WHEN EXCLUDED.note IS NULL OR btrim(EXCLUDED.note)='' THEN teacher_attendance.note WHEN teacher_attendance.note IS NULL OR btrim(teacher_attendance.note)='' THEN EXCLUDED.note ELSE teacher_attendance.note || E'\n' || EXCLUDED.note END,
                         marked_by = EXCLUDED.marked_by,
                         marked_at = now(),
                         actual_duration_minutes = 0,
@@ -170,7 +173,9 @@ public static class SupervisorRequestEndpoints
 
                 await using var session = new NpgsqlCommand("""
                     UPDATE teacher_sessions
-                    SET status='cancelled', note=COALESCE(@note, note), updated_at=now()
+                    SET status='cancelled',
+                        note=CASE WHEN @note IS NULL OR btrim(@note)='' THEN note WHEN note IS NULL OR btrim(note)='' THEN @note ELSE note || E'\n' || @note END,
+                        updated_at=now()
                     WHERE schedule_slot_id=@slot AND session_date=@date AND status IN ('in_progress','awaiting_attendance');
                     """, connection, transaction);
                 session.Parameters.AddWithValue("slot", slotId);
@@ -225,7 +230,9 @@ public static class SupervisorRequestEndpoints
                 await using (var update = new NpgsqlCommand("""
                     UPDATE teacher_attendance ta
                     SET duration_minutes=@duration, payable_amount=@amount, actual_duration_minutes=@duration,
-                        pay_basis='manual', note=COALESCE(@note, ta.note), marked_by=@reviewer, marked_at=now(),
+                        pay_basis='manual',
+                        note=CASE WHEN @note IS NULL OR btrim(@note)='' THEN ta.note WHEN ta.note IS NULL OR btrim(ta.note)='' THEN @note ELSE ta.note || E'\n' || @note END,
+                        marked_by=@reviewer, marked_at=now(),
                         overtime_minutes=0, undertime_minutes=0
                     WHERE ta.id=@id;
                     """, connection, transaction))
@@ -242,7 +249,8 @@ public static class SupervisorRequestEndpoints
                     UPDATE teacher_sessions
                     SET actual_duration_minutes=@duration, payable_duration_minutes=@duration,
                         pay_basis='manual', overtime_minutes=0, undertime_minutes=0,
-                        note=COALESCE(@note, note), updated_at=now()
+                        note=CASE WHEN @note IS NULL OR btrim(@note)='' THEN note WHEN note IS NULL OR btrim(note)='' THEN @note ELSE note || E'\n' || @note END,
+                        updated_at=now()
                     WHERE id = (SELECT teacher_session_id FROM teacher_attendance WHERE id=@attendance);
                     """, connection, transaction))
                 {
@@ -257,9 +265,13 @@ public static class SupervisorRequestEndpoints
             }
         }
 
+        if (request.Approve)
+            effectAfter = await ReadEffectAsync(connection, transaction, slotId, requestDate, attendanceId, ct);
+
         await using (var update = new NpgsqlCommand("""
             UPDATE attendance_requests
-            SET status=@status, reviewed_by=@reviewer, reviewed_at=now(), review_note=@note, updated_at=now()
+            SET status=@status, reviewed_by=@reviewer, reviewed_at=now(), review_note=@note,
+                effect_before=@effectBefore::jsonb, effect_after=@effectAfter::jsonb, updated_at=now()
             WHERE id=@id;
             """, connection, transaction))
         {
@@ -267,6 +279,8 @@ public static class SupervisorRequestEndpoints
             update.Parameters.AddWithValue("status", nextStatus);
             update.Parameters.AddWithValue("reviewer", reviewer);
             update.Parameters.AddWithValue("note", (object?)note ?? DBNull.Value);
+            update.Parameters.AddWithValue("effectBefore", (object?)effectBefore ?? DBNull.Value);
+            update.Parameters.AddWithValue("effectAfter", (object?)effectAfter ?? DBNull.Value);
             await update.ExecuteNonQueryAsync(ct);
         }
 
@@ -280,5 +294,33 @@ public static class SupervisorRequestEndpoints
         await transaction.CommitAsync(ct);
 
         return Results.Ok(new { id, status = nextStatus });
+    }
+
+    private static async Task<string?> ReadEffectAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+        Guid slotId, DateOnly? date, Guid attendanceId, CancellationToken ct)
+    {
+        string sql;
+        if (attendanceId != Guid.Empty)
+            sql = """
+                SELECT jsonb_build_object('attendance', to_jsonb(ta), 'session', to_jsonb(ts))::text
+                FROM (SELECT 1) anchor
+                LEFT JOIN teacher_attendance ta ON ta.id=@attendance
+                LEFT JOIN teacher_sessions ts ON ts.id=ta.teacher_session_id;
+                """;
+        else if (slotId != Guid.Empty && date is not null)
+            sql = """
+                SELECT jsonb_build_object('attendance', to_jsonb(ta), 'session', to_jsonb(ts))::text
+                FROM (SELECT 1) anchor
+                LEFT JOIN teacher_attendance ta ON ta.schedule_slot_id=@slot AND ta.session_date=@date AND ta.is_trashed=FALSE
+                LEFT JOIN teacher_sessions ts ON ts.schedule_slot_id=@slot AND ts.session_date=@date;
+                """;
+        else
+            return null;
+
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddWithValue("attendance", attendanceId == Guid.Empty ? DBNull.Value : attendanceId);
+        command.Parameters.AddWithValue("slot", slotId);
+        command.Parameters.AddWithValue("date", (object?)date ?? DBNull.Value);
+        return await command.ExecuteScalarAsync(ct) as string;
     }
 }

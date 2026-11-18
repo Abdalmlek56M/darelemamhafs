@@ -1,3 +1,12 @@
+/* Bulk enrollment picker */
+.bulk-enrollment-list { display: flex; flex-direction: column; gap: 5px; max-height: 42vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; padding: 7px; background: color-mix(in srgb, var(--surface) 55%, var(--bg)); }
+.bulk-enrollment-row { display: flex; align-items: flex-start; gap: 9px; border: 1px solid transparent; border-radius: 10px; padding: 8px 9px; cursor: pointer; }
+.bulk-enrollment-row:hover { border-color: var(--line); background: color-mix(in srgb, var(--accent) 4%, transparent); }
+.bulk-enrollment-row input { margin-top: 3px; accent-color: var(--accent); }
+.bulk-enrollment-row span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bulk-enrollment-row strong { font-size: 11px; }
+.bulk-enrollment-row small { color: var(--muted); font-size: 9.5px; }
+
 /* Payroll lock panel */
 .payroll-lock-panel { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border: 1px solid var(--line); }
 .payroll-lock-panel.is-locked { border-color: rgba(230, 189, 106, .35); background: rgba(230, 189, 106, .06); }
@@ -63,6 +72,7 @@
 .admin-request-note { display: flex; align-items: flex-start; gap: 8px; color: var(--muted); border: 1px dashed var(--line); border-radius: 13px; padding: 10px 13px; font-size: 10.5px; line-height: 1.8; }
 .admin-request-note svg { flex: 0 0 auto; margin-top: 2px; color: var(--accent); }
 .admin-resolve-box { display: flex; flex-direction: column; gap: 8px; border-top: 1px dashed var(--line); padding-top: 10px; margin-top: 4px; }
+.danger-text { color: #ffb0b0 !important; }
 .admin-resolve-box textarea { width: 100%; border: 1px solid var(--line); border-radius: 11px; background: color-mix(in srgb, var(--surface) 55%, var(--bg)); color: var(--text); padding: 9px 11px; font: inherit; font-size: 11px; resize: vertical; }
 .admin-resolve-box > div { display: flex; gap: 7px; }
 

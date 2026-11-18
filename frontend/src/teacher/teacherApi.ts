@@ -111,6 +111,11 @@ export const teacherApi = {
   },
   supervisorCircle: (id: string) =>
     request<SupervisorCircleDetailResponse>(`/api/v1/supervisor/circles/${id}`),
+  addCircleStudents: (id: string, studentIds: string[]) =>
+    request<{ added: number; skipped: number }>(`/api/v1/supervisor/circles/${id}/students`, {
+      method: 'POST',
+      body: JSON.stringify({ studentIds }),
+    }),
   supervisorTeachers: (search?: string) => {
     const query = search?.trim() ? `?search=${encodeURIComponent(search.trim())}` : ''
     return request<SupervisorTeachersResponse>(`/api/v1/supervisor/teachers${query}`)

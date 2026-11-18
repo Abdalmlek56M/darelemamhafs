@@ -364,6 +364,7 @@ export type SupervisorCircleDetailResponse = {
     note: string | null
     presentStudents: number
     missingStudents: number
+    studentAttendance: { studentName: string; studentCode: string; status: string; note: string | null }[]
   }[]
 }
 

@@ -27,6 +27,8 @@ public static class SupervisorEndpoints
             .RequireAuthorization("supervisor.circles.read").WithName("SupervisorCircles");
         group.MapGet("/circles/{id:guid}", CirclesEndpoint.Detail)
             .RequireAuthorization("supervisor.circles.read").WithName("SupervisorCircleDetail");
+        group.MapPost("/circles/{id:guid}/students", CirclesEndpoint.AddStudents)
+            .RequireAuthorization("supervisor.students.create").WithName("SupervisorAddCircleStudents");
 
         group.MapGet("/teachers", TeachersEndpoint.List)
             .RequireAuthorization("supervisor.teachers.read").WithName("SupervisorTeachers");

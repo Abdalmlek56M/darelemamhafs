@@ -131,6 +131,14 @@ public sealed class SupervisionAccessTests(SupervisionFixture fixture) : IClassF
         await reader.ReadAsync();
         Assert.Equal(75, reader.GetInt32(0));
         Assert.Equal(62.50m, reader.GetDecimal(1));
+        await reader.DisposeAsync();
+
+        await using var effect = new Npgsql.NpgsqlCommand("SELECT effect_before IS NOT NULL, effect_after IS NOT NULL FROM attendance_requests WHERE id=@id;", connection);
+        effect.Parameters.AddWithValue("id", requestId);
+        await using var effectReader = await effect.ExecuteReaderAsync();
+        Assert.True(await effectReader.ReadAsync());
+        Assert.True(effectReader.GetBoolean(0));
+        Assert.True(effectReader.GetBoolean(1));
     }
 
     [Fact]
@@ -270,6 +278,33 @@ public sealed class SupervisionAccessTests(SupervisionFixture fixture) : IClassF
         {
             await using var clear = new NpgsqlCommand("DELETE FROM payroll_locks WHERE billing_month=date_trunc('month',CURRENT_DATE)::date;", connection);
             await clear.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Supervisor_CanAddStudentToScopedCircle()
+    {
+        using var client = Client();
+        await LoginAsync(client, "scope_c1");
+        try
+        {
+            var add = await client.PostAsJsonAsync($"/api/v1/supervisor/circles/{SupervisionFixture.C1}/students",
+                new { studentIds = new[] { SupervisionFixture.S2 } });
+            Assert.Equal(HttpStatusCode.OK, add.StatusCode);
+            var result = await add.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(1, result.GetProperty("added").GetInt32());
+
+            var detail = await GetJson(client, $"/api/v1/supervisor/circles/{SupervisionFixture.C1}");
+            Assert.Contains(detail.GetProperty("roster").EnumerateArray(), row => row.GetProperty("id").GetGuid() == SupervisionFixture.S2);
+        }
+        finally
+        {
+            await using var connection = new NpgsqlConnection(fixture.ConnectionString);
+            await connection.OpenAsync();
+            await using var cleanup = new NpgsqlCommand("DELETE FROM circle_enrollments WHERE student_id=@student AND circle_id=@circle;", connection);
+            cleanup.Parameters.AddWithValue("student", SupervisionFixture.S2);
+            cleanup.Parameters.AddWithValue("circle", SupervisionFixture.C1);
+            await cleanup.ExecuteNonQueryAsync();
         }
     }
 

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Npgsql;
 
 namespace Dar.Modules.Teaching.Features.Supervisor;
@@ -211,7 +212,15 @@ public static class CirclesEndpoint
                        AND sa.is_trashed = FALSE AND sa.status = 'present') AS present_students,
                    (SELECT COUNT(*) FROM student_attendance sa
                      WHERE sa.schedule_slot_id = ta.schedule_slot_id AND sa.session_date = ta.session_date
-                       AND sa.is_trashed = FALSE AND sa.status IN ('absent', 'excused')) AS missing_students
+                       AND sa.is_trashed = FALSE AND sa.status IN ('absent', 'excused')) AS missing_students,
+                   COALESCE((SELECT jsonb_agg(jsonb_build_object(
+                       'studentName', s.full_name, 'studentCode', s.student_code, 'status', sa.status, 'note', sa.note)
+                       ORDER BY s.full_name)
+                     FROM student_attendance sa
+                     JOIN circle_enrollments ce ON ce.id = sa.enrollment_id
+                     JOIN students s ON s.id = ce.student_id
+                     WHERE sa.schedule_slot_id = ta.schedule_slot_id AND sa.session_date = ta.session_date
+                       AND sa.is_trashed = FALSE), '[]'::jsonb) AS student_attendance
             FROM teacher_attendance ta
             LEFT JOIN circle_schedule_slots ss ON ss.id = ta.schedule_slot_id
             WHERE ta.circle_id = @id AND ta.is_trashed = FALSE
@@ -231,7 +240,8 @@ public static class CirclesEndpoint
                     durationMinutes = reader.GetInt32(3),
                     note = reader.IsDBNull(4) ? null : reader.GetString(4),
                     presentStudents = (int)reader.GetInt64(5),
-                    missingStudents = (int)reader.GetInt64(6)
+                    missingStudents = (int)reader.GetInt64(6),
+                    studentAttendance = JsonDocument.Parse(reader.GetString(7)).RootElement.Clone()
                 });
             }
         }
@@ -254,4 +264,53 @@ public static class CirclesEndpoint
             sessions
         });
     }
+
+    public static async Task<IResult> AddStudents(
+        Guid id,
+        AddCircleStudentsRequest request,
+        ClaimsPrincipal principal,
+        NpgsqlDataSource dataSource,
+        CancellationToken ct)
+    {
+        var studentIds = (request.StudentIds ?? []).Where(value => value != Guid.Empty).Distinct().Take(100).ToArray();
+        if (studentIds.Length == 0)
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["studentIds"] = ["اختر طالبة واحدة على الأقل."] });
+
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        var scope = await SupervisionScope.LoadAsync(connection, principal, ct);
+        if (!scope.AllowsCircle(id))
+            return Results.NotFound(new { message = "الحلقة غير موجودة داخل نطاقك." });
+
+        await using var transaction = await connection.BeginTransactionAsync(ct);
+        var added = new List<Guid>();
+        await using (var command = new NpgsqlCommand("""
+            INSERT INTO circle_enrollments(student_id, circle_id, starts_on, agreed_monthly_fee, status)
+            SELECT s.id, c.id, @today, c.monthly_fee, 'active'
+            FROM students s
+            CROSS JOIN circles c
+            WHERE s.id = ANY(@students) AND s.is_trashed = FALSE AND s.status = 'active'
+              AND c.id = @circle AND c.is_trashed = FALSE AND c.is_active = TRUE
+              AND NOT EXISTS (
+                  SELECT 1 FROM circle_enrollments existing
+                  WHERE existing.student_id = s.id AND existing.circle_id = c.id
+                    AND existing.is_trashed = FALSE AND existing.status IN ('active', 'paused'))
+            ON CONFLICT (student_id, circle_id) WHERE status = 'active' DO NOTHING
+            RETURNING student_id;
+            """, connection, transaction))
+        {
+            command.Parameters.AddWithValue("students", studentIds);
+            command.Parameters.AddWithValue("circle", id);
+            command.Parameters.AddWithValue("today", CairoTime.Today());
+            await using var reader = await command.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct)) added.Add(reader.GetGuid(0));
+        }
+
+        await TeachingAudit.WriteAsync(connection, transaction, principal, "supervisor.students.enroll", "circle", id,
+            new { added = added.Count, skipped = studentIds.Length - added.Count, requested = studentIds.Length },
+            $"/api/v1/supervisor/circles/{id}/students", "POST", ct);
+        await transaction.CommitAsync(ct);
+        return Results.Ok(new { added = added.Count, skipped = studentIds.Length - added.Count });
+    }
 }
+
+public sealed record AddCircleStudentsRequest(List<Guid>? StudentIds);

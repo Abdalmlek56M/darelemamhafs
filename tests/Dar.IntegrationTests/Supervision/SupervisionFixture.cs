@@ -110,7 +110,7 @@ public sealed class SupervisionFixture : IAsyncLifetime
             INSERT INTO user_permissions(user_id, permission_code)
             SELECT u.id, p.code FROM app_users u
             CROSS JOIN (VALUES
-              ('supervisor.portal'), ('supervisor.students.read'), ('supervisor.teachers.read'),
+              ('supervisor.portal'), ('supervisor.students.read'), ('supervisor.students.create'), ('supervisor.circles.read'), ('supervisor.teachers.read'),
               ('supervisor.absences'), ('supervisor.attendance.correct')
             ) AS p(code)
             WHERE u.username IN ('scope_c1', 'scope_all', 'finance_all');

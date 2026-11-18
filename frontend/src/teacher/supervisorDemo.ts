@@ -158,8 +158,8 @@ export function demoCircleDetail(id: string): SupervisorCircleDetailResponse {
     })),
     schedule: circle.schedule,
     sessions: [
-      { date: today, status: 'present', startsAt: circle.schedule[0].startsAt, durationMinutes: circle.schedule[0].durationMinutes, note: null, presentStudents: roster.length - 1, missingStudents: 1 },
-      { date: day(-3), status: 'present', startsAt: circle.schedule[0].startsAt, durationMinutes: circle.schedule[0].durationMinutes, note: null, presentStudents: roster.length, missingStudents: 0 },
+      { date: today, status: 'present', startsAt: circle.schedule[0].startsAt, durationMinutes: circle.schedule[0].durationMinutes, note: null, presentStudents: roster.length - 1, missingStudents: 1, studentAttendance: roster.map((student, index) => ({ studentName: student.fullName, studentCode: student.studentCode, status: index === roster.length - 1 ? 'absent' : 'present', note: null })) },
+      { date: day(-3), status: 'present', startsAt: circle.schedule[0].startsAt, durationMinutes: circle.schedule[0].durationMinutes, note: null, presentStudents: roster.length, missingStudents: 0, studentAttendance: roster.map((student) => ({ studentName: student.fullName, studentCode: student.studentCode, status: 'present', note: null })) },
     ],
   }
 }

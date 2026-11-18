@@ -38,6 +38,11 @@ export default function AdminRequestsPage({ ctx }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [reviewing, setReviewing] = useState<AdminAttendanceRequest | null>(null)
   const [note, setNote] = useState('')
+  const [editing, setEditing] = useState<AdminAttendanceRequest | null>(null)
+  const [editReason, setEditReason] = useState('')
+  const [editDate, setEditDate] = useState('')
+  const [editDuration, setEditDuration] = useState('')
+  const [editNote, setEditNote] = useState('')
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async (status: Filter) => {
@@ -78,6 +83,68 @@ export default function AdminRequestsPage({ ctx }: Props) {
   }
 
   const requests = data?.requests ?? []
+
+  const startEdit = (item: AdminAttendanceRequest) => {
+    setEditing(item)
+    setEditReason(item.reason)
+    setEditDate(item.date ?? '')
+    const payload = item.payload ? (JSON.parse(item.payload) as { durationMinutes?: number; note?: string }) : {}
+    setEditDuration(payload.durationMinutes ? String(payload.durationMinutes) : '')
+    setEditNote(payload.note ?? '')
+  }
+
+  const saveEdit = async (item: AdminAttendanceRequest) => {
+    if (editReason.trim().length < 3) { ctx.setToast({ tone: 'error', text: 'اكتب سبب الطلب (3 أحرف على الأقل).' }); return }
+    if (item.type === 'correction' && (!Number.isInteger(Number(editDuration)) || Number(editDuration) < 1 || Number(editDuration) > 360)) {
+      ctx.setToast({ tone: 'error', text: 'اكتب مدة صحيحة بين 1 و360 دقيقة.' })
+      return
+    }
+    setBusy(true)
+    try {
+      const payload = item.type === 'correction'
+        ? JSON.stringify({ durationMinutes: Number(editDuration), note: editNote.trim() || null })
+        : null
+      await api(`/api/admin/requests/${item.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ reason: editReason.trim(), date: editDate || null, payload }),
+      })
+      setEditing(null)
+      await load(filter)
+      ctx.setToast({ tone: 'success', text: 'تم تعديل الطلب.' })
+    } catch (err) {
+      ctx.setToast({ tone: 'error', text: err instanceof Error ? err.message : 'تعذر تعديل الطلب.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const reopen = async (item: AdminAttendanceRequest) => {
+    if (!window.confirm('إعادة الطلب للمراجعة ستعكس أثره على الحضور والأجر. هل تريد المتابعة؟')) return
+    setBusy(true)
+    try {
+      await api(`/api/admin/requests/${item.id}/reopen`, { method: 'POST' })
+      await load(filter)
+      ctx.setToast({ tone: 'success', text: 'تم إرجاع الطلب للمراجعة وعكس أثره السابق.' })
+    } catch (err) {
+      ctx.setToast({ tone: 'error', text: err instanceof Error ? err.message : 'تعذر إرجاع الطلب.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const remove = async (item: AdminAttendanceRequest) => {
+    if (!window.confirm('حذف الطلب من القائمة؟')) return
+    setBusy(true)
+    try {
+      await api(`/api/admin/requests/${item.id}/delete`, { method: 'POST' })
+      await load(filter)
+      ctx.setToast({ tone: 'success', text: 'تم حذف الطلب.' })
+    } catch (err) {
+      ctx.setToast({ tone: 'error', text: err instanceof Error ? err.message : 'تعذر حذف الطلب.' })
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <section className="admin-insights-page">
@@ -122,11 +189,12 @@ export default function AdminRequestsPage({ ctx }: Props) {
               {item.reviewedAt && <span>تمت المراجعة: {createdLabel(item.reviewedAt)}</span>}
               {item.reviewNote && <span>ملاحظة المراجعة: {item.reviewNote}</span>}
             </div>
-            {item.status === 'pending' && (
-              <div className="admin-notification-actions">
-                <button className="text-link" onClick={() => { setReviewing(item); setNote('') }}>مراجعة الطلب</button>
-              </div>
-            )}
+            <div className="admin-notification-actions">
+              {item.status === 'pending' && <button className="text-link" onClick={() => { setReviewing(item); setNote('') }}>مراجعة الطلب</button>}
+              {item.status === 'pending' && <button className="text-link" onClick={() => startEdit(item)}>تعديل الطلب</button>}
+              {item.status === 'approved' && <button className="text-link" onClick={() => void reopen(item)} disabled={busy}>إعادة للمراجعة</button>}
+              {(item.status === 'pending' || item.status === 'rejected') && <button className="text-link danger-text" onClick={() => void remove(item)} disabled={busy}>حذف الطلب</button>}
+            </div>
             {reviewing?.id === item.id && (
               <div className="admin-resolve-box">
                 <textarea rows={2} maxLength={2000} value={note} onChange={(event) => setNote(event.target.value)} placeholder="ملاحظة المراجعة (مطلوبة عند الرفض)." />
@@ -134,6 +202,20 @@ export default function AdminRequestsPage({ ctx }: Props) {
                   <button className="primary-button compact-button" onClick={() => void review(true)} disabled={busy}><CheckCircle2 size={14} /> {busy ? 'جارٍ التنفيذ…' : 'اعتماد الطلب'}</button>
                   <button className="danger-button compact-button" onClick={() => void review(false)} disabled={busy}><XCircle size={14} /> رفض الطلب</button>
                   <button className="secondary-button compact-button" onClick={() => { setReviewing(null); setNote('') }} disabled={busy}>إلغاء</button>
+                </div>
+              </div>
+            )}
+            {editing?.id === item.id && (
+              <div className="admin-resolve-box">
+                <label className="form-field"><span>سبب الطلب *</span><textarea rows={2} maxLength={1000} value={editReason} onChange={(event) => setEditReason(event.target.value)} /></label>
+                <label className="form-field"><span>تاريخ الحصة</span><input type="date" value={editDate} onChange={(event) => setEditDate(event.target.value)} /></label>
+                {item.type === 'correction' && <>
+                  <label className="form-field"><span>المدة المقترحة (دقيقة) *</span><input type="number" min="1" max="360" value={editDuration} onChange={(event) => setEditDuration(event.target.value)} /></label>
+                  <label className="form-field"><span>ملاحظة التصحيح</span><textarea rows={2} maxLength={1000} value={editNote} onChange={(event) => setEditNote(event.target.value)} /></label>
+                </>}
+                <div>
+                  <button className="primary-button compact-button" onClick={() => void saveEdit(item)} disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ التعديل'}</button>
+                  <button className="secondary-button compact-button" onClick={() => setEditing(null)} disabled={busy}>إلغاء</button>
                 </div>
               </div>
             )}

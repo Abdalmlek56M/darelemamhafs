@@ -25,6 +25,7 @@ type Props = {
   canLive: boolean
   canAbsences: boolean
   canStudents: boolean
+  canAddStudents: boolean
   canStudentsNotes: boolean
   canCircles: boolean
   canTeachers: boolean
@@ -62,7 +63,7 @@ function initialDemo() {
 
 export default function SupervisorWorkspace(props: Props) {
   const {
-    session, unread, canTeacherPortal, canLive, canAbsences, canStudents, canStudentsNotes,
+    session, unread, canTeacherPortal, canLive, canAbsences, canStudents, canAddStudents, canStudentsNotes,
     canCircles, canTeachers, canTeacherNotes, canRequests, canCommunicate, canUnpaid, canFinance, canCorrect,
     onBackToTeacher, onAccount, onLogout,
   } = props
@@ -127,7 +128,7 @@ export default function SupervisorWorkspace(props: Props) {
       return <SupervisorOverview demo={demo} canStudents={canStudents} canCircles={canCircles} canTeachers={canTeachers} canAbsences={canAbsences} canUnpaid={canUnpaid} canFinance={canFinance} canCorrect={canCorrect} onNavigate={go} onDemo={toggleDemo} />
     }
     if (section === 'students') return <SupervisorStudents demo={demo} canNote={canStudentsNotes} onOpenCircle={openCircle} canCommunicate={canCommunicate} />
-    if (section === 'circles') return <SupervisorCircles demo={demo} onOpenTeacher={openTeacher} focusId={focus?.section === 'circles' ? focus.id : undefined} onFocusConsumed={() => setFocus(null)} />
+    if (section === 'circles') return <SupervisorCircles demo={demo} onOpenTeacher={openTeacher} focusId={focus?.section === 'circles' ? focus.id : undefined} onFocusConsumed={() => setFocus(null)} canAddStudents={canAddStudents} />
     if (section === 'teachers') return <SupervisorTeachers demo={demo} canNote={canTeacherNotes} onOpenCircle={openCircle} focusId={focus?.section === 'teachers' ? focus.id : undefined} onFocusConsumed={() => setFocus(null)} canCommunicate={canCommunicate} />
     if (section === 'notes') return <SupervisorTeacherNotes demo={demo} />
     if (section === 'requests') return <SupervisorRequests demo={demo} />

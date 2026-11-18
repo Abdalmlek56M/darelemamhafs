@@ -24,7 +24,7 @@ public static partial class SystemAdminEndpoints
                 JOIN teachers t ON t.id=r.teacher_id
                 JOIN circles c ON c.id=r.circle_id
                 LEFT JOIN teacher_attendance ta ON ta.id=r.attendance_id
-                WHERE (@status='all' OR r.status=@status)
+                WHERE r.is_trashed=FALSE AND (@status='all' OR r.status=@status)
                 ORDER BY (r.status='pending') DESC, r.created_at DESC
                 LIMIT 250;
                 """, connection))
@@ -116,8 +116,11 @@ public static partial class SystemAdminEndpoints
             }
 
             var nextStatus = request.Approve ? "approved" : "rejected";
+            string? effectBefore = null;
+            string? effectAfter = null;
             if (request.Approve)
             {
+                effectBefore = await ReadAttendanceEffectAsync(connection, transaction, slotId, requestDate, attendanceId, ct);
                 if (type is "absence" or "cancellation")
                 {
                     if (slotId == Guid.Empty || requestDate is null)
@@ -137,7 +140,8 @@ public static partial class SystemAdminEndpoints
                         WHERE ss.id=@slot
                         ON CONFLICT(schedule_slot_id,session_date) DO UPDATE SET
                             status=EXCLUDED.status,duration_minutes=EXCLUDED.duration_minutes,payable_amount=0,
-                            note=EXCLUDED.note,marked_by=EXCLUDED.marked_by,marked_at=now(),
+                            note=CASE WHEN EXCLUDED.note IS NULL OR btrim(EXCLUDED.note)='' THEN teacher_attendance.note WHEN teacher_attendance.note IS NULL OR btrim(teacher_attendance.note)='' THEN EXCLUDED.note ELSE teacher_attendance.note || E'\n' || EXCLUDED.note END,
+                            marked_by=EXCLUDED.marked_by,marked_at=now(),
                             actual_duration_minutes=0,pay_basis='manual',overtime_minutes=0,undertime_minutes=0,is_trashed=FALSE;
                         """, connection, transaction);
                     upsert.Parameters.AddWithValue("circle", circleId);
@@ -150,7 +154,9 @@ public static partial class SystemAdminEndpoints
                     await upsert.ExecuteNonQueryAsync(ct);
 
                     await using var session = new NpgsqlCommand("""
-                        UPDATE teacher_sessions SET status='cancelled',note=COALESCE(@note,note),updated_at=now()
+                        UPDATE teacher_sessions SET status='cancelled',
+                            note=CASE WHEN @note IS NULL OR btrim(@note)='' THEN note WHEN note IS NULL OR btrim(note)='' THEN @note ELSE note || E'\n' || @note END,
+                            updated_at=now()
                         WHERE schedule_slot_id=@slot AND session_date=@date AND status IN ('in_progress','awaiting_attendance');
                         """, connection, transaction);
                     session.Parameters.AddWithValue("slot", slotId);
@@ -195,7 +201,9 @@ public static partial class SystemAdminEndpoints
                     }
                     await using (var update = new NpgsqlCommand("""
                         UPDATE teacher_attendance SET duration_minutes=@duration,payable_amount=@amount,actual_duration_minutes=@duration,
-                            pay_basis='manual',note=COALESCE(@note,note),marked_by=@reviewer,marked_at=now(),
+                            pay_basis='manual',
+                            note=CASE WHEN @note IS NULL OR btrim(@note)='' THEN note WHEN note IS NULL OR btrim(note)='' THEN @note ELSE note || E'\n' || @note END,
+                            marked_by=@reviewer,marked_at=now(),
                             overtime_minutes=0,undertime_minutes=0
                         WHERE id=@id;
                         """, connection, transaction))
@@ -209,7 +217,9 @@ public static partial class SystemAdminEndpoints
                     }
                     await using (var session = new NpgsqlCommand("""
                         UPDATE teacher_sessions SET actual_duration_minutes=@duration,payable_duration_minutes=@duration,
-                            pay_basis='manual',overtime_minutes=0,undertime_minutes=0,note=COALESCE(@note,note),updated_at=now()
+                            pay_basis='manual',overtime_minutes=0,undertime_minutes=0,
+                            note=CASE WHEN @note IS NULL OR btrim(@note)='' THEN note WHEN note IS NULL OR btrim(note)='' THEN @note ELSE note || E'\n' || @note END,
+                            updated_at=now()
                         WHERE id=(SELECT teacher_session_id FROM teacher_attendance WHERE id=@attendance);
                         """, connection, transaction))
                     {
@@ -224,8 +234,12 @@ public static partial class SystemAdminEndpoints
                 }
             }
 
+            if (request.Approve)
+                effectAfter = await ReadAttendanceEffectAsync(connection, transaction, slotId, requestDate, attendanceId, ct);
+
             await using (var update = new NpgsqlCommand("""
-                UPDATE attendance_requests SET status=@status,reviewed_by=@reviewer,reviewed_at=now(),review_note=@note,updated_at=now()
+                UPDATE attendance_requests SET status=@status,reviewed_by=@reviewer,reviewed_at=now(),review_note=@note,
+                    effect_before=@effectBefore::jsonb,effect_after=@effectAfter::jsonb,updated_at=now()
                 WHERE id=@id;
                 """, connection, transaction))
             {
@@ -233,6 +247,8 @@ public static partial class SystemAdminEndpoints
                 update.Parameters.AddWithValue("status", nextStatus);
                 update.Parameters.AddWithValue("reviewer", DbGuid(ActorId(principal)));
                 update.Parameters.AddWithValue("note", (object?)note ?? DBNull.Value);
+                update.Parameters.AddWithValue("effectBefore", (object?)effectBefore ?? DBNull.Value);
+                update.Parameters.AddWithValue("effectAfter", (object?)effectAfter ?? DBNull.Value);
                 await update.ExecuteNonQueryAsync(ct);
             }
 
@@ -246,6 +262,206 @@ public static partial class SystemAdminEndpoints
             await transaction.CommitAsync(ct);
             return Results.Ok(new { id, status = nextStatus });
         }).RequireAuthorization("attendance.edit");
+
+        app.MapPost("/api/admin/requests/{id:guid}/reopen", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
+        {
+            await using var connection = await db.OpenConnectionAsync(ct);
+            await using var transaction = await connection.BeginTransactionAsync(ct);
+            string status;
+            string? effectBefore, effectAfter;
+            Guid teacherId;
+            await using (var read = new NpgsqlCommand("""
+                SELECT status,COALESCE(effect_before::text,''),COALESCE(effect_after::text,''),teacher_id
+                FROM attendance_requests WHERE id=@id AND is_trashed=FALSE FOR UPDATE;
+                """, connection, transaction))
+            {
+                read.Parameters.AddWithValue("id", id);
+                await using var reader = await read.ExecuteReaderAsync(ct);
+                if (!await reader.ReadAsync(ct))
+                {
+                    await transaction.RollbackAsync(ct);
+                    return Results.NotFound(new { message = "الطلب غير موجود." });
+                }
+                status = reader.GetString(0);
+                effectBefore = string.IsNullOrWhiteSpace(reader.GetString(1)) ? null : reader.GetString(1);
+                effectAfter = string.IsNullOrWhiteSpace(reader.GetString(2)) ? null : reader.GetString(2);
+                teacherId = reader.GetGuid(3);
+            }
+            if (status != "approved")
+            {
+                await transaction.RollbackAsync(ct);
+                return Results.Conflict(new { message = "لا يمكن إعادة هذا الطلب للمراجعة إلا بعد اعتماده." });
+            }
+
+            await RestoreEffectAsync(connection, transaction, effectBefore, effectAfter, ct);
+            await using (var update = new NpgsqlCommand("""
+                UPDATE attendance_requests SET status='pending',reviewed_by=NULL,reviewed_at=NULL,review_note=NULL,
+                    effect_before=NULL,effect_after=NULL,updated_at=now()
+                WHERE id=@id;
+                """, connection, transaction))
+            {
+                update.Parameters.AddWithValue("id", id);
+                await update.ExecuteNonQueryAsync(ct);
+            }
+            await NotifyTeacherAsync(connection, transaction, teacherId, id, "أُعيد طلبك للمراجعة",
+                "تم إرجاع الطلب إلى قائمة المراجعة بعد عكس أثره السابق.", ct);
+            await InsertRequestAuditAsync(connection, transaction, ActorId(principal), principal.FindFirstValue("display_name"),
+                "request.reopen", "attendance_request", id, JsonSerializer.Serialize(new { status }), id, ct);
+            await transaction.CommitAsync(ct);
+            return Results.Ok(new { id, status = "pending" });
+        }).RequireAuthorization("users.manage");
+
+        app.MapPut("/api/admin/requests/{id:guid}", async Task<IResult> (Guid id, AdminRequestEditRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length < 3)
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["reason"] = ["اكتب سبب الطلب (3 أحرف على الأقل)."] });
+            await using var connection = await db.OpenConnectionAsync(ct);
+            await using var transaction = await connection.BeginTransactionAsync(ct);
+            string status;
+            await using (var read = new NpgsqlCommand("SELECT status FROM attendance_requests WHERE id=@id AND is_trashed=FALSE FOR UPDATE;", connection, transaction))
+            {
+                read.Parameters.AddWithValue("id", id);
+                var value = await read.ExecuteScalarAsync(ct);
+                if (value is null)
+                {
+                    await transaction.RollbackAsync(ct);
+                    return Results.NotFound(new { message = "الطلب غير موجود." });
+                }
+                status = (string)value;
+            }
+            if (status != "pending")
+            {
+                await transaction.RollbackAsync(ct);
+                return Results.Conflict(new { message = "لا يمكن تعديل الطلب بعد مراجعته. أعده للمراجعة أولًا إذا كان معتمدًا." });
+            }
+            await using (var update = new NpgsqlCommand("""
+                UPDATE attendance_requests SET reason=@reason,request_date=@date,requested_payload=@payload::jsonb,updated_at=now()
+                WHERE id=@id;
+                """, connection, transaction))
+            {
+                update.Parameters.AddWithValue("id", id);
+                update.Parameters.AddWithValue("reason", request.Reason.Trim());
+                update.Parameters.AddWithValue("date", (object?)request.Date ?? DBNull.Value);
+                update.Parameters.AddWithValue("payload", (object?)request.Payload ?? DBNull.Value);
+                await update.ExecuteNonQueryAsync(ct);
+            }
+            await InsertRequestAuditAsync(connection, transaction, ActorId(principal), principal.FindFirstValue("display_name"),
+                "request.update", "attendance_request", id, JsonSerializer.Serialize(new { reason = request.Reason.Trim(), date = request.Date }), id, ct);
+            await transaction.CommitAsync(ct);
+            return Results.Ok(new { id, status = "pending" });
+        }).RequireAuthorization("attendance.edit");
+
+        app.MapPost("/api/admin/requests/{id:guid}/delete", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
+        {
+            await using var connection = await db.OpenConnectionAsync(ct);
+            await using var transaction = await connection.BeginTransactionAsync(ct);
+            string? status;
+            await using (var read = new NpgsqlCommand("SELECT status FROM attendance_requests WHERE id=@id AND is_trashed=FALSE FOR UPDATE;", connection, transaction))
+            {
+                read.Parameters.AddWithValue("id", id);
+                status = await read.ExecuteScalarAsync(ct) as string;
+            }
+            if (status is null)
+            {
+                await transaction.RollbackAsync(ct);
+                return Results.NotFound(new { message = "الطلب غير موجود." });
+            }
+            if (status == "approved")
+            {
+                await transaction.RollbackAsync(ct);
+                return Results.Conflict(new { message = "أعد الطلب المعتمد للمراجعة أولًا قبل حذفه." });
+            }
+            await using (var update = new NpgsqlCommand("UPDATE attendance_requests SET is_trashed=TRUE,updated_at=now() WHERE id=@id;", connection, transaction))
+            {
+                update.Parameters.AddWithValue("id", id);
+                await update.ExecuteNonQueryAsync(ct);
+            }
+            await InsertRequestAuditAsync(connection, transaction, ActorId(principal), principal.FindFirstValue("display_name"),
+                "request.delete", "attendance_request", id, JsonSerializer.Serialize(new { previousStatus = status }), id, ct);
+            await transaction.CommitAsync(ct);
+            return Results.Ok(new { id, deleted = true });
+        }).RequireAuthorization("users.manage");
+    }
+
+    private static async Task<string?> ReadAttendanceEffectAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+        Guid slotId, DateOnly? date, Guid attendanceId, CancellationToken ct)
+    {
+        string sql;
+        if (attendanceId != Guid.Empty)
+            sql = """
+                SELECT jsonb_build_object('attendance', to_jsonb(ta), 'session', to_jsonb(ts))::text
+                FROM (SELECT 1) anchor
+                LEFT JOIN teacher_attendance ta ON ta.id=@attendance
+                LEFT JOIN teacher_sessions ts ON ts.id=ta.teacher_session_id;
+                """;
+        else if (slotId != Guid.Empty && date is not null)
+            sql = """
+                SELECT jsonb_build_object('attendance', to_jsonb(ta), 'session', to_jsonb(ts))::text
+                FROM (SELECT 1) anchor
+                LEFT JOIN teacher_attendance ta ON ta.schedule_slot_id=@slot AND ta.session_date=@date AND ta.is_trashed=FALSE
+                LEFT JOIN teacher_sessions ts ON ts.schedule_slot_id=@slot AND ts.session_date=@date;
+                """;
+        else
+            return null;
+
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddWithValue("attendance", attendanceId == Guid.Empty ? DBNull.Value : attendanceId);
+        command.Parameters.AddWithValue("slot", slotId);
+        command.Parameters.AddWithValue("date", (object?)date ?? DBNull.Value);
+        return await command.ExecuteScalarAsync(ct) as string;
+    }
+
+    private static async Task RestoreEffectAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+        string? beforeJson, string? afterJson, CancellationToken ct)
+    {
+        JsonElement before = default;
+        JsonElement after = default;
+        if (!string.IsNullOrWhiteSpace(beforeJson))
+            using (var document = JsonDocument.Parse(beforeJson)) before = document.RootElement.Clone();
+        if (!string.IsNullOrWhiteSpace(afterJson))
+            using (var document = JsonDocument.Parse(afterJson)) after = document.RootElement.Clone();
+
+        if (before.ValueKind == JsonValueKind.Object && before.TryGetProperty("attendance", out var beforeAttendance) && beforeAttendance.ValueKind == JsonValueKind.Object)
+        {
+            var id = beforeAttendance.GetProperty("id").GetGuid();
+            await using var restore = new NpgsqlCommand("""
+                UPDATE teacher_attendance ta SET
+                    teacher_id=b.teacher_id,hourly_rate_snapshot=b.hourly_rate_snapshot,status=b.status,
+                    duration_minutes=b.duration_minutes,payable_amount=b.payable_amount,note=b.note,
+                    marked_by=b.marked_by,marked_at=b.marked_at,actual_duration_minutes=b.actual_duration_minutes,
+                    pay_basis=b.pay_basis,overtime_minutes=b.overtime_minutes,undertime_minutes=b.undertime_minutes,
+                    is_trashed=b.is_trashed
+                FROM jsonb_populate_record(NULL::teacher_attendance, @json::jsonb) b
+                WHERE ta.id=@id;
+                """, connection, transaction);
+            restore.Parameters.AddWithValue("json", beforeAttendance.GetRawText());
+            restore.Parameters.AddWithValue("id", id);
+            await restore.ExecuteNonQueryAsync(ct);
+        }
+        else if (after.ValueKind == JsonValueKind.Object && after.TryGetProperty("attendance", out var afterAttendance) && afterAttendance.ValueKind == JsonValueKind.Object)
+        {
+            var id = afterAttendance.GetProperty("id").GetGuid();
+            await using var hide = new NpgsqlCommand("UPDATE teacher_attendance SET is_trashed=TRUE WHERE id=@id;", connection, transaction);
+            hide.Parameters.AddWithValue("id", id);
+            await hide.ExecuteNonQueryAsync(ct);
+        }
+
+        if (before.ValueKind == JsonValueKind.Object && before.TryGetProperty("session", out var beforeSession) && beforeSession.ValueKind == JsonValueKind.Object)
+        {
+            var id = beforeSession.GetProperty("id").GetGuid();
+            await using var restore = new NpgsqlCommand("""
+                UPDATE teacher_sessions ts SET
+                    status=b.status,actual_duration_minutes=b.actual_duration_minutes,
+                    payable_duration_minutes=b.payable_duration_minutes,pay_basis=b.pay_basis,
+                    overtime_minutes=b.overtime_minutes,undertime_minutes=b.undertime_minutes,
+                    note=b.note,updated_at=now()
+                FROM jsonb_populate_record(NULL::teacher_sessions, @json::jsonb) b
+                WHERE ts.id=@id;
+                """, connection, transaction);
+            restore.Parameters.AddWithValue("json", beforeSession.GetRawText());
+            restore.Parameters.AddWithValue("id", id);
+            await restore.ExecuteNonQueryAsync(ct);
+        }
     }
 
     private static async Task NotifyTeacherAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, Guid teacherId,
@@ -292,3 +508,4 @@ public static partial class SystemAdminEndpoints
 }
 
 public sealed record AdminReviewRequest(bool Approve, string? Note);
+public sealed record AdminRequestEditRequest(string? Reason, DateOnly? Date, string? Payload);
