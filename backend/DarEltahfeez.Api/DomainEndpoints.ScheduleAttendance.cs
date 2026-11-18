@@ -299,9 +299,9 @@ public static partial class DomainEndpoints
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["attendance"] = ["حدد الحصة وتاريخها والحالة الصحيحة للحضور."] });
             await using var conn = await db.OpenConnectionAsync(ct);
             await using var tx = await conn.BeginTransactionAsync(ct);
-            Guid circleId; Guid? assignedTeacherId; string assignedTeacherName; TimeOnly startsAt; int duration;
+            Guid circleId; Guid? assignedTeacherId; string assignedTeacherName; TimeOnly startsAt; int duration; short slotDayOfWeek;
             await using (var info = new NpgsqlCommand("""
-                SELECT ss.circle_id,c.teacher_id,COALESCE(t.full_name,''),ss.starts_at,ss.duration_minutes
+                SELECT ss.circle_id,c.teacher_id,COALESCE(t.full_name,''),ss.starts_at,ss.duration_minutes,ss.day_of_week
                 FROM circle_schedule_slots ss JOIN circles c ON c.id=ss.circle_id
                 LEFT JOIN teachers t ON t.id=c.teacher_id
                 WHERE ss.id=@id AND ss.is_trashed=FALSE AND ss.is_active=TRUE AND c.is_trashed=FALSE AND c.is_active=TRUE
@@ -310,8 +310,12 @@ public static partial class DomainEndpoints
             {
                 info.Parameters.AddWithValue("id", request.ScheduleSlotId); await using var reader = await info.ExecuteReaderAsync(ct);
                 if (!await reader.ReadAsync(ct)) return Results.NotFound(new { message = "موعد الحلقة غير موجود أو متوقف." });
-                circleId = reader.GetGuid(0); assignedTeacherId = reader.IsDBNull(1) ? null : reader.GetGuid(1); assignedTeacherName = reader.GetString(2); startsAt = reader.GetFieldValue<TimeOnly>(3); duration = reader.GetInt32(4);
+                circleId = reader.GetGuid(0); assignedTeacherId = reader.IsDBNull(1) ? null : reader.GetGuid(1); assignedTeacherName = reader.GetString(2); startsAt = reader.GetFieldValue<TimeOnly>(3); duration = reader.GetInt32(4); slotDayOfWeek = reader.GetInt16(5);
             }
+            if ((short)request.SessionDate.DayOfWeek != slotDayOfWeek)
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["attendance"] = ["تاريخ الحصة لا يطابق يوم الموعد الأسبوعي المحدد."] });
+            if (request.SessionDate > DateOnly.FromDateTime(DateTime.Today))
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["attendance"] = ["لا يمكن تسجيل حضور المعلمة بتاريخ مستقبلي."] });
             var teacherId = request.TeacherId ?? assignedTeacherId;
             if (!teacherId.HasValue) return Results.Conflict(new { message = "لا توجد معلمة مسندة للحلقة؛ اختر معلمة لهذه الحصة أولًا." });
             string selectedTeacherName; decimal hourlyRate;
