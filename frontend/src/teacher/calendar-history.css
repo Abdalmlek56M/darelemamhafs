@@ -1,4 +1,9 @@
 /* Weekly calendar + history */
+.t-connectivity-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 1300; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 7px 12px; font-size: 10px; backdrop-filter: blur(16px); }
+.t-connectivity-banner.is-offline { background: rgba(74, 20, 20, .96); color: #ffb0b0; border-bottom: 1px solid rgba(255, 138, 138, .3); }
+.t-connectivity-banner.is-pending { background: rgba(58, 47, 22, .96); color: #f0d59c; border-bottom: 1px solid rgba(230, 189, 106, .3); }
+.teacher-app.has-connectivity .teacher-main { padding-top: 46px; }
+@media (min-width: 1024px) { .teacher-app.teacher-shell.has-connectivity .teacher-main { padding-top: 50px; } }
 .t-calendar-toolbar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .t-calendar-toolbar .t-secondary { min-height: 38px; padding: 7px 10px; font-size: 10px; }
 .t-calendar-week { display: grid; grid-template-columns: 1fr; gap: 8px; }

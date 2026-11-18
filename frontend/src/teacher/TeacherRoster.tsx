@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowRight, Check, Search, Users } from 'lucide-react'
+import { ArrowRight, Check, Search, Users, WifiOff } from 'lucide-react'
 import type { EndResponse, RosterResponse, RosterStudent, Slot } from './teacherTypes'
 import { enrollmentStatusLabel, money } from './teacherFormat'
 
@@ -14,7 +14,7 @@ type Props = {
   error: string | null
   canEarnings: boolean
   onBack: () => void
-  onSubmit: (marks: { enrollmentId: string; status: Status }[]) => Promise<{ present: number; excused: number; absent: number; total: number }>
+  onSubmit: (marks: { enrollmentId: string; status: Status }[]) => Promise<{ present: number; excused: number; absent: number; total: number; queued?: boolean }>
   onDone: () => void
 }
 
@@ -23,7 +23,7 @@ const statusLabel: Record<Status, string> = { present: 'حاضر', excused: 'ب�
 export default function TeacherRoster({ roster, slot, endResult, hourlyRate, loading, busy, error, canEarnings, onBack, onSubmit, onDone }: Props) {
   const [marks, setMarks] = useState<Record<string, Status>>({})
   const [query, setQuery] = useState('')
-  const [success, setSuccess] = useState<{ present: number; excused: number; absent: number; total: number } | null>(null)
+  const [success, setSuccess] = useState<{ present: number; excused: number; absent: number; total: number; queued?: boolean } | null>(null)
 
   useEffect(() => {
     if (!roster) return
@@ -129,15 +129,16 @@ export default function TeacherRoster({ roster, slot, endResult, hourlyRate, loa
       {success && (
         <div className="t-sheet-backdrop">
           <div className="t-sheet">
-            <div className="t-sheet-head"><Users size={22} /><div><strong>تم تسجيل الحلقة</strong><small>{slot?.circleName ?? 'الحلقة'} · تم حفظ الحضور والأجر.</small></div></div>
+            <div className="t-sheet-head">{success.queued ? <WifiOff size={22} /> : <Users size={22} />}<div><strong>{success.queued ? 'تم حفظ الحضور على الجهاز' : 'تم تسجيل الحلقة'}</strong><small>{success.queued ? 'لا يوجد اتصال الآن؛ سيُرسل الحضور تلقائيًا عند عودة الشبكة.' : `${slot?.circleName ?? 'الحلقة'} · تم حفظ الحضور والأجر.`}</small></div></div>
             <div className="t-mini-grid">
               <div><span>حاضر</span><strong>{success.present}</strong></div>
               <div><span>بعذر</span><strong>{success.excused}</strong></div>
               <div><span>غائب</span><strong>{success.absent}</strong></div>
-              {canEarnings && <div><span>الأجر</span><strong>{money(amount)}</strong></div>}
-              <div><span>الفعلية</span><strong>{actual} د</strong></div>
-              <div><span>المحتسبة</span><strong>{payable} د</strong></div>
+              {canEarnings && !success.queued && <div><span>الأجر</span><strong>{money(amount)}</strong></div>}
+              {!success.queued && <div><span>الفعلية</span><strong>{actual} د</strong></div>}
+              {!success.queued && <div><span>المحتسبة</span><strong>{payable} د</strong></div>}
             </div>
+            {success.queued && <p className="t-note">سيُحسب الأجر والحضور على الخادم بعد الإرسال.</p>}
             {endResult?.message && <p className="t-note">{endResult.message}</p>}
             {endResult?.note && <p className="t-note">ملاحظة الإنهاء: {endResult.note}</p>}
             <button className="t-primary" onClick={onDone}>تم</button>

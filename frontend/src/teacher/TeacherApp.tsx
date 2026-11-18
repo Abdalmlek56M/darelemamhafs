@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LogOut } from 'lucide-react'
+import { CloudUpload, LogOut, WifiOff } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type {
   EarningsResponse, EndResponse, NotificationsResponse, Page, RosterResponse, Slot,
@@ -17,6 +17,7 @@ import TeacherAccount from './TeacherAccount'
 import TeacherRequests from './TeacherRequests'
 import SupervisorWorkspace from './SupervisorWorkspace'
 import TeacherNav from './TeacherNav'
+import { listQueuedAttendance, queueAttendance, removeQueuedAttendance } from './offlineOutbox'
 import './teacher.css'
 import './calendar-history.css'
 
@@ -55,6 +56,8 @@ export default function TeacherApp({ mode }: Props) {
 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [online, setOnline] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine)
+  const [pendingOutbox, setPendingOutbox] = useState(0)
   const todayRequested = useRef(false)
   const notificationsRequested = useRef(false)
 
@@ -126,6 +129,44 @@ export default function TeacherApp({ mode }: Props) {
       setSubsLoading(false)
     }
   }, [])
+
+  const refreshOutbox = useCallback(async () => {
+    try { setPendingOutbox((await listQueuedAttendance()).length) } catch { /* IndexedDB is optional */ }
+  }, [])
+
+  const flushOutbox = useCallback(async () => {
+    if (!session || !navigator.onLine) return
+    const items = await listQueuedAttendance().catch(() => [])
+    for (const item of items) {
+      try {
+        await teacherApi.submit(item.sessionId, item.marks)
+        await removeQueuedAttendance(item.sessionId)
+      } catch (err) {
+        if (err instanceof TeacherApiError && err.status >= 400 && err.status < 500) {
+          await removeQueuedAttendance(item.sessionId)
+          continue
+        }
+        break
+      }
+    }
+    await refreshOutbox()
+  }, [session, refreshOutbox])
+
+  useEffect(() => {
+    const goOnline = () => setOnline(true)
+    const goOffline = () => setOnline(false)
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+    void refreshOutbox()
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
+  }, [refreshOutbox])
+
+  useEffect(() => {
+    if (online && session) void flushOutbox()
+  }, [online, session, flushOutbox])
 
   useEffect(() => {
     let mounted = true
@@ -273,14 +314,30 @@ export default function TeacherApp({ mode }: Props) {
 
   const submit = async (marks: { enrollmentId: string; status: 'present' | 'excused' | 'absent' }[]) => {
     if (!activeSessionId) throw new Error('لا توجد حلقة.')
+    const counts = { present: marks.filter((mark) => mark.status === 'present').length, excused: marks.filter((mark) => mark.status === 'excused').length, absent: marks.filter((mark) => mark.status === 'absent').length, total: marks.length }
     setBusy(true)
     setError(null)
     try {
+      if (!navigator.onLine) {
+        await queueAttendance(activeSessionId, marks)
+        await refreshOutbox()
+        return { ...counts, queued: true }
+      }
       const result = await teacherApi.submit(activeSessionId, marks)
       await Promise.all([loadToday(), loadNotifications()])
       return result
     } catch (err) {
-      setError(err instanceof TeacherApiError ? err.message : 'تعذر تسليم الحضور.')
+      if (!(err instanceof TeacherApiError)) {
+        try {
+          await queueAttendance(activeSessionId, marks)
+          await refreshOutbox()
+          return { ...counts, queued: true }
+        } catch {
+          setError('تعذر حفظ الحضور محليًا. أعد المحاولة عندما يعود الاتصال.')
+          throw err
+        }
+      }
+      setError(err.message)
       throw err
     } finally {
       setBusy(false)
@@ -372,7 +429,13 @@ export default function TeacherApp({ mode }: Props) {
   }
 
   return (
-    <div className={`teacher-app teacher-shell ${page === 'supervisor' ? 'is-supervisor' : ''}`}>
+    <div className={`teacher-app teacher-shell ${page === 'supervisor' ? 'is-supervisor' : ''} ${(!online || pendingOutbox > 0) ? 'has-connectivity' : ''}`}>
+      {(!online || pendingOutbox > 0) && (
+        <div className={`t-connectivity-banner ${online ? 'is-pending' : 'is-offline'}`} role="status">
+          {online ? <CloudUpload size={14} /> : <WifiOff size={14} />}
+          <span>{online ? `${pendingOutbox} تسجيل حضور بانتظار الإرسال.` : 'لا يوجد اتصال. الحضور الذي تسجله سيُحفظ على الجهاز ويُرسل تلقائيًا.'}</span>
+        </div>
+      )}
       <main className="teacher-main">
         {page === 'home' && canTeacher && (
           <TeacherHome
