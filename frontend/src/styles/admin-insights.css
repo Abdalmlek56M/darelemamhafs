@@ -48,6 +48,9 @@
 .admin-notification-card p { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.9; }
 .admin-notification-resolution { color: #f0d59c; font-size: 10px; }
 .admin-notification-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 2px; }
+.admin-request-meta { display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: 10px; line-height: 1.8; }
+.admin-request-note { display: flex; align-items: flex-start; gap: 8px; color: var(--muted); border: 1px dashed var(--line); border-radius: 13px; padding: 10px 13px; font-size: 10.5px; line-height: 1.8; }
+.admin-request-note svg { flex: 0 0 auto; margin-top: 2px; color: var(--accent); }
 .admin-resolve-box { display: flex; flex-direction: column; gap: 8px; border-top: 1px dashed var(--line); padding-top: 10px; margin-top: 4px; }
 .admin-resolve-box textarea { width: 100%; border: 1px solid var(--line); border-radius: 11px; background: color-mix(in srgb, var(--surface) 55%, var(--bg)); color: var(--text); padding: 9px 11px; font: inherit; font-size: 11px; resize: vertical; }
 .admin-resolve-box > div { display: flex; gap: 7px; }

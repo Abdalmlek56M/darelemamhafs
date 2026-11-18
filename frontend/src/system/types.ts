@@ -68,6 +68,28 @@ export type ChargeAuditResponse = {
   rows: ChargeAuditRow[]
 }
 
+export type AdminAttendanceRequest = {
+  id: string
+  type: 'absence' | 'cancellation' | 'correction'
+  teacherName: string
+  teacherId: string
+  circleName: string
+  circleId: string
+  date: string | null
+  reason: string
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  createdAt: string
+  payload: string | null
+  reviewNote: string | null
+  reviewedAt: string | null
+  attendanceId: string | null
+}
+
+export type AdminRequestsResponse = {
+  count: number
+  requests: AdminAttendanceRequest[]
+}
+
 export type AuditRecord = {
   id: number
   actorName: string

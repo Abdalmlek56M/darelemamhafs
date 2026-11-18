@@ -7,6 +7,7 @@ import ConnectionCheckingView from './pages/ConnectionCheckingView'
 import useDarApplication from './application/useDarApplication'
 import DashboardPage from './pages/DashboardPage'
 import NotificationsPage from './pages/NotificationsPage'
+import AdminRequestsPage from './pages/AdminRequestsPage'
 import StudentsPage from './pages/StudentsPage'
 import TeachersPage from './pages/TeachersPage'
 import TeacherNotesPage from './pages/TeacherNotesPage'
@@ -73,6 +74,8 @@ export default function App() {
         {page==='dashboard' && has('dashboard.read') && <DashboardPage ctx={ctx} />}
 
         {page==='notifications' && has('dashboard.read') && <NotificationsPage ctx={ctx} />}
+
+        {page==='requests' && has('attendance.edit') && <AdminRequestsPage ctx={ctx} />}
 
         {page==='students' && <StudentsPage ctx={ctx} />}
 
