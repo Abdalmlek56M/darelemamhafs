@@ -334,7 +334,7 @@ If any default is wrong, the owner can change it before that phase starts.
 
 ## 14. What Is Missing Today (as of 18 Nov 2026)
 
-- **Subscriptions/collections (P0):** full review still pending. The automatic proration was removed, but the live DB still has 9 trial-student charges for 2026-11 at 125.00/116.67 against 250.00 agreed fees; two have payments totaling 250. They need an approved correction path.
+- **Subscriptions/collections (done):** automatic proration removed, agreed fee used, 9 historical charges corrected with audit, integrity checks clean, audit panel added. Remaining: receipt/refund UI audit.
 - **Admin schedule + teacher attendance (done):** pay math/snapshots, month totals, filters, duration editing, weekday/future guards and inactive-circle handling verified. Open: device-local countdown vs Cairo; wide table on mobile.
 - **Admin requests review (done):** supervisors and admins can review attendance requests from `/management`; approval applies audited attendance/pay effects.
 - **Teacher:** weekly calendar and session/login history are implemented. Attendance has an offline IndexedDB outbox; session end/notes still require connectivity.
@@ -472,7 +472,7 @@ Verified against a disposable PostgreSQL 17 database with a 250 charge + 125 pay
 
 Recorded from owner feedback; not all items are implemented yet.
 
-1. **Subscriptions/collections full review (P0):** the previous charge dialog prorated the first month by active days, producing amounts like 108.33, 116.67 and 125 for a 250 circle. The charge suggestion now uses the agreed enrollment fee (`agreed_monthly_fee`) and never prorates automatically; `ChargeDialog` shows the agreed fee and a reset-to-agreed link. The 9 live trial-student charges for 2026-11 were corrected to 250.00 with audit rows; a read-only **مراجعة الاستحقاقات** panel now flags any future mismatch. The full subscriptions/collections review is still pending.
+1. **Subscriptions/collections full review (done):** the proration was removed and the charge dialog uses the agreed fee; the 9 live trial charges were corrected with audit. Integrity checks are clean (0 mismatches, 0 overpayments, 0 non-positive payments, 0 orphan charges). Remaining: receipt/refund UI audit.
 2. **Admin schedule + teacher-attendance lists review (done):** pay math, snapshots, month totals, filters and duration editing were verified. Added weekday/future-date guards and inactive-circle handling. Open note: the admin countdown uses device local time while the teacher portal uses Cairo; the session table scrolls horizontally on mobile.
 3. **Admin console full review:** notifications and teacher-notes pages are now live; continue with UI/functional parity on PC/mobile, finance pages, users, reports and dashboard.
 4. **File/folder/OOP refactor:** the project is split by feature/module, but the largest files still need splitting — `TeacherApp.tsx` (433 lines), `teacherTypes.ts` (404), `useDarApplication.ts` (373), `ManagementReportBuilder.tsx` (360), `SystemAdminView.tsx` (327), `AuthEndpoints.cs` (472), `DomainEndpoints.ScheduleAttendance.cs` (361).

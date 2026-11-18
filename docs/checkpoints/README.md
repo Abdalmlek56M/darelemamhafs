@@ -57,6 +57,7 @@
 | 1.31.0 | [Teacher offline attendance outbox](teacher-offline-outbox-1.0.md) | ✅ live; IndexedDB queue, auto-flush, connectivity banner |
 | 1.32.0 | [Reports finance gate + supervisor subscription status](reports-finance-subscription-status-1.0.md) | ✅ live; reports.finance required, list status without amounts |
 | 1.33.0 | [Monthly payroll lock](payroll-lock-1.0.md) | ✅ live; migration 022, audited lock/unlock, edit/request guards |
+| 1.34.0 | [Subscriptions + collections review](subscriptions-collections-review-1.0.md) | ✅ live; integrity checks clean, mobile stats fix |
 
 ## Next in order
 
