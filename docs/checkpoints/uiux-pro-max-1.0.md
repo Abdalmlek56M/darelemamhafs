@@ -24,7 +24,9 @@ Date: 18 Nov 2026
 ## Verification
 
 - `npm run build --prefix frontend` - passed.
+- `npm test --prefix frontend -- --run` - 6 tests passed.
 - Visual checks on disposable QA PostgreSQL 17 + both APIs + Vite at 390px.
+- Live deployment commit `3ce3524`; pre/post backups `dar-20261118-234051.dump` / `dar-20261118-234342.dump`. Live `/`, `/management`, `/teacher`, `/supervisor` return 200.
 - `dotnet build`/tests unaffected by this frontend-only patch; the last recorded run remains 16 unit + 20 integration.
 
 ## Remaining
