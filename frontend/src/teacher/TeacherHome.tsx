@@ -1,5 +1,6 @@
 import { Bell, CalendarDays, History, LogOut, Play, Users, Wallet } from 'lucide-react'
 import type { EarningsResponse, Slot, TodayResponse } from './teacherTypes'
+import { formatTime12 } from '../lib/dates'
 import { localDate, money, timeRange } from './teacherFormat'
 
 type Props = {
@@ -43,7 +44,7 @@ function SlotAction({ slot, onStart, onOpenLive, onOpenRoster }: Pick<Props, 'on
     return <button className="t-secondary" disabled>تم تسجيل الحلقة</button>
   }
   if (!slot.canStart) {
-    return <button className="t-secondary" disabled>تبدأ {slot.startsAt}</button>
+    return <button className="t-secondary" disabled>تبدأ {formatTime12(slot.startsAt)}</button>
   }
   return <button className="t-primary" onClick={() => onStart(slot)}><Play size={17} /> تسجيل الحضور</button>
 }
@@ -146,7 +147,7 @@ export default function TeacherHome({
                     : !slot.sessionId && slot.sessionStatus !== 'completed' && slot.canStart
                       ? <button className="t-text-button" onClick={() => onStart(slot)}>بدء</button>
                       : !slot.sessionId && slot.sessionStatus !== 'completed'
-                        ? <span className="t-badge t-badge-muted">تبدأ {slot.startsAt}</span>
+                        ? <span className="t-badge t-badge-muted">تبدأ {formatTime12(slot.startsAt)}</span>
                         : <SlotStatus slot={slot} />}
               </div>
             ))}
