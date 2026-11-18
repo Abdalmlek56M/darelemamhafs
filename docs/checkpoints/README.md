@@ -52,6 +52,7 @@
 | 1.26.0 | [Admin notifications + teacher notes + desktop teacher layout](admin-notifications-teacher-layout-1.0.md) | ✅ live; admin insights pages, mobile nav, PC teacher shell, charge suggestion fix |
 | 1.27.0 | [Historical charge correction + charge audit](charge-correction-audit-1.0.md) | ✅ live; 9 charges corrected with audit, admin audit panel |
 | 1.28.0 | [Schedule + teacher attendance review](schedule-attendance-review-1.0.md) | ✅ live; weekday/future guards, inactive-circle actions |
+| 1.29.0 | [Admin requests review](admin-requests-review-1.0.md) | ✅ live; pending/approved filters, approve/reject with audited effects |
 
 ## Next in order
 
