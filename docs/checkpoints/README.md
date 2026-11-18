@@ -59,6 +59,7 @@
 | 1.33.0 | [Monthly payroll lock](payroll-lock-1.0.md) | ✅ live; migration 022, audited lock/unlock, edit/request guards |
 | 1.34.0 | [Subscriptions + collections review](subscriptions-collections-review-1.0.md) | ✅ live; integrity checks clean, mobile stats fix |
 | 1.35.0 | [Owner feedback round 2](owner-feedback-round2-1.0.md) | ✅ live; 12h times, auto-refresh, request actions, circle roster/add students, bulk enrollment |
+| 1.36.0 | [Final UI/QA review](final-ui-qa-1.0.md) | ✅ complete; admin/teacher/supervisor PC+mobile audit, payment cards, teacher home, attendance date, 12h sweep, receipt verification |
 
 ## Next in order
 

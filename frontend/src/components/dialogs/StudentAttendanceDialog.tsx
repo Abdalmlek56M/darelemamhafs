@@ -4,6 +4,7 @@ import Modal from '../common/Modal'
 import AttendanceStatusPicker from '../common/AttendanceStatusPicker'
 import type { ScheduleSlot, StudentAttendanceRosterRow } from '../../domain/types'
 import { formatDate } from '../../lib/formatters'
+import { formatTime12 } from '../../lib/dates'
 
 type AttendanceStatus = 'present' | 'absent' | 'excused'
 type Notice = (tone: 'success' | 'error' | 'info', text: string) => void
@@ -74,7 +75,7 @@ export default function StudentAttendanceDialog({ slot, date, close, notify, aft
     } else notify('error', failures[0] ?? 'لم يتم حفظ أي سجل.')
   }
 
-  return <Modal level={level} wide title={`حضور الطلاب · ${slot.circleName}`} subtitle={`${formatDate(date)} · ${slot.teacherName || 'معلمة غير محددة'} · ${slot.startsAt.slice(0,5)}`} close={close}>
+  return <Modal level={level} wide title={`حضور الطلاب · ${slot.circleName}`} subtitle={`${formatDate(date)} · ${slot.teacherName || 'معلمة غير محددة'} · ${formatTime12(slot.startsAt)}`} close={close}>
     <div className="student-attendance-dialog">
       <div className="system-panel-heading"><div><span className="eyebrow">تسجيل الحصة</span><h3>قائمة الطلاب</h3><p>اختَر الحالة لكل طالب ثم احفظ التغييرات. لا تُسجّل الحالات غير المحددة تلقائيًا.</p></div><span className="system-heading-icon"><UsersRound size={20}/></span></div>
       {loading ? <div className="dialog-loading"><LoaderCircle className="spin" size={20}/> جارٍ تحميل الطلاب…</div> : loadError ? <div className="error-panel">{loadError}</div> : rows.length === 0 ? <div className="empty-state compact-empty"><strong>لا يوجد طالب ملتحق بهذه الحلقة حتى الآن.</strong><p>ألحِق الطالب بالحلقة من ملف الطالب أو من تفاصيل الحلقة أولًا؛ تسجيل الحضور لا ينقل الطالب إلى حلقة جديدة تلقائيًا.</p></div> : <>

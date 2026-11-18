@@ -57,8 +57,13 @@ export default function TeacherHome({
   if (error) return <div className="t-error-card"><p>{error}</p><button className="t-secondary" onClick={onRefresh}>إعادة المحاولة</button></div>
 
   const slots = today?.slots ?? []
-  const current = slots.find((slot) => slot.isCurrent || slot.sessionStatus === 'in_progress') ?? slots.find((slot) => slot.isNext)
+  const current = slots.find((slot) => slot.isCurrent || slot.sessionStatus === 'in_progress')
+    ?? slots.find((slot) => slot.sessionStatus === 'awaiting_attendance')
+    ?? slots.find((slot) => slot.isNext)
+    ?? [...slots].reverse().find((slot) => !slot.sessionId && slot.sessionStatus !== 'completed')
   const rest = slots.filter((slot) => slot.id !== current?.id)
+  const restTitle = current?.isCurrent || current?.isNext ? 'باقي اليوم' : 'حلقات أخرى اليوم'
+  const sessionsLabel = (count: number) => count === 1 ? 'حلقة واحدة' : `${count} حلقات`
   const name = today?.teacher.name ?? ''
 
   return (
@@ -76,7 +81,8 @@ export default function TeacherHome({
       </header>
 
       <div className="t-home-grid">
-      {!current && <div className="t-empty">لا توجد حلقات مجدولة اليوم.</div>}
+      {slots.length === 0 && <div className="t-empty">لا توجد حلقات مجدولة اليوم.</div>}
+      {slots.length > 0 && !current && <div className="t-empty">انتهت حلقات اليوم.</div>}
 
       {current && (
         <article className="t-live-card">
@@ -131,7 +137,7 @@ export default function TeacherHome({
 
       {rest.length > 0 && (
         <>
-          <div className="t-section-title t-home-rest-title"><strong>باقي اليوم</strong><span>{rest.length} حلقات</span></div>
+          <div className="t-section-title t-home-rest-title"><strong>{restTitle}</strong><span>{sessionsLabel(rest.length)}</span></div>
           <div className="t-list t-home-rest-list">
             {rest.map((slot) => (
               <div className="t-row" key={slot.id}>

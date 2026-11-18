@@ -162,14 +162,14 @@ function buildCircleReport(schoolName: string, month: string, circles: Circle[],
       return session
     }
     for (const row of teacherAttendance) {
-      const key = row.scheduleSlotId ? `${row.scheduleSlotId}|${row.sessionDate}` : `${circle.id}|${row.sessionDate}|${formatTime12(row.startsAt)}`
+      const key = row.scheduleSlotId ? `${row.scheduleSlotId}|${row.sessionDate}` : `${circle.id}|${row.sessionDate}|${row.startsAt.slice(0,5)}`
       const session = ensureSession(key, row.sessionDate, row.startsAt, row.teacherName)
       session.teacherStatus = statusLabel(row.status)
       session.duration = row.durationMinutes
       session.payable = row.status === 'present' ? (row.payableAmount ?? 0) : 0
     }
     for (const row of studentAttendance) {
-      const matchingTeacherRow = teacherAttendance.find(teacherRow => teacherRow.sessionDate === row.sessionDate && (teacherRow.scheduleSlotId ? teacherRow.scheduleSlotId === row.scheduleSlotId : teacherRow.startsAt.slice(0,5) === formatTime12(row.startsAt)))
+      const matchingTeacherRow = teacherAttendance.find(teacherRow => teacherRow.sessionDate === row.sessionDate && (teacherRow.scheduleSlotId ? teacherRow.scheduleSlotId === row.scheduleSlotId : teacherRow.startsAt.slice(0,5) === row.startsAt.slice(0,5)))
       const key = matchingTeacherRow
         ? (matchingTeacherRow.scheduleSlotId ? `${matchingTeacherRow.scheduleSlotId}|${matchingTeacherRow.sessionDate}` : `${circle.id}|${matchingTeacherRow.sessionDate}|${matchingTeacherRow.startsAt.slice(0,5)}`)
         : `${row.scheduleSlotId}|${row.sessionDate}`
@@ -217,7 +217,7 @@ function buildTeacherReport(schoolName: string, month: string, teacher: Teacher,
   const hours = sum(present, row => row.durationMinutes) / 60
   const attendanceRows = attendance.map(row => {
     const sameSession = data.studentAttendance.filter(student => student.sessionDate === row.sessionDate && (
-      row.scheduleSlotId ? student.scheduleSlotId === row.scheduleSlotId : student.circleId === row.circleId && student.startsAt.slice(0,5) === formatTime12(row.startsAt)
+      row.scheduleSlotId ? student.scheduleSlotId === row.scheduleSlotId : student.circleId === row.circleId && student.startsAt.slice(0,5) === row.startsAt.slice(0,5)
     ))
     const presentStudentCount = sameSession.filter(student => student.status === 'present').length
     const studentSummary = row.status !== 'present'

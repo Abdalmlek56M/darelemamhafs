@@ -162,7 +162,7 @@ export default function SupervisorOverview({
                 <span className={`sup-dot ${session.status === 'in_progress' ? 'is-live' : ''}`} />
                 <div className="sup-row-copy">
                   <strong>{session.circleName}</strong>
-                  <small>{session.teacherName} · {session.scheduledStart} · {session.studentCount} طالبة</small>
+                  <small>{session.teacherName} · {formatTime12(session.scheduledStart)} · {session.studentCount} طالبة</small>
                 </div>
                 <span className={statusTone(session.status)}>{statusLabel(session.status)}</span>
                 {canFinance && session.payableAmount !== null && <span className="sup-chip">{money(session.payableAmount)}</span>}

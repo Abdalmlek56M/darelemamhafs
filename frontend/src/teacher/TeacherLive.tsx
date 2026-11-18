@@ -2,7 +2,7 @@ import { formatTime12 } from '../lib/dates'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Clock3, Square } from 'lucide-react'
 import type { Slot } from './teacherTypes'
-import { localTime, money } from './teacherFormat'
+import { localTime, money, timeRange } from './teacherFormat'
 
 type Props = {
   slot: Slot | null
@@ -61,11 +61,11 @@ export default function TeacherLive({ slot, hourlyRate, scheduledMinutes, starte
       <div className="t-timer-card">
         <span className="t-badge t-badge-live">مباشر</span>
         <div className="t-timer">{timer}</div>
-        <p className="t-muted">{slot ? `${slot.startsAt} – ${slot.endsAt}` : `المدة الأساسية ${scheduledMinutes} دقيقة`}</p>
+        <p className="t-muted">{slot ? timeRange(slot.startsAt, slot.endsAt) : `المدة الأساسية ${scheduledMinutes} دقيقة`}</p>
         <div className="t-chip-row">
           {startedAt && <span className="t-chip">بدأت {localTime(startedAt)}</span>}
           {overtime > 0 && <span className="t-chip t-chip-warn">بعد الموعد +{overtime} د</span>}
-          {undertime > 0 && <span className="t-chip">قبل الموعد {undertime} د</span>}
+          {undertime > 0 && <span className="t-chip">المتبقي {undertime} د</span>}
         </div>
       </div>
 

@@ -51,7 +51,7 @@ export default function SupervisorAttendance({ demo = false, onOpenTeacher, onOp
   return (
     <div className="t-page t-page-embedded">
       <div className="sup-toolbar">
-        <label className="sup-date"><CalendarDays size={16} /><input type="date" value={date} max={todayCairo()} onChange={(event) => setDate(event.target.value || todayCairo())} aria-label="تاريخ الحضور" /><span>{dateLabel(date)}</span></label>
+        <label className="sup-date"><CalendarDays size={16} /><input type="date" value={date} max={todayCairo()} onChange={(event) => setDate(event.target.value || todayCairo())} aria-label="تاريخ الحضور" /></label>
         <div className="sup-segment">
           <button className={tab === 'teachers' ? 'active' : ''} onClick={() => setTab('teachers')}>المعلمات ({teachers.length})</button>
           <button className={tab === 'students' ? 'active' : ''} onClick={() => setTab('students')}>الطالبات ({students.length})</button>
