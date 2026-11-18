@@ -1,7 +1,7 @@
 # Supervision Workspace, Communications and Admin UX — Plan
 
 **Date:** 16 Nov 2026
-**Status:** A1, A2, E1, F1, F2, A3.1, A3.2, the permanent integration tests, settings-controlled communication templates, the notes banner and the public homepage/`/management` split are live. Remaining: admin console parity/refactor, teacher UI parity.
+**Status:** A1, A2, E1, F1, F2, A3.1, A3.2, permanent integration tests, communication templates, notes banner, public homepage/`/management`, admin notifications/teacher-notes pages and the PC teacher shell are live. Remaining: subscriptions/collections full review, admin schedule/attendance review, admin console parity, file/OOP refactor.
 **Owner approval:** all previously listed gaps and suggestions are approved. Manual adjustments, supervisor scope, offline handling, calendar, requests, admin notifications, WhatsApp sender, reports and the full admin/supervisor UI are in scope.
 
 Related: `docs/13-teacher-portal-requirements.md`, `docs/14-ui-audit-and-mobile-direction.md`, `docs/15-legacy-reuse-audit.md`, `docs/11-deployment.md`.
@@ -471,7 +471,7 @@ Recorded from owner feedback; not all items are implemented yet.
 
 1. **Subscriptions/collections full review (P0):** the previous charge dialog prorated the first month by active days, producing amounts like 108.33, 116.67 and 125 for a 250 circle. The charge suggestion now uses the agreed enrollment fee (`agreed_monthly_fee`) and never prorates automatically; `ChargeDialog` shows the agreed fee and a reset-to-agreed link. Historical charges created with the old proration still need an audit/cleanup report before any correction.
 2. **Admin schedule + teacher-attendance lists review:** verify the dates, teacher pay calculations, filters and mobile/desktop tables end to end.
-3. **Admin console full review:** notifications and teacher-notes pages are now present; continue with UI/functional parity on PC/mobile, finance pages, users, reports and dashboard.
+3. **Admin console full review:** notifications and teacher-notes pages are now live; continue with UI/functional parity on PC/mobile, finance pages, users, reports and dashboard.
 4. **File/folder/OOP refactor:** the project is split by feature/module, but the largest files still need splitting — `TeacherApp.tsx` (433 lines), `teacherTypes.ts` (404), `useDarApplication.ts` (373), `ManagementReportBuilder.tsx` (360), `SystemAdminView.tsx` (327), `AuthEndpoints.cs` (472), `DomainEndpoints.ScheduleAttendance.cs` (361).
 5. **Cloudflare beacon:** the `static.cloudflareinsights.com/beacon.min.js` script is injected by Cloudflare Web Analytics; it is expected and does not affect the app.
 6. **Teacher PC/mobile separation:** the 520/860px centered “tablet frame” and bottom navigation on desktop were removed. PC now uses a full-width shell with a right sidebar; mobile keeps the bottom nav and full-width pages.

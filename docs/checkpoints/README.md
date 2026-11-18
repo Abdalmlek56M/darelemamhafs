@@ -49,6 +49,7 @@
 | 1.23.0 | [Public homepage + /management](public-homepage-management-1.0.md) | ✅ live; public entry at `/`, admin at `/management` |
 | 1.24.0 | [Permanent supervision integration tests](supervision-a32-requests-1.0.md) | ✅ 16 unit + 15 integration (Testcontainers PostgreSQL 17) |
 | 1.25.0 | [Communication templates + notes banner](communication-templates-1.0.md) | ✅ live; settings-controlled WhatsApp templates and notes banner |
+| 1.26.0 | [Admin notifications + teacher notes + desktop teacher layout](admin-notifications-teacher-layout-1.0.md) | ✅ live; admin insights pages, mobile nav, PC teacher shell, charge suggestion fix |
 
 ## Next in order
 
