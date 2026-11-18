@@ -18,6 +18,13 @@ Date: 18 Nov 2026
 - Audited receipts end to end on disposable QA data: multipart payment creation with image receipt, authenticated preview, download response, student financial history and the receipt modal all worked. The QA payment/container was removed afterwards.
 - Installed 17 curated project skills under `.opencode/skills` after running the skill security auditor. `getsentry/security-review` was excluded because of two false-positive critical findings in explanatory attack text; the existing security skill is used instead.
 
+## Deployment
+
+- Commit `54d0fb2` pushed to `main` and deployed to `https://dar-elemam-hafs.rigxhardware.com`.
+- Pre-deploy DB backup: `dar-20261118-215031.dump`. Post-deploy DB backup: `dar-20261118-215411.dump`.
+- Previous `wwwroot` retained at `/var/lib/dar/backups/frontend-` as a rollback copy.
+- Live routes returned 200: `/`, `/management`, `/teacher`, `/supervisor`; the served admin bundle was `index-DOW_95cH.js`.
+
 ## Verification
 
 - `npm run build --prefix frontend` - passed.
