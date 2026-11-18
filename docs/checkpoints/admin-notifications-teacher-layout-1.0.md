@@ -38,7 +38,7 @@ Date: 18 Nov 2026
 ## Pending
 
 1. Owner visual check of the new admin pages and the desktop teacher layout after login.
-2. Audit historical monthly charges created with the old prorated suggestion; produce a report before corrections.
+2. Audit historical monthly charges created with the old prorated suggestion; produce a report before corrections. Live read-only audit on 18 Nov 2026 found **9** such charges, all on trial students (“تجربة طالب 1–4”) for **2026-11**, at 125.00 or 116.67 against an agreed fee of 250.00. They still need an approved correction path.
 3. Full subscriptions/collections review and admin schedule/teacher-attendance list review.
 4. Admin console UI/functional parity and the file/folder/OOP refactor.
 5. Admin permissions save re-test after the Nginx buffer fix.
