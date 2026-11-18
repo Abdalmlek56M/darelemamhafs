@@ -25,7 +25,7 @@ Date: 18 Nov 2026
 
 ## Pending
 
-- Formal PDF sample of the current report layouts for owner review.
+- Formal PDF sample: **generated** at `docs/samples/report-school-2026-11.pdf` with `docs/samples/report-builder-preview.png`; owner review still required.
 - Payroll lock.
 - Admin console parity and 250/125 charge-payment UI audit.
 - File/OOP refactor.
