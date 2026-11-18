@@ -81,6 +81,9 @@
 .admin-note-cards { display: none; }
 
 @media (max-width: 760px) {
+  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .stat-card { padding: 12px; }
+  .stat-value { font-size: 20px; }
   .admin-insight-stats { grid-template-columns: 1fr; gap: 7px; }
   .admin-insight-stats > div { padding: 11px 13px; }
   .admin-insight-toolbar { align-items: stretch; }
