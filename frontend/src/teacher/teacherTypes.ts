@@ -1,4 +1,4 @@
-export type Page = 'home' | 'live' | 'roster' | 'notifications' | 'supervisor' | 'subscriptions' | 'account' | 'requests'
+export type Page = 'home' | 'live' | 'roster' | 'notifications' | 'supervisor' | 'subscriptions' | 'account' | 'requests' | 'calendar' | 'history'
 
 export type TeacherSession = {
   id: string

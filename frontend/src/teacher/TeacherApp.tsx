@@ -7,6 +7,8 @@ import type {
 } from './teacherTypes'
 import TeacherLogin from './TeacherLogin'
 import TeacherHome from './TeacherHome'
+import TeacherCalendar from './TeacherCalendar'
+import TeacherHistory from './TeacherHistory'
 import TeacherLive from './TeacherLive'
 import TeacherRoster from './TeacherRoster'
 import TeacherNotifications from './TeacherNotifications'
@@ -16,6 +18,7 @@ import TeacherRequests from './TeacherRequests'
 import SupervisorWorkspace from './SupervisorWorkspace'
 import TeacherNav from './TeacherNav'
 import './teacher.css'
+import './calendar-history.css'
 
 type Props = { mode: 'teacher' | 'supervisor' }
 
@@ -383,6 +386,8 @@ export default function TeacherApp({ mode }: Props) {
             onOpenRoster={(id) => void openRoster(id)}
             onNotifications={() => setPage('notifications')}
             onSubscriptions={() => setPage('subscriptions')}
+            onCalendar={() => setPage('calendar')}
+            onHistory={() => setPage('history')}
             onLogout={() => void logout()}
             canSubscriptions={canSubscriptions}
             canEarnings={canEarnings}
@@ -452,6 +457,8 @@ export default function TeacherApp({ mode }: Props) {
           />
         )}
         {page === 'requests' && canTeacherRequests && <TeacherRequests today={today} />}
+        {page === 'calendar' && <TeacherCalendar onBack={() => setPage('home')} onOpenLive={(id) => void openLive(id)} onOpenRoster={(id) => void openRoster(id)} />}
+        {page === 'history' && <TeacherHistory onBack={() => setPage('home')} />}
       </main>
 
       <TeacherNav

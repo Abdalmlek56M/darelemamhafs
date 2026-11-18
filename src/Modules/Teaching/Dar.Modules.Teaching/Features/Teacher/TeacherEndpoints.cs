@@ -24,6 +24,11 @@ public static class TeacherEndpoints
         group.MapGet("/subscriptions", MoneyEndpoints.Subscriptions)
             .RequireAuthorization("teacher.subscriptions.read").WithName("TeacherSubscriptions");
 
+        group.MapGet("/calendar", TeacherCalendarEndpoints.Calendar)
+            .RequireAuthorization("teacher.calendar").WithName("TeacherCalendar");
+        group.MapGet("/history", TeacherCalendarEndpoints.History)
+            .RequireAuthorization("teacher.history.self").WithName("TeacherHistory");
+
         group.MapGet("/requests", TeacherRequestEndpoints.List)
             .RequireAuthorization("teacher.requests").WithName("TeacherRequests");
         group.MapPost("/requests", TeacherRequestEndpoints.Create)

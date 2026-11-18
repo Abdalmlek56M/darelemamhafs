@@ -213,6 +213,29 @@ public sealed class SupervisionAccessTests(SupervisionFixture fixture) : IClassF
         }
     }
 
+    [Fact]
+    public async Task TeacherCalendar_ReturnsWeeklyDaysAndSeededSession()
+    {
+        using var teacher = Client();
+        await LoginAsync(teacher, "teacher1");
+        var json = await GetJson(teacher, "/api/v1/teacher/calendar?days=7");
+        var days = json.GetProperty("days");
+        Assert.Equal(7, days.GetArrayLength());
+        Assert.All(days.EnumerateArray(), day => Assert.Equal(JsonValueKind.String, day.GetProperty("date").ValueKind));
+        var sessionCount = days.EnumerateArray().Sum(day => day.GetProperty("sessions").GetArrayLength());
+        Assert.True(sessionCount >= 1);
+    }
+
+    [Fact]
+    public async Task TeacherHistory_ReturnsAttendanceAndLoginSessions()
+    {
+        using var teacher = Client();
+        await LoginAsync(teacher, "teacher1");
+        var json = await GetJson(teacher, "/api/v1/teacher/history?limit=20");
+        Assert.True(json.GetProperty("attendance").GetArrayLength() >= 1);
+        Assert.Equal(JsonValueKind.Array, json.GetProperty("logins").ValueKind);
+    }
+
     private static async Task<JsonElement> GetJson(HttpClient client, string path)
     {
         var response = await client.GetAsync(path);

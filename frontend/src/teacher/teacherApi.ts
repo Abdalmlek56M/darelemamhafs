@@ -5,6 +5,7 @@ import type {
   SupervisorTeacherAttendanceRow, SupervisorTeacherDetailResponse, SupervisorTeacherNotesResponse, SupervisorTeachersResponse,
   SupervisorUnpaidResponse, SupervisorStudentAttendanceRow, TeacherSession, TodayResponse,
 } from './teacherTypes'
+import type { TeacherCalendarResponse, TeacherHistoryResponse } from './teacherCalendarTypes'
 
 export class TeacherApiError extends Error {
   status: number
@@ -128,6 +129,13 @@ export const teacherApi = {
     const query = params.size ? `?${params.toString()}` : ''
     return request<SupervisorTeacherNotesResponse>(`/api/v1/supervisor/teacher-notes${query}`)
   },
+  teacherCalendar: (from?: string, days = 7) => {
+    const params = new URLSearchParams({ days: String(days) })
+    if (from) params.set('from', from)
+    return request<TeacherCalendarResponse>(`/api/v1/teacher/calendar?${params.toString()}`)
+  },
+  teacherHistory: (limit = 50) =>
+    request<TeacherHistoryResponse>(`/api/v1/teacher/history?limit=${limit}`),
   supervisorTeacherAttendance: (date?: string, circleId?: string) => {
     const params = new URLSearchParams()
     if (date) params.set('date', date)

@@ -1,4 +1,4 @@
-import { Bell, CalendarDays, LogOut, Play, Users, Wallet } from 'lucide-react'
+import { Bell, CalendarDays, History, LogOut, Play, Users, Wallet } from 'lucide-react'
 import type { EarningsResponse, Slot, TodayResponse } from './teacherTypes'
 import { localDate, money, timeRange } from './teacherFormat'
 
@@ -13,6 +13,8 @@ type Props = {
   onOpenRoster: (sessionId: string) => void
   onNotifications: () => void
   onSubscriptions: () => void
+  onCalendar: () => void
+  onHistory: () => void
   onLogout: () => void
   canSubscriptions: boolean
   canEarnings: boolean
@@ -48,7 +50,7 @@ function SlotAction({ slot, onStart, onOpenLive, onOpenRoster }: Pick<Props, 'on
 
 export default function TeacherHome({
   today, earnings, loading, error, onRefresh, onStart, onOpenLive, onOpenRoster,
-  onNotifications, onSubscriptions, onLogout, canSubscriptions, canEarnings, unread, canRequests, onRequests,
+  onNotifications, onSubscriptions, onCalendar, onHistory, onLogout, canSubscriptions, canEarnings, unread, canRequests, onRequests,
 }: Props) {
   if (loading && !today) return <div className="t-empty">جارٍ تحميل حلقاتك…</div>
   if (error) return <div className="t-error-card"><p>{error}</p><button className="t-secondary" onClick={onRefresh}>إعادة المحاولة</button></div>
@@ -116,6 +118,8 @@ export default function TeacherHome({
       <div className="t-section-title t-home-quick-title"><strong>روابط سريعة</strong><span>كل ما تحتاجينه</span></div>
       <div className="t-quick-grid">
         <button onClick={onNotifications}><Bell size={17} /><strong>التنبيهات</strong><small>{unread > 0 ? `${unread} غير مقروء` : 'لا جديد'}</small></button>
+        <button onClick={onCalendar}><CalendarDays size={17} /><strong>تقويم الأسبوع</strong><small>حلقات الأيام القادمة</small></button>
+        <button onClick={onHistory}><History size={17} /><strong>سجلي</strong><small>الحصص والدخول السابق</small></button>
         <button onClick={onRefresh}><CalendarDays size={17} /><strong>تحديث الحلقات</strong><small>{loading ? 'جارٍ التحديث' : 'اسحبي أحدث حالة'}</small></button>
         <button onClick={() => current?.sessionId && onOpenRoster(current.sessionId)} disabled={!current?.sessionId}>
           <Users size={17} /><strong>حضور الطالبات</strong><small>{current?.sessionId ? current.circleName : 'ابدئي حلقة أولًا'}</small>

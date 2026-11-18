@@ -126,7 +126,10 @@ public sealed class SupervisionFixture : IAsyncLifetime
              ('74000000-0000-4000-8000-000000000004', 'supervisor.attendance.requests'),
              ('75000000-0000-4000-8000-000000000005', 'teacher.portal'),
              ('75000000-0000-4000-8000-000000000005', 'teacher.attendance'),
-             ('75000000-0000-4000-8000-000000000005', 'teacher.requests');
+             ('75000000-0000-4000-8000-000000000005', 'teacher.requests'),
+             ('75000000-0000-4000-8000-000000000005', 'teacher.calendar'),
+             ('75000000-0000-4000-8000-000000000005', 'teacher.history.self'),
+             ('75000000-0000-4000-8000-000000000005', 'teacher.earnings.self');
 
             INSERT INTO app_user_scopes(user_id, scope_type, scope_id) VALUES
              ('71000000-0000-4000-8000-000000000001', 'circle', @c1),
