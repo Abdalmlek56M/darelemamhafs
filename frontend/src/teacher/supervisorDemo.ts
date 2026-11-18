@@ -13,14 +13,14 @@ const day = (offset: number) => {
 }
 
 export const demoStudents: SupervisorStudent[] = [
-  { id: 'demo-s1', studentCode: 'ST-1001', fullName: 'مريم أحمد', phone: '01012345678', guardianName: 'أحمد سعيد', guardianPhone: '01098765432', status: 'active', joinedOn: day(-120), circles: ['حلقة النور'] },
-  { id: 'demo-s2', studentCode: 'ST-1002', fullName: 'سلمى محمود', phone: '01123456789', guardianName: 'محمود علي', guardianPhone: '01187654321', status: 'active', joinedOn: day(-110), circles: ['حلقة النور'] },
-  { id: 'demo-s3', studentCode: 'ST-1003', fullName: 'حبيبة يوسف', phone: '01234567890', guardianName: 'يوسف إبراهيم', guardianPhone: '01276543210', status: 'active', joinedOn: day(-95), circles: ['حلقة الفرقان'] },
-  { id: 'demo-s4', studentCode: 'ST-1004', fullName: 'ملك عمرو', phone: '01011112222', guardianName: 'عمرو حسن', guardianPhone: '01033334444', status: 'active', joinedOn: day(-80), circles: ['حلقة الفرقان'] },
-  { id: 'demo-s5', studentCode: 'ST-1005', fullName: 'جنى خالد', phone: '01155556666', guardianName: 'خالد مصطفى', guardianPhone: '01177778888', status: 'active', joinedOn: day(-75), circles: ['حلقة جزء تبارك'] },
-  { id: 'demo-s6', studentCode: 'ST-1006', fullName: 'رقية إبراهيم', phone: '01299990000', guardianName: 'إبراهيم سامي', guardianPhone: '01212121212', status: 'active', joinedOn: day(-60), circles: ['حلقة جزء تبارك'] },
-  { id: 'demo-s7', studentCode: 'ST-1007', fullName: 'هاجر سامي', phone: '01050505050', guardianName: 'سامي فتحي', guardianPhone: '01060606060', status: 'paused', joinedOn: day(-45), circles: ['حلقة النور'] },
-  { id: 'demo-s8', studentCode: 'ST-1008', fullName: 'فاطمة حسن', phone: '01140404040', guardianName: 'حسن عادل', guardianPhone: '01130303030', status: 'active', joinedOn: day(-30), circles: ['حلقة الفرقان'] },
+  { id: 'demo-s1', studentCode: 'ST-1001', fullName: 'مريم أحمد', phone: '01012345678', guardianName: 'أحمد سعيد', guardianPhone: '01098765432', status: 'active', joinedOn: day(-120), subscriptionStatus: 'paid', circles: ['حلقة النور'] },
+  { id: 'demo-s2', studentCode: 'ST-1002', fullName: 'سلمى محمود', phone: '01123456789', guardianName: 'محمود علي', guardianPhone: '01187654321', status: 'active', joinedOn: day(-110), subscriptionStatus: 'partial', circles: ['حلقة النور'] },
+  { id: 'demo-s3', studentCode: 'ST-1003', fullName: 'حبيبة يوسف', phone: '01234567890', guardianName: 'يوسف إبراهيم', guardianPhone: '01276543210', status: 'active', joinedOn: day(-95), subscriptionStatus: 'unpaid', circles: ['حلقة الفرقان'] },
+  { id: 'demo-s4', studentCode: 'ST-1004', fullName: 'ملك عمرو', phone: '01011112222', guardianName: 'عمرو حسن', guardianPhone: '01033334444', status: 'active', joinedOn: day(-80), subscriptionStatus: 'paid', circles: ['حلقة الفرقان'] },
+  { id: 'demo-s5', studentCode: 'ST-1005', fullName: 'جنى خالد', phone: '01155556666', guardianName: 'خالد مصطفى', guardianPhone: '01177778888', status: 'active', joinedOn: day(-75), subscriptionStatus: 'partial', circles: ['حلقة جزء تبارك'] },
+  { id: 'demo-s6', studentCode: 'ST-1006', fullName: 'رقية إبراهيم', phone: '01299990000', guardianName: 'إبراهيم سامي', guardianPhone: '01212121212', status: 'active', joinedOn: day(-60), subscriptionStatus: 'not-set', circles: ['حلقة جزء تبارك'] },
+  { id: 'demo-s7', studentCode: 'ST-1007', fullName: 'هاجر سامي', phone: '01050505050', guardianName: 'سامي فتحي', guardianPhone: '01060606060', status: 'paused', joinedOn: day(-45), subscriptionStatus: 'unpaid', circles: ['حلقة النور'] },
+  { id: 'demo-s8', studentCode: 'ST-1008', fullName: 'فاطمة حسن', phone: '01140404040', guardianName: 'حسن عادل', guardianPhone: '01130303030', status: 'active', joinedOn: day(-30), subscriptionStatus: 'paid', circles: ['حلقة الفرقان'] },
 ]
 
 export const demoTeachers: SupervisorTeacher[] = [

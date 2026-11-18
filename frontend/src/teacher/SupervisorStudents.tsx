@@ -9,6 +9,9 @@ import WhatsAppButton from './WhatsAppButton'
 
 type Props = { canNote: boolean; demo?: boolean; onOpenCircle?: (id: string) => void; canCommunicate?: boolean }
 
+const subscriptionLabels: Record<string, string> = { paid: 'مسدد', partial: 'جزئي', unpaid: 'متأخر', 'not-set': 'لم يحدد' }
+const subscriptionTones: Record<string, string> = { paid: 't-badge-ok', partial: 't-badge-gold', unpaid: 't-badge-bad', 'not-set': 't-badge-muted' }
+
 export default function SupervisorStudents({ canNote, demo = false, onOpenCircle, canCommunicate = false }: Props) {
   const [students, setStudents] = useState<SupervisorStudent[]>([])
   const [search, setSearch] = useState('')
@@ -69,7 +72,7 @@ export default function SupervisorStudents({ canNote, demo = false, onOpenCircle
 
       <div className="sup-table-wrap">
         <table className="sup-table">
-          <thead><tr><th>الطالبة</th><th>الكود</th><th>الحلقات</th><th>ولي الأمر</th><th>الهاتف</th><th>الحالة</th></tr></thead>
+          <thead><tr><th>الطالبة</th><th>الكود</th><th>الحلقات</th><th>ولي الأمر</th><th>الهاتف</th><th>الاشتراك</th><th>الحالة</th></tr></thead>
           <tbody>
             {students.map((student) => (
               <tr key={student.id} onClick={() => setSelected(student)} tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && setSelected(student)}>
@@ -78,6 +81,7 @@ export default function SupervisorStudents({ canNote, demo = false, onOpenCircle
                 <td>{student.circles.join('، ') || '—'}</td>
                 <td>{student.guardianName ?? '—'}</td>
                 <td dir="ltr">{student.guardianPhone ?? '—'}</td>
+                <td><span className={`t-badge ${subscriptionTones[student.subscriptionStatus] ?? 't-badge-muted'}`}>{subscriptionLabels[student.subscriptionStatus] ?? 'لم يحدد'}</span></td>
                 <td><span className={statusTone(student.status)}>{statusLabel(student.status)}</span></td>
               </tr>
             ))}
@@ -93,6 +97,7 @@ export default function SupervisorStudents({ canNote, demo = false, onOpenCircle
               <strong>{student.fullName}</strong>
               <small>{student.studentCode} · {student.circles.join('، ') || 'بدون حلقة'}</small>
               {student.guardianPhone && <small className="sup-phone"><Phone size={11} /> {student.guardianName ?? 'ولي الأمر'} · <span dir="ltr">{student.guardianPhone}</span></small>}
+              <small><span className={`t-badge ${subscriptionTones[student.subscriptionStatus] ?? 't-badge-muted'}`}>{subscriptionLabels[student.subscriptionStatus] ?? 'لم يحدد'}</span></small>
             </div>
             <span className={statusTone(student.status)}>{statusLabel(student.status)}</span>
           </button>

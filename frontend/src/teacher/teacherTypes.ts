@@ -292,6 +292,7 @@ export type SupervisorStudent = {
   guardianPhone: string | null
   status: string
   joinedOn: string
+  subscriptionStatus: 'paid' | 'partial' | 'unpaid' | 'not-set'
   circles: string[]
 }
 

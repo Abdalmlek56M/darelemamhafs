@@ -24,6 +24,20 @@ public static class StudentsEndpoint
         await using var command = new NpgsqlCommand("""
             SELECT s.id, s.student_code, s.full_name, s.phone, s.guardian_name, s.guardian_phone,
                    s.status, s.joined_on,
+                   (SELECT CASE
+                       WHEN COUNT(mc.id)=0 THEN 'not-set'
+                       WHEN COALESCE(SUM(mc.amount_due),0) <= COALESCE(SUM(p.paid),0) THEN 'paid'
+                       WHEN COALESCE(SUM(p.paid),0) > 0 THEN 'partial'
+                       ELSE 'unpaid' END
+                    FROM circle_enrollments ce2
+                    JOIN circles c2 ON c2.id=ce2.circle_id AND c2.is_trashed=FALSE
+                    LEFT JOIN monthly_charges mc ON mc.enrollment_id=ce2.id AND mc.billing_month=@month AND mc.is_trashed=FALSE
+                    LEFT JOIN LATERAL (
+                        SELECT SUM(pay.amount) AS paid FROM payments pay
+                        WHERE pay.monthly_charge_id=mc.id AND pay.is_trashed=FALSE
+                    ) p ON TRUE
+                    WHERE ce2.student_id=s.id AND ce2.is_trashed=FALSE AND ce2.status IN ('active','paused')
+                      AND (@all OR c2.id = ANY(@circles))) AS subscription_status,
                    COALESCE(array_agg(DISTINCT c.name) FILTER (WHERE c.id IS NOT NULL), ARRAY[]::text[]) AS circles
             FROM students s
             JOIN circle_enrollments ce ON ce.student_id = s.id AND ce.is_trashed = FALSE
@@ -43,6 +57,8 @@ public static class StudentsEndpoint
         command.Parameters.AddWithValue("search", term);
         command.Parameters.AddWithValue("like", like);
         command.Parameters.AddWithValue("circle", (object?)circleId ?? DBNull.Value);
+        var today = CairoTime.Today();
+        command.Parameters.AddWithValue("month", new DateOnly(today.Year, today.Month, 1));
 
         var students = new List<object>();
         await using var reader = await command.ExecuteReaderAsync(ct);
@@ -58,7 +74,8 @@ public static class StudentsEndpoint
                 guardianPhone = reader.IsDBNull(5) ? null : reader.GetString(5),
                 status = reader.GetString(6),
                 joinedOn = reader.GetFieldValue<DateOnly>(7),
-                circles = reader.GetFieldValue<string[]>(8)
+                subscriptionStatus = reader.GetString(8),
+                circles = reader.GetFieldValue<string[]>(9)
             });
         }
 

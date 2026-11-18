@@ -59,7 +59,7 @@ function buildSchoolReport(schoolName: string, month: string, circles: Circle[],
   const canStudents = permissions.includes('students.read')
   const canCircles = permissions.includes('circles.read')
   const canTeachers = permissions.includes('teachers.read')
-  const canFinance = permissions.includes('finance.read') && audience === 'internal'
+  const canFinance = audience === 'internal' && permissions.includes('finance.read') && permissions.includes('reports.finance')
   const canAttendance = permissions.some(p => p === 'attendance.read' || p === 'attendance.edit')
   const present = data.attendance.filter(row => row.status === 'present')
   const due = sum(data.collections, row => row.amountDue)
@@ -106,7 +106,7 @@ function buildSchoolReport(schoolName: string, month: string, circles: Circle[],
 }
 
 function buildCircleReport(schoolName: string, month: string, circles: Circle[], data: MonthData, permissions: string[], audience: ReportAudience) {
-  const canFinance = permissions.includes('finance.read') && audience === 'internal'
+  const canFinance = audience === 'internal' && permissions.includes('finance.read') && permissions.includes('reports.finance')
   const canAttendance = permissions.some(p => p === 'attendance.read' || p === 'attendance.edit')
   const canCalculateNet = canFinance && canAttendance
   const pages = circles.map((circle, index) => {
@@ -212,7 +212,7 @@ function buildTeacherReport(schoolName: string, month: string, teacher: Teacher,
   const linked = circles.filter(circle => circle.teacherId === teacher.id)
   const attendance = data.attendance.filter(row => row.teacherId === teacher.id)
   const present = attendance.filter(row => row.status === 'present')
-  const canTeacherPay = permissions.includes('finance.read') && permissions.some(p => p === 'attendance.read' || p === 'attendance.edit')
+  const canTeacherPay = permissions.includes('finance.read') && permissions.includes('reports.finance') && permissions.some(p => p === 'attendance.read' || p === 'attendance.edit')
   const hours = sum(present, row => row.durationMinutes) / 60
   const attendanceRows = attendance.map(row => {
     const sameSession = data.studentAttendance.filter(student => student.sessionDate === row.sessionDate && (
@@ -237,7 +237,7 @@ function buildTeacherReport(schoolName: string, month: string, teacher: Teacher,
 }
 
 function buildTeacherAttendanceReport(schoolName: string, month: string, teachers: Teacher[], circles: Circle[], data: MonthData, permissions: string[]) {
-  const canTeacherPay = permissions.includes('finance.read') && permissions.some(p => p === 'attendance.read' || p === 'attendance.edit')
+  const canTeacherPay = permissions.includes('finance.read') && permissions.includes('reports.finance') && permissions.some(p => p === 'attendance.read' || p === 'attendance.edit')
   const rows = teachers.map(teacher => {
     const entries = data.attendance.filter(row => row.teacherId === teacher.id)
     const present = entries.filter(row => row.status === 'present')
@@ -266,7 +266,7 @@ function buildStudentReport(schoolName: string, month: string, history: HistoryD
   const attendance = data.studentAttendance.filter(row => row.studentId === student.id)
   const enrollments = history.enrollments.map(row => [row.circleName,row.teacherName || 'غير محددة',formatDate(row.startsOn),row.endsOn ? formatDate(row.endsOn) : 'مستمر',statusLabel(row.status)])
   const attendanceRows = attendance.map(row => [formatDate(row.sessionDate),row.circleName,row.startsAt.slice(0,5),statusLabel(row.status),row.teacherName || '—'])
-  const canFinance = permissions.includes('finance.read') && audience === 'internal'
+  const canFinance = audience === 'internal' && permissions.includes('finance.read') && permissions.includes('reports.finance')
   const charges = canFinance ? history.charges.map(row => [row.billingMonth,row.circleName,money(row.amountDue),money(row.paidAmount),money(row.balance),statusLabel(row.balance<=0?'paid':row.paidAmount>0?'partial':'unpaid')]) : []
   const notes = audience === 'internal' ? history.notes.map(row => [formatDate(row.createdAt),row.noteText,row.createdBy || '—']) : []
   const content = `${monthHeader(schoolName,`الملف الإداري للطالب: ${student.fullName}`,month,'ملخص سجل الطالب')}<div class="detail-strip"><div><span>اسم الطالب</span><strong>${esc(student.fullName)}</strong></div><div><span>الكود</span><strong>${esc(student.studentCode)}</strong></div><div><span>الحالة</span><strong>${esc(statusLabel(student.status))}</strong></div><div><span>تاريخ الالتحاق</span><strong>${esc(formatDate(student.joinedOn))}</strong></div></div><section>${heading('سجل الحلقات')}${table(['الحلقة','المعلمة','من','إلى','الحالة'],enrollments,'لا توجد التحاقات محفوظة.')}</section><section>${heading('الحضور المسجل للشهر')}${table(['التاريخ','الحلقة','الوقت','الحالة','المعلمة'],attendanceRows,'لا توجد سجلات حضور لهذا الطالب في الشهر المحدد.')}</section>${canFinance?`<section>${heading('الاستحقاقات والتحصيل','الاستحقاق والتحصيل والمتبقي كلٌّ في عموده.')}${table(['الشهر','الحلقة','المستحق','المحصل','المتبقي','الحالة'],charges,'لا توجد استحقاقات محفوظة لهذا الطالب.')}</section>`:''}${notes.length?`<section>${heading('الملاحظات المسجلة')}${table(['التاريخ','الملاحظة','سجلها'],notes,'لا توجد ملاحظات.')}</section>`:''}<p class="note">هذا الملخص يعرض السجلات المحفوظة في النظام، ولا يغني عن النسخة الاحتياطية.</p>`
@@ -289,7 +289,7 @@ export default function ManagementReportBuilder({ schoolName, currentMonth, circ
   const [studentId, setStudentId] = useState('')
   const [studentQuery, setStudentQuery] = useState('')
   const [loading, setLoading] = useState(false)
-  const financeAllowed = permissions.includes('finance.read')
+  const financeAllowed = permissions.includes('finance.read') && permissions.includes('reports.finance')
   const attendanceAllowed = permissions.some(code => code === 'attendance.read' || code === 'attendance.edit')
   const reportCircles = useMemo(() => circles.filter(circle => circleIds.includes(circle.id)), [circles, circleIds])
   const selectedTeacher = teachers.find(teacher => teacher.id === teacherId)
@@ -364,6 +364,7 @@ export default function ManagementReportBuilder({ schoolName, currentMonth, circ
       <button type="button" className={`report-kind-option ${kind === 'student' ? 'active' : ''}`} onClick={() => setKind('student')}><FileText size={18}/><span><strong>تقرير طالب</strong><small>ابحث بالاسم أو الكود واستخرج ملفه</small></span></button>
     </div>
     {(kind !== 'teacher' && kind !== 'teacher-attendance' && kind !== 'student-attendance') && <div className="report-audience-row"><strong>محتوى التقرير</strong><div className="report-audience-options"><button type="button" className={audience === 'internal' ? 'active' : ''} onClick={() => setAudience('internal')}>تقرير إداري</button><button type="button" className={audience === 'share' ? 'active' : ''} onClick={() => setAudience('share')}>نسخة للمشاركة</button></div><small>{audience === 'share' ? 'تُخفى البيانات المالية التفصيلية في التقرير المرسل للمشاركة.' : 'تظهر المعلومات المالية المتاحة لصلاحية حسابك.'}</small></div>}
+    {permissions.includes('finance.read') && !permissions.includes('reports.finance') && <div className="inline-notice warning-notice">صلاحية <code>reports.finance</code> غير مفعّلة لهذا الحساب؛ لذلك تُخفى الأعمدة المالية من التقارير.</div>}
     <div className="report-builder-controls">
       <label className="form-field report-month-field"><span><CalendarDays size={14}/> شهر التقرير</span><input type="month" value={month} onChange={event => setMonth(event.target.value)} required/></label>
       {needsCircles && <div className="report-circle-picker"><div className="report-picker-heading"><strong>اختيار الحلقات</strong><div><button type="button" className="text-link" onClick={() => setCircleIds(circles.map(circle => circle.id))}>تحديد الكل</button><button type="button" className="text-link" onClick={() => setCircleIds([])}>إلغاء التحديد</button></div></div><div className="report-circle-options">{circles.map(circle => <label key={circle.id} className="report-circle-option"><input type="checkbox" checked={circleIds.includes(circle.id)} onChange={() => toggleCircle(circle.id)}/><span><strong>{circle.name}</strong><small>{circle.teacherName || 'لم تُحدد معلمة'} · {circle.activeStudentCount} طالب نشط</small></span></label>)}{circles.length === 0 && <p className="muted-text">لا توجد حلقات متاحة لهذا الحساب.</p>}</div><small className="report-selection-count">تم اختيار {reportCircles.length} حلقة</small></div>}

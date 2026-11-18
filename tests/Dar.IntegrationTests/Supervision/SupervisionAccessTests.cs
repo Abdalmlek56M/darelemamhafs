@@ -71,6 +71,17 @@ public sealed class SupervisionAccessTests(SupervisionFixture fixture) : IClassF
     }
 
     [Fact]
+    public async Task StudentList_IncludesSubscriptionStatusOnly()
+    {
+        using var client = Client();
+        await LoginAsync(client, "scope_c1");
+        var students = (await GetJson(client, "/api/v1/supervisor/students")).GetProperty("students");
+        var student = students.EnumerateArray().First(item => item.GetProperty("id").GetGuid() == SupervisionFixture.S1);
+        Assert.Equal("partial", student.GetProperty("subscriptionStatus").GetString());
+        Assert.False(student.TryGetProperty("amountDue", out _));
+    }
+
+    [Fact]
     public async Task StudentSubscription_FiltersByCircleScope()
     {
         using var client = Client();
