@@ -50,6 +50,7 @@
 | 1.24.0 | [Permanent supervision integration tests](supervision-a32-requests-1.0.md) | ✅ 16 unit + 15 integration (Testcontainers PostgreSQL 17) |
 | 1.25.0 | [Communication templates + notes banner](communication-templates-1.0.md) | ✅ live; settings-controlled WhatsApp templates and notes banner |
 | 1.26.0 | [Admin notifications + teacher notes + desktop teacher layout](admin-notifications-teacher-layout-1.0.md) | ✅ live; admin insights pages, mobile nav, PC teacher shell, charge suggestion fix |
+| 1.27.0 | [Historical charge correction + charge audit](charge-correction-audit-1.0.md) | ✅ live; 9 charges corrected with audit, admin audit panel |
 
 ## Next in order
 
