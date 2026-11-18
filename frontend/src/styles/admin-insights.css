@@ -1,0 +1,82 @@
+/* Admin notifications and teacher-notes pages + mobile navigation polish. */
+.admin-insights-page { display: flex; flex-direction: column; gap: 16px; }
+.admin-insight-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.admin-insight-stats > div { display: flex; align-items: center; gap: 11px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--surface) 72%, transparent); padding: 14px 16px; }
+.admin-insight-stats small { display: block; color: var(--muted); font-size: 10px; }
+.admin-insight-stats strong { display: block; font-size: 23px; margin-top: 1px; }
+.admin-insight-icon { width: 38px; height: 38px; flex: 0 0 auto; border-radius: 12px; display: grid; place-items: center; }
+.admin-insight-icon.tone-teal { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.admin-insight-icon.tone-gold { color: #f0d59c; background: rgba(230, 189, 106, .12); }
+.admin-insight-icon.tone-muted { color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); }
+
+.admin-insight-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.admin-insight-segment { display: inline-flex; border: 1px solid var(--line); border-radius: 13px; background: color-mix(in srgb, var(--surface) 65%, transparent); padding: 3px; gap: 2px; }
+.admin-insight-segment button { border: 0; border-radius: 9px; background: transparent; color: var(--muted); padding: 8px 13px; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.admin-insight-segment button.active { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.admin-insight-count { color: var(--muted); font-size: 10px; margin-right: auto; }
+
+.admin-notification-list { display: flex; flex-direction: column; gap: 9px; }
+.admin-notification-card { border: 1px solid var(--line); border-radius: 17px; background: color-mix(in srgb, var(--surface) 72%, transparent); padding: 15px 17px; display: flex; flex-direction: column; gap: 7px; }
+.admin-notification-card.is-unread { border-color: color-mix(in srgb, var(--accent) 32%, var(--line)); background: color-mix(in srgb, var(--accent) 5%, var(--surface)); }
+.admin-notification-card.is-resolved { opacity: .8; }
+.admin-notification-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.admin-notification-top time { margin-right: auto; color: var(--muted); font-size: 9.5px; }
+.admin-notification-category { color: var(--muted); font-size: 10px; }
+.admin-severity { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: 9px; font-weight: 800; }
+.admin-severity.tone-bad { color: #ffb0b0; background: rgba(255, 138, 138, .1); border: 1px solid rgba(255, 138, 138, .24); }
+.admin-severity.tone-gold { color: #f0d59c; background: rgba(230, 189, 106, .1); border: 1px solid rgba(230, 189, 106, .24); }
+.admin-severity.tone-teal { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent); }
+.admin-unread-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+.admin-notification-card h3 { margin: 0; font-size: 14px; }
+.admin-notification-card p { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.9; }
+.admin-notification-resolution { color: #f0d59c; font-size: 10px; }
+.admin-notification-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 2px; }
+.admin-resolve-box { display: flex; flex-direction: column; gap: 8px; border-top: 1px dashed var(--line); padding-top: 10px; margin-top: 4px; }
+.admin-resolve-box textarea { width: 100%; border: 1px solid var(--line); border-radius: 11px; background: color-mix(in srgb, var(--surface) 55%, var(--bg)); color: var(--text); padding: 9px 11px; font: inherit; font-size: 11px; resize: vertical; }
+.admin-resolve-box > div { display: flex; gap: 7px; }
+
+.admin-notes-banner { display: flex; align-items: flex-start; gap: 10px; border: 1px solid rgba(230, 189, 106, .28); border-radius: 15px; background: rgba(230, 189, 106, .08); padding: 12px 15px; color: #f0d59c; }
+.admin-notes-banner strong { display: block; font-size: 11px; }
+.admin-notes-banner p { margin: 3px 0 0; font-size: 11px; line-height: 1.9; color: #f0d59c; }
+.admin-notes-banner svg { flex: 0 0 auto; margin-top: 2px; }
+.admin-notes-teacher-filter { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
+.admin-notes-teacher-filter select { border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--surface) 65%, var(--bg)); color: var(--text); padding: 8px 10px; font: inherit; font-size: 10.5px; }
+.admin-notes-panel { padding: 0; overflow: hidden; }
+.admin-notes-table td { vertical-align: top; }
+.admin-note-kind { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 3px 8px; font-size: 9px; font-weight: 700; white-space: nowrap; }
+.admin-note-kind.kind-session { color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.admin-note-kind.kind-student { color: #b7c2ff; background: rgba(140, 157, 255, .1); }
+.admin-note-text { min-width: 240px; max-width: 520px; white-space: normal; line-height: 1.9; }
+.admin-note-cards { display: none; }
+
+@media (max-width: 760px) {
+  .admin-insight-stats { grid-template-columns: 1fr; gap: 7px; }
+  .admin-insight-stats > div { padding: 11px 13px; }
+  .admin-insight-toolbar { align-items: stretch; }
+  .admin-insight-segment { width: 100%; }
+  .admin-insight-segment button { flex: 1; padding: 8px 6px; }
+  .admin-insight-count { margin-right: 0; }
+  .admin-notification-card { padding: 13px; }
+  .admin-notification-top time { width: 100%; margin-right: 0; order: 5; }
+  .admin-notes-panel { display: none; }
+  .admin-note-cards { display: flex; flex-direction: column; gap: 8px; }
+  .admin-note-card { border: 1px solid var(--line); border-radius: 15px; background: color-mix(in srgb, var(--surface) 72%, transparent); padding: 12px 13px; }
+  .admin-note-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+  .admin-note-card-head time { color: var(--muted); font-size: 9px; }
+  .admin-note-card strong { display: block; font-size: 12px; }
+  .admin-note-card small { display: block; color: var(--muted); font-size: 9.5px; margin-top: 2px; }
+  .admin-note-card p { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.9; }
+  .admin-notes-teacher-filter { width: 100%; justify-content: space-between; }
+  .admin-notes-teacher-filter select { flex: 1; }
+}
+
+/* Mobile admin navigation: all sections remain reachable in a horizontal strip. */
+@media (max-width: 760px) {
+  .app-shell .sidebar { display: block; padding: 12px; }
+  .app-shell .sidebar .brand-button { margin-bottom: 9px; }
+  .app-shell .sidebar .nav-list { display: flex; flex-direction: row; flex: none; overflow-x: auto; overflow-y: hidden; padding: 0 0 4px; gap: 5px; }
+  .app-shell .sidebar .nav-item { display: flex; flex: 0 0 auto; width: auto; min-width: max-content; margin: 0; padding: 9px 11px; font-size: 11px; gap: 7px; }
+  .app-shell .sidebar .nav-item.active { margin-top: 0; }
+  .app-shell .sidebar .sidebar-account { display: none; }
+  .app-shell .sidebar .sidebar-bottom { display: none !important; }
+}

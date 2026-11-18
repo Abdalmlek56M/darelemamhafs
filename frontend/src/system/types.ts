@@ -11,6 +11,44 @@ export type AdminSettings = Branding & {
   updatedAt?: string
 }
 
+export type AdminNotification = {
+  id: string
+  category: string
+  status: 'open' | 'resolved'
+  severity: 'info' | 'warning' | 'critical' | string
+  title: string
+  body: string
+  actionUrl: string | null
+  createdAt: string
+  resolvedAt: string | null
+  resolutionNote: string | null
+  readAt: string | null
+}
+
+export type AdminNotificationsResponse = {
+  counts: { open: number; unread: number; resolved: number }
+  notifications: AdminNotification[]
+}
+
+export type AdminTeacherNote = {
+  kind: 'session' | 'student'
+  teacherId: string
+  teacherName: string
+  circleName: string
+  date: string
+  note: string
+  markedAt: string
+  studentName: string | null
+  studentCode: string | null
+}
+
+export type AdminTeacherNotesResponse = {
+  count: number
+  notes: AdminTeacherNote[]
+  teachers: { id: string; name: string }[]
+  banner: string | null
+}
+
 export type AuditRecord = {
   id: number
   actorName: string

@@ -3,12 +3,13 @@ import Modal from '../common/Modal'
 import Field from '../common/Field'
 import ModalActions from '../common/ModalActions'
 import type { DarApplicationContext } from '../../application/useDarApplication'
+import { getSuggestedMonthlyCharge } from '../../application/selectors'
 
 type Props = { ctx: DarApplicationContext }
 export default function ChargeDialog({ ctx }: Props) {
   const [manualAmount, setManualAmount] = useState(false)
   const selected = useMemo(() => ctx.collections.find(row => row.enrollmentId === ctx.chargeForm.enrollmentId) ?? null, [ctx.collections, ctx.chargeForm.enrollmentId])
-  const suggestion = selected?.agreedMonthlyFee ?? Number(ctx.chargeForm.amountDue || 0)
+  const suggestion = selected ? getSuggestedMonthlyCharge(selected) : Number(ctx.chargeForm.amountDue || 0)
   useEffect(() => { setManualAmount(Boolean(ctx.editingChargeId)) }, [ctx.chargeModal, ctx.editingChargeId, ctx.chargeForm.enrollmentId])
   useEffect(() => {
     if (!ctx.chargeModal || ctx.editingChargeId || manualAmount || !selected) return

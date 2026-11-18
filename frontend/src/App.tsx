@@ -6,8 +6,10 @@ import AuthPage from './pages/AuthPage'
 import ConnectionCheckingView from './pages/ConnectionCheckingView'
 import useDarApplication from './application/useDarApplication'
 import DashboardPage from './pages/DashboardPage'
+import NotificationsPage from './pages/NotificationsPage'
 import StudentsPage from './pages/StudentsPage'
 import TeachersPage from './pages/TeachersPage'
+import TeacherNotesPage from './pages/TeacherNotesPage'
 import CirclesPage from './pages/CirclesPage'
 import SchedulePage from './pages/SchedulePage'
 import PaymentsPage from './pages/PaymentsPage'
@@ -70,9 +72,13 @@ export default function App() {
       <AnimatePresence mode="wait">
         {page==='dashboard' && has('dashboard.read') && <DashboardPage ctx={ctx} />}
 
+        {page==='notifications' && has('dashboard.read') && <NotificationsPage ctx={ctx} />}
+
         {page==='students' && <StudentsPage ctx={ctx} />}
 
         {page==='teachers' && <TeachersPage ctx={ctx} />}
+
+        {page==='teacher-notes' && has('teachers.read') && <TeacherNotesPage />}
 
         {page==='circles' && <CirclesPage ctx={ctx} />}
 

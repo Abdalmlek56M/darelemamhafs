@@ -109,6 +109,11 @@ export function getMonthlyTeacherPay(attendanceRows: AttendanceRow[]) {
   return Array.from(acc.values()).sort((a, b) => a.teacherName.localeCompare(b.teacherName, 'ar'))
 }
 
+/** Monthly charge suggestion is the fee agreed on the enrollment, never a mid-month proration. */
+export function getSuggestedMonthlyCharge(row: Pick<CollectionRow, 'agreedMonthlyFee'>) {
+  return row.agreedMonthlyFee
+}
+
 export function getFilteredStudents(students: Student[], query: string, statusFilter: 'all' | StudentStatus) {
   return students.filter(student => {
     const term = query.trim().toLocaleLowerCase('ar')

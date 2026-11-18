@@ -369,7 +369,7 @@ export default function TeacherApp({ mode }: Props) {
   }
 
   return (
-    <div className={`teacher-app ${page === 'supervisor' ? 'is-supervisor' : ''}`}>
+    <div className={`teacher-app teacher-shell ${page === 'supervisor' ? 'is-supervisor' : ''}`}>
       <main className="teacher-main">
         {page === 'home' && canTeacher && (
           <TeacherHome

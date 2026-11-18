@@ -72,6 +72,7 @@ export default function TeacherHome({
         </div>
       </header>
 
+      <div className="t-home-grid">
       {!current && <div className="t-empty">لا توجد حلقات مجدولة اليوم.</div>}
 
       {current && (
@@ -112,7 +113,7 @@ export default function TeacherHome({
         </button>
       )}
 
-      <div className="t-section-title"><strong>روابط سريعة</strong><span>كل ما تحتاجينه</span></div>
+      <div className="t-section-title t-home-quick-title"><strong>روابط سريعة</strong><span>كل ما تحتاجينه</span></div>
       <div className="t-quick-grid">
         <button onClick={onNotifications}><Bell size={17} /><strong>التنبيهات</strong><small>{unread > 0 ? `${unread} غير مقروء` : 'لا جديد'}</small></button>
         <button onClick={onRefresh}><CalendarDays size={17} /><strong>تحديث الحلقات</strong><small>{loading ? 'جارٍ التحديث' : 'اسحبي أحدث حالة'}</small></button>
@@ -125,8 +126,8 @@ export default function TeacherHome({
 
       {rest.length > 0 && (
         <>
-          <div className="t-section-title"><strong>باقي اليوم</strong><span>{rest.length} حلقات</span></div>
-          <div className="t-list">
+          <div className="t-section-title t-home-rest-title"><strong>باقي اليوم</strong><span>{rest.length} حلقات</span></div>
+          <div className="t-list t-home-rest-list">
             {rest.map((slot) => (
               <div className="t-row" key={slot.id}>
                 <span className={`t-dot ${slot.sessionStatus === 'in_progress' ? 'is-live' : ''}`} />
@@ -151,6 +152,7 @@ export default function TeacherHome({
 
       <p className="t-footnote">كل الأوقات بتوقيت القاهرة (Africa/Cairo).</p>
       <button className="t-secondary t-full" onClick={onRefresh} disabled={loading}>{loading ? 'جارٍ التحديث…' : 'تحديث'}</button>
+      </div>
     </div>
   )
 }

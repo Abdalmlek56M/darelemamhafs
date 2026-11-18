@@ -465,11 +465,22 @@ Verified against a disposable PostgreSQL 17 database with a 250 charge + 125 pay
 - No-finance supervisor: unpaid has `amount=null`, `status=partial`; student subscription is status-only; teacher notes returns 2 notes; payment notification body has no amount.
 - Finance supervisor: unpaid returns 250/125/125; student subscription returns the same amounts.
 
-### Queued audit tasks (owner-requested, not changed yet)
+### Owner review backlog — 18 Nov 2026
 
-- Audit the admin monthly-charge flow when creating a 250 charge and then recording a 125 payment: confirm the charge is stored as 250 (not half) and the payment leaves 125. The API/DB test above confirms the current model behaves correctly; the admin UI path still needs a dedicated end-to-end audit.
+Recorded from owner feedback; not all items are implemented yet.
+
+1. **Subscriptions/collections full review (P0):** the previous charge dialog prorated the first month by active days, producing amounts like 108.33, 116.67 and 125 for a 250 circle. The charge suggestion now uses the agreed enrollment fee (`agreed_monthly_fee`) and never prorates automatically; `ChargeDialog` shows the agreed fee and a reset-to-agreed link. Historical charges created with the old proration still need an audit/cleanup report before any correction.
+2. **Admin schedule + teacher-attendance lists review:** verify the dates, teacher pay calculations, filters and mobile/desktop tables end to end.
+3. **Admin console full review:** notifications and teacher-notes pages are now present; continue with UI/functional parity on PC/mobile, finance pages, users, reports and dashboard.
+4. **File/folder/OOP refactor:** the project is split by feature/module, but the largest files still need splitting — `TeacherApp.tsx` (433 lines), `teacherTypes.ts` (404), `useDarApplication.ts` (373), `ManagementReportBuilder.tsx` (360), `SystemAdminView.tsx` (327), `AuthEndpoints.cs` (472), `DomainEndpoints.ScheduleAttendance.cs` (361).
+5. **Cloudflare beacon:** the `static.cloudflareinsights.com/beacon.min.js` script is injected by Cloudflare Web Analytics; it is expected and does not affect the app.
+6. **Teacher PC/mobile separation:** the 520/860px centered “tablet frame” and bottom navigation on desktop were removed. PC now uses a full-width shell with a right sidebar; mobile keeps the bottom nav and full-width pages.
+
+### Queued audit tasks (owner-requested)
+
+- Audit historical charges created with the old prorated suggestion; produce a report before any correction.
+- Audit the admin monthly-charge flow when creating a 250 charge and then recording a 125 payment: confirm the charge is stored as 250 (not half) and the payment leaves 125.
 - Audit the admin console broadly (collections, payments, receipts, reports, notification center) for display/rounding/permission issues.
-- Add the teacher-note feed to the admin console too (currently supervisor-only).
 - Add subscription status to the supervisor student list/table (currently detail only).
 - Payroll lock/approval, real teacher record/link, production E2E, GitHub Actions verification.
 

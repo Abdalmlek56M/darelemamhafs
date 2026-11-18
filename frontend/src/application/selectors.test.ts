@@ -7,6 +7,7 @@ import {
   getDashboardProfit,
   getFilteredStudents,
   getFilteredTeachers,
+  getSuggestedMonthlyCharge,
 } from './selectors'
 
 const student = (overrides: Partial<Student>): Student => ({
@@ -93,6 +94,16 @@ describe('selectors', () => {
     ])
 
     expect(totals).toEqual({ due: 500, paid: 100, balance: 400 })
+  })
+
+  it('uses the agreed monthly fee for the charge suggestion', () => {
+    const row = collection({
+      agreedMonthlyFee: 250,
+      enrollmentStartsOn: '2026-01-16',
+      circleStartsOn: '2026-01-01',
+    })
+
+    expect(getSuggestedMonthlyCharge(row)).toBe(250)
   })
 
   it('computes dashboard profit and missing-data counters', () => {

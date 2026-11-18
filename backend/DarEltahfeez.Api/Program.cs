@@ -220,6 +220,7 @@ app.MapGet("/health/ready", async Task<IResult> (NpgsqlDataSource db, Cancellati
 AuthEndpoints.Map(app);
 DomainEndpoints.Map(app);
 SystemAdminEndpoints.Map(app);
+SystemAdminEndpoints.MapInsights(app);
 
 // Serve the React single-page app in release/desktop hosting. Unknown /api routes stay 404.
 app.MapFallback(async context =>

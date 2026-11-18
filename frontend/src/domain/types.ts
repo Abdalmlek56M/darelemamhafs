@@ -1,7 +1,7 @@
 // Shared domain contracts used by pages and services.
 export type Theme = 'dark' | 'light'
 export type Branding = { brandName: string; logoDataUrl: string | null; facebookUrl: string | null; tiktokUrl: string | null; whatsappUrl: string | null }
-export type Page = 'dashboard' | 'students' | 'teachers' | 'circles' | 'schedule' | 'payments' | 'users' | 'system'
+export type Page = 'dashboard' | 'notifications' | 'students' | 'teachers' | 'teacher-notes' | 'circles' | 'schedule' | 'payments' | 'users' | 'system'
 export type Gate = 'checking' | 'setup' | 'login' | 'ready'
 export type StudentStatus = 'active' | 'paused' | 'withdrawn' | 'archived'
 export type TeacherStatus = 'active' | 'inactive' | 'archived'

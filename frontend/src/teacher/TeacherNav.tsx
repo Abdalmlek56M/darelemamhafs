@@ -1,4 +1,4 @@
-import { Bell, CalendarDays, ClipboardList, Home, UserRound, Users } from 'lucide-react'
+import { Bell, BookOpen, CalendarDays, ClipboardList, Home, UserRound, Users } from 'lucide-react'
 import type { Page } from './teacherTypes'
 
 type Props = {
@@ -24,7 +24,12 @@ export default function TeacherNav({ page, unread, canTeacher, canRequests, acti
   ]
 
   return (
-    <nav className="teacher-nav" style={{ gridTemplateColumns: `repeat(${items.length}, 1fr)` }}>
+    <nav className="teacher-nav">
+      <div className="teacher-nav-brand">
+        <span className="t-brand-mark"><BookOpen size={22} /></span>
+        <span><strong>بوابة المعلمة</strong><small>دار الإمام حفص</small></span>
+      </div>
+      <div className="teacher-nav-items" style={{ gridTemplateColumns: `repeat(${items.length}, 1fr)` }}>
       {items.map((item) => {
         const Icon = item.icon
         return (
@@ -40,6 +45,7 @@ export default function TeacherNav({ page, unread, canTeacher, canRequests, acti
           </button>
         )
       })}
+      </div>
     </nav>
   )
 }
