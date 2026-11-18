@@ -335,7 +335,7 @@ If any default is wrong, the owner can change it before that phase starts.
 ## 14. What Is Missing Today (as of 18 Nov 2026)
 
 - **Subscriptions/collections (P0):** full review still pending. The automatic proration was removed, but the live DB still has 9 trial-student charges for 2026-11 at 125.00/116.67 against 250.00 agreed fees; two have payments totaling 250. They need an approved correction path.
-- **Admin schedule + teacher attendance:** the lists and pay calculations need an end-to-end review on PC/mobile.
+- **Admin schedule + teacher attendance (done):** pay math/snapshots, month totals, filters, duration editing, weekday/future guards and inactive-circle handling verified. Open: device-local countdown vs Cairo; wide table on mobile.
 - **Admin requests review:** supervisors can review attendance requests; there is no dedicated admin requests page yet.
 - **Teacher:** no weekly calendar screen, no session/login history screen, no offline queue. Requests are implemented.
 - **Reports:** print/PDF exists through browser print, but financial report columns still check `finance.read` instead of `reports.finance`; the formal PDF sample/review approval is still pending.
@@ -473,7 +473,7 @@ Verified against a disposable PostgreSQL 17 database with a 250 charge + 125 pay
 Recorded from owner feedback; not all items are implemented yet.
 
 1. **Subscriptions/collections full review (P0):** the previous charge dialog prorated the first month by active days, producing amounts like 108.33, 116.67 and 125 for a 250 circle. The charge suggestion now uses the agreed enrollment fee (`agreed_monthly_fee`) and never prorates automatically; `ChargeDialog` shows the agreed fee and a reset-to-agreed link. The 9 live trial-student charges for 2026-11 were corrected to 250.00 with audit rows; a read-only **مراجعة الاستحقاقات** panel now flags any future mismatch. The full subscriptions/collections review is still pending.
-2. **Admin schedule + teacher-attendance lists review:** verify the dates, teacher pay calculations, filters and mobile/desktop tables end to end.
+2. **Admin schedule + teacher-attendance lists review (done):** pay math, snapshots, month totals, filters and duration editing were verified. Added weekday/future-date guards and inactive-circle handling. Open note: the admin countdown uses device local time while the teacher portal uses Cairo; the session table scrolls horizontally on mobile.
 3. **Admin console full review:** notifications and teacher-notes pages are now live; continue with UI/functional parity on PC/mobile, finance pages, users, reports and dashboard.
 4. **File/folder/OOP refactor:** the project is split by feature/module, but the largest files still need splitting — `TeacherApp.tsx` (433 lines), `teacherTypes.ts` (404), `useDarApplication.ts` (373), `ManagementReportBuilder.tsx` (360), `SystemAdminView.tsx` (327), `AuthEndpoints.cs` (472), `DomainEndpoints.ScheduleAttendance.cs` (361).
 5. **Cloudflare beacon:** the `static.cloudflareinsights.com/beacon.min.js` script is injected by Cloudflare Web Analytics; it is expected and does not affect the app.
