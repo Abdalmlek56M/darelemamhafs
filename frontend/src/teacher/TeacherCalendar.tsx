@@ -1,3 +1,4 @@
+import { formatTime12 } from '../lib/dates'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
@@ -111,7 +112,7 @@ export default function TeacherCalendar({ onBack, onOpenLive, onOpenRoster }: Pr
                     <strong>{session.circleName}</strong>
                     <span className={statusTone(session)}>{statusLabel(session)}</span>
                   </div>
-                  <small>{session.startsAt} · {session.durationMinutes} دقيقة · {session.studentCount} طالبة</small>
+                  <small>{formatTime12(session.startsAt)} · {session.durationMinutes} دقيقة · {session.studentCount} طالبة</small>
                   {session.sessionId && <b>{session.sessionStatus === 'in_progress' ? 'فتح الحلقة' : session.sessionStatus === 'awaiting_attendance' ? 'إكمال الحضور' : 'عرض الحلقة'}</b>}
                 </button>
               ))}

@@ -1,4 +1,5 @@
 export const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+export { formatTime12 } from '../lib/dates'
 
 export function dateLabel(value: string | null | undefined) {
   if (!value) return '—'

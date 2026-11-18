@@ -1,3 +1,5 @@
+import { formatTime12 } from '../lib/dates'
+
 export function money(value: number | null | undefined) {
   return `${(value ?? 0).toFixed(2)} ج.م`
 }
@@ -14,7 +16,7 @@ export function elapsedMinutes(startedAt: string | null | undefined) {
 }
 
 export function localTime(value: string) {
-  return new Date(value).toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit' })
+  return new Date(value).toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit', hour12: true })
 }
 
 export function localDate(value: string) {
@@ -26,5 +28,5 @@ export function enrollmentStatusLabel(value: string) {
 }
 
 export function timeRange(start: string, end: string) {
-  return `${start} – ${end}`
+  return `${formatTime12(start)} – ${formatTime12(end)}`
 }

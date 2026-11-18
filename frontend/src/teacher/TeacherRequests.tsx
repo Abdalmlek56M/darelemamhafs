@@ -1,3 +1,4 @@
+import { formatTime12 } from '../lib/dates'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { CalendarPlus, RefreshCw, XCircle } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
@@ -95,7 +96,7 @@ export default function TeacherRequests({ today }: Props) {
         <select id="request-slot" className="t-input" value={slotId} onChange={(event) => setSlotId(event.target.value)} required>
           <option value="">اختر الحلقة</option>
           {choices.map((slot) => (
-            <option key={slot.id} value={slot.id}>{slot.circleName} · {slot.startsAt}{type === 'correction' ? ' · مسجلة' : ''}</option>
+            <option key={slot.id} value={slot.id}>{slot.circleName} · {formatTime12(slot.startsAt)}{type === 'correction' ? ' · مسجلة' : ''}</option>
           ))}
         </select>
         {choices.length === 0 && <p className="t-hint">لا توجد حلقات مناسبة اليوم لهذا النوع. التصحيح يحتاج حلقة مسجلة.</p>}

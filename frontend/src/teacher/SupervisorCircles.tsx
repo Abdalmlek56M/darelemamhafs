@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, BookOpen, Search, Users } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorCircle, SupervisorCircleDetailResponse } from './teacherTypes'
-import { dateLabel, dayNames, statusLabel, statusTone } from './supervisorFormat'
+import { dateLabel, dayNames, statusLabel, statusTone, formatTime12 } from './supervisorFormat'
 import { demoCircleDetail, demoCircles } from './supervisorDemo'
 
 type Props = { demo?: boolean; onOpenTeacher?: (id: string) => void; focusId?: string; onFocusConsumed?: () => void }
@@ -74,7 +74,7 @@ export default function SupervisorCircles({ demo = false, onOpenTeacher, focusId
                 <td><span className="sup-person"><span className="sup-person-avatar">{circle.name.slice(0, 1)}</span><strong>{circle.name}</strong></span></td>
                 <td>{circle.teacherId && circle.teacherName ? <button className="sup-link" onClick={(event) => { event.stopPropagation(); onOpenTeacher?.(circle.teacherId!) }}>{circle.teacherName}</button> : '—'}</td>
                 <td>{circle.studentCount}</td>
-                <td>{circle.schedule.map((slot) => `${dayNames[slot.dayOfWeek]} ${slot.startsAt}`).join(' · ') || '—'}</td>
+                <td>{circle.schedule.map((slot) => `${dayNames[slot.dayOfWeek]} ${formatTime12(slot.startsAt)}`).join(' · ') || '—'}</td>
                 <td>{dateLabel(circle.startsOn)}</td>
                 <td><span className={statusTone(circle.isActive ? 'active' : 'inactive')}>{circle.isActive ? 'نشطة' : 'غير نشطة'}</span></td>
               </tr>
@@ -90,7 +90,7 @@ export default function SupervisorCircles({ demo = false, onOpenTeacher, focusId
             <div className="sup-row-copy">
               <strong>{circle.name}</strong>
               <small>{circle.teacherName ?? 'بدون معلمة'} · {circle.studentCount} طالبة</small>
-              <small className="sup-phone">{circle.schedule.slice(0, 3).map((slot) => `${dayNames[slot.dayOfWeek]} ${slot.startsAt}`).join(' · ') || 'بدون مواعيد'}</small>
+              <small className="sup-phone">{circle.schedule.slice(0, 3).map((slot) => `${dayNames[slot.dayOfWeek]} ${formatTime12(slot.startsAt)}`).join(' · ') || 'بدون مواعيد'}</small>
             </div>
             <span className={statusTone(circle.isActive ? 'active' : 'inactive')}>{circle.isActive ? 'نشطة' : 'غير نشطة'}</span>
           </button>
@@ -153,7 +153,7 @@ function CircleDetail({ circle, demo, onOpenTeacher, onBack }: { circle: Supervi
           <div className="t-chip-row">
             {detail.schedule.length === 0 && <span className="t-muted">لا توجد مواعيد.</span>}
             {detail.schedule.map((slot, index) => (
-              <span className="t-chip" key={`${slot.dayOfWeek}-${slot.startsAt}-${index}`}>{dayNames[slot.dayOfWeek]} · {slot.startsAt} · {slot.durationMinutes} د</span>
+              <span className="t-chip" key={`${slot.dayOfWeek}-${formatTime12(slot.startsAt)}-${index}`}>{dayNames[slot.dayOfWeek]} · {formatTime12(slot.startsAt)} · {slot.durationMinutes} د</span>
             ))}
           </div>
 
@@ -178,7 +178,7 @@ function CircleDetail({ circle, demo, onOpenTeacher, onBack }: { circle: Supervi
             {detail.sessions.map((session, index) => (
               <div className="t-row" key={`${session.date}-${index}`}>
                 <div className="t-row-copy">
-                  <strong>{dateLabel(session.date)} · {session.startsAt}</strong>
+                  <strong>{dateLabel(session.date)} · {formatTime12(session.startsAt)}</strong>
                   <small>حضور {session.presentStudents} · غياب {session.missingStudents}</small>
                   {session.note && <small>{session.note}</small>}
                 </div>

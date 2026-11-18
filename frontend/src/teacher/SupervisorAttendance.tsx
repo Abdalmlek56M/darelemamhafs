@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { CalendarDays, Users } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorStudentAttendanceRow, SupervisorTeacherAttendanceRow } from './teacherTypes'
-import { dateLabel, statusLabel, statusTone, todayCairo } from './supervisorFormat'
+import { dateLabel, statusLabel, statusTone, todayCairo, formatTime12 } from './supervisorFormat'
 import { demoStudentAttendance, demoTeacherAttendance } from './supervisorDemo'
 
 type Tab = 'teachers' | 'students'
@@ -76,7 +76,7 @@ export default function SupervisorAttendance({ demo = false, onOpenTeacher, onOp
                   <tr key={row.scheduleSlotId}>
                     <td><button className="sup-link" onClick={() => onOpenTeacher?.(row.teacherId)}>{row.teacherName}</button></td>
                     <td><button className="sup-link" onClick={() => onOpenCircle?.(row.circleId)}>{row.circleName}</button></td>
-                    <td>{row.startsAt}</td>
+                    <td>{formatTime12(row.startsAt)}</td>
                     <td>{row.durationMinutes} د</td>
                     <td><span className={statusTone(row.status)}>{statusLabel(row.status)}</span></td>
                     <td>{row.note ?? '—'}</td>
@@ -88,7 +88,7 @@ export default function SupervisorAttendance({ demo = false, onOpenTeacher, onOp
           <div className="sup-card-list">
             {teachers.map((row) => (
               <div className="sup-card" key={row.scheduleSlotId}>
-                <div className="sup-row-copy"><strong>{row.teacherName}</strong><small>{row.circleName} · {row.startsAt} · {row.durationMinutes} دقيقة</small>{row.note && <small>{row.note}</small>}</div>
+                <div className="sup-row-copy"><strong>{row.teacherName}</strong><small>{row.circleName} · {formatTime12(row.startsAt)} · {row.durationMinutes} دقيقة</small>{row.note && <small>{row.note}</small>}</div>
                 <span className={statusTone(row.status)}>{statusLabel(row.status)}</span>
               </div>
             ))}
@@ -113,7 +113,7 @@ export default function SupervisorAttendance({ demo = false, onOpenTeacher, onOp
                     <td><span className="sup-person"><span className="sup-person-avatar">{row.studentName.slice(0, 1)}</span><strong>{row.studentName}</strong></span></td>
                     <td dir="ltr">{row.studentCode}</td>
                     <td><button className="sup-link" onClick={() => onOpenCircle?.(row.circleId)}>{row.circleName}</button></td>
-                    <td>{row.startsAt}</td>
+                    <td>{formatTime12(row.startsAt)}</td>
                     <td><span className={statusTone(row.status)}>{statusLabel(row.status)}</span></td>
                     <td>{row.note ?? '—'}</td>
                   </tr>
@@ -124,7 +124,7 @@ export default function SupervisorAttendance({ demo = false, onOpenTeacher, onOp
           <div className="sup-card-list">
             {students.map((row) => (
               <div className="sup-card" key={row.attendanceId}>
-                <div className="sup-row-copy"><strong>{row.studentName}</strong><small>{row.circleName} · {row.startsAt} · {row.studentCode}</small>{row.note && <small>{row.note}</small>}</div>
+                <div className="sup-row-copy"><strong>{row.studentName}</strong><small>{row.circleName} · {formatTime12(row.startsAt)} · {row.studentCode}</small>{row.note && <small>{row.note}</small>}</div>
                 <span className={statusTone(row.status)}>{statusLabel(row.status)}</span>
               </div>
             ))}

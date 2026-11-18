@@ -191,6 +191,18 @@ export default function TeacherApp({ mode }: Props) {
     void loadToday()
   }, [session, canTeacher, loadToday])
 
+  // Poll just before the next slot so the start button unlocks without a manual refresh.
+  useEffect(() => {
+    if (!session || !canTeacher || !today) return
+    const next = today.slots
+      .filter(slot => !slot.sessionId && slot.sessionStatus !== 'completed' && !slot.canStart && (slot.minutesUntilStart ?? 0) > 0)
+      .sort((a, b) => (a.minutesUntilStart ?? 0) - (b.minutesUntilStart ?? 0))[0]
+    if (!next) return
+    const delay = Math.min(Math.max((next.minutesUntilStart ?? 1) * 60_000 + 1_500, 1_000), 60_000)
+    const timer = window.setTimeout(() => void loadToday(), delay)
+    return () => window.clearTimeout(timer)
+  }, [session, canTeacher, today, loadToday])
+
   useEffect(() => {
     if (!session || notificationsRequested.current) return
     notificationsRequested.current = true

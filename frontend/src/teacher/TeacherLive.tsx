@@ -1,3 +1,4 @@
+import { formatTime12 } from '../lib/dates'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Clock3, Square } from 'lucide-react'
 import type { Slot } from './teacherTypes'

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { CalendarDays, Phone, RefreshCw, UserRound, Users } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorAbsencesResponse } from './teacherTypes'
-import { dateLabel, statusLabel, statusTone, todayCairo } from './supervisorFormat'
+import { dateLabel, statusLabel, statusTone, todayCairo, formatTime12 } from './supervisorFormat'
 import { demoAbsences } from './supervisorDemo'
 import WhatsAppButton from './WhatsAppButton'
 
@@ -56,9 +56,9 @@ export default function SupervisorAbsences({ demo, onOpenTeacher, onOpenCircle, 
         {!loading && teachers.length === 0 && <p className="sup-muted">لا توجد معلمات متأخرات عن التسجيل.</p>}
         <div className="sup-list">
           {teachers.map((item) => (
-            <div className="sup-row" key={`${item.scheduleSlotId}-${item.startsAt}`}>
+            <div className="sup-row" key={`${item.scheduleSlotId}-${formatTime12(item.startsAt)}`}>
               <span className="sup-kpi-icon is-warn"><Users size={16} /></span>
-              <div className="sup-row-copy"><strong><button className="sup-link" onClick={() => onOpenTeacher?.(item.teacherId)}>{item.teacherName}</button></strong><small><button className="sup-link" onClick={() => onOpenCircle?.(item.circleId)}>{item.circleName}</button> · {item.startsAt} · {item.durationMinutes} دقيقة</small></div>
+              <div className="sup-row-copy"><strong><button className="sup-link" onClick={() => onOpenTeacher?.(item.teacherId)}>{item.teacherName}</button></strong><small><button className="sup-link" onClick={() => onOpenCircle?.(item.circleId)}>{item.circleName}</button> · {formatTime12(item.startsAt)} · {item.durationMinutes} دقيقة</small></div>
               {item.phone && <span className="sup-phone" dir="ltr"><Phone size={12} /> {item.phone}</span>}
               <WhatsAppButton recipientType="teacher" recipientId={item.teacherId} templateKey="absence" canCommunicate={canCommunicate} demo={demo} />
               <span className="t-badge t-badge-bad">لم تسجل</span>

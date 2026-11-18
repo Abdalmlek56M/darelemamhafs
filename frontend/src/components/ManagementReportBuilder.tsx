@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { BookOpen, CalendarDays, CheckSquare2, FileText, GraduationCap, LoaderCircle, Printer } from 'lucide-react'
 import type { AdExpense, AttendanceRow, Circle, CircleStudent, CollectionRow, HistoryData, OperatingExpense, Student, StudentAttendanceRow, Teacher } from '../domain/types'
 import { formatDate, money } from '../lib/formatters'
+import { formatTime12 } from '../lib/dates'
 
 type ReportKind = 'school' | 'circles' | 'teacher' | 'teacher-attendance' | 'student-attendance' | 'student'
 type ReportAudience = 'internal' | 'share'
@@ -161,14 +162,14 @@ function buildCircleReport(schoolName: string, month: string, circles: Circle[],
       return session
     }
     for (const row of teacherAttendance) {
-      const key = row.scheduleSlotId ? `${row.scheduleSlotId}|${row.sessionDate}` : `${circle.id}|${row.sessionDate}|${row.startsAt.slice(0,5)}`
+      const key = row.scheduleSlotId ? `${row.scheduleSlotId}|${row.sessionDate}` : `${circle.id}|${row.sessionDate}|${formatTime12(row.startsAt)}`
       const session = ensureSession(key, row.sessionDate, row.startsAt, row.teacherName)
       session.teacherStatus = statusLabel(row.status)
       session.duration = row.durationMinutes
       session.payable = row.status === 'present' ? (row.payableAmount ?? 0) : 0
     }
     for (const row of studentAttendance) {
-      const matchingTeacherRow = teacherAttendance.find(teacherRow => teacherRow.sessionDate === row.sessionDate && (teacherRow.scheduleSlotId ? teacherRow.scheduleSlotId === row.scheduleSlotId : teacherRow.startsAt.slice(0,5) === row.startsAt.slice(0,5)))
+      const matchingTeacherRow = teacherAttendance.find(teacherRow => teacherRow.sessionDate === row.sessionDate && (teacherRow.scheduleSlotId ? teacherRow.scheduleSlotId === row.scheduleSlotId : teacherRow.startsAt.slice(0,5) === formatTime12(row.startsAt)))
       const key = matchingTeacherRow
         ? (matchingTeacherRow.scheduleSlotId ? `${matchingTeacherRow.scheduleSlotId}|${matchingTeacherRow.sessionDate}` : `${circle.id}|${matchingTeacherRow.sessionDate}|${matchingTeacherRow.startsAt.slice(0,5)}`)
         : `${row.scheduleSlotId}|${row.sessionDate}`
@@ -183,7 +184,7 @@ function buildCircleReport(schoolName: string, month: string, circles: Circle[],
         const excused = session.studentRows.filter(row => row.status === 'excused').length
         const presentNames = present.map(row => row.studentName).join('، ')
         return [
-          formatDate(session.date), session.startsAt.slice(0,5), session.teacherName, session.teacherStatus,
+          formatDate(session.date), formatTime12(session.startsAt), session.teacherName, session.teacherStatus,
           session.duration == null ? '—' : `${session.duration} دقيقة`,
           ...(canFinance ? [session.teacherStatus === 'حضور' ? money(session.payable) : '—'] : []),
           session.studentRows.length === 0 ? 'لم يُسجل حضور الطلاب' : present.length ? `${presentNames} (${present.length})` : 'لم يُسجل طالب حاضر',
@@ -216,7 +217,7 @@ function buildTeacherReport(schoolName: string, month: string, teacher: Teacher,
   const hours = sum(present, row => row.durationMinutes) / 60
   const attendanceRows = attendance.map(row => {
     const sameSession = data.studentAttendance.filter(student => student.sessionDate === row.sessionDate && (
-      row.scheduleSlotId ? student.scheduleSlotId === row.scheduleSlotId : student.circleId === row.circleId && student.startsAt.slice(0,5) === row.startsAt.slice(0,5)
+      row.scheduleSlotId ? student.scheduleSlotId === row.scheduleSlotId : student.circleId === row.circleId && student.startsAt.slice(0,5) === formatTime12(row.startsAt)
     ))
     const presentStudentCount = sameSession.filter(student => student.status === 'present').length
     const studentSummary = row.status !== 'present'
@@ -224,7 +225,7 @@ function buildTeacherReport(schoolName: string, month: string, teacher: Teacher,
       : sameSession.length === 0
         ? 'لم يُسجل حضور الطلاب'
         : `${new Intl.NumberFormat('ar-EG').format(presentStudentCount)} طالب`
-    const cells: unknown[] = [formatDate(row.sessionDate), row.circleName, row.startsAt.slice(0,5), statusLabel(row.status), `${row.durationMinutes} دقيقة`, studentSummary]
+    const cells: unknown[] = [formatDate(row.sessionDate), row.circleName, formatTime12(row.startsAt), statusLabel(row.status), `${row.durationMinutes} دقيقة`, studentSummary]
     if (canTeacherPay) cells.push(row.status === 'present' ? money(row.payableAmount) : '—')
     return cells
   })
@@ -252,7 +253,7 @@ function buildTeacherAttendanceReport(schoolName: string, month: string, teacher
 
 function buildStudentAttendanceReport(schoolName: string, month: string, circles: Circle[], data: MonthData) {
   const pages = circles.map((circle, index) => {
-    const rows = data.studentAttendance.filter(row => row.circleId === circle.id).map(row => [formatDate(row.sessionDate), row.startsAt.slice(0,5), row.studentName, row.studentCode, statusLabel(row.status), row.teacherName || circle.teacherName || '—'])
+    const rows = data.studentAttendance.filter(row => row.circleId === circle.id).map(row => [formatDate(row.sessionDate), formatTime12(row.startsAt), row.studentName, row.studentCode, statusLabel(row.status), row.teacherName || circle.teacherName || '—'])
     const present = data.studentAttendance.filter(row => row.circleId === circle.id && row.status === 'present').length
     const absent = data.studentAttendance.filter(row => row.circleId === circle.id && row.status === 'absent').length
     const excused = data.studentAttendance.filter(row => row.circleId === circle.id && row.status === 'excused').length
@@ -265,7 +266,7 @@ function buildStudentReport(schoolName: string, month: string, history: HistoryD
   const student = history.student
   const attendance = data.studentAttendance.filter(row => row.studentId === student.id)
   const enrollments = history.enrollments.map(row => [row.circleName,row.teacherName || 'غير محددة',formatDate(row.startsOn),row.endsOn ? formatDate(row.endsOn) : 'مستمر',statusLabel(row.status)])
-  const attendanceRows = attendance.map(row => [formatDate(row.sessionDate),row.circleName,row.startsAt.slice(0,5),statusLabel(row.status),row.teacherName || '—'])
+  const attendanceRows = attendance.map(row => [formatDate(row.sessionDate),row.circleName,formatTime12(row.startsAt),statusLabel(row.status),row.teacherName || '—'])
   const canFinance = audience === 'internal' && permissions.includes('finance.read') && permissions.includes('reports.finance')
   const charges = canFinance ? history.charges.map(row => [row.billingMonth,row.circleName,money(row.amountDue),money(row.paidAmount),money(row.balance),statusLabel(row.balance<=0?'paid':row.paidAmount>0?'partial':'unpaid')]) : []
   const notes = audience === 'internal' ? history.notes.map(row => [formatDate(row.createdAt),row.noteText,row.createdBy || '—']) : []

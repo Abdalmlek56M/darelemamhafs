@@ -5,7 +5,7 @@ import {
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorAbsencesResponse, SupervisorLiveResponse, SupervisorSession, SupervisorUnpaidResponse } from './teacherTypes'
 import { money } from './teacherFormat'
-import { statusLabel, statusTone, todayCairo } from './supervisorFormat'
+import { statusLabel, statusTone, todayCairo, formatTime12 } from './supervisorFormat'
 import { demoAbsences, demoCircles, demoLive, demoStudents, demoTeachers, demoUnpaid } from './supervisorDemo'
 
 type Section = 'students' | 'circles' | 'teachers' | 'attendance' | 'absences' | 'unpaid'
@@ -180,11 +180,11 @@ export default function SupervisorOverview({
           {attention === 0 && <p className="sup-muted">{loading ? 'جارٍ التحميل…' : 'لا توجد متابعات مفتوحة. كل شيء مضبوط.'}</p>}
           <div className="sup-list">
             {missingTeachers.slice(0, 3).map((item) => (
-              <div className="sup-row" key={`${item.scheduleSlotId}-${item.startsAt}`}>
+              <div className="sup-row" key={`${item.scheduleSlotId}-${formatTime12(item.startsAt)}`}>
                 <span className="sup-kpi-icon is-warn"><AlertTriangle size={15} /></span>
                 <div className="sup-row-copy">
                   <strong>{item.teacherName}</strong>
-                  <small>{item.circleName} · {item.startsAt} · لم تسجل الحضور</small>
+                  <small>{item.circleName} · {formatTime12(item.startsAt)} · لم تسجل الحضور</small>
                 </div>
                 <span className="t-badge t-badge-bad">معلمة</span>
               </div>

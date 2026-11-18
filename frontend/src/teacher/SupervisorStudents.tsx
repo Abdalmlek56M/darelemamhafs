@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, GraduationCap, Phone, Plus, Search, UserRound } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorStudent, SupervisorStudentDetailResponse } from './teacherTypes'
-import { dateLabel, percent, statusLabel, statusTone } from './supervisorFormat'
+import { dateLabel, percent, statusLabel, statusTone, formatTime12 } from './supervisorFormat'
 import { money } from './teacherFormat'
 import { demoStudentDetail, demoStudents } from './supervisorDemo'
 import WhatsAppButton from './WhatsAppButton'
@@ -200,7 +200,7 @@ function StudentDetail({ student, canNote, demo, onOpenCircle, canCommunicate, o
               <div className="t-row" key={`${row.date}-${index}`}>
                 <div className="t-row-copy">
                   <strong>{row.circleName}</strong>
-                  <small>{dateLabel(row.date)} · {row.startsAt}</small>
+                  <small>{dateLabel(row.date)} · {formatTime12(row.startsAt)}</small>
                   {row.note && <small>{row.note}</small>}
                 </div>
                 <span className={statusTone(row.status)}>{statusLabel(row.status)}</span>
