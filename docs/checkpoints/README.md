@@ -53,6 +53,7 @@
 | 1.27.0 | [Historical charge correction + charge audit](charge-correction-audit-1.0.md) | ✅ live; 9 charges corrected with audit, admin audit panel |
 | 1.28.0 | [Schedule + teacher attendance review](schedule-attendance-review-1.0.md) | ✅ live; weekday/future guards, inactive-circle actions |
 | 1.29.0 | [Admin requests review](admin-requests-review-1.0.md) | ✅ live; pending/approved filters, approve/reject with audited effects |
+| 1.30.0 | [Teacher calendar + history](teacher-calendar-history-1.0.md) | ✅ live; weekly calendar, session/pay history, last logins |
 
 ## Next in order
 
