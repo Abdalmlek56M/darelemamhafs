@@ -336,7 +336,7 @@ If any default is wrong, the owner can change it before that phase starts.
 
 - **Subscriptions/collections (done):** automatic proration removed, agreed fee used, 9 historical charges corrected with audit, integrity checks clean, audit panel added. Remaining: receipt/refund UI audit.
 - **Admin schedule + teacher attendance (done):** pay math/snapshots, month totals, filters, duration editing, weekday/future guards and inactive-circle handling verified. Open: device-local countdown vs Cairo; wide table on mobile.
-- **Admin requests review (done):** supervisors and admins can review attendance requests from `/management`; approval applies audited attendance/pay effects.
+- **Admin requests review (done):** supervisors and admins can review attendance requests; approval applies audited attendance/pay effects. Pending requests can be edited; approved requests can be reopened (effect reversal) or soft-deleted; notes are appended instead of overwritten.
 - **Teacher:** weekly calendar and session/login history are implemented. Attendance has an offline IndexedDB outbox; session end/notes still require connectivity.
 - **Reports:** print/PDF exists through browser print; financial report columns now require `reports.finance` in addition to `finance.read`; the formal PDF sample/review approval is still pending.
 - **Payroll lock/approval:** implemented (migration 022): month lock/unlock with reasons and audit; edits and affected request approvals return 409 until unlocked.
