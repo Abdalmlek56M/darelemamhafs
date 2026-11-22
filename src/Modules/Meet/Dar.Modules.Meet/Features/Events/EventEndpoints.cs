@@ -15,6 +15,7 @@ public static class EventEndpoints
     public static RouteGroupBuilder MapMeetEvents(this RouteGroupBuilder group)
     {
         group.MapGet("/events", ListAsync).RequireAuthorization(MeetPermissions.View).WithName("MeetEvents");
+        group.MapCreateMeetEvent();
         group.MapPut("/events/{id:guid}/link", LinkAsync)
             .RequireAuthorization(MeetPermissions.Manage)
             .WithName("MeetEventLink");

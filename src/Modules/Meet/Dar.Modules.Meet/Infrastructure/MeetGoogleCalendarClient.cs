@@ -105,6 +105,75 @@ public sealed class MeetGoogleCalendarClient
             false);
     }
 
+    /// <summary>
+    /// Creates an event in the Dar calendar with an attached Google Meet conference.
+    /// conferenceDataVersion=1 is required for Google to generate the Meet link.
+    /// </summary>
+    public async Task<GoogleCalendarEvent> CreateEventAsync(
+        string accessToken,
+        string calendarId,
+        string summary,
+        string? description,
+        DateTimeOffset start,
+        DateTimeOffset end,
+        string timeZone,
+        CancellationToken ct)
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            summary,
+            description,
+            start = new { dateTime = FormatLocal(start, timeZone), timeZone },
+            end = new { dateTime = FormatLocal(end, timeZone), timeZone },
+            conferenceData = new
+            {
+                createRequest = new
+                {
+                    requestId = Guid.NewGuid().ToString("N"),
+                    conferenceSolutionKey = new { type = "hangoutsMeet" }
+                }
+            }
+        });
+
+        var url = $"{BaseUrl}/{Uri.EscapeDataString(calendarId)}/events?conferenceDataVersion=1&sendUpdates=none";
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json")
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+        using var response = await Http.SendAsync(request, ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new MeetGoogleException(
+                (int)response.StatusCode == 403
+                    ? "صلاحية إنشاء المواعيد غير ممنوحة. أعد ربط Google من صفحة التسجيل."
+                    : "تعذّر إنشاء الموعد في تقويم Google.",
+                (int)response.StatusCode,
+                ExtractReason(body));
+        }
+
+        using var document = JsonDocument.Parse(body);
+        var parsed = ParseEvent(document.RootElement)
+            ?? throw new MeetGoogleException("استجابة Google لا تحتوي على موعد صالح.", 502, "invalid_response");
+        return parsed;
+    }
+
+    /// <summary>Google expects a local dateTime without an offset plus an explicit timeZone.</summary>
+    private static string FormatLocal(DateTimeOffset value, string timeZone)
+    {
+        try
+        {
+            var zone = TimeZoneInfo.FindSystemTimeZoneById(timeZone);
+            return TimeZoneInfo.ConvertTime(value, zone).ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return value.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture);
+        }
+    }
+
     private static GoogleCalendarEvent? ParseEvent(JsonElement item)
     {
         var id = ReadString(item, "id");
@@ -119,6 +188,8 @@ public sealed class MeetGoogleCalendarClient
             ? ReadString(startElement, "timeZone")
             : null;
 
+        // Npgsql only accepts UTC DateTimeOffset values, and Google returns the event's
+        // local offset (e.g. +02:00 for Cairo). Normalise at the boundary.
         return new GoogleCalendarEvent(
             id,
             status,
@@ -128,8 +199,8 @@ public sealed class MeetGoogleCalendarClient
             ReadString(item, "htmlLink"),
             ReadString(item, "hangoutLink"),
             item.TryGetProperty("organizer", out var organizer) ? ReadString(organizer, "email") : null,
-            start.Value,
-            end.Value,
+            start.Value.ToUniversalTime(),
+            end.Value.ToUniversalTime(),
             timeZone,
             !string.IsNullOrWhiteSpace(ReadString(item, "recurringEventId")),
             item.GetRawText());

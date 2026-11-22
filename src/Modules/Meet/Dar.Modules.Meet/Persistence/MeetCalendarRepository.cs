@@ -192,8 +192,8 @@ public sealed class MeetCalendarRepository(NpgsqlDataSource dataSource)
                 command.Parameters.AddWithValue("account", accountId);
                 command.Parameters.AddWithValue("googleId", Truncate(item.Id, 1000)!);
                 command.Parameters.AddWithValue("calendar", Truncate(calendarId, 200)!);
-                command.Parameters.AddWithValue("start", item.Start);
-                command.Parameters.AddWithValue("end", item.End);
+                command.Parameters.AddWithValue("start", item.Start.ToUniversalTime());
+                command.Parameters.AddWithValue("end", item.End.ToUniversalTime());
                 command.Parameters.AddWithValue("zone", (object?)Truncate(item.TimeZone, 80) ?? DBNull.Value);
                 command.Parameters.AddWithValue("summary", (object?)Truncate(item.Summary, 500) ?? DBNull.Value);
                 command.Parameters.AddWithValue("description", (object?)Truncate(item.Description, 8000) ?? DBNull.Value);
@@ -263,6 +263,24 @@ public sealed class MeetCalendarRepository(NpgsqlDataSource dataSource)
         }
 
         return (items, total);
+    }
+
+    public async Task<Guid?> FindEventIdAsync(
+        Guid accountId,
+        string googleEventId,
+        DateTimeOffset occurrenceStart,
+        CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            SELECT id FROM meet_events
+            WHERE account_id = @account AND google_event_id = @googleId AND occurrence_start = @start
+            LIMIT 1;
+            """, connection);
+        command.Parameters.AddWithValue("account", accountId);
+        command.Parameters.AddWithValue("googleId", googleEventId);
+        command.Parameters.AddWithValue("start", occurrenceStart.ToUniversalTime());
+        return await command.ExecuteScalarAsync(ct) as Guid?;
     }
 
     public async Task<MeetEventRow?> GetEventAsync(Guid accountId, Guid eventId, CancellationToken ct)

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { CalendarDays, RefreshCw, Video } from 'lucide-react'
+import { CalendarDays, Plus, RefreshCw, Video } from 'lucide-react'
 import { confirmAction } from '../components/common/confirmService'
 import type { DarApplicationContext } from '../application/useDarApplication'
 import { meetApi } from './meetApi'
@@ -8,6 +8,7 @@ import CalendarStatusCard from './components/CalendarStatusCard'
 import CalendarEventsPanel from './components/CalendarEventsPanel'
 import RecordingScopePanel from './components/RecordingScopePanel'
 import LinkEventDialog from './components/LinkEventDialog'
+import CreateEventDialog, { type CreateEventInput } from './components/CreateEventDialog'
 import { addDays, cairoDayKey } from './format'
 import type {
   MeetCalendarStatus,
@@ -51,6 +52,8 @@ export default function MeetPage({ ctx }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [linkTarget, setLinkTarget] = useState<MeetEvent | null>(null)
   const [linking, setLinking] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
   const requestRef = useRef(0)
 
   const canManage = ctx.has('meet.manage')
@@ -227,6 +230,25 @@ export default function MeetPage({ ctx }: Props) {
     }
   }
 
+  const createEvent = async (input: CreateEventInput) => {
+    setCreating(true)
+    try {
+      const created = await meetApi.createEvent(input)
+      setCreateOpen(false)
+      await Promise.all([loadEvents(), loadCircles()])
+      ctx.setToast({
+        tone: 'success',
+        text: created.meetLink
+          ? 'تم إنشاء الموعد في تقويم Google مع رابط Meet، وربطه بالحلقة.'
+          : 'تم إنشاء الموعد، لكن Google لم يُرجع رابط Meet. راجع إعداد التقويم.',
+      })
+    } catch (exception) {
+      ctx.setToast({ tone: 'error', text: exception instanceof Error ? exception.message : 'تعذّر إنشاء الموعد.' })
+    } finally {
+      setCreating(false)
+    }
+  }
+
   return <motion.section
     key="meet"
     className="meet-page"
@@ -240,6 +262,9 @@ export default function MeetPage({ ctx }: Props) {
         <p>ربط تقويم Google يحدد الحلقات التي تُسجَّل تلقائيًا. التسجيل نفسه يعمل خلال المراحل القادمة (البوت)، والواجهة هنا لاختيار النطاق وربط الأحداث.</p>
       </div>
       <div className="toolbar-actions">
+        {canManage && <button type="button" className="primary-button" onClick={() => setCreateOpen(true)}>
+          <Plus size={16} /> إنشاء حصة
+        </button>}
         <button type="button" className="secondary-button" onClick={() => { void loadStatus(); void loadEvents(); void loadCircles() }}>
           <RefreshCw size={16} /> تحديث
         </button>
@@ -311,6 +336,14 @@ export default function MeetPage({ ctx }: Props) {
       saving={linking}
       close={() => setLinkTarget(null)}
       save={(circleId, enableRecording) => void saveLink(circleId, enableRecording)}
+    />}
+
+    {createOpen && <CreateEventDialog
+      circles={circles}
+      today={cairoDayKey(new Date())}
+      saving={creating}
+      close={() => setCreateOpen(false)}
+      save={(input) => void createEvent(input)}
     />}
   </motion.section>
 }

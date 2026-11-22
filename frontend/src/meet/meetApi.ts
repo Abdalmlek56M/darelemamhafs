@@ -46,6 +46,19 @@ export const meetApi = {
 
   events: (params: EventsQuery) => api<MeetEventPage>(`/api/v1/meet/events?${eventQuery(params)}`),
 
+  createEvent: (body: {
+    circleId: string
+    title: string
+    date: string
+    startTime: string
+    durationMinutes: number
+    description?: string | null
+  }) =>
+    api<{ id: string; meetLink: string | null; htmlLink: string | null; startsAt: string; endsAt: string }>(
+      '/api/v1/meet/events',
+      { method: 'POST', body: JSON.stringify(body) }
+    ),
+
   link: (eventId: string, circleId: string, enableRecording: boolean) =>
     api<MeetEvent>(`/api/v1/meet/events/${eventId}/link`, {
       method: 'PUT',

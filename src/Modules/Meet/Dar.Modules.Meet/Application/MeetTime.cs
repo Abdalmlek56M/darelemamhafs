@@ -22,6 +22,13 @@ public static class MeetTime
     public static DateTimeOffset StartOfDay(DateOnly date) =>
         new(date.ToDateTime(TimeOnly.MinValue), Zone.GetUtcOffset(date.ToDateTime(TimeOnly.MinValue)));
 
+    /// <summary>Combines a Cairo date and wall-clock time into an offset-bearing instant.</summary>
+    public static DateTimeOffset FromCairo(DateOnly date, TimeOnly time)
+    {
+        var local = date.ToDateTime(time, DateTimeKind.Unspecified);
+        return new DateTimeOffset(local, Zone.GetUtcOffset(local));
+    }
+
     public static bool TryParseDate(string? value, out DateOnly date)
     {
         if (string.IsNullOrWhiteSpace(value))

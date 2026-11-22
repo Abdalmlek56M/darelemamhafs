@@ -66,10 +66,13 @@ public sealed class MeetGoogleOptions
     public string ClientSecret { get; set; } = "";
     public string RedirectUri { get; set; } = "";
 
-    /// <summary>Read-only calendar scope plus the identity scope used to show the account email.</summary>
+    /// <summary>
+    /// Calendar event scope (read + create) plus the identity scope used to show the account
+    /// email. Creating an event with conferenceData is what produces the Google Meet link.
+    /// </summary>
     public string[] Scopes { get; set; } =
     [
-        "https://www.googleapis.com/auth/calendar.events.readonly",
+        "https://www.googleapis.com/auth/calendar.events",
         "https://www.googleapis.com/auth/userinfo.email",
         "openid"
     ];
