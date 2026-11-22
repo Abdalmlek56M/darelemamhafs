@@ -43,7 +43,8 @@
 | **2.9** | **جودة الإطلاق** | ⬜ | E2E Playwright + restore drill آلي + load/pen test + مراجعة PDF الرسمية + دليل التسليم والتدريب |
 | **3.0** | **Meet — المتطلبات المسبقة + ADRs** | ✅ منفّذة (22 Nov) — ما عدا أعمال host (حزم السيرفر/بروفايل Playwright/rclone OAuth) | ADR-0006 (جسر الجلسة) + ADR-0007 (المعمارية) + توحيد حلقة مفاتيح Data Protection في الـAPIين + كتالوج الصلاحيات في المصادر الأربعة |
 | **3.1** | **Meet — Calendar + Events UI** | ✅ منفّذة (22 Nov) — تحتاج تحقق OAuth حقيقي على السيرفر | migration 026 + OAuth offline + مزامنة incremental/full + قائمة أحداث + اقتراح وربط الحلقة + نطاق التسجيل + اختبارات وحدة |
-| **3.2–3.7** | **Meet — البوت والتسجيل والبث والرفع والنشر** | ⏸️ **بانتظار مراجعة المالك** | بوت Playwright/FFmpeg/MediaMTX + HLS/DVR + SSE + Drive + حذف يدوي محمي + hardening + E2E |
+| **3.2** | **Meet — بوت التسجيل + self-test** | ✅ منفّذة (22 Nov) — البوت يعمل كخدمة معزولة وينتج MP4+HLS | طابور claim/heartbeat + state machine + Xvfb/PulseAudio/FFmpeg + self-test 30s (513KB MP4، 7 مقاطع HLS) |
+| **3.3–3.7** | **Meet — الانضمام لـMeet والبث والرفع والنشر** | ⏸️ **التالية** | Playwright join + MediaMTX/DVR + SSE + Drive + حذف يدوي محمي + hardening + E2E |
 | **3.9+** | **مؤجل بقرار المالك** | ⏸️ | الإنجليزية (i18n)، القيد المزدوج الكامل، مسير/قسائم الرواتب الكامل، خصومات/خطط رسوم، إيصالات مرقّمة، بوابة ولي الأمر — كل واحد يحتاج قرارًا مستقلًا قبل البدء |
 
 ---

@@ -54,6 +54,7 @@
 | `database/` | 23 ملف SQL مرتّب + ledger في `web_schema_migrations` | legacy `schema_migrations` متوقف عند 16 |
 | `tests/` | UnitTests + IntegrationTests (Testcontainers) + regression قديمة + 36 runner قديم | 11 runner يشير لـTestCenter المؤرشف |
 | `deploy/` | Nginx/systemd/backup/setup scripts + Docker stack قديم (متقاعد) | يُعاد تأمينها في Phase 2.1 |
+| `services/meet-recorder/` | بوت التسجيل (Node 24 + TypeScript) — 17 ملفًا | خدمة `dar-meet-bot` + `dar-meet.slice` (3.2) |
 | `tools/` + `desktop-host/` | أدوات Windows قديمة + WPF/WebView2 | حطام مطلوب تنظيفه (Phase 2.9) |
 | `.opencode/` | 204 ملف skills للوكلاء (5.2MB) | يُنقل خارج الريبو في التنظيف |
 
@@ -135,6 +136,7 @@
 
 ## 11. آخر التحديثات (22 Nov 2026)
 
+- **Phase 3.2 — بوت التسجيل (deploy `20261122-234642`، commits `db0beda` + `8c98b13`):** خدمة `dar-meet-bot` تعمل في `dar-meet.slice` (MemoryMax=3G، CPUQuota=180%) — Xvfb + PulseAudio تابعة + FFmpeg ينتجان MP4(faststart) + HLS + poster + SHA-256، وطابور claim/heartbeat/status عبر `/internal/meet` محمي بتوكن خدمة (لا يصل من الإنترنت). **Self-test 30s على الإنتاج: MP4 513KB، 7 مقاطع HLS، poster حقيقي**. التفاصيل: `docs/checkpoints/3.2-meet-bot-1.0.md`، التشغيل: `docs/19` §10.
 - **نشر 3.0/3.1 على الإنتاج (deploy `20261122-215854`، commit `a823b32`):** نسخة DB قبلية مُتحقَّقة + migrations **024/025/026** (ledger 26/26) + بناء جديد + تبديل + smoke كامل (200 لكل المسارات). Meet endpoints تعمل و**401** بدون جلسة، 8 جداول `meet_*`، 5 صلاحيات، وbackfill (view=3، media.view=3، manage/calendar/delete=1). أُبطلت جلسات الإدارة مرة واحدة (ADR-0006). التفاصيل: `docs/checkpoints/3.1-meet-deploy-1.0.md`.
 - **مساحة السيرفر:** `docker builder prune` استرجع **65.93GB** (build cache فقط) → 87G متاحة بدل 26G، بلا مساس بأي container/image/volume أو مشاريع أخرى.
 - **Phase 3.0/3.1 — Meet Calendar + Recording scope:** ADR-0006 (جسر جلسة الأدمن: Data Protection مشترك + `dar_admin_bridge`) + ADR-0007 (المعمارية) + migration **026** (`meet_calendar_accounts`/`meet_events`/`meet_event_links`/`meet_circle_settings`/`meet_bot_jobs`/`meet_sessions`/`meet_media_assets`/`meet_settings` + 5 صلاحيات + backfill) + وحدة `Dar.Modules.Meet` (OAuth offline، مزامنة incremental/full بـsyncToken، اقتراح وربط الحلقة، نطاق التسجيل، Audit) + واجهة **التسجيل والمحاضرات** في `/management`. لم يُنفّذ البوت بعد (3.2).
@@ -175,20 +177,22 @@
 | 2.4-b جداول/لمس/ConfirmSheet/MonthPicker | ✅ (16 جدولًا؛ 3 SystemAdminView متبقية) | `2.2fix-2.4b-2.5a-1.0.md` |
 | 2.5-a CI (typecheck/migration-count/SQL regression/schema drift) + Vite proxy | ✅ | `2.2fix-2.4b-2.5a-1.0.md` |
 | **3.0 Meet — ADRs + جسر الجلسة + الصلاحيات** | ✅ منفّذة ومنشورة | `3.0-3.1-meet-calendar-1.0.md` |
-| **3.1 Meet — migration 026 + Calendar + Events UI** | ✅ **منشورة على الإنتاج** (تحقق OAuth/مزامنة فعلية متبقٍ — يحتاج مفاتيح Google) | `3.0-3.1-meet-calendar-1.0.md` + `3.1-meet-deploy-1.0.md` |
+| **3.1 Meet — migration 026 + Calendar + Events UI** | ✅ **منشورة على الإنتاج** | `3.0-3.1-meet-calendar-1.0.md` + `3.1-meet-deploy-1.0.md` |
+| **3.2 Meet — بوت التسجيل + self-test** | ✅ **منشورة على الإنتاج** (خدمة `dar-meet-bot` تعمل) | `3.2-meet-bot-1.0.md` |
 
 ### المتبقي بالترتيب (عند الاستئناف)
-1. **مراجعة المالك لـ3.1** ثم **3.2:** خدمة `dar-meet-bot` (Node/Playwright) + state machine + claim/heartbeat + self-test ينتج MP4/HLS دون Meet.
-2. **3.3 → 3.7:** التقاط حي/HLS/DVR/SSE/المشغل، رفع Drive ودورة حياة الوسائط، التحكم اليدوي والموثوقية، الأمان، QA والنشر.
+1. **3.3:** Playwright + Chromium + بروفايل البوت (تسجيل دخول يدوي مرة واحدة) + الانضمام لـMeet + MediaMTX (بث/DVR) + SSE + مشغل Vidstack + جدولة `meet_bot_jobs` من الأحداث (T-60s).
+2. **3.4 → 3.7:** رفع Drive ودورة حياة الوسائط، التحكم اليدوي والموثوقية، الأمان، QA والنشر النهائي.
 3. **2.4-c:** QA بصري 390/1440 لكل صفحة (محجوب محليًا — يحتاج متصفح)، 3 جداول `SystemAdminView`، print CSS، reduced-motion، pagination، مراجعة RTL نهائية.
 4. **2.5-b:** contract حقيقي (spec مقابل API يعمل)، Playwright E2E، deploy/rollback verification، **أول تشغيل GitHub Actions**، lint.
 5. **2.6 → 2.9:** الخزنة/التقفيل، الأمان والتشغيل، التنظيف (>400 سطر: `useDarApplication.ts`, `SystemAdminView`, `AuthEndpoints`, `SystemAdminEndpoints.Requests`, `TeacherApp`, `teacherTypes`)، وجودة الإطلاق.
 
 ### Blockers/قيود معروفة
-- **push** محجوب بيئيًا: لا يوجد GitHub write credential (مفتاح الدخول للسيرفر ليس مفتاح GitHub، ومفتاح GitHub على السيرفر **read-only**) → المالك يدفع يدويًا.
-- **تم النشر:** الإنتاج على `a823b32` و**26/26** migration؛ أدخل المالك مفاتيح Google في `/etc/dar/meet.env` + `systemctl restart dar-api` لتفعيل الربط. جلسات الإدارة أُبطلت مرة واحدة (متوقع، ADR-0006).
+- **push** محجوب بيئيًا: لا يوجد GitHub write credential (مفتاح الدخول للسيرفر ليس مفتاح GitHub، ومفتاح GitHub على السيرفر **read-only**) → المالك يدفع يدويًا. الإنتاج الآن على `db0beda` + إصلاح وحدة `8c98b13` مطبَّق يدويًا، وGitHub على `a823b32`.
+- **تم النشر:** الإنتاج على **26/26** migration وخدمة `dar-meet-bot` تعمل؛ ربط Google تمّ فعليًا (128 حدثًا) في وضع Testing.
+- **Google OAuth ما زال Testing** → التوكن يقع بعد 7 أيام. النشر يحتاج **Home page + Privacy policy** في Branding ثم Publish + إعادة ربط.
 - **تحقق بصري/E2E/Testcontainers/bash -n/dotnet test (testhost)** محجوبة في الساندبوكس (esbuild EPERM / no Docker / process handles) → CI أو جهاز غير مقيّد.
-- **Meet 3.1 غير مختبرة ضد Google فعليًا** — تحتاج مفاتيح OAuth (docs/19)؛ عندها تُنفّذ أول مزامنة حقيقية.
+- **3.2 لم يجرّب على Meet فعليًا** — الخدمة تلتقط شاشة وهمية؛ الانضمام للاجتماع في 3.3.
 - **سكربتات Phase 2.1** جُرّبت الآن فعليًا بالكامل في النشر (نسخة + pull + build + migrate + swap + smoke) ✅ — بقي rehearsal الـrollback نفسه.
 - **cleanup**: مجلد `.tmp-deploy` متبقٍ (pip temp، متجاهل في git ولا يؤثر).
 

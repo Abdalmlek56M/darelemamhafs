@@ -114,7 +114,54 @@ sudo journalctl -u dar-api -n 200 --no-pager | grep -i 'meet'
 | `invalid_state` عند العودة من Google | انتهت مهلة 10 دقائق أو تغيّر مفتاح التشفير | أعد المحاولة من الزر |
 | مزامنة تعيد `410` دائمًا | `syncToken` تالف | «مزامنة كاملة» أو انتظر المزامنة الكاملة المجدولة |
 
-## 10. ما لم يُبنَ بعد (لا تشغّله على الإنتاج)
+## 10. بوت التسجيل (3.2)
 
-- بوت التسجيل (`dar-meet-bot`)، HLS/DVR، مسارات `/media/meet/*` المحمية، رفع rclone إلى Drive، SSE، وإشعارات التسجيل التشغيلية — كلها في 3.2 → 3.6.
-- حتى ذلك الحين: أزرار التشغيل/الإيقاف غير موجودة، والوحدة **لا تسجّل أي شيء** — تُدير التقويم والربط فقط.
+| الأمر | الاستخدام |
+|---|---|
+| `systemctl status dar-meet-bot` | حالة الخدمة |
+| `sudo journalctl -u dar-meet-bot -f` | متابعة اللوج (JSON سطر لكل حدث) |
+| `sudo systemctl restart dar-meet-bot` | إعادة تشغيل |
+| `systemctl show dar-meet-bot -p NRestarts --value` | هل في إعادة تشغيل متكررة |
+| `systemctl show dar-meet.slice -p MemoryMax -p CPUQuotaPerSecUSec` | حدود الموارد الفعلية |
+
+**الملفات:**
+
+| الملف | المحتوى |
+|---|---|
+| `/opt/dar-meet-bot` | كود الخدمة + `dist/` (المصدر: `services/meet-recorder` في الريبو) |
+| `/etc/dar/meet-bot.env` | `DAR_SERVICE_TOKEN` (نفس `Meet__InternalToken`) وإعدادات الالتقاط — 0640 root:dar |
+| `/var/lib/dar/media/meet/<session>/` | `recording.mp4` + `hls/` + `poster.jpg` |
+| `/run/dar-meet` | XDG runtime لـPulseAudio (0700 dar) |
+
+**اختبار الالتقاط (بدون Google Meet):**
+
+```bash
+sudo systemctl stop dar-meet-bot          # لا تشارك DISPLAY/الصوت مع الخدمة
+sudo -u dar env HOME=/var/lib/dar XDG_RUNTIME_DIR=/run/dar-meet \
+  BOT_MEDIA_ROOT=/var/lib/dar/media/meet BOT_SELFTEST_SECONDS=30 \
+  node /opt/dar-meet-bot/dist/index.js --selftest
+sudo systemctl start dar-meet-bot
+```
+النجاح = سطر JSON فيه `"ok":true` مع `durationSeconds` و`sizeBytes` و`hlsSegments` و`sha256`.
+
+**التحقق من الـAPI الداخلي (بدون طباعة التوكن):**
+```bash
+TOKEN="$(sudo sed -n 's/^Meet__InternalToken=//p' /etc/dar/meet.env | head -1)"
+curl -s -H "X-Dar-Service-Token: $TOKEN" http://127.0.0.1:5081/internal/meet/health
+```
+
+**التثبيت/التحديث:** `sudo bash deploy/setup-host-meet.sh` (يضيف `--skip-build` لإعادة استخدام `dist`).
+
+**أعطال البوت:**
+
+| العرض | السبب | الإجراء |
+|---|---|---|
+| `226/NAMESPACE` عند البدء | `ReadWritePaths` يشير لمجلد غير موجود | تأكد من `/var/lib/dar/media/meet` و`/var/lib/dar/meet` |
+| `poller online` لا يظهر | التوكن مختلف بين `meet.env` و`meet-bot.env` | أعد تشغيل الاثنين بعد ضبط `Meet__InternalToken` |
+| `health` = 401 من البوت | التوكن قديم بعد إعادة توليده | `systemctl restart dar-api dar-meet-bot` |
+| فشل التقاط الصوت (ESRCH) | `XDG_RUNTIME_DIR` مختلف بين PulseAudio وFFmpeg | استخدم نفس البيئة كما في أمر الاختبار أعلاه |
+
+## 11. ما لم يُبنَ بعد (لا تشغّله على الإنتاج)
+
+- **دخول Google Meet فعليًا** (Playwright/Chromium + البروفايل)، البث الحي HLS/DVR عبر MediaMTX، مسارات `/media/meet/*` المحمية، SSE، رفع rclone إلى Drive، والحذف اليدوي المحمي — كلها 3.3 → 3.6.
+- حتى ذلك الحين: الخدمة تعمل وتلتقط شاشة وهمية، لكنها **لا تنضم لأي اجتماع ولا تنتج تسجيلات حلقات**؛ المزامنة والربط فقط هما الجاهزان.
