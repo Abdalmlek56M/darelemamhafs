@@ -21,8 +21,15 @@ sudo chmod 600 /etc/dar/backup.env
 
 sudo install -m 0644 deploy/systemd/dar-backup.service /etc/systemd/system/dar-backup.service
 sudo install -m 0644 deploy/systemd/dar-backup.timer /etc/systemd/system/dar-backup.timer
+
+# Operational healthcheck (services + health endpoints + disk + backup age + TLS + nginx).
+sudo install -m 0755 -o root -g root deploy/scripts/dar-healthcheck.sh /usr/local/bin/dar-healthcheck
+sudo install -m 0644 deploy/systemd/dar-healthcheck.service /etc/systemd/system/dar-healthcheck.service
+sudo install -m 0644 deploy/systemd/dar-healthcheck.timer /etc/systemd/system/dar-healthcheck.timer
+
 sudo systemctl daemon-reload
 sudo systemctl enable --now dar-backup.timer
+sudo systemctl enable --now dar-healthcheck.timer
 sudo systemctl start dar-backup.service
 sleep 2
 sudo systemctl --no-pager --full status dar-backup.service | sed -n '1,12p' || true

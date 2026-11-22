@@ -1,0 +1,11 @@
+[Unit]
+Description=Dar operational health check
+Documentation=file:/opt/dar/docs/11-deployment.md
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/dar-healthcheck
+TimeoutStartSec=120
+Nice=10

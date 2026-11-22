@@ -2,6 +2,7 @@
 Description=Dar PostgreSQL backup
 After=postgresql.service
 Requires=postgresql.service
+OnFailure=dar-healthcheck.service
 
 [Service]
 Type=oneshot
