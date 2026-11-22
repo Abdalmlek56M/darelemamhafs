@@ -610,6 +610,9 @@ swap_binaries
 restart_and_smoke
 cleanup_retention
 write_state
+# The deployment finished; clear the "binaries are live" flag so the EXIT trap
+# does not print a misleading rollback warning after a successful run.
+SWAPPED=0
 echo ""
 echo "UPDATE_OK"
 echo "  stamp      : $STAMP"

@@ -2,7 +2,7 @@
 
 **Date:** 22 Nov 2026
 **Rule:** هذا الملف هو **مصدر الحقيقة الواحد للحالة الحالية**. أي وثيقة تخالفه فهي إمّا هدف مستقبلي أو تاريخي. يتم تحديثه في نهاية كل مرحلة.
-**آخر Commit مُتحقق منه:** `43cf810` (main) — قبل مرحلة Docs Reset الحالية.
+**آخر Commit على `origin/main` ومُنشور:** `a823b32` (deploy stamp `20261122-215854`). التحديثات المحلية اللاحقة (docs + إصلاح update.sh) تنتظر push المالك.
 
 ---
 
@@ -21,7 +21,7 @@
 | الواجهة | **React 19 + Vite + TypeScript** + CSS tokens + framer-motion — **لا Next.js** (القرار ملغي نهائيًا، ADR-0001) |
 | Backend (قديم) | ASP.NET Core 10 Minimal API — `backend/DarEltahfeez.Api` على 5080 (يخدم الـSPA + كل الـdomain APIs) |
 | Backend (جديد) | `Dar.slnx`: `src/Host/Dar.Api` على 5081 — `/api/v1/*` (Identity + Secretariat + Teaching فقط) |
-| قاعدة البيانات | PostgreSQL 17 — `public` schema — **26 migration في المستودع (001→026)**؛ الإنتاج على 23 حتى تطبيق `deploy/update.sh` القادم (024 Void + 025 تحصين + 026 Meet) |
+| قاعدة البيانات | PostgreSQL 17 — `public` schema — **26 migration في المستودع (001→026)**؛ **الإنتاج على 26/26** (نُشرت 024 Void + 025 تحصين + 026 Meet في 22 Nov) |
 | النشر | Ubuntu 24.04 + Nginx + Certbot + systemd + منافذ داخلية 5080/5081 |
 | الاختبارات | 16 unit سابقة + **22 unit جديدة لـMeet** + 20 integration (Testcontainers) + 6 Vitest |
 | اللغة | العربية فقط الآن — الإنجليزية مؤجلة (ADR-0004) |
@@ -135,6 +135,8 @@
 
 ## 11. آخر التحديثات (22 Nov 2026)
 
+- **نشر 3.0/3.1 على الإنتاج (deploy `20261122-215854`، commit `a823b32`):** نسخة DB قبلية مُتحقَّقة + migrations **024/025/026** (ledger 26/26) + بناء جديد + تبديل + smoke كامل (200 لكل المسارات). Meet endpoints تعمل و**401** بدون جلسة، 8 جداول `meet_*`، 5 صلاحيات، وbackfill (view=3، media.view=3، manage/calendar/delete=1). أُبطلت جلسات الإدارة مرة واحدة (ADR-0006). التفاصيل: `docs/checkpoints/3.1-meet-deploy-1.0.md`.
+- **مساحة السيرفر:** `docker builder prune` استرجع **65.93GB** (build cache فقط) → 87G متاحة بدل 26G، بلا مساس بأي container/image/volume أو مشاريع أخرى.
 - **Phase 3.0/3.1 — Meet Calendar + Recording scope:** ADR-0006 (جسر جلسة الأدمن: Data Protection مشترك + `dar_admin_bridge`) + ADR-0007 (المعمارية) + migration **026** (`meet_calendar_accounts`/`meet_events`/`meet_event_links`/`meet_circle_settings`/`meet_bot_jobs`/`meet_sessions`/`meet_media_assets`/`meet_settings` + 5 صلاحيات + backfill) + وحدة `Dar.Modules.Meet` (OAuth offline، مزامنة incremental/full بـsyncToken، اقتراح وربط الحلقة، نطاق التسجيل، Audit) + واجهة **التسجيل والمحاضرات** في `/management`. لم يُنفّذ البوت بعد (3.2).
 - **Phase 2.2-fix (تحصين التداخل):** migration 025 — advisory locks لكل معلمة + رفض غير READ COMMITTED + رسالة تكرار منفصلة + حفظ ذري للحلقة/المواعيد + PUT للموعد + اختبارات (17/17 + 45/45 PASS).
 - **Phase 2.4-b (جداول/لمس):** ResponsiveTable (16 جدولًا → كروت <768px)، ConfirmSheet بدل 16 `window.confirm`، MonthPicker بدل 7 `type=month`، responsive-admin.css (44px، خطوط ≥14/12، تباين، حقول 16px، segmented filters). متبقٍ: 3 جداول SystemAdminView + QA بصري (2.4-c).
@@ -158,8 +160,9 @@
 > **الحالة:** **3.0 + 3.1 منفذتان ومُcommit محليًا**؛ التنفيذ متوقف بطلب المالك لمراجعة النتيجة قبل **3.2 (بوت التسجيل)**. المسار 2.x (2.4-c/2.5-b) لا يزال مؤجلًا بقرار المالك لصالح مميزات Meet.
 
 ### آخر commit
-- `HEAD` = commit «Phase 3.0+3.1 Meet» (راجع `git log --oneline -6`).
-- **محليًا عدة commits قبل `origin/main`** — الـpush محجوب من الساندبوكس (SEC_E_NO_CREDENTIALS). المطلوب: `git push origin main` من طرفية عادية.
+- الإنتاج: `a823b32` (deploy stamp `20261122-215854`) — نسخة DB قبلية `dar-pre-deploy-20261122-215854.dump`.
+- **محليًا commits لاحقة (docs + إصلاح update.sh) بانتظار push المالك** — الـpush من هذه البيئة محجوب (لا يوجد GitHub write credential؛ مفتاح السيرفر read-only).
+- تفاصيل النشر: `docs/checkpoints/3.1-meet-deploy-1.0.md`.
 
 ### المنجز (بالترتيب)
 | المرحلة | الحالة | checkpoint |
@@ -171,8 +174,8 @@
 | 2.4-a Responsive shell (Drawer/Bottom Nav/Modal sheet/CSS leak) | ✅ | `2.3-2.4a…` |
 | 2.4-b جداول/لمس/ConfirmSheet/MonthPicker | ✅ (16 جدولًا؛ 3 SystemAdminView متبقية) | `2.2fix-2.4b-2.5a-1.0.md` |
 | 2.5-a CI (typecheck/migration-count/SQL regression/schema drift) + Vite proxy | ✅ | `2.2fix-2.4b-2.5a-1.0.md` |
-| **3.0 Meet — ADRs + جسر الجلسة + الصلاحيات** | ✅ (أعمال host متبقية) | `3.0-3.1-meet-calendar-1.0.md` |
-| **3.1 Meet — migration 026 + Calendar + Events UI** | ✅ (تحقق OAuth/مزامنة فعلية على السيرفر متبقٍ) | `3.0-3.1-meet-calendar-1.0.md` |
+| **3.0 Meet — ADRs + جسر الجلسة + الصلاحيات** | ✅ منفّذة ومنشورة | `3.0-3.1-meet-calendar-1.0.md` |
+| **3.1 Meet — migration 026 + Calendar + Events UI** | ✅ **منشورة على الإنتاج** (تحقق OAuth/مزامنة فعلية متبقٍ — يحتاج مفاتيح Google) | `3.0-3.1-meet-calendar-1.0.md` + `3.1-meet-deploy-1.0.md` |
 
 ### المتبقي بالترتيب (عند الاستئناف)
 1. **مراجعة المالك لـ3.1** ثم **3.2:** خدمة `dar-meet-bot` (Node/Playwright) + state machine + claim/heartbeat + self-test ينتج MP4/HLS دون Meet.
@@ -182,16 +185,17 @@
 5. **2.6 → 2.9:** الخزنة/التقفيل، الأمان والتشغيل، التنظيف (>400 سطر: `useDarApplication.ts`, `SystemAdminView`, `AuthEndpoints`, `SystemAdminEndpoints.Requests`, `TeacherApp`, `teacherTypes`)، وجودة الإطلاق.
 
 ### Blockers/قيود معروفة
-- **push** محجوب بيئيًا (Windows Credential Manager) → تنفيذ يدوي.
-- **نشر** migrations 024/025/026 لم تُطبّق على الإنتاج بعد (الإنتاج على 23) → عبر `deploy/update.sh` مع نسخة قبلية + **نافذة قصيرة** لأن ADR-0006 يُبطل جلسات الأدمن الحالية مرة واحدة.
+- **push** محجوب بيئيًا: لا يوجد GitHub write credential (مفتاح الدخول للسيرفر ليس مفتاح GitHub، ومفتاح GitHub على السيرفر **read-only**) → المالك يدفع يدويًا.
+- **تم النشر:** الإنتاج على `a823b32` و**26/26** migration؛ أدخل المالك مفاتيح Google في `/etc/dar/meet.env` + `systemctl restart dar-api` لتفعيل الربط. جلسات الإدارة أُبطلت مرة واحدة (متوقع، ADR-0006).
 - **تحقق بصري/E2E/Testcontainers/bash -n/dotnet test (testhost)** محجوبة في الساندبوكس (esbuild EPERM / no Docker / process handles) → CI أو جهاز غير مقيّد.
-- **Meet 3.1 غير مختبرة ضد Google فعليًا** — تحتاج مفاتيح OAuth + `Meet__EncryptionKey` على السيرفر (docs/19).
-- **سكربتات Phase 2.1** لم تُجرّب على host بعد (rehearsal مطلوب).
+- **Meet 3.1 غير مختبرة ضد Google فعليًا** — تحتاج مفاتيح OAuth (docs/19)؛ عندها تُنفّذ أول مزامنة حقيقية.
+- **سكربتات Phase 2.1** جُرّبت الآن فعليًا بالكامل في النشر (نسخة + pull + build + migrate + swap + smoke) ✅ — بقي rehearsal الـrollback نفسه.
 - **cleanup**: مجلد `.tmp-deploy` متبقٍ (pip temp، متجاهل في git ولا يؤثر).
 
 ### للاستئناف
-1. `git push origin main` (أو من طرفية المالك).
-2. مراجعة المالك لنتيجة 3.1 ثم البدء في **3.2** — أو العودة إلى 2.4-c إن أراد إكمال المسار 2.x أولًا.
+1. `git push origin main` (التحديثات المحلية: docs النشر + إصلاح `update.sh`).
+2. إدخال مفاتيح Google في `/etc/dar/meet.env` ثم `systemctl restart dar-api`، ثم «ربط Google» + «مزامنة الآن» والتحقق من صفحة **التسجيل والمحاضرات**.
+3. مراجعة المالك لنتيجة 3.1 ثم البدء في **3.2** — أو العودة إلى 2.4-c إن أراد إكمال المسار 2.x أولًا.
 
 ### Phase 3.0 (22 Nov 2026) — معتمدة
 - القرارات السبعة في `docs/18-meet-recording-plan.md` §9؛ التنفيذ بدأ بـ3.0/3.1 (هذا الـcheckpoint)؛ 3.2+ بانتظار المراجعة.
