@@ -76,6 +76,9 @@ public sealed record EnrollmentWriteRequest(Guid StudentId,Guid CircleId,DateOnl
 public sealed record EnrollmentEndRequest(DateOnly? EndsOn);
 public sealed record EnrollmentStatusChangeRequest(DateOnly? EffectiveOn, string? Reason);
 public sealed record ScheduleSlotWriteRequest(Guid CircleId,int DayOfWeek,string StartsAt,int DurationMinutes);
+public sealed record ScheduleSlotDraft(int DayOfWeek,string StartsAt,int DurationMinutes);
+public sealed record CircleWithScheduleRequest(string? CircleCode,string Name,Guid? TeacherId,decimal? MonthlyFee,string? ScheduleText,bool IsActive,DateOnly StartsOn,IReadOnlyList<ScheduleSlotDraft>? Slots);
+public sealed record ScheduleSlotUpdateRequest(int DayOfWeek,string StartsAt,int DurationMinutes,bool? IsActive=null);
 public sealed record TeacherAttendanceMarkRequest(Guid ScheduleSlotId,DateOnly SessionDate,string Status,string? Note,Guid? TeacherId = null);
 public sealed record TeacherAttendanceDurationRequest(int DurationMinutes);
 public sealed record StudentAttendanceMarkRequest(Guid ScheduleSlotId,Guid EnrollmentId,DateOnly SessionDate,string Status,string? Note,bool AllowHistoricalEntry = false);

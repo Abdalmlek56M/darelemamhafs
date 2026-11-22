@@ -56,6 +56,97 @@ public static partial class DomainEndpoints
             catch (PostgresException ex) when (ex.SqlState == "23505") { return Results.Conflict(new { message = "هذا الموعد مسجل للحلقة في اليوم والوقت نفسيهما بالفعل." }); }
             catch (PostgresException ex) when (ex.SqlState == "23514" && ex.ConstraintName == "ck_teacher_schedule_no_overlap")
             { return Results.Conflict(new { message = "توجد حصة أخرى للمعلمة نفسها تتداخل مع هذا الموعد. اختر وقتًا غير متداخل؛ يُسمح بالمواعيد المتتالية." }); }
+            catch (PostgresException ex) when (ex.SqlState == "0A000")
+            { return Results.Conflict(new { message = "تعديل جدول المواعيد يتطلب مستوى العزل READ COMMITTED لضمان فحص التداخل بعد القفل." }); }
+        }).RequireAuthorization("schedule.edit");
+
+
+        app.MapPut("/api/schedule-slots/{id:guid}", async Task<IResult> (Guid id, ScheduleSlotUpdateRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
+        {
+            if (request.DayOfWeek is < 0 or > 6 || request.DurationMinutes is < 15 or > 360 ||
+                !TryParseScheduleSlotTime(request.StartsAt, out var startsAt))
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["schedule"] = ["حدد اليوم والوقت، واجعل مدة الحلقة من 15 إلى 360 دقيقة."] });
+            await using var conn = await db.OpenConnectionAsync(ct);
+            await using var tx = await conn.BeginTransactionAsync(ct);
+            Guid circleId;
+            bool circleIsActive;
+            Guid? teacherId;
+            bool circleIsTrashed;
+            bool currentIsActive;
+            string beforeJson;
+            await using (var read = new NpgsqlCommand("""
+                SELECT ss.circle_id, c.is_active, c.teacher_id, c.is_trashed, ss.is_active, to_jsonb(ss)::text
+                FROM circle_schedule_slots ss
+                JOIN circles c ON c.id = ss.circle_id
+                WHERE ss.id=@id AND ss.is_trashed=FALSE
+                FOR UPDATE OF ss;
+                """, conn, tx))
+            {
+                read.Parameters.AddWithValue("id", id);
+                await using var reader = await read.ExecuteReaderAsync(ct);
+                if (!await reader.ReadAsync(ct)) { await tx.RollbackAsync(ct); return Results.NotFound(new { message = "الموعد غير موجود أو موجود في المهملات." }); }
+                circleId = reader.GetGuid(0);
+                circleIsActive = reader.GetBoolean(1);
+                teacherId = reader.IsDBNull(2) ? (Guid?)null : reader.GetGuid(2);
+                circleIsTrashed = reader.GetBoolean(3);
+                currentIsActive = reader.GetBoolean(4);
+                beforeJson = reader.GetString(5);
+            }
+            if (circleIsTrashed) { await tx.RollbackAsync(ct); return Results.NotFound(new { message = "حلقة هذا الموعد غير موجودة." }); }
+            var effectiveActive = request.IsActive ?? currentIsActive;
+            if (effectiveActive && (!circleIsActive || teacherId is null))
+            {
+                await tx.RollbackAsync(ct);
+                return Results.Conflict(new { message = "لا يمكن تفعيل الموعد بينما الحلقة متوقفة أو بلا معلمة. فعّل الحلقة وحدد المعلمة أولًا." });
+            }
+            try
+            {
+                await using (var update = new NpgsqlCommand("UPDATE circle_schedule_slots SET day_of_week=@day,starts_at=@time,duration_minutes=@duration,is_active=@active WHERE id=@id;", conn, tx))
+                {
+                    update.Parameters.AddWithValue("id", id);
+                    update.Parameters.AddWithValue("day", (short)request.DayOfWeek);
+                    update.Parameters.AddWithValue("time", startsAt);
+                    update.Parameters.AddWithValue("duration", request.DurationMinutes);
+                    update.Parameters.AddWithValue("active", effectiveActive);
+                    await update.ExecuteNonQueryAsync(ct);
+                }
+                string afterJson;
+                await using (var after = new NpgsqlCommand("SELECT to_jsonb(ss)::text FROM circle_schedule_slots ss WHERE ss.id=@id;", conn, tx))
+                {
+                    after.Parameters.AddWithValue("id", id);
+                    afterJson = (string)(await after.ExecuteScalarAsync(ct) ?? "{}");
+                }
+                await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details,before_data,after_data,request_path,http_method,can_restore) VALUES(@actor,'schedule.update','circle_schedule_slot',@id,jsonb_build_object('circleId',@circle,'dayOfWeek',@day,'startsAt',@time,'durationMinutes',@duration,'isActive',@active),@before::jsonb,@after::jsonb,'/api/schedule-slots/'||@id,'PUT',TRUE);", conn, tx))
+                {
+                    audit.Parameters.AddWithValue("actor", ActorId(principal));
+                    audit.Parameters.AddWithValue("id", id);
+                    audit.Parameters.AddWithValue("circle", circleId);
+                    audit.Parameters.AddWithValue("day", request.DayOfWeek);
+                    audit.Parameters.AddWithValue("time", startsAt.ToString("HH:mm"));
+                    audit.Parameters.AddWithValue("duration", request.DurationMinutes);
+                    audit.Parameters.AddWithValue("active", effectiveActive);
+                    audit.Parameters.AddWithValue("before", beforeJson);
+                    audit.Parameters.AddWithValue("after", afterJson);
+                    await audit.ExecuteNonQueryAsync(ct);
+                }
+                await tx.CommitAsync(ct);
+                return Results.Ok(new { id, circleId, dayOfWeek = request.DayOfWeek, startsAt = startsAt.ToString("HH:mm"), durationMinutes = request.DurationMinutes, isActive = effectiveActive });
+            }
+            catch (PostgresException ex) when (ex.SqlState == "23505")
+            {
+                await tx.RollbackAsync(ct);
+                return Results.Conflict(new { message = "هذا الموعد مسجل بالفعل لنفس الحلقة واليوم والوقت. استخدم الموعد الموجود بدل إنشاء موعد مكرر." });
+            }
+            catch (PostgresException ex) when (ex.SqlState == "23514" && ex.ConstraintName == "ck_teacher_schedule_no_overlap")
+            {
+                await tx.RollbackAsync(ct);
+                return Results.Conflict(new { message = "لم يتم تحديث الموعد (تم التراجع): توجد حصة أخرى للمعلمة نفسها تتداخل مع الموعد الجديد. اختر وقتًا غير متداخل." });
+            }
+            catch (PostgresException ex) when (ex.SqlState == "0A000")
+            {
+                await tx.RollbackAsync(ct);
+                return Results.Conflict(new { message = "تعديل جدول المواعيد يتطلب مستوى العزل READ COMMITTED لضمان فحص التداخل بعد القفل." });
+            }
         }).RequireAuthorization("schedule.edit");
 
 

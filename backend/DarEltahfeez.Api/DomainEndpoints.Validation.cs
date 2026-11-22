@@ -56,6 +56,31 @@ public static partial class DomainEndpoints
     private static bool CanReadFinance(ClaimsPrincipal principal) => principal.HasClaim("permission", "finance.read");
     private static bool CanEditFinancialValues(ClaimsPrincipal principal) => CanReadFinance(principal) && principal.HasClaim("permission", "finance.edit");
     private static Guid ActorId(ClaimsPrincipal user)=>Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier),out var id)?id:Guid.Empty;
+    private static Dictionary<string,string[]>? ValidateScheduleDrafts(IReadOnlyList<ScheduleSlotDraft>? drafts, bool circleIsActive, Guid? teacherId, string fieldName = "slots")
+    {
+        if (drafts is null || drafts.Count == 0) return null;
+        var errors = new Dictionary<string,string[]>();
+        if (drafts.Count > 20) errors[fieldName] = ["لا يمكن حفظ أكثر من 20 موعدًا أسبوعيًا للحلقة الواحدة."];
+        if (!circleIsActive || teacherId is null || teacherId == Guid.Empty)
+            errors[fieldName] = ["لإضافة مواعيد فعلية، فعّل الحلقة وحدّد المعلمة المسؤولة أولًا."];
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var draft in drafts)
+        {
+            if (draft.DayOfWeek is < 0 or > 6 || draft.DurationMinutes is < 15 or > 360 ||
+                !TryParseScheduleSlotTime(draft.StartsAt, out var startsAt))
+            {
+                errors[fieldName] = ["مواعيد الحلقة غير صحيحة: اختَر يومًا صحيحًا، ووقتًا بصيغة HH:mm، ومدة من 15 إلى 360 دقيقة."];
+                continue;
+            }
+            if (!seen.Add(draft.DayOfWeek + "|" + startsAt.ToString("HH:mm")))
+                errors[fieldName] = ["توجد مواعيد مكررة داخل طلب الحفظ نفسه (نفس اليوم والوقت)."];
+        }
+        return errors.Count == 0 ? null : errors;
+    }
+
+    private static bool TryParseScheduleSlotTime(string? value, out TimeOnly time) =>
+        TimeOnly.TryParseExact((value ?? string.Empty).Trim(), "HH:mm", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out time);
+
     private static bool TryMonth(string? input,out DateOnly month)
     {
         month=default;if(string.IsNullOrWhiteSpace(input)||!DateOnly.TryParseExact(input+"-01","yyyy-MM-dd",System.Globalization.CultureInfo.InvariantCulture,System.Globalization.DateTimeStyles.None,out var parsed))return false;
