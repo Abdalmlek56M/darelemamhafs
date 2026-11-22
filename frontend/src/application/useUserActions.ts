@@ -1,6 +1,7 @@
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import type { AdminUser, Notice, UserForm } from '../domain/types'
 import { request } from '../services/apiClient'
+import { confirmAction } from '../components/common/confirmService'
 
 type Options = {
   userForm: UserForm
@@ -91,7 +92,7 @@ export default function useUserActions({
   }
 
   const deactivateUser = async (user: AdminUser) => {
-    if (!window.confirm(`تعطيل حساب «${user.displayName}»؟ لن يستطيع تسجيل الدخول بعد ذلك.`)) return
+    if (!(await confirmAction({ title: 'تأكيد تسجيل الحضور', message: `تعطيل حساب «${user.displayName}»؟ لن يستطيع تسجيل الدخول بعد ذلك.`, confirmLabel: 'متابعة' }))) return
     try {
       await request(`/api/admin/users/${user.id}`, { method: 'DELETE' })
       await loadUsers()

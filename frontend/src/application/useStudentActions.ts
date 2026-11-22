@@ -14,6 +14,7 @@ import { blankStudent } from '../domain/defaults'
 import { statusLabels } from '../domain/labels'
 import { localDateString } from '../lib/dates'
 import { request } from '../services/apiClient'
+import { confirmAction } from '../components/common/confirmService'
 
 type SelectedStudentPreview = { id: string; fullName: string; studentCode: string }
 
@@ -168,8 +169,8 @@ export default function useStudentActions({
 
   const changeStudentStatus = async (student: Student, status: StudentStatus) => {
     if (status === student.status) return
-    if (status === 'withdrawn' && !window.confirm(`الانسحاب النهائي للطالب ${student.fullName} سينهي جميع التحاقات الطالب النشطة والمتوقفة في كل الحلقات بتاريخ اليوم، مع الاحتفاظ بالحضور والتحصيلات والسجل التاريخي. لا يمكن التراجع عن ذلك بتغيير الحالة فقط. هل تريد المتابعة؟`)) return
-    if (status === 'paused' && !window.confirm(`سيتم تغيير الحالة الإدارية لملف ${student.fullName} فقط. لن تتوقف التحاقاته تلقائيًا؛ أوقف كل التحاق من تفاصيل الحلقة إذا كان المطلوب إيقاف الدراسة في حلقة بعينها. هل تريد المتابعة؟`)) return
+    if (status === 'withdrawn' && !(await confirmAction({ title: 'تغيير حالة الطالب', message: `الانسحاب النهائي للطالب ${student.fullName} سينهي جميع التحاقات الطالب النشطة والمتوقفة في كل الحلقات بتاريخ اليوم، مع الاحتفاظ بالحضور والتحصيلات والسجل التاريخي. لا يمكن التراجع عن ذلك بتغيير الحالة فقط. هل تريد المتابعة؟`, confirmLabel: 'متابعة' }))) return
+    if (status === 'paused' && !(await confirmAction({ title: 'إيقاف الالتحاق', message: `سيتم تغيير الحالة الإدارية لملف ${student.fullName} فقط. لن تتوقف التحاقاته تلقائيًا؛ أوقف كل التحاق من تفاصيل الحلقة إذا كان المطلوب إيقاف الدراسة في حلقة بعينها. هل تريد المتابعة؟`, confirmLabel: 'متابعة' }))) return
     try {
       await request(`/api/students/${student.id}/status`, {
         method: 'PATCH',

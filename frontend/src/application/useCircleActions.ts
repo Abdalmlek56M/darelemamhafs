@@ -154,43 +154,34 @@ export default function useCircleActions({
     }
     setSaving(true)
     const canEditFinancials = has('finance.read') && has('finance.edit')
+    // Atomic save (Phase 2.2-fix): circle fields + new weekly slots in one server transaction.
+    // The dialog only submits NEW drafts; existing slots are managed from the schedule page.
+    // Contract (actual backend DTO CircleWithScheduleRequest): flat fields + "slots" array
+    // (camelCase, no wrapper); response is { circle, slots }.
+    // Any failure (teacher overlap 409, duplicate slot 409, validation 400) rolls the whole save back.
+    const payload = {
+      circleCode: circleForm.circleCode.trim() || null,
+      name: circleForm.name,
+      teacherId: circleForm.teacherId || null,
+      scheduleText: circleForm.scheduleText.trim() || null,
+      isActive: circleForm.isActive,
+      startsOn: circleForm.startsOn,
+      // The form stores the fee as text; send a number only when the caller may edit finance.
+      ...(canEditFinancials ? { monthlyFee: Number(circleForm.monthlyFee) } : {}),
+      slots: normalizedDrafts,
+    }
     try {
-      const savedCircle = await request<{ id: string }>(editingCircle ? `/api/circles/${editingCircle.id}` : '/api/circles', {
+      await request<{ circle: Circle; slots: unknown[] }>(editingCircle ? `/api/circles/${editingCircle.id}/with-schedule` : '/api/circles/with-schedule', {
         method: editingCircle ? 'PUT' : 'POST',
-        body: JSON.stringify({
-          circleCode: circleForm.circleCode.trim() || null,
-          name: circleForm.name,
-          teacherId: circleForm.teacherId || null,
-          scheduleText: circleForm.scheduleText.trim() || null,
-          isActive: circleForm.isActive,
-          startsOn: circleForm.startsOn,
-          // The form stores the fee as text; send a number only when the caller may edit finance.
-          ...(canEditFinancials ? { monthlyFee: Number(circleForm.monthlyFee) } : {}),
-        }),
+        body: JSON.stringify(payload),
       })
-      const scheduleErrors: string[] = []
-      for (const row of normalizedDrafts) {
-        try {
-          await request('/api/schedule-slots', {
-            method: 'POST',
-            body: JSON.stringify({ circleId: savedCircle.id, dayOfWeek: row.dayOfWeek, startsAt: row.startsAt, durationMinutes: row.durationMinutes }),
-          })
-        } catch (error) {
-          scheduleErrors.push(error instanceof Error ? error.message : `${row.dayOfWeek} · ${row.startsAt}`)
-        }
-      }
       setCircleModal(false)
       await Promise.all([loadCircles(), loadTeachers(), loadScheduleSlots(), loadAttendance()])
-      if (scheduleErrors.length > 0) {
-        const firstScheduleError = scheduleErrors[0]
-        const remainingErrors = scheduleErrors.length - 1
-        setToast({ tone: 'error', text: `تم حفظ بيانات الحلقة، لكن تعذّر حفظ بعض المواعيد: ${firstScheduleError}${remainingErrors > 0 ? ` (ومواعيد أخرى فاشلة: ${remainingErrors}).` : ''}` })
-      } else {
-        const scheduleText = normalizedDrafts.length ? ` وتم حفظ ${normalizedDrafts.length} موعد أسبوعي فعلي.` : ''
-        setToast({ tone: 'success', text: `${editingCircle ? 'تم تعديل الحلقة.' : 'تم إنشاء الحلقة.'}${scheduleText}` })
-      }
+      const scheduleText = normalizedDrafts.length ? ` وتم حفظ ${normalizedDrafts.length} موعد أسبوعي فعلي.` : ''
+      setToast({ tone: 'success', text: `${editingCircle ? 'تم تعديل الحلقة.' : 'تم إنشاء الحلقة.'}${scheduleText}` })
     } catch (error) {
-      setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ الحلقة.' })
+      // No partial state: the server rolled back the circle + slot writes together.
+      setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ الحلقة. لم يتم حفظ أي تغييرات.' })
     } finally { setSaving(false) }
   }
 

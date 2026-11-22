@@ -11,6 +11,8 @@ import { api } from './system/api'
 import { defaultSettings, defaultWhatsappTemplates, emptyResetCandidates, resetTypeLabels, scopeOptions, systemTabs, trashPermissionFor, type SystemTab } from './system/constants'
 import { AuditValue, actionLabel, bytes, displayScopes, downloadBlob, entityLabel, formatDate, payloadToXml } from './system/formatting'
 import type { AdminSettings, AuditRecord, BackupRecord, ResetCandidate, ResetCandidates, ResetType, TrashRecord } from './system/types'
+import MonthPicker from './components/common/MonthPicker'
+import { confirmAction } from './components/common/confirmService'
 
 type Props = { permissions: string[]; branding: Branding; onBrandingSaved: (value: Branding) => void; notify: (tone: 'success' | 'error' | 'info', text: string) => void; reportData: { circles: Circle[]; teachers: Teacher[]; students: Student[]; currentMonth: string } }
 type Tab = SystemTab
@@ -129,12 +131,12 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
 
   const toggleScope = (id: string) => setSelectedScopes(old => id === 'all' ? ['all'] : (old.includes(id) ? old.filter(x => x !== id) : [...old.filter(x => x !== 'all'), id]))
   const restoreTrash = async (item: TrashRecord) => {
-    if (!window.confirm(`استعادة «${item.displayName}» إلى النظام؟`)) return
+    if (!(await confirmAction({ title: 'استعادة سجل', message: `استعادة «${item.displayName}» إلى النظام؟`, confirmLabel: 'استعادة' }))) return
     try { await api(`/api/admin/trash/${item.id}/restore`, { method: 'POST' }); await loadTab('trash'); notify('success', 'تمت استعادة السجل.') }
     catch (error) { notify('error', error instanceof Error ? error.message : 'تعذرت استعادة السجل.') }
   }
   const purgeTrash = async (item: TrashRecord) => {
-    if (!window.confirm(`حذف «${item.displayName}» نهائيًا؟ لن يمكن استرجاعه بعد هذه الخطوة.`)) return
+    if (!(await confirmAction({ title: 'حذف نهائي', message: `حذف «${item.displayName}» نهائيًا؟ لن يمكن استرجاعه بعد هذه الخطوة.`, confirmLabel: 'حذف نهائي', danger: true }))) return
     try { await api(`/api/admin/trash/${item.id}`, { method: 'DELETE' }); await loadTab('trash'); notify('success', 'تم الحذف النهائي.') }
     catch (error) { notify('error', error instanceof Error ? error.message : 'تعذر الحذف النهائي.') }
   }
@@ -147,7 +149,7 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
   const purgeSelectedTrash = async () => {
     const chosen = trashRows.filter(row => selectedTrashIds.has(row.id) && canTrashEntity(row.entityType))
     if (chosen.length === 0) { notify('info', 'حدد سجلًا واحدًا على الأقل لديك صلاحية حذفه.'); return }
-    if (!window.confirm(`سيتم حذف ${chosen.length} سجلًا نهائيًا من سلة المهملات. لن يمكن استعادتها بعد ذلك. قد تُحذف السجلات التابعة مع السجل الرئيسي. هل تريد المتابعة؟`)) return
+    if (!(await confirmAction({ title: 'حذف المحدد نهائيًا', message: `سيتم حذف ${chosen.length} سجلًا نهائيًا من سلة المهملات. لن يمكن استعادتها بعد ذلك. قد تُحذف السجلات التابعة مع السجل الرئيسي. هل تريد المتابعة؟`, confirmLabel: 'حذف نهائي', danger: true }))) return
     const priority: Record<string, number> = {
       'student-note': 1, payment: 2, 'student-attendance': 3, 'teacher-attendance': 4,
       'schedule-slot': 5, 'advertising-expense': 6, 'operating-expense': 6,
@@ -173,7 +175,7 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
     } finally { setPurgingSelectedTrash(false) }
   }
   const restoreAudit = async (row: AuditRecord) => {
-    if (!window.confirm('استرجاع القيم السابقة لهذا التعديل؟ سيتم تسجيل عملية الاسترجاع نفسها في سجل التدقيق.')) return
+    if (!(await confirmAction({ title: 'استرجاع القيم السابقة', message: 'استرجاع القيم السابقة لهذا التعديل؟ سيتم تسجيل عملية الاسترجاع نفسها في سجل التدقيق.', confirmLabel: 'استرجاع' }))) return
     try { await api(`/api/admin/audit-log/${row.id}/restore-before`, { method: 'POST' }); setSelectedAudit(null); await loadTab('audit'); notify('success', 'تم استرجاع القيم السابقة وتسجيل العملية.') }
     catch (error) { notify('error', error instanceof Error ? error.message : 'تعذر استرجاع القيم السابقة.') }
   }
@@ -301,7 +303,7 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
     </form>}
 
     {tab === 'audit' && can('audit.read') && <div className="system-panel glass"><div className="system-panel-heading"><div><span className="eyebrow">Accountability</span><h3>سجل التغييرات</h3><p>اختر الشهر، ثم افتح اليوم المطلوب لرؤية كل العمليات المسجلة فيه.</p></div><span className="system-heading-icon"><History size={20}/></span></div>
-      <div className="audit-month-toolbar"><label className="form-field"><span>الشهر</span><input type="month" value={auditMonth} onChange={event => setAuditMonth(event.target.value)} /></label><div className="audit-month-summary"><strong>{new Intl.DateTimeFormat('ar-EG', { month: 'long', year: 'numeric' }).format(new Date(`${auditMonth}-01T12:00:00`))}</strong><span>{auditRows.length} عملية · {auditDayGroups.length} يومًا به نشاط</span></div></div>
+      <div className="audit-month-toolbar"><label className="form-field"><span>الشهر</span><MonthPicker value={auditMonth} onChange={setAuditMonth} ariaLabel="شهر سجل التغييرات"/></label><div className="audit-month-summary"><strong>{new Intl.DateTimeFormat('ar-EG', { month: 'long', year: 'numeric' }).format(new Date(`${auditMonth}-01T12:00:00`))}</strong><span>{auditRows.length} عملية · {auditDayGroups.length} يومًا به نشاط</span></div></div>
       <div className="audit-month-group"><h4>أيام الشهر</h4>{auditDayGroups.map(day => <details className="audit-day-group" key={day.key}><summary><span>{day.label}</span><strong>{day.rows.length} عملية</strong></summary><div className="table-scroll"><table className="students-table wide-table"><thead><tr><th>الوقت</th><th>بواسطة</th><th>الإجراء</th><th>العنصر</th><th>تفاصيل</th><th>الاسترجاع</th></tr></thead><tbody>{day.rows.map(row => <tr key={row.id}><td>{formatDate(row.occurredAt)}</td><td>{row.actorName || (row.actionCode === 'setup.initial_admin' ? 'تهيئة النظام' : 'حساب غير معروف')}</td><td><strong>{actionLabel(row.actionCode, row.entityType)}</strong></td><td>{entityLabel(row.entityType)}</td><td><button className="secondary-button compact-button" onClick={() => setSelectedAudit(row)}>عرض التفاصيل</button></td><td>{row.canRestore && !row.restoredAt && can('audit.restore') ? <button className="secondary-button compact-button" onClick={() => void restoreAudit(row)}><RotateCcw size={13}/> استعادة البيانات السابقة</button> : row.restoredAt ? <span className="status-pill status-active">تم الاسترجاع</span> : <small className="sub-cell">لا يتوفر استرجاع لهذا الإجراء</small>}</td></tr>)}</tbody></table></div></details>)}{auditDayGroups.length === 0 && <div className="empty-inline">لا توجد عمليات مسجلة في هذا الشهر.</div>}</div>
     </div>}
 

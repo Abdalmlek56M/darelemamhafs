@@ -14,6 +14,7 @@ import CircleDetailsDialog from './CircleDetailsDialog'
 import SavedReportDialog from './SavedReportDialog'
 import EndEnrollmentDialog from './EndEnrollmentDialog'
 import VoidDialog from './VoidDialog'
+import ConfirmSheetHost from '../common/ConfirmSheet'
 
 type Props = { ctx: DarApplicationContext }
 
@@ -34,6 +35,7 @@ export default function ApplicationDialogs({ ctx }: Props) {
       {ctx.selectedCircle && <CircleDetailsDialog ctx={ctx} />}
       {ctx.reportView && <SavedReportDialog ctx={ctx} />}
     </AnimatePresence>
+    <ConfirmSheetHost />
     <ToastView toast={ctx.toast} clear={() => ctx.setToast(null)} />
   </>
 }

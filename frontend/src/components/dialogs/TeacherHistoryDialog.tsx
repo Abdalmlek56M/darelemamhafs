@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import Modal from '../common/Modal'
 import StudentAttendanceDialog from './StudentAttendanceDialog'
 import type { ScheduleSlot } from '../../domain/types'
@@ -7,6 +7,7 @@ import { formatDate, formatDateTime, money } from '../../lib/formatters'
 import { weekDays } from '../../domain/defaults'
 import { formatTime12 } from '../../lib/dates'
 import { teacherStatusLabels } from '../../domain/labels'
+import ResponsiveTable, { type ResponsiveColumn } from '../common/ResponsiveTable'
 import type { DarApplicationContext } from '../../application/useDarApplication'
 
 type Props = { ctx: DarApplicationContext }
@@ -18,16 +19,127 @@ export default function TeacherHistoryDialog({ ctx }: Props) {
   if (!teacher) return null
   const history = ctx.teacherHistory
   const financeVisible = history?.financeVisible ?? ctx.has('finance.read')
-  return <><Modal wide title={`ملف المعلمة: ${teacher.fullName}`} subtitle={`الكود ${teacher.teacherCode} · ${financeVisible ? `أجر الساعة ${money(teacher.hourlyRate)}` : 'الأجر مقيد بصلاحية المالية'}`} close={ctx.closeTeacherDetails}>
-    {ctx.teacherHistoryLoading ? <div className="detail-loading-state"><LoaderCircle className="spin" size={24}/><strong>جارٍ فتح ملف المعلمة…</strong><span>تحميل الحلقات المسندة وسجل الحضور حسب صلاحيات الحساب.</span></div> : ctx.teacherHistoryError ? <div className="detail-error-state"><p>{ctx.teacherHistoryError}</p><button className="secondary-button" onClick={()=>void ctx.openTeacherDetails(teacher)}><RefreshCw size={14}/> إعادة المحاولة</button></div> : history ? <div className="teacher-history-body">
-      <section className="history-overview"><div><small>الهاتف</small><strong>{teacher.phone || '—'}</strong></div><div><small>الحالة</small><strong>{teacherStatusLabels[teacher.status]}</strong></div>{financeVisible&&<div><small>أجر الساعة الحالي</small><strong>{money(teacher.hourlyRate)}</strong></div>}<div><small>الحلقات المسندة</small><strong>{history.circlesVisible ? history.circles.length : teacher.circleCount}</strong></div></section>
-      <section className="history-section"><div className="history-section-title"><h3>سجل ملاحظات المعلمة</h3><span>{history.notes.length} ملاحظة</span></div>{history.notes.length === 0 ? <p className="muted-text">لا توجد ملاحظات مسجلة بعد.</p> : history.notes.map(note => <div className="note-row" key={note.id}><div><p>{note.noteText}</p><small>{formatDateTime(note.createdAt)}{note.createdBy ? ` · ${note.createdBy}` : ''}</small></div>{ctx.has('teachers.edit') && ctx.has('trash.manage') && <button type="button" className="small-icon-button danger-action" title="نقل الملاحظة إلى سلة المهملات" onClick={() => void ctx.deleteTeacherNote(teacher.id, note.id)}><Trash2 size={14}/></button>}</div>)}{teacher.notes && <div className="note-row"><div><p>{teacher.notes}</p><small>ملاحظة قديمة محفوظة في بيانات المعلمة</small></div></div>}{ctx.has('teachers.edit') && <div className="add-note-row"><textarea value={noteDraft} rows={2} placeholder="أضف ملاحظة جديدة إلى سجل المعلمة…" onChange={event => setNoteDraft(event.target.value)}/><button type="button" className="primary-button" disabled={!noteDraft.trim()} onClick={async () => { if (await ctx.addTeacherNote(teacher.id, noteDraft)) setNoteDraft('') }}><Plus size={15}/> حفظ ملاحظة</button></div>}</section>
-      {history.circlesVisible && <section className="history-section"><div className="history-section-title"><h3>الحلقات المسندة</h3><span>{history.circles.length} حلقة</span></div>{history.circles.length === 0 ? <p className="muted-text">لا توجد حلقات مسندة للمعلمة حاليًا.</p> : history.circles.map(circle => { const linkedCircle = ctx.circles.find(item => item.id === circle.id); return <div className="history-row teacher-history-circle-row" key={circle.id}><div>{linkedCircle && ctx.has('circles.read') ? <button type="button" className="text-link teacher-history-circle-link" onClick={() => void ctx.openCircleDetails(linkedCircle)} title="فتح تفاصيل الحلقة">{circle.name}</button> : <strong>{circle.name}</strong>}<small>{circle.circleCode} · {circle.isActive ? 'نشطة' : 'متوقفة'} · {circle.activeStudentCount} طالب نشط</small>{financeVisible&&<small>الرسوم الافتراضية للحلقة: {money(circle.monthlyFee)}</small>}</div>{linkedCircle && ctx.has('circles.read') && <span className="teacher-history-open-hint">اضغط لفتح التفاصيل</span>}</div>})}</section>}
-      {history.circlesVisible && <section className="history-section"><div className="history-section-title"><h3>المواعيد الأسبوعية</h3><span>{history.scheduleSlots.length} موعد</span></div>{history.scheduleSlots.length === 0 ? <p className="muted-text">لا توجد مواعيد أسبوعية مسجلة للحلقات المسندة.</p> : history.scheduleSlots.map(slot => <div className="history-row teacher-history-circle-row" key={slot.id}><div>{ctx.circles.find(circle => circle.id === slot.circleId) && ctx.has('circles.read') ? <button type="button" className="text-link teacher-history-circle-link" onClick={() => { const linkedCircle = ctx.circles.find(circle => circle.id === slot.circleId); if (linkedCircle) void ctx.openCircleDetails(linkedCircle) }} title="فتح تفاصيل الحلقة">{slot.circleName}</button> : <strong>{slot.circleName}</strong>}<small>{weekDays[slot.dayOfWeek]} · {formatTime12(slot.startsAt)} · {slot.durationMinutes} دقيقة</small></div><span className={`status-pill ${slot.isActive ? 'status-active' : 'status-archived'}`}>{slot.isActive ? 'نشط' : 'متوقف'}</span></div>)}</section>}
-      {history.attendanceVisible && history.totals && <section className="history-section"><div className="history-section-title"><h3>ملخص الحضور والمستحق</h3></div><div className="history-overview"><div><small>حصص الحضور</small><strong>{history.totals.presentSessions}</strong></div><div><small>إجمالي الساعات</small><strong>{history.totals.totalHours.toLocaleString('ar-EG',{maximumFractionDigits:2})}</strong></div>{financeVisible&&<div><small>الأجر المستحق المسجل</small><strong>{money(history.totals.payableTotal)}</strong></div>}<div><small>السجلات المعروضة</small><strong>{history.attendance.length} / {history.attendanceLimit}</strong></div></div></section>}
-      {history.attendanceVisible && <section className="history-section"><div className="history-section-title"><h3>سجل حضور المعلمة</h3><span>الأحدث أولًا</span></div>{history.attendance.length === 0 ? <p className="muted-text">لا يوجد حضور مسجل لهذه المعلمة حتى الآن.</p> : <div className="table-scroll"><table className="students-table wide-table"><thead><tr><th>التاريخ</th><th>الحلقة</th><th>الوقت</th><th>المدة</th><th>الطلاب الحاضرون</th><th>الحالة</th>{financeVisible&&<th>المستحق</th>}</tr></thead><tbody>{history.attendance.map(row => { const rosterSlot = row.scheduleSlotId ? ctx.scheduleSlots.find(slot => slot.id === row.scheduleSlotId) : undefined; return <tr key={row.id}><td>{formatDate(row.sessionDate)}<small className="sub-cell">{formatDateTime(row.markedAt)}</small></td><td>{row.circleName}</td><td>{formatTime12(row.startsAt)}</td><td>{row.durationMinutes} دقيقة</td><td><div className="teacher-present-students-cell"><strong>{row.presentStudentsCount}</strong>{ctx.has('attendance.edit') && rosterSlot && row.status !== 'cancelled' && <button type="button" className="secondary-button compact-button" onClick={() => setStudentSession({ slot: rosterSlot, date: row.sessionDate.slice(0,10) })} title={`فتح كشف الطلاب بتاريخ ${formatDate(row.sessionDate)}`}>كشف الطلاب</button>}</div></td><td><span className={`status-pill ${row.status === 'present' ? 'status-active' : row.status === 'absent' ? 'status-archived' : 'pay-unpaid'}`}>{row.status === 'present' ? 'حاضرة' : row.status === 'absent' ? 'غائبة' : 'أُلغيت الحصة'}</span></td>{financeVisible&&<td><strong>{money(row.payableAmount)}</strong></td>}</tr>})}</tbody></table></div>}{history.attendance.length >= history.attendanceLimit && <p className="muted-text">يتم عرض آخر {history.attendanceLimit} سجل حضور. إجمالي الساعات محسوب من جميع السجلات.{financeVisible ? ' المستحق محسوب من جميع السجلات.' : ''}</p>}</section>}
+    type AttendanceRow = NonNullable<typeof ctx.teacherHistory>['attendance'][number]
+  const attendanceColumns: ResponsiveColumn<AttendanceRow>[] = [
+    { key: 'date', header: 'التاريخ', primary: true, render: (row) => <>{formatDate(row.sessionDate)}<small className="sub-cell">{formatDateTime(row.markedAt)}</small></> },
+    { key: 'circle', header: 'الحلقة', render: (row) => row.circleName },
+    { key: 'time', header: 'الوقت', render: (row) => formatTime12(row.startsAt) },
+    { key: 'duration', header: 'المدة', render: (row) => row.durationMinutes + ' دقيقة' },
+    {
+      key: 'students', header: 'الطلاب الحاضرون',
+      render: (row) => {
+        const rosterSlot = row.scheduleSlotId ? ctx.scheduleSlots.find((slot) => slot.id === row.scheduleSlotId) : undefined
+        return <div className="teacher-present-students-cell">
+          <strong>{row.presentStudentsCount}</strong>
+          {ctx.has('attendance.edit') && rosterSlot && row.status !== 'cancelled' && <button type="button" className="secondary-button compact-button" onClick={() => setStudentSession({ slot: rosterSlot, date: row.sessionDate.slice(0, 10) })} title={`فتح كشف الطلاب بتاريخ ${formatDate(row.sessionDate)}`}>كشف الطلاب</button>}
+        </div>
+      },
+    },
+    {
+      key: 'status', header: 'الحالة',
+      render: (row) => <span className={`status-pill ${row.status === 'present' ? 'status-active' : row.status === 'absent' ? 'status-archived' : 'pay-unpaid'}`}>{row.status === 'present' ? 'حاضرة' : row.status === 'absent' ? 'غائبة' : 'أُلغيت الحصة'}</span>,
+    },
+    ...(financeVisible ? [{ key: 'payable', header: 'المستحق', render: (row: AttendanceRow) => <strong>{money(row.payableAmount)}</strong> }] : []),
+  ]
+  return <>
+<Modal wide title={`ملف المعلمة: ${teacher.fullName}`} subtitle={`الكود ${teacher.teacherCode} · ${financeVisible ? `أجر الساعة ${money(teacher.hourlyRate)}` : 'الأجر مقيد بصلاحية المالية'}`} close={ctx.closeTeacherDetails}>
+    {ctx.teacherHistoryLoading ? <div className="detail-loading-state">
+<LoaderCircle className="spin" size={24}/>
+<strong>جارٍ فتح ملف المعلمة…</strong>
+<span>تحميل الحلقات المسندة وسجل الحضور حسب صلاحيات الحساب.</span>
+</div> : ctx.teacherHistoryError ? <div className="detail-error-state">
+<p>{ctx.teacherHistoryError}</p>
+<button className="secondary-button" onClick={()=>void ctx.openTeacherDetails(teacher)}>
+<RefreshCw size={14}/> إعادة المحاولة</button>
+</div> : history ? <div className="teacher-history-body">
+      <section className="history-overview">
+<div>
+<small>الهاتف</small>
+<strong>{teacher.phone || '—'}</strong>
+</div>
+<div>
+<small>الحالة</small>
+<strong>{teacherStatusLabels[teacher.status]}</strong>
+</div>{financeVisible&&<div>
+<small>أجر الساعة الحالي</small>
+<strong>{money(teacher.hourlyRate)}</strong>
+</div>}<div>
+<small>الحلقات المسندة</small>
+<strong>{history.circlesVisible ? history.circles.length : teacher.circleCount}</strong>
+</div>
+</section>
+      <section className="history-section">
+<div className="history-section-title">
+<h3>سجل ملاحظات المعلمة</h3>
+<span>{history.notes.length} ملاحظة</span>
+</div>{history.notes.length === 0 ? <p className="muted-text">لا توجد ملاحظات مسجلة بعد.</p> : history.notes.map(note => <div className="note-row" key={note.id}>
+<div>
+<p>{note.noteText}</p>
+<small>{formatDateTime(note.createdAt)}{note.createdBy ? ` · ${note.createdBy}` : ''}</small>
+</div>{ctx.has('teachers.edit') && ctx.has('trash.manage') && <button type="button" className="small-icon-button danger-action" title="نقل الملاحظة إلى سلة المهملات" onClick={() => void ctx.deleteTeacherNote(teacher.id, note.id)}>
+<Trash2 size={14}/>
+</button>}</div>)}{teacher.notes && <div className="note-row">
+<div>
+<p>{teacher.notes}</p>
+<small>ملاحظة قديمة محفوظة في بيانات المعلمة</small>
+</div>
+</div>}{ctx.has('teachers.edit') && <div className="add-note-row">
+<textarea value={noteDraft} rows={2} placeholder="أضف ملاحظة جديدة إلى سجل المعلمة…" onChange={event => setNoteDraft(event.target.value)}/>
+<button type="button" className="primary-button" disabled={!noteDraft.trim()} onClick={async () => { if (await ctx.addTeacherNote(teacher.id, noteDraft)) setNoteDraft('') }}>
+<Plus size={15}/> حفظ ملاحظة</button>
+</div>}</section>
+      {history.circlesVisible && <section className="history-section">
+<div className="history-section-title">
+<h3>الحلقات المسندة</h3>
+<span>{history.circles.length} حلقة</span>
+</div>{history.circles.length === 0 ? <p className="muted-text">لا توجد حلقات مسندة للمعلمة حاليًا.</p> : history.circles.map(circle => { const linkedCircle = ctx.circles.find(item => item.id === circle.id); return <div className="history-row teacher-history-circle-row" key={circle.id}>
+<div>{linkedCircle && ctx.has('circles.read') ? <button type="button" className="text-link teacher-history-circle-link" onClick={() => void ctx.openCircleDetails(linkedCircle)} title="فتح تفاصيل الحلقة">{circle.name}</button> : <strong>{circle.name}</strong>}<small>{circle.circleCode} · {circle.isActive ? 'نشطة' : 'متوقفة'} · {circle.activeStudentCount} طالب نشط</small>{financeVisible&&<small>الرسوم الافتراضية للحلقة: {money(circle.monthlyFee)}</small>}</div>{linkedCircle && ctx.has('circles.read') && <span className="teacher-history-open-hint">اضغط لفتح التفاصيل</span>}</div>})}</section>}
+      {history.circlesVisible && <section className="history-section">
+<div className="history-section-title">
+<h3>المواعيد الأسبوعية</h3>
+<span>{history.scheduleSlots.length} موعد</span>
+</div>{history.scheduleSlots.length === 0 ? <p className="muted-text">لا توجد مواعيد أسبوعية مسجلة للحلقات المسندة.</p> : history.scheduleSlots.map(slot => <div className="history-row teacher-history-circle-row" key={slot.id}>
+<div>{ctx.circles.find(circle => circle.id === slot.circleId) && ctx.has('circles.read') ? <button type="button" className="text-link teacher-history-circle-link" onClick={() => { const linkedCircle = ctx.circles.find(circle => circle.id === slot.circleId); if (linkedCircle) void ctx.openCircleDetails(linkedCircle) }} title="فتح تفاصيل الحلقة">{slot.circleName}</button> : <strong>{slot.circleName}</strong>}<small>{weekDays[slot.dayOfWeek]} · {formatTime12(slot.startsAt)} · {slot.durationMinutes} دقيقة</small>
+</div>
+<span className={`status-pill ${slot.isActive ? 'status-active' : 'status-archived'}`}>{slot.isActive ? 'نشط' : 'متوقف'}</span>
+</div>)}</section>}
+      {history.attendanceVisible && history.totals && <section className="history-section">
+<div className="history-section-title">
+<h3>ملخص الحضور والمستحق</h3>
+</div>
+<div className="history-overview">
+<div>
+<small>حصص الحضور</small>
+<strong>{history.totals.presentSessions}</strong>
+</div>
+<div>
+<small>إجمالي الساعات</small>
+<strong>{history.totals.totalHours.toLocaleString('ar-EG',{maximumFractionDigits:2})}</strong>
+</div>{financeVisible&&<div>
+<small>الأجر المستحق المسجل</small>
+<strong>{money(history.totals.payableTotal)}</strong>
+</div>}<div>
+<small>السجلات المعروضة</small>
+<strong>{history.attendance.length} / {history.attendanceLimit}</strong>
+</div>
+</div>
+</section>}
+      {history.attendanceVisible && <section className="history-section">
+<div className="history-section-title">
+<h3>سجل حضور المعلمة</h3>
+<span>الأحدث أولًا</span>
+</div>{history.attendance.length === 0 ? <p className="muted-text">لا يوجد حضور مسجل لهذه المعلمة حتى الآن.</p> : <ResponsiveTable
+          caption="سجل حضور المعلمة"
+          rows={history.attendance}
+          columns={attendanceColumns}
+          rowKey={(row) => row.id}
+          empty={<p className="muted-text">لا يوجد حضور مسجل لهذه المعلمة حتى الآن.</p>}
+        />}{history.attendance.length >= history.attendanceLimit && <p className="muted-text">يتم عرض آخر {history.attendanceLimit} سجل حضور. إجمالي الساعات محسوب من جميع السجلات.{financeVisible ? ' المستحق محسوب من جميع السجلات.' : ''}</p>}</section>}
       {!history.attendanceVisible && <p className="muted-text">تفاصيل الحضور مخفية لأن حسابك لا يملك صلاحية عرض الحضور.</p>}
-      {ctx.has('teachers.edit') && <div className="modal-actions"><button className="secondary-button" onClick={()=>ctx.openTeacherEdit(teacher)}><GraduationCap size={15}/> تعديل بيانات المعلمة</button></div>}
+      {ctx.has('teachers.edit') && <div className="modal-actions">
+<button className="secondary-button" onClick={()=>ctx.openTeacherEdit(teacher)}>
+<GraduationCap size={15}/> تعديل بيانات المعلمة</button>
+</div>}
     </div> : null}
   </Modal>{studentSession && <StudentAttendanceDialog key={`${studentSession.slot.id}:${studentSession.date}`} slot={studentSession.slot} date={studentSession.date} level={1} close={() => setStudentSession(null)} notify={ctx.notifySystem} afterSaved={async () => { await ctx.openTeacherDetails(teacher) }}/>}</>
 }

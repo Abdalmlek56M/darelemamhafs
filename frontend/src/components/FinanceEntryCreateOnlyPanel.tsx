@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { CheckCircle2, LoaderCircle, Plus, Wallet } from 'lucide-react'
 import Field from './common/Field'
+import MonthPicker from './common/MonthPicker'
 import { request, requestForm } from '../services/apiClient'
 import type { DarApplicationContext } from '../application/useDarApplication'
 
@@ -68,7 +69,7 @@ export default function FinanceEntryCreateOnlyPanel({ ctx }: Props) {
     <div className="panel-heading"><div><span className="eyebrow">تسجيل حركة دون كشف الدفاتر</span><h3>إدخال الاستحقاقات والتحصيلات</h3><p className="muted-text">يمكنك تسجيل حركة مالية. لا يعرض هذا النموذج قيمة الاستحقاق أو المدفوعات أو الرصيد أو حالة السداد. يتحقق الخادم من صحة المبلغ ويمنع التحصيل الزائد.</p></div><span className="step-number"><Wallet size={17}/></span></div>
     <form id="finance-create-only-form" onSubmit={save} className="form-grid">
       <Field label="نوع الحركة"><select value={mode} onChange={event => { setMode(event.target.value as 'charge' | 'payment'); setAmount(''); setNote(''); setReference(''); setReceipt(null) }}><option value="charge">تسجيل استحقاق</option><option value="payment">تسجيل تحصيل</option></select></Field>
-      <Field label="الشهر"><input type="month" value={ctx.currentMonthValue} readOnly/></Field>
+      <Field label="الشهر"><MonthPicker value={ctx.currentMonthValue} onChange={() => undefined} ariaLabel="الشهر" disabled /></Field>
       {mode === 'charge' ? <Field label="الطالب والحلقة *" wide><select required value={enrollmentId} onChange={event => setEnrollmentId(event.target.value)} disabled={loading || !options?.enrollments.length}><option value="">{loading ? 'جارٍ تحميل الخيارات…' : 'اختَر الطالب والحلقة'}</option>{options?.enrollments.map(row => <option key={row.enrollmentId} value={row.enrollmentId}>{row.studentName} ({row.studentCode}) · {row.circleName}</option>)}</select><small>لا تظهر أي رسوم أو أرصدة أو حالة تحصيل.</small></Field> : <Field label="الاستحقاق *" wide><select required value={chargeId} onChange={event => setChargeId(event.target.value)} disabled={loading || !options?.charges.length}><option value="">{loading ? 'جارٍ تحميل الخيارات…' : 'اختَر الطالب والحلقة'}</option>{options?.charges.map(row => <option key={row.monthlyChargeId} value={row.monthlyChargeId}>{row.studentName} ({row.studentCode}) · {row.circleName}</option>)}</select><small>الخيارات تعرض هوية السجل فقط. لا يتم عرض المبلغ أو الرصيد.</small></Field>}
       <Field label={mode === 'charge' ? 'قيمة الاستحقاق *' : 'المبلغ المستلم *'}><input type="number" min="0.01" step="0.01" required value={amount} onChange={event => setAmount(event.target.value)} placeholder="0.00"/></Field>
       {mode === 'payment' && <Field label="طريقة الدفع"><select value={method} onChange={event => setMethod(event.target.value)}><option value="cash">نقدي</option><option value="transfer">تحويل</option><option value="instapay">إنستاباي</option><option value="wallet">محفظة إلكترونية</option><option value="other">أخرى</option></select></Field>}

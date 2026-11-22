@@ -5,6 +5,8 @@ import AttendanceStatusPicker from '../common/AttendanceStatusPicker'
 import type { ScheduleSlot, StudentAttendanceRosterRow } from '../../domain/types'
 import { formatDate } from '../../lib/formatters'
 import { formatTime12 } from '../../lib/dates'
+import ResponsiveTable, { type ResponsiveColumn } from '../common/ResponsiveTable'
+import { confirmAction } from '../common/confirmService'
 
 type AttendanceStatus = 'present' | 'absent' | 'excused'
 type Notice = (tone: 'success' | 'error' | 'info', text: string) => void
@@ -51,7 +53,7 @@ export default function StudentAttendanceDialog({ slot, date, close, notify, aft
   const save = async () => {
     const pending = visibleRows.filter(row => dirty.has(row.enrollmentId) && drafts[row.enrollmentId] && (row.eligibleForDate || row.eligibilityReason === 'before-enrollment-start'))
     const historicalPending = pending.filter(row => row.eligibilityReason === 'before-enrollment-start')
-    if (historicalPending.length > 0 && !window.confirm(`هناك ${historicalPending.length} طالب خارج فترة الالتحاق المسجلة لهذا التاريخ. سيتم حفظ الحضور كتسجيل تاريخي مع تسجيل الاستثناء في سجل التغييرات. هل تريد المتابعة؟`)) return
+    if (historicalPending.length > 0 && !(await confirmAction({ title: 'تأكيد حفظ حضور تاريخي', message: `هناك ${historicalPending.length} طالب خارج فترة الالتحاق المسجلة لهذا التاريخ. سيتم حفظ الحضور كتسجيل تاريخي مع تسجيل الاستثناء في سجل التغييرات. هل تريد المتابعة؟`, confirmLabel: 'متابعة الحفظ' }))) return
     if (pending.length === 0) { notify('info', 'غيّر حالة طالب واحد على الأقل قبل الحفظ.'); return }
     setSaving(true)
     const results = await Promise.all(pending.map(async row => {
@@ -75,14 +77,64 @@ export default function StudentAttendanceDialog({ slot, date, close, notify, aft
     } else notify('error', failures[0] ?? 'لم يتم حفظ أي سجل.')
   }
 
+    const rosterColumns: ResponsiveColumn<StudentAttendanceRosterRow>[] = [
+    { key: 'student', header: 'الطالب', primary: true, render: (row) => <strong>{row.studentName}</strong> },
+    { key: 'code', header: 'الكود', ltr: true, render: (row) => row.studentCode },
+    {
+      key: 'enrollment', header: 'حالة الالتحاق في التاريخ',
+      render: (row) => row.eligibilityReason === 'paused'
+        ? <span className="status-pill status-paused">التحاق متوقف في هذا التاريخ</span>
+        : row.eligibleForDate ? <span className="status-pill status-active">ضمن فترة الالتحاق</span> : <span className="status-pill pay-unpaid">خارج فترة الالتحاق</span>,
+    },
+    {
+      key: 'attendance', header: 'حالة الحضور',
+      render: (row) => row.eligibleForDate || (includeOutsideEnrollmentDates && row.eligibilityReason === 'before-enrollment-start')
+        ? <AttendanceStatusPicker value={drafts[row.enrollmentId] ?? ''} onChange={(value) => changeStatus(row.enrollmentId, value)} label={`حضور ${row.studentName}`}/>
+        : <small className="sub-cell">{row.status ? `سجل محفوظ: ${row.status === 'present' ? 'حاضر' : row.status === 'absent' ? 'غائب' : 'غائب بعذر'}` : row.eligibilityReason === 'paused' ? 'لا يمكن تسجيل حضور خلال فترة الإيقاف' : row.eligibilityReason === 'before-circle-start' ? 'الحلقة لم تبدأ في هذا التاريخ' : row.eligibilityReason === 'after-enrollment-end' ? 'التاريخ بعد نهاية الالتحاق' : row.eligibilityReason === 'before-enrollment-start' ? 'يتطلب تفعيل الإدخال التاريخي' : 'الالتحاق لم يكن نشطًا في هذا التاريخ'}</small>,
+    },
+  ]
   return <Modal level={level} wide title={`حضور الطلاب · ${slot.circleName}`} subtitle={`${formatDate(date)} · ${slot.teacherName || 'معلمة غير محددة'} · ${formatTime12(slot.startsAt)}`} close={close}>
     <div className="student-attendance-dialog">
-      <div className="system-panel-heading"><div><span className="eyebrow">تسجيل الحصة</span><h3>قائمة الطلاب</h3><p>اختَر الحالة لكل طالب ثم احفظ التغييرات. لا تُسجّل الحالات غير المحددة تلقائيًا.</p></div><span className="system-heading-icon"><UsersRound size={20}/></span></div>
-      {loading ? <div className="dialog-loading"><LoaderCircle className="spin" size={20}/> جارٍ تحميل الطلاب…</div> : loadError ? <div className="error-panel">{loadError}</div> : rows.length === 0 ? <div className="empty-state compact-empty"><strong>لا يوجد طالب ملتحق بهذه الحلقة حتى الآن.</strong><p>ألحِق الطالب بالحلقة من ملف الطالب أو من تفاصيل الحلقة أولًا؛ تسجيل الحضور لا ينقل الطالب إلى حلقة جديدة تلقائيًا.</p></div> : <>
-        {outsideEnrollmentCount > 0 && <label className="attendance-historical-toggle"><input type="checkbox" checked={includeOutsideEnrollmentDates} onChange={event => { if (dirty.size > 0 && !window.confirm('تغيير نطاق القائمة سيمسح التعديلات غير المحفوظة. هل تريد المتابعة؟')) return; setIncludeOutsideEnrollmentDates(event.target.checked); setDirty(new Set()) }}/><span><strong>إظهار كل الملتحقين بهذه الحلقة</strong><small>يعرض الحالات التي لا تنطبق عليها الأهلية. يسمح الإدخال التاريخي فقط بالتاريخ السابق لبداية الالتحاق المسجلة؛ ولا يتجاوز بداية الحلقة أو الإيقاف أو نهاية الالتحاق.</small></span><b>{includeOutsideEnrollmentDates ? 'يشمل التاريخية' : `${eligibleCount} مناسبين للتاريخ`}</b></label>}
-        {visibleRows.length === 0 ? <div className="empty-state compact-empty"><strong>لا يوجد التحاق صالح لهذا التاريخ المحدد.</strong><p>يمكنك اختيار «إظهار كل الملتحقين» لإدخال حضور تاريخي إذا كانت تواريخ الالتحاق الحالية لا تعكس الواقع القديم.</p><button className="secondary-button" type="button" onClick={() => setIncludeOutsideEnrollmentDates(true)}>إظهار كل الملتحقين</button></div> : <div className="table-scroll"><table className="students-table wide-table"><thead><tr><th>الطالب</th><th>الكود</th><th>حالة الالتحاق في التاريخ</th><th>حالة الحضور</th></tr></thead><tbody>{visibleRows.map(row => <tr key={row.enrollmentId} className={row.eligibleForDate ? '' : 'attendance-outside-enrollment'}><td><strong>{row.studentName}</strong></td><td>{row.studentCode}</td><td>{row.eligibilityReason === 'paused' ? <span className="status-pill status-paused">التحاق متوقف في هذا التاريخ</span> : row.eligibleForDate ? <span className="status-pill status-active">ضمن فترة الالتحاق</span> : <span className="status-pill pay-unpaid">خارج فترة الالتحاق</span>}</td><td>{row.eligibleForDate || (includeOutsideEnrollmentDates && row.eligibilityReason === 'before-enrollment-start') ? <AttendanceStatusPicker value={drafts[row.enrollmentId] ?? ''} onChange={value => changeStatus(row.enrollmentId, value)} label={`حضور ${row.studentName}`}/> : <small className="sub-cell">{row.status ? `سجل محفوظ: ${row.status === 'present' ? 'حاضر' : row.status === 'absent' ? 'غائب' : 'غائب بعذر'}` : row.eligibilityReason === 'paused' ? 'لا يمكن تسجيل حضور خلال فترة الإيقاف' : row.eligibilityReason === 'before-circle-start' ? 'الحلقة لم تبدأ في هذا التاريخ' : row.eligibilityReason === 'after-enrollment-end' ? 'التاريخ بعد نهاية الالتحاق' : row.eligibilityReason === 'before-enrollment-start' ? 'يتطلب تفعيل الإدخال التاريخي' : 'الالتحاق لم يكن نشطًا في هذا التاريخ'}</small>}</td></tr>)}</tbody></table></div>}
+      <div className="system-panel-heading">
+<div>
+<span className="eyebrow">تسجيل الحصة</span>
+<h3>قائمة الطلاب</h3>
+<p>اختَر الحالة لكل طالب ثم احفظ التغييرات. لا تُسجّل الحالات غير المحددة تلقائيًا.</p>
+</div>
+<span className="system-heading-icon">
+<UsersRound size={20}/>
+</span>
+</div>
+      {loading ? <div className="dialog-loading">
+<LoaderCircle className="spin" size={20}/> جارٍ تحميل الطلاب…</div> : loadError ? <div className="error-panel">{loadError}</div> : rows.length === 0 ? <div className="empty-state compact-empty">
+<strong>لا يوجد طالب ملتحق بهذه الحلقة حتى الآن.</strong>
+<p>ألحِق الطالب بالحلقة من ملف الطالب أو من تفاصيل الحلقة أولًا؛ تسجيل الحضور لا ينقل الطالب إلى حلقة جديدة تلقائيًا.</p>
+</div> : <>
+        {outsideEnrollmentCount > 0 && <label className="attendance-historical-toggle">
+<input type="checkbox" checked={includeOutsideEnrollmentDates} onChange={async (event) => { const nextChecked = event.target.checked; if (dirty.size > 0 && !(await confirmAction({ title: 'تغيير نطاق القائمة', message: 'تغيير نطاق القائمة سيمسح التعديلات غير المحفوظة. هل تريد المتابعة؟', confirmLabel: 'متابعة' }))) return; setIncludeOutsideEnrollmentDates(nextChecked); setDirty(new Set()) }}/>
+<span>
+<strong>إظهار كل الملتحقين بهذه الحلقة</strong>
+<small>يعرض الحالات التي لا تنطبق عليها الأهلية. يسمح الإدخال التاريخي فقط بالتاريخ السابق لبداية الالتحاق المسجلة؛ ولا يتجاوز بداية الحلقة أو الإيقاف أو نهاية الالتحاق.</small>
+</span>
+<b>{includeOutsideEnrollmentDates ? 'يشمل التاريخية' : `${eligibleCount} مناسبين للتاريخ`}</b>
+</label>}
+        {visibleRows.length === 0 ? <div className="empty-state compact-empty">
+<strong>لا يوجد التحاق صالح لهذا التاريخ المحدد.</strong>
+<p>يمكنك اختيار «إظهار كل الملتحقين» لإدخال حضور تاريخي إذا كانت تواريخ الالتحاق الحالية لا تعكس الواقع القديم.</p>
+<button className="secondary-button" type="button" onClick={() => setIncludeOutsideEnrollmentDates(true)}>إظهار كل الملتحقين</button>
+</div> : <ResponsiveTable
+          caption="قائمة الطلاب لحضور الحصة"
+          rows={visibleRows}
+          columns={rosterColumns}
+          rowKey={(row) => row.enrollmentId}
+          empty={<div className="empty-state compact-empty"><strong>لا يوجد التحاق صالح لهذا التاريخ المحدد.</strong><p>يمكنك اختيار «إظهار كل الملتحقين» لإدخال حضور تاريخي.</p></div>}
+        />}
       </>}
-      <div className="modal-actions"><span className="muted-text">تغييرات غير محفوظة: {changedCount}</span><button type="button" className="secondary-button" onClick={close}>إغلاق</button><button type="button" className="primary-button" onClick={() => void save()} disabled={loading || saving || changedCount===0 || !visibleRows.some(row => row.eligibleForDate || (includeOutsideEnrollmentDates && row.eligibilityReason === 'before-enrollment-start'))}>{saving ? <LoaderCircle className="spin" size={15}/> : <CheckCircle2 size={15}/>} حفظ الحضور</button></div>
+      <div className="modal-actions">
+<span className="muted-text">تغييرات غير محفوظة: {changedCount}</span>
+<button type="button" className="secondary-button" onClick={close}>إغلاق</button>
+<button type="button" className="primary-button" onClick={() => void save()} disabled={loading || saving || changedCount===0 || !visibleRows.some(row => row.eligibleForDate || (includeOutsideEnrollmentDates && row.eligibilityReason === 'before-enrollment-start'))}>{saving ? <LoaderCircle className="spin" size={15}/> : <CheckCircle2 size={15}/>} حفظ الحضور</button>
+</div>
     </div>
   </Modal>
 }

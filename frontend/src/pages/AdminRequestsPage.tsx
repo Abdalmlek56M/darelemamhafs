@@ -3,6 +3,7 @@ import { CheckCircle2, ClipboardCheck, RefreshCw, XCircle } from 'lucide-react'
 import { api } from '../system/api'
 import type { AdminAttendanceRequest, AdminRequestsResponse } from '../system/types'
 import type { DarApplicationContext } from '../application/useDarApplication'
+import { confirmAction } from '../components/common/confirmService'
 
 type Props = { ctx: DarApplicationContext }
 type Filter = 'pending' | 'approved' | 'rejected' | 'all'
@@ -119,7 +120,7 @@ export default function AdminRequestsPage({ ctx }: Props) {
   }
 
   const reopen = async (item: AdminAttendanceRequest) => {
-    if (!window.confirm('إعادة الطلب للمراجعة ستعكس أثره على الحضور والأجر. هل تريد المتابعة؟')) return
+    if (!(await confirmAction({ title: 'تأكيد العملية', message: 'إعادة الطلب للمراجعة ستعكس أثره على الحضور والأجر. هل تريد المتابعة؟', confirmLabel: 'متابعة' }))) return
     setBusy(true)
     try {
       await api(`/api/admin/requests/${item.id}/reopen`, { method: 'POST' })
@@ -133,7 +134,7 @@ export default function AdminRequestsPage({ ctx }: Props) {
   }
 
   const remove = async (item: AdminAttendanceRequest) => {
-    if (!window.confirm('حذف الطلب من القائمة؟')) return
+    if (!(await confirmAction({ title: 'تأكيد العملية', message: 'حذف الطلب من القائمة؟', confirmLabel: 'متابعة' }))) return
     setBusy(true)
     try {
       await api(`/api/admin/requests/${item.id}/delete`, { method: 'POST' })

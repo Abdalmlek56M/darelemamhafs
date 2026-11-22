@@ -1,0 +1,111 @@
+/* ==========================================================================
+   2.4-b — Responsive tables, touch targets, typography, filters and feedback
+   Owner-approved priority (22 Nov 2026). Loaded after all other admin styles.
+   Breakpoints: <=1023 mobile/tablet detail pass, <=767 phone cards.
+   ========================================================================== */
+
+/* --- 1. Shared tokens: light theme contrast >= 4.5:1 (WCAG AA) ----------- */
+:root { --danger-solid: #b93a3a; }
+:root[data-theme="light"] {
+  --muted: #516176;   /* was #6e7d91 (3.84–4.20:1) -> ~5.9:1 on #f2f5f9/white */
+  --accent: #0f7f6d;  /* was #168f7b (4.00:1) -> ~5.0:1 on white */
+  --danger: #b42318;
+  --success: #177245;
+  --danger-solid: #b42318;
+}
+
+/* --- 2. LTR isolation inside RTL pages ---------------------------------- */
+[dir="ltr"] { direction: ltr; unicode-bidi: isolate; }
+.ltr { direction: ltr; unicode-bidi: isolate; text-align: right; }
+
+/* --- 3. Month picker (replaces unsupported input[type=month]) ----------- */
+.month-picker { display: inline-flex; align-items: center; gap: 8px; }
+.month-picker-fields { display: inline-flex; align-items: center; gap: 6px; }
+.month-picker-fields select { border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; background: var(--surface-strong); color: var(--text); font: inherit; font-size: 13px; min-height: 40px; }
+.month-picker-fields select:first-child { min-width: 94px; }
+
+/* --- 4. ResponsiveTable: desktop table + phone cards -------------------- */
+.rt-cards { display: none; }
+.rt-desktop { width: 100%; overflow: auto; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--accent) 32%, var(--line)) transparent; }
+.rt-desktop::-webkit-scrollbar { width: 8px; height: 8px; }
+.rt-desktop::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--accent) 30%, var(--line)); border-radius: 8px; }
+.rt-desktop::-webkit-scrollbar-track { background: transparent; }
+.rt-loading { display: flex; flex-direction: column; gap: 10px; padding: 14px 2px; }
+.rt-skeleton { display: block; height: 44px; border-radius: 12px; background: linear-gradient(90deg, color-mix(in srgb, var(--line) 55%, transparent) 25%, color-mix(in srgb, var(--surface-strong) 80%, transparent) 45%, color-mix(in srgb, var(--line) 55%, transparent) 65%); background-size: 300% 100%; animation: rt-shimmer 1.4s ease-in-out infinite; }
+.rt-skeleton-head { height: 18px; width: 38%; }
+@keyframes rt-shimmer { 0% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
+@media (prefers-reduced-motion: reduce) { .rt-skeleton { animation: none; } }
+
+.students-table td, .rt-card, .rt-card-value, .student-name-cell strong { overflow-wrap: anywhere; }
+
+@media (max-width: 767px) {
+  .rt-desktop { display: none; }
+  .rt-cards { display: flex; flex-direction: column; gap: 10px; padding: 0 2px; }
+  .rt-card { border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; background: color-mix(in srgb, var(--surface-strong) 72%, transparent); }
+  .rt-card-title { font-size: 15px; font-weight: 700; padding-bottom: 8px; border-bottom: 1px dashed var(--line); overflow-wrap: anywhere; }
+  .rt-card-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; font-size: 14px; }
+  .rt-card-label { flex: 0 0 40%; max-width: 40%; color: var(--muted); font-size: 12px; }
+  .rt-card-value { flex: 1 1 auto; min-width: 0; text-align: left; overflow-wrap: anywhere; }
+  .rt-card-value .sub-cell { font-size: 12px; }
+  .rt-card-actions { margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .rt-card-actions .row-actions { flex-wrap: wrap; gap: 8px; }
+  .rt-card-actions .small-icon-button { width: 44px; height: 44px; }
+  .rt-card-actions .secondary-button, .rt-card-actions .primary-button { min-height: 44px; }
+  .rt-card-empty { padding: 6px 0; }
+  .rt-actions-head, .rt-actions-cell { display: none; }
+}
+
+/* --- 5. Touch targets, typography, inputs (<=1023) ---------------------- */
+@media (max-width: 1023px) {
+  body, .app-shell { font-size: 14px; }
+  .students-table { font-size: 14px; }
+  .students-table th { font-size: 12px; padding: 10px 12px; }
+  .students-table td { padding: 12px; }
+  .student-name-cell strong { font-size: 14px; }
+  .sub-cell, .student-name-cell small, .muted-text, .table-heading > div > span, .table-heading-note,
+  .toolbar-copy p, .page-footnote, .hero p, .panel > p, .principles, .stat-card p, .progress-caption,
+  .empty-state p, .profit-footnote, .admin-more-grid button, .saved-report-copy small { font-size: 12px; }
+  .status-pill, .admin-severity, .permission-count, .system-tab { font-size: 12px; }
+  .eyebrow, .data-note, .stat-label { font-size: 12px; }
+  .toolbar-copy h2 { font-size: 18px; }
+  .table-heading h3 { font-size: 16px; }
+  .filter-chip { min-height: 44px; padding: 10px 12px; font-size: 13px; border-color: var(--line); }
+  .compact-button { min-height: 44px; padding: 10px 14px; font-size: 13px; }
+  .small-icon-button { width: 44px; height: 44px; }
+  .close-modal { width: 44px; height: 44px; }
+  .attendance-trigger, .attendance-session-button { min-height: 44px; }
+  input, select, textarea { font-size: 16px !important; }
+  input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; }
+  .status-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; width: 100%; }
+  .status-filters .filter-chip { width: 100%; text-align: center; }
+  .student-filters { flex-direction: column; align-items: stretch; gap: 10px; }
+  .search-field input { font-size: 16px; }
+  .page-toolbar, .toolbar-actions, .table-heading, .modal-actions { flex-wrap: wrap; }
+  .system-tabs { display: flex; flex-wrap: wrap; gap: 6px; overflow: visible; }
+  .system-tabs .system-tab { flex: 1 1 auto; justify-content: center; }
+}
+
+@media (pointer: coarse) {
+  .filter-chip, .compact-button, .small-icon-button, .system-tab, .attendance-trigger, .nav-item { min-height: 44px; min-width: 44px; }
+}
+
+/* --- 6. Phone refinements ---------------------------------------------- */
+@media (max-width: 767px) {
+  .page-toolbar { flex-direction: column; align-items: stretch; }
+  .toolbar-actions > * { flex: 1 1 auto; justify-content: center; }
+  .month-picker { width: 100%; justify-content: space-between; }
+  .month-picker-fields { width: 100%; }
+  .month-picker-fields select { flex: 1 1 auto; min-height: 44px; }
+  .stat-value { font-size: 22px; overflow-wrap: anywhere; }
+  .form-grid, .ad-expense-form { grid-template-columns: 1fr; }
+  .table-card { border-radius: 16px; }
+  .table-heading { padding: 14px; }
+  .page-footnote { font-size: 12px; }
+  .saved-report-row, .assigned-teacher-row, .profit-detail-item { font-size: 14px; }
+  .modal-actions .primary-button, .modal-actions .secondary-button { min-height: 48px; }
+}
+
+/* --- 7. Confirmation sheet + danger action ----------------------------- */
+.danger-primary { background: var(--danger-solid); color: #fff; box-shadow: none; }
+.danger-primary:hover { filter: brightness(1.05); }
+.confirm-sheet-message { margin: 14px 2px 4px; font-size: 14px; line-height: 1.9; color: var(--text); }
