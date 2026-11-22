@@ -259,6 +259,10 @@
 ### Schedule
 
 - منع تداخل مواعيد المعلمة نفسها عبر كل الحلقات.
+- **تحصين 22 Nov 2026 (migration 025):** كل حارس تداخل يأخذ `pg_advisory_xact_lock` بمفتاح مشتق لكل معلمة (`hashtextextended('dar:teacher_timetable:'||teacher)`)، بترتيب أقفال ثابت (row → global legacy lock → teacher keys مرتّبة رقميًا) لمنع سباق الطلبين المتوازيين تحت READ COMMITTED؛ الحارسان يرفضان أي معاملة ليست READ COMMITTED (SQLSTATE 0A000).
+- التكرار الحرفي لموعد (نفس الحلقة/اليوم/الوقت) يُرجع 409 برسالة «الموعد مسجل بالفعل» (23505) بدل رسالة التداخل.
+- حفظ الحلقة + مواعيدها ذري عبر `POST /api/circles/with-schedule` و`PUT /api/circles/{id}/with-schedule` (rollback كامل عند أي فشل)، و`PUT /api/schedule-slots/{id}` لتعديل موعد.
+- تحقق: 17/17 سيناريو تحصين + 45/45 سيناريو التداخل الأصلي PASS على PostgreSQL 17 معزول، واختبار تزامن Testcontainers للـCI.
 - التداخل يُحسب على أسبوع دائري (يشمل عبور منتصف الليل وحدود السبت/الأحد).
 - المواعيد المتتالية بدقة (10:00 نهاية، 10:00 بداية) مسموحة.
 - Migration 012 ترفض التطبيق إذا وُجد تداخل قديم. المواعيد الثلاثة `00:07/00:10/00:11` المذكورة في تدقيق 15 Nov 2026 تحتاج **تأكيدًا من الإنتاج**؛ أدوات المعالجة موجودة في `tools/Repair-KnownTeacherScheduleOverlap.ps1` و`maintenance/repair_known_teacher_schedule_overlap.sql`.

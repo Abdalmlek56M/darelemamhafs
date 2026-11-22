@@ -255,23 +255,22 @@ Rules:
 
 **الحالي — `.github/workflows/ci.yml` (22 Nov 2026):**
 
-- `backend`: build legacy + build `Dar.slnx` + `dotnet test`.
-- `migrations`: تطبيق كل الـmigrations على PostgreSQL 17 service + التحقق من الجداول/الصلاحيات.
-- `frontend`: `npm ci` + `npm test` + `npm run build`.
-- `api-client`: `npm ci` + typecheck.
+- `backend`: build legacy + build `Dar.slnx` + `dotnet test` + **`bash -n` لكل `deploy/*.sh` و`deploy/scripts/*.sh`** (يكشف أخطاء syntax قبل أي push).
+- `migrations`: تطبيق كل الـmigrations على PostgreSQL 17 service، ثم: (أ) تأكيد أن عدد `web_schema_migrations` = عدد ملفات `database/*.sql`، (ب) تأكيد schema الـReverse/Void (أعمدة void + الدالتين + صلاحية `finance.void` + الفهرس الفريد الجزئي)، (ج) تأكيد حماية تداخل المواعيد (تريجران + الدوال)، (د) تشغيل `tests/regression/sql/financial_void_verify.sql` و`schedule_overlap_verify.sql` و`schedule_overlap_hardening_verify.sql` وفشل عند أي `FAIL`.
+- `frontend`: `npm ci` + **`npm run typecheck` (`tsc -b --force`)** + `npm test` + `npm run build`.
+- `api-client`: `npm ci` + typecheck + **`npm run generate` ثم `git diff --exit-code -- src/schema.d.ts`** (no-drift للـgenerated types).
 - `deployment`: `docker compose config` على الـstack المتقاعد فقط.
 - `security`: `dotnet list package --vulnerable` + `npm audit --omit=dev` + built-in secret scan (git-grep regex، ليس gitleaks).
-- لا E2E، لا contract diff، لا تغطية للمسارات المالية legacy، لا deploy/rollback.
-- **أول تشغيل على GitHub لم يُتحقق منه بعد.**
+- **لا يزال ناقصًا:** E2E Playwright، contract diff الحقيقي مقابل API يعمل، تغطية HTTP للمسارات المالية legacy، deploy job + rollback verification (مؤجلة إلى 2.5-b لأنها تحتاج أسرار host/staging).
+- **أول تشغيل على GitHub لم يُتحقق منه بعد** — كل الخطوات الجديدة تحتاج run فعلي على runner.
 
-**المطلوب (Phase 2.5):**
+**المتبقي (Phase 2.5-b):**
 
-- إضافة scripts `typecheck`/`lint` للواجهة (غير موجودة في `frontend/package.json`).
-- Contract diff + توليد الـclient.
+- `lint` للواجهة (غير مثبت — يحتاج قرار بإضافة ESLint).
+- Contract diff الحقيقي (مقارنة spec مولّد من API يعمل بالملف الملزم).
 - Playwright E2E smoke على staging.
-- نقل الاختبارات المالية من `tests/regression` إلى test projects.
-- التحقق من أول run فعلي على GitHub Actions.
-- deploy job + rollback verification بعد تأمين سكربتات النشر.
+- نقل باقي اختبارات `tests/regression` (PowerShell) إلى test projects.
+- deploy job + rollback verification بعد rehearsal سكربتات النشر على host.
 
 No merge with failing tests, secrets, or contract drift.
 

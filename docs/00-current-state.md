@@ -21,7 +21,7 @@
 | الواجهة | **React 19 + Vite + TypeScript** + CSS tokens + framer-motion — **لا Next.js** (القرار ملغي نهائيًا، ADR-0001) |
 | Backend (قديم) | ASP.NET Core 10 Minimal API — `backend/DarEltahfeez.Api` على 5080 (يخدم الـSPA + كل الـdomain APIs) |
 | Backend (جديد) | `Dar.slnx`: `src/Host/Dar.Api` على 5081 — `/api/v1/*` (Identity + Secretariat + Teaching فقط) |
-| قاعدة البيانات | PostgreSQL 17 — `public` schema — **24 migration في المستودع (001→024)**؛ الإنتاج على 23 حتى تطبيق `deploy/update.sh` القادم |
+| قاعدة البيانات | PostgreSQL 17 — `public` schema — **25 migration في المستودع (001→025)**؛ الإنتاج على 23 حتى تطبيق `deploy/update.sh` القادم (يتضمن 024 Void + 025 تحصين التداخل) |
 | النشر | Ubuntu 24.04 + Nginx + Certbot + systemd + منافذ داخلية 5080/5081 |
 | الاختبارات | 16 unit + 20 integration (Testcontainers) + 6 Vitest |
 | اللغة | العربية فقط الآن — الإنجليزية مؤجلة (ADR-0004) |
@@ -88,7 +88,7 @@
 | **Unit tests** | ✅ 16/16 (reflection runner) |
 | **Integration بلا DB** | ✅ 6/6 (Health + SameOrigin) |
 | **Integration بـDB (14)** | ⏭️ تحتاج Docker/Testcontainers — غير متاحة في الساندبوكس المحلي |
-| **Overlap protection** | ✅ 45/45 PASS على PostgreSQL 17 معزول + 3360 نقطة استقصائية |
+| **Overlap protection** | ✅ 45/45 + 3360 نقطة (012)؛ تحصين 025: 17/17 PASS + اختبار تزامن Testcontainers للـCI |
 | **Vite build / Vitest** | ❌ محجوب محليًا (esbuild spawn EPERM) — الحكم في CI |
 | **bash -n لسكربتات النشر** | ⚠️ غير قابل للتنفيذ محليًا (MSYS sandbox) — بديل shfmt + فحص بنيوي؛ الحكم في CI |
 | **GitHub Actions** | ⚠️ لم يُتحقق من أول تشغيل فعلي بعد |
@@ -107,13 +107,11 @@
 
 ## 9. ما هو ناقص/مؤجل (22 Nov 2026)
 
-**تم مؤخرًا:** Docs Reset + قرارات المالك (2.0)؛ تأمين سكربتات النشر/النسخ + healthcheck (2.1 — تحتاج rehearsal)؛ التحقق الكامل من منع تداخل المواعيد (2.2 — 45/45 PASS)؛ تدقيق تجاوب لوحة الإدارة (جاهز للتنفيذ).
+**تم:** Docs Reset + قرارات المالك (2.0)؛ تأمين النشر/النسخ + healthcheck (2.1 — تحتاج rehearsal)؛ التحقق 45/45 من تداخل المواعيد + تحصين 025 (2.2)؛ Reverse/Void مالي (2.3)؛ Responsive shell + جداول/لمس/ConfirmSheet/MonthPicker (2.4-a/b)؛ CI typecheck/migration-count/SQL regression/schema-drift + إصلاح Vite proxy (2.5-a).
 
 **التالي بالترتيب:**
-- 2.3 Reverse/Void للسجلات المالية (ADR-0005 جاهز + مخطط migration 024).
-- 2.4 تجاوب لوحة الإدارة 100% على الموبايل (2.4-a/b/c من تقرير التدقيق).
-- إصلاحات 2.2: حارس سباق + ذرية حفظ الحلقة/المواعيد + رسالة التفرد + PUT للموعد.
-- 2.5 CI/CD + Contract + E2E + scripts typecheck/lint.
+- 2.4-c: QA بصري 390/1440، 3 جداول SystemAdminView، print/reduced-motion، pagination، مراجعة RTL نهائية.
+- 2.5-b: contract حقيقي مقابل API يعمل، Playwright E2E، deploy/rollback verification، lint.
 - 2.6 الخزنة والإيرادات وتقفيل الشهر (بدون قيد مزدوج).
 - 2.7 أمان وتشغيل (lockout، antiforgery، HSTS/Nginx، Cloudflare origin، rotation، monitoring).
 - 2.8 تنظيف وإعادة هيكلة (ملفات >400، desktop-host/tools/runners، .opencode، Vite dev proxy).
@@ -133,6 +131,10 @@
 ---
 
 ## 11. آخر التحديثات (22 Nov 2026)
+
+- **Phase 2.2-fix (تحصين التداخل):** migration 025 — advisory locks لكل معلمة + رفض غير READ COMMITTED + رسالة تكرار منفصلة + حفظ ذري للحلقة/المواعيد + PUT للموعد + اختبارات (17/17 + 45/45 PASS).
+- **Phase 2.4-b (جداول/لمس):** ResponsiveTable (16 جدولًا → كروت <768px)، ConfirmSheet بدل 16 `window.confirm`، MonthPicker بدل 7 `type=month`، responsive-admin.css (44px، خطوط ≥14/12، تباين، حقول 16px، segmented filters). متبقٍ: 3 جداول SystemAdminView + QA بصري (2.4-c).
+- **Phase 2.5-a (CI/proxy):** `npm run typecheck` + إصلاح Vite proxy (`/api/v1`→5081 قبل `/api`→5080) + CI: typecheck، migration-count dynamic، asserts لـVoid/التداخل، تشغيل SQL regression scripts، schema-drift للـapi-client. المتبقي: contract حقيقي/E2E/deploy job (2.5-b).
 
 - **Phase 2.3 Reverse/Void:** منفّذة (migration 024 + دوال + endpoints + صلاحية finance.void + استبعاد الملغي من legacy وnew API + UI حوار/شارة + SQL verify 23/23 PASS).
 - **Phase 2.4-a Responsive shell:** منفّذة (Drawer + Bottom Nav + viewport dvh + Modal bottom-sheet + إصلاح تسريب CSS + إزالة بقايا desktop من shell). 2.4-b/c متبقيتان.

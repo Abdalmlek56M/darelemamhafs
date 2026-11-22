@@ -76,13 +76,14 @@ dotnet run --project src/Host/Dar.Api -- --migrate      # يطبّق migrations 
 ```bash
 cd frontend
 npm install
-npm run dev       # Vite على http://localhost:5173 — proxy /api → 5080 (legacy فقط)
+npm run dev       # Vite على http://localhost:5173 — proxy: /api/v1 → 5081 (new API)، /api → 5080 (legacy)
+npm run typecheck # tsc -b --force (فحص أنواع كامل بدون build)
 npm run build     # tsc -b && vite build → dist/
 npm run test      # vitest run
 npm run preview
 ```
 
-**قيد حالي:** `vite.config.ts` يوجّه `/api` إلى 5080 فقط؛ بوابة المعلمة/المشرفة تتكلم `/api/v1` على 5081. لاختبارها محليًا شغّل الـnew API على 5080 مؤقتًا أو أضِف مسار proxy؛ الإصلاح الدائم ضمن Phase 2.8 (Vite dev proxy)، وscripts `typecheck`/`lint` تُضاف في Phase 2.5.
+**تم إصلاح dev proxy (2.5-a):** `vite.config.ts` يعرّف `/api/v1` → 5081 قبل `/api` → 5080 (الترتيب مهم — Vite يحل أول تطابق بادئة). شغّل الـAPI القديم والجديد معًا لاختبار لوحة الإدارة وبوابتي المعلمة/المشرفة محليًا.، وscripts `typecheck`/`lint` تُضاف في Phase 2.5.
 
 ### 2.4 المنافذ الفعلية
 

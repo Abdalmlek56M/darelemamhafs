@@ -75,7 +75,7 @@ dotnet build Dar.slnx
 dotnet test Dar.slnx
 ```
 
-> **قيد معروف:** `vite.config.ts` يوجّه `/api` إلى 5080 فقط، بينما بوابة المعلمة/المشرفة تتكلم `/api/v1` على 5081. لاختبارها محليًا شغّل الـnew API على 5080 مؤقتًا أو عدّل الـproxy يدويًا؛ الإصلاح الدائم ضمن Phase 2.8 (Vite dev proxy). انظر `docs/06-operations.md` §2.
+> **Dev proxy (2.5-a):** `vite.config.ts` يوجّه `/api/v1` → 5081 (new API) و`/api` → 5080 (legacy) بالترتيب الصحيح؛ شغّل الـAPI القديم والجديد معًا لاختبار كل الواجهات محليًا. `npm run typecheck` متاح الآن. راجع `docs/06-operations.md` §2.
 
 ## قواعد ثابتة
 

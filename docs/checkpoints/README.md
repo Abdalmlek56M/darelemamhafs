@@ -71,7 +71,9 @@
 | **2.1.0** | [Deploy & Backup Safety](2.0-docs-reset-1.0.md) | ✅ منفّذة — تحتاج rehearsal على host + أول تشغيل healthcheck |
 | **2.2.0** | [Schedule Overlap Verification](2.0-docs-reset-1.0.md) | ✅ 45/45 PASS + 3360 نقطة؛ إصلاحات سباق/ذرية في المرحلة التالية |
 | **2.3.0** | [Reverse/Void للمالية + Responsive shell](2.3-2.4a-void-responsive-1.0.md) | ✅ migration 024 + finance.void + SQL verify 23/23 + 2.4-a (Drawer/Bottom Nav/Modal/CSS leak) |
-| **2.4.0** | Responsive admin UI (2.4-b/c) | ⬜ |
+| **2.4.0** | [تحصين التداخل + جداول متجاوبة + CI baseline](2.2fix-2.4b-2.5a-1.0.md) | ✅ 2.2-fix (025/17-45 PASS) + 2.4-b (16 جدولًا→كروت/ConfirmSheet/MonthPicker) + 2.5-a (CI/typecheck/proxy) |
+| **2.4.1** | Responsive admin UI (2.4-c) | ⬜ |
+| **2.5.0** | CI/CD contract + E2E (2.5-b) | ⬜ |
 
 ## Next in order (superseded — انظر docs/17-master-plan.md)
 

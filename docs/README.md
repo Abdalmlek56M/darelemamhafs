@@ -59,8 +59,8 @@
 - **Backend:** legacy API (كل الدومين) + new API `/api/v1` (Identity + Secretariat + Teaching).
 - **الترحيلات:** 24 في المستودع (001→024)؛ الإنتاج على 23 حتى النشر القادم.
 - **الاختبارات:** 16 unit + 20 integration + 6 Vitest؛ لا Playwright/Contract بعد.
-- **تم 22 Nov:** 2.0 Docs Reset + 2.1 تأمين النشر/النسخ (تحتاج rehearsal) + 2.2 تداخل المواعيد (45/45 PASS).
-- **التالي:** 2.3 Reverse/Void ثم 2.4 تجاوب لوحة الإدارة — التفاصيل في `docs/17-master-plan.md`.
+- **تم 22 Nov:** 2.0 Docs Reset + 2.1 تأمين النشر/النسخ (تحتاج rehearsal) + 2.2 تداخل المواعيد (45/45 + تحصين 17/17) + 2.3 Reverse/Void + 2.4-a/b تجاوب (shell/جداول/لمس/ConfirmSheet/MonthPicker) + 2.5-a CI/proxy.
+- **التالي:** 2.4-c QA بصري وتلميع + 2.5-b contract/E2E/deploy — التفاصيل في `docs/17-master-plan.md`.
 - **مؤجل بقرار المالك:** الإنجليزية، القيد المزدوج، مسير/قسائم الرواتب، خصومات/خطط رسوم، إيصالات مرقّمة، بوابة ولي الأمر.
 
 ---
