@@ -1,14 +1,16 @@
 # Legacy Reuse Audit — Students, Attendance, Payroll, Collections
 
-**Date:** 16 Nov 2026
+**Date:** 16 Nov 2026 — آخر تحديث: 22 Nov 2026 (مطابقة سياسة الأجر/الرسوم النهائية).
 **Scope:** read-only audit of the existing database, legacy API, and frontend before building the teacher portal.
 **Goal:** reuse the working domain model; add only the teacher/supervisor/notification layer.
+
+> **تحديث 22 Nov 2026:** سياسة الأجر والاستحقاق النهائية في `docs/adr/0002-financial-policy.md`، والإلغاء المالي في `docs/adr/0005-reverse-void.md`. هذا الملف يوثّق إعادة الاستخدام فقط وليس مصدر القواعد المالية.
 
 ---
 
 ## 1. Verdict
 
-Most of the required domain already exists. The teacher portal is a **scoped self-service layer**, not a new ERP.
+Most of the required domain already exists. The teacher portal is a **scoped self-service layer**, not a new ERP. القواعد المالية النهائية (أجر/استحقاق/تقريب) في `docs/adr/0002-financial-policy.md` ولا تُستنتج من هذا الملف.
 
 Do **not** rebuild:
 
@@ -34,14 +36,14 @@ Do **not** rebuild:
 | `teacher_attendance` | `session_date`, `scheduled_start`, `duration_minutes`, `hourly_rate_snapshot`, `payable_amount`, status, substitute teacher, unique `(schedule_slot_id, session_date)` | final pay row for a completed teacher session |
 | `student_attendance` | per-slot/date/enrollment `present`/`absent`/`excused`, note, active unique index | teacher roster writes |
 | `monthly_charges` | one charge per enrollment/month, `amount_due` | unpaid/overdue list |
-| `payments` | amount, date, method, reference, receipt bytes | collections; no new ledger |
+| `payments` | amount, date, method, reference, receipt bytes (`amount > 0`؛ لا صفوف سالبة) | collections; no new ledger؛ الإلغاء Reverse/Void (ADR-0005) |
 | `collection_reports` | saved monthly snapshots | supervisor/admin reports |
 | `audit_log` | append-only actor/action/before/after | every start/end/submit/correction |
 | `teacher_notes` | historical notes per teacher | optional teacher follow-up |
 
 ### Schema constraints that matter
 
-- `teacher_attendance.duration_minutes` and `MoneyRules.TryCalculateTeacherPayableAmount` both require **15–360 minutes**.
+- `teacher_attendance.duration_minutes` صار يقبل **1–360 دقيقة** بعد migration 017 (كان 15–360)، و`payable_duration_minutes` في نفس المدى، و`MoneyRules` صار يقبل 1–360. مدة موعد الجدول (`circle_schedule_slots.duration_minutes`) لا تزال **15–360**.
 - `teacher_attendance` is unique per `(schedule_slot_id, session_date)`; the legacy POST already upserts.
 - `student_attendance` is unique per active `(schedule_slot_id, session_date, enrollment_id)`.
 - `monthly_charges` is unique per `(enrollment_id, billing_month)` and `billing_month` must be day 1.
@@ -66,13 +68,17 @@ Do **not** rebuild:
 
 ### Teacher pay math
 
-`MoneyRules.TryCalculateTeacherPayableAmount(hourlyRate, durationMinutes)` already does:
+`MoneyRules.TryCalculateTeacherPayableAmount(hourlyRate, payableMinutes)` already does:
 
 ```text
-payable = round(hourlyRate × durationMinutes / 60, 2, away from zero)
+payable = round(hourlyRate × payableDurationMinutes / 60, 2, away from zero)
 ```
 
-The sample’s `98 minutes × 100 / 60 = 163.33` matches this rule. Keep `MoneyRules`; do not add a second calculator.
+والحساب النهائي للجلسة في `Money.TryCalculateTeacherSessionPay` يحدد `payableDurationMinutes`:
+- إذا `actual >= scheduled` → يُدفع **المجدول**، والزائد overtime للمراجعة؛
+- إذا `actual < scheduled` → يُدفع **الفعلي** بحد أدنى دقيقة واحدة.
+
+مثال القرار (ADR-0002): 98 دقيقة فعلية مقابل 90 مجدولة → `90 × 100 / 60 = 150.00` (المثال القديم `163.33` كان قبل قرار سقف المدة المجدولة). **لا تقريب 5 دقائق ولا 5 جنيهات**؛ التقريب الوحيد منزلتان `AwayFromZero`. لا تضف آلة حساب ثانية.
 
 ---
 
@@ -119,7 +125,7 @@ The admin console remains desktop-first. The teacher portal is a separate mobile
 | R7 | **Supervisor scope.** Default is all circles; the admin may change the role/permissions per supervisor. | Implement permission bundles first; circle scope can be a later filter. |
 | R8 | **Notification persistence.** Only toast/browser alerts exist. | Add `notifications` + `notification_reads`; status is `open`/`resolved`, separate from read. Dedupe by issue key. |
 | R9 | **Teacher account lock.** Admin can lock the supervisor; the same mechanism should cover a compromised teacher account. | Added `app_users.is_locked` + session-version bump; both APIs reject locked accounts. |
-| R10 | **Payment corrections.** `payments.amount > 0`; no negative rows. | Use reversal/void records, never delete or negate history. |
+| R10 | **Payment corrections.** `payments.amount > 0`; no negative rows. | **قرار 22 Nov 2026 (ADR-0005):** Reverse/Void بسبب إلزامي + Audit، والسجل يبقى ظاهرًا؛ لا حذف ولا سالب. حذف الاستحقاق الحالي عبر trash يُستبدل بالـVoid. |
 
 ---
 
@@ -132,7 +138,7 @@ The admin console remains desktop-first. The teacher portal is a separate mobile
 5. Supervisor APIs: live, absences, unpaid, correction, lock.
 6. Notification writer + read state + dedupe.
 7. Teacher PWA and supervisor board; admin remains responsive.
-8. Payroll lock/approval + reports; tests and review.
+8. Payroll lock ✅ (migration 022)؛ المسير/الاعتماد/القسائم + تقارير PDF الرسمية مؤجلة؛ tests and review.
 
 ---
 

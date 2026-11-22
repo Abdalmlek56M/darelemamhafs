@@ -1,7 +1,8 @@
 # RIGX Dar — Security
 
-**Status:** Baseline rules. Gaps to be filled after Audit.
+**Status:** Baseline rules + implementation status (22 Nov 2026).
 **Scope:** Auth, authorization, data protection, API hardening, infrastructure, audit, tests.
+**Source of truth:** `docs/00-current-state.md` يحدد ما هو منفّذ فعليًا؛ هذا الملف يحدد القواعد والهدف.
 
 ---
 
@@ -35,7 +36,19 @@
 - **Migration:** collect emails manually; keep password login temporarily for accounts without email; remove passwords after all active users are migrated.
 - **Credential handling:** never store admin credentials in docs, code, logs, or repository. Use a password manager. The current weak credential must be changed before production. Do not reuse it for OTP/Google.
 
-> **Implementation status (16 Nov 2026):** this section is the target security model, not a claim that every control is live. Implemented today: login rate limit, login audit, HttpOnly/Secure/SameSite cookies, security headers, blocked financial purge, hashed OTPs, a server-side ticket store in `Dar.Api`, session-version revocation, first-run setup token/loopback restriction, same-origin guard for unsafe methods, forwarded-header support, per-entity trash permissions, fail-closed OTP pepper in production, and removal of the legacy physical DELETE endpoints. Still open: full antiforgery tokens, `__Host-` prefix, per-account lockout, per-email OTP throttling, and a staging Caddy smoke test. See `docs/10-code-review.md` for evidence.
+> **Implementation status (22 Nov 2026):** this section is the target security model; what follows is what is actually live.
+>
+> **Live today:** password login (PBKDF2-SHA256, 210k) — مسار Email OTP مُنفّذ لكن SMTP غير مُعد؛ Google مؤجل؛ HttpOnly/Secure cookies؛ `session_version` revocation عند تغيير كلمة المرور/الصلاحيات؛ rate limit 10/دقيقة لكل IP على مسارات auth؛ login audit؛ security headers؛ same-origin guard على الطلبات غير الآمنة؛ منع purge المالي؛ OTP hashed + pepper fail-closed؛ first-run setup token/loopback؛ forwarded headers؛ صلاحيات trash لكل كيان؛ append-only audit trigger؛ إزالة مسارات DELETE القديمة.
+>
+> **Not implemented yet — أولويات سبرنت الأمان القادم (Phase 2.7):**
+> 1. **Per-account lockout** + throttle لكل حساب (5 محاولات/15 دقيقة) — الحالي per-IP فقط.
+> 2. **Antiforgery token (CSRF)** لكل POST/PUT/PATCH/DELETE — الحالي Origin/Referer guard فقط.
+> 3. **HSTS على مستوى Nginx** لكل الردود (HTML/static) + CSP مناسب لـVite — التطبيق يضع HSTS على `/api` فقط.
+> 4. **تقييد origin على Cloudflare IPs** في UFW/Nginx (docs تقول إنه موجود — الواقع لا).
+> 5. `__Host-` cookie prefix + سياسة عمر جلسة/remember-device موحّدة بين الـhostين.
+> 6. تنظيف بقايا desktop من الـproduction binary والواجهة (`DAR_ISOLATED_*`, `desktopCredentialBridge`).
+>
+> See `docs/00-current-state.md` for evidence؛ `docs/10-code-review.md` سجل تاريخي (16 Nov).
 
 ### 2.2 Sessions
 
@@ -48,11 +61,11 @@
 
 ### 2.3 CSRF
 
-- Token for every unsafe method (`POST/PUT/PATCH/DELETE`).
-- Double-submit cookie or header `X-CSRF-TOKEN`.
-- Origin/Referer check.
-- SameSite=Lax as defense in depth.
+- **الحالي:** Origin/Referer guard + SameSite cookies + no CORS (بدون token).
+- **الهدف:** token لكل unsafe method (`POST/PUT/PATCH/DELETE`) — double-submit cookie أو header `X-CSRF-TOKEN`.
+- SameSite=Lax/Strict as defense in depth.
 - No CORS; same-origin only.
+- الطلب يُرفض 403 إذا غاب الـtoken في الهدف — يُضاف في سبرنت الأمان.
 
 ### 2.4 OTP
 
@@ -60,9 +73,9 @@
 - Stored encrypted at rest; never logged.
 - Resend timer (e.g., 60 seconds).
 - Generic responses to avoid account enumeration.
-- Rate limit per IP + email.
-- Lockout after repeated failures.
-- No passwords, no password reset flow, no password storage.
+- Rate limit per IP + email (منفّذ جزئيًا: per-IP 10/min + per-email throttle في Identity module).
+- Lockout after repeated failures (هدف — غير منفّذ بعد).
+- المسار الحالي مؤقتًا password؛ عند اكتمال OTP/Google تُزال كلمات المرور نهائيًا (target).
 
 ### 2.5 Google
 
@@ -123,15 +136,15 @@
 
 ## 5. API Hardening
 
-- HTTPS only; HSTS.
+- HTTPS only; HSTS (المطلوب على Nginx لكل الردود؛ حاليًا يضيفه التطبيق على `/api` فقط).
 - Security headers: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy.
-- CSP nonce-based with Next.js.
-- Rate limits:
-  - login/OTP: 5 / 15 min per IP+account.
-  - global: 100 / min per user.
-  - public requests: 5 / 10 min per IP.
-  - reports: 10 / min.
-  - search: 30 / min.
+- **CSP plan for Vite (بدل Next.js nonce):** `default-src 'self'`؛ `script-src 'self'` (الـbundle ملفات خارجية — لا inline scripts)؛ `style-src 'self' 'unsafe-inline'` مؤقتًا لحين فصل الـinline styles؛ `img-src 'self' data:`؛ `frame-ancestors 'none'`؛ `connect-src 'self'`. لا nonce ولا `unsafe-eval` (لا SSR).
+- Rate limits — **الحالي مقابل الهدف**:
+  - login/OTP: الحالي 10/دقيقة per IP؛ الهدف 5/15 دقيقة per IP+account + lockout.
+  - global: 100/min per user (هدف).
+  - public requests: 5/10 min per IP (هدف).
+  - reports: 10/min (هدف).
+  - search: 30/min (هدف).
 - Request timeouts; DB `statement_timeout`.
 - Idempotency for financial POSTs.
 - Concurrency token for edits.
@@ -144,7 +157,7 @@
 
 ## 6. Data Protection
 
-- PostgreSQL not public; private Docker network.
+- PostgreSQL not public; 127.0.0.1 على نفس الـhost (Docker/Caddy متقاعد).
 - Separate DB roles (`app_rw`, `app_migrator`, `backup`, `readonly`).
 - No superuser for app.
 - Encryption at rest: host disk/volume encryption; encrypted backups.
@@ -153,7 +166,7 @@
 - Retention: define per data type; no indefinite logs.
 - Data export: permission + audit; CSV formula neutralization.
 - Data deletion: soft delete; purge owner-only; financial records retained.
-- Secrets: env/Docker secrets; rotate; no secrets in logs.
+- Secrets: ملفات `/etc/dar/*.env` (640 root:dar) أو env؛ rotate؛ لا أسرار في الـlogs.
 - Data protection keys: certificate-protected outside Development.
 
 ---
@@ -181,20 +194,15 @@
 
 - Ubuntu 24.04 LTS.
 - Cloudflare DNS/WAF, SSL Full (strict), HSTS.
-- Caddy TLS + reverse proxy.
-- UFW: 22 (restricted), 80, 443 only.
+- **Nginx + Certbot** TLS + reverse proxy (Docker/Caddy stack متقاعد على الإنتاج).
+- UFW: 22 (restricted), 80, 443 only — **تقييد Cloudflare IPs غير منفَّذ** (هدف).
 - SSH keys only; no root; fail2ban.
-- Docker:
-  - non-root users.
-  - no privileged.
-  - read-only root FS where possible.
-  - resource limits.
-  - healthchecks.
-  - log rotation.
-- PostgreSQL/Redis not published.
-- Backups encrypted, offsite, restore drilled.
+- الخدمات: systemd `dar-legacy` و`dar-api` تعمل بمستخدم `dar`؛ لا حاويات في الإنتاج.
+- non-root users، healthchecks، log rotation (systemd/journald).
+- PostgreSQL غير منشور (127.0.0.1:5432).
+- Backups يومية + offsite (Google Drive)؛ manifest/healthcheck للنسخ = Phase 2.2.
 - Dependency audit + secret scan in CI.
-- Container scan (Trivy) in CI.
+- Container scan (Trivy): لا ينطبق حتى إعادة تفعيل الحاويات.
 - External pen test before launch (recommended).
 
 ---
@@ -220,21 +228,22 @@
 
 ---
 
-## 10. Gaps to Close — After Audit
+## 10. Gaps to Close — Updated 22 Nov 2026
 
 | Gap | Severity | Phase |
 |---|---|---|
-| Auth model resolved: Email OTP + Google | Closed | 0 |
-| Existing project auth unknown | High | 0 |
-| `.bat`/desktop coupling | Medium | 1 |
-| Test/production separation | High | 1 |
-| CSP nonce | Medium | 5 |
-| External pen test | High | 6 |
-| Offsite encrypted backups | High | 1/6 |
-| Migration runner outside dev | High | 1 |
-| Rate limits on public endpoints | Medium | 2 |
-| Step-up scope | Medium | 2 |
-| Data retention policy | Medium | 6 |
+| Per-account lockout + per-account auth throttle | High | 2.7 |
+| Antiforgery token (CSRF) on unsafe methods | High | 2.7 |
+| HSTS on Nginx for all responses + full CSP | Medium | 2.7 |
+| Origin restriction to Cloudflare IPs | Medium | 2.7 |
+| `__Host-` cookies + unified session lifetime | Low | later (3.0+) |
+| Backup manifest/checksum + failure alerts + restore drill | High | 2.1 |
+| Deploy scripts idempotent + backup/migrate/rollback gate | High | 2.1 |
+| Email/OTP provider activation (SMTP + pepper) | High | when provider chosen |
+| External pen test | High | before public growth |
+| Data retention policy | Medium | later |
+| Step-up scope | Medium | later |
+| Desktop remnants cleanup (`DAR_ISOLATED_*`, WebView bridges) | Low | 2.7 + 2.8 |
 
 ---
 

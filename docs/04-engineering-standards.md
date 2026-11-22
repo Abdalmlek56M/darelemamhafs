@@ -1,7 +1,7 @@
 # RIGX Dar — Engineering Standards
 
-**Status:** Baseline. Applies to every change.
-**Scope:** C#/.NET, Next.js/TypeScript, API contract, tests, docs, review.
+**Status:** Baseline (updated 22 Nov 2026 — Docs Reset). Applies to every change.
+**Scope:** C#/.NET, React 19 + Vite + TypeScript, API contract, tests, docs, review.
 
 ---
 
@@ -147,83 +147,78 @@ Features/ApprovePayroll/
 
 ---
 
-## 3. Next.js / TypeScript Standards
+## 3. React 19 + Vite / TypeScript Standards
+
+> الواجهة النهائية: React 19 + Vite + TypeScript (ADR-0001). لا Next.js، لا `apps/web`، لا Server Components/BFF.
 
 ### 3.1 Platform
 
-- Next.js 16 App Router.
-- React 19.
-- TypeScript strict.
+- React 19 + Vite 6 + TypeScript strict (`tsc -b` في البناء).
 - No `any` without a comment explaining why.
-- Server Components by default; `"use client"` only when needed.
-- No secrets in `NEXT_PUBLIC_*`.
+- DOM client-only؛ لا SSR/RSC؛ الواجهة SPA واحدة تُبنى إلى `frontend/dist`.
+- No secrets in client code أو `import.meta.env` العام.
 
-### 3.2 Structure
+### 3.2 Structure (الموجود فعليًا)
 
 ```
-apps/web/src/
-  app/                  routes, layouts, loading/error
-  components/ui/        shadcn/Radix primitives
-  components/layout/    shell, sidebar, header
-  features/<feature>/   components, hooks, schemas
-  lib/api/              generated client + server fetch
-  lib/auth/             session helpers (server-only)
-  lib/format/           money/date/number
-  i18n/                 next-intl config
-  messages/             ar.json, en.json
-  styles/               tokens/globals
+frontend/src/
+  main.tsx              route switch حسب location.pathname (home / teacher / supervisor / admin)
+  App.tsx               admin shell: sidebar, topbar, theme, login gate
+  SystemAdminView.tsx   لوحة النظام (backup/export/trash/audit/settings)
+  home/                 الصفحة العامة
+  pages/                صفحات الإدارة (dashboard, students, teachers, circles, schedule, ...)
+  application/          app state hooks + selectors (useDarApplication, useDarAuth, ...)
+  components/           shared UI + dialogs + ManagementReportBuilder
+  domain/               types + defaults
+  services/             apiClient (fetch) + desktop bridges (كود Windows قديم — غير مستخدم على الويب)
+  system/               ثوابت/تنسيق لوحة النظام
+  teacher/              TeacherApp + SupervisorWorkspace + teacherApi/teacherTypes
+  styles/               CSS tokens + styles لكل منطقة
 ```
 
-- Feature code stays in `features/`.
-- Shared UI in `components/ui/`.
-- No business rules in components; use server or shared pure functions.
-- `server-only` for server modules.
-- No direct API URL in client components.
+- التوجيه يدوي (لا router library) — أي صفحة جديدة تُضاف في `main.tsx`/`App.tsx`.
+- Shared UI في `components/`؛ لا business rules في المكوّنات — القواعد في الخادم أو دوال/selectors نقية.
+- استدعاء API عبر `services/apiClient.ts` (admin → legacy `/api`) أو `teacher/teacherApi.ts` (teacher/supervisor → `/api/v1`).
+- لا تكرر منطق التنسيق المالي/التاريخي؛ استخدم `lib/formatters.ts` و`lib/dates.ts`.
+- الملفات > 400 سطر تُقسَّم قبل إضافة أي feature جديد (انظر §6).
 
 ### 3.3 Data Fetching
 
-- Server Components fetch via same-origin `/api`.
-- Mutations: Server Actions or Route Handlers.
-- TanStack Query for interactive client screens, through same-origin.
-- No tokens in browser storage.
-- Cache deliberately; revalidate after mutations.
-- Handle loading/empty/error/unauthorized.
+- `fetch` + `credentials: 'include'` + `cache: 'no-store'`؛ same-origin فقط.
+- No tokens in browser storage (لا localStorage إلا لتفضيلات غير حساسة مثل username profiles/theme).
+- Handle loading/empty/error/no-permission في كل صفحة.
+- عند تغيير mutation: أعد تحميل القوائم المتأثرة صراحةً (لا cache invalidation library).
 
 ### 3.4 Forms
 
-- React Hook Form + Zod.
-- Server-side validation is mandatory; client validation is UX.
+- نماذج خاضعة للتحكم (`useState`) مع تحقق بسيط في الواجهة؛ **التحقق النهائي إلزامي على الخادم**.
 - Disable submit while pending.
-- Show field errors + form error.
-- Confirm destructive actions.
-- Optimistic updates only with rollback.
+- Show field errors + form error، وأكد العمليات الحساسة بحوار مناسب للموبايل.
+- Optimistic updates فقط مع rollback — الافتراضي: انتظر استجابة الخادم.
 
 ### 3.5 Styling & RTL
 
-- Tailwind CSS 4 + design tokens.
-- **Arabic + English** via `next-intl`; Arabic default.
-- Logical properties (`ms-`, `me-`, `ps-`, `pe-`).
-- `dir="rtl"` for Arabic, `dir="ltr"` for English.
-- No hardcoded `left/right` unless intentional.
-- Font: IBM Plex Sans Arabic or Cairo.
-- Dark mode optional; contrast checked.
-- Print styles for receipts/payslips.
+- CSS tokens في `frontend/src/styles/`؛ لا Tailwind.
+- **العربية فقط الآن** (RTL)؛ الإنجليزية مؤجلة (ADR-0004) — لا تُضِف نصوصًا مختلطة اللغة.
+- استخدم خصائص منطقية وحقول `dir="ltr"` للأرقام/الهواتف/الأكواد فقط.
+- Font: Cairo؛ navy/teal + glass cards؛ dark/light عبر `data-theme`.
+- Print styles للتقارير/الإيصالات عبر `window.print()`.
 
 ### 3.6 Accessibility
 
-- WCAG 2.2 AA.
+- WCAG 2.2 AA كهدف.
 - Keyboard navigation.
 - Focus visible.
 - Labels and `aria-describedby` for errors.
 - Contrast 4.5:1.
-- Touch targets 44px.
+- Touch targets 44px على الموبايل.
 - No motion-only information.
 - `prefers-reduced-motion`.
 
 ### 3.7 Animation
 
-- Motion (`motion/react`).
-- 150–300ms micro-interactions.
+- framer-motion.
+- 150–250ms micro-interactions.
 - Transform/opacity only.
 - No row-by-row table animation.
 - Stagger small lists only.
@@ -233,31 +228,33 @@ apps/web/src/
 
 ### 3.8 Performance
 
-- RSC + streaming + Suspense.
+- Route-level lazy loading (مثل `TeacherApp` عبر `lazy()`).
 - Code split charts/editors.
-- Virtualize large tables.
-- Bundle analyzer.
+- Virtualize large tables (هدف).
+- Bundle analyzer عند الحاجة.
 - No unnecessary client libraries.
 - Budgets: LCP < 2.5s, INP < 200ms, CLS < 0.1.
 
 ### 3.9 Tests
 
-- Vitest/React Testing Library for components/hooks.
-- Playwright for E2E.
-- Visual regression for key screens.
-- axe for accessibility.
+- Vitest لـ pure selectors/functions (`npm test`) — 6 اختبارات حالية.
+- React Testing Library لسلوك المكوّنات = هدف.
+- Playwright E2E + visual regression = هدف: smoke في Phase 2.5، وE2E كامل في Phase 2.9 (غير موجودة بعد).
+- axe for accessibility = هدف.
 - No test panel/routes in production.
 
 ---
 
 ## 4. API Contract
 
-- OpenAPI 3.1 generated from code.
+> **الحالة (22 Nov 2026):** العقد موجود لكنه ناقص (27 path مقابل 52 endpoint) و**غير مستخدم** في الواجهة، ولا يوجد contract test. القواعد التالية هي الهدف الملزم حتى يُنجَز Phase 2.5.
+
+- OpenAPI 3.1 generated from code (`/api/openapi/v1.json` من `src/Host/Dar.Api`).
 - `packages/api-client/openapi.v1.json` committed.
 - Contract test fails on diff.
-- TypeScript types generated, not hand-written.
+- TypeScript types generated, not hand-written (حاليًا مكتوبة يدويًا مؤقتًا).
 - `openapi-fetch` typed wrapper.
-- Every change to an endpoint updates the contract in the same change.
+- كل تغيير endpoint يحدّث الـspec (و/أو الأنواع اليدوية مؤقتًا) في نفس الـcommit.
 - Breaking changes need a version or a migration plan.
 
 ---
@@ -287,18 +284,23 @@ apps/web/src/
 - One use case per folder; do not create a "god service".
 - If a file grows beyond 300 lines, split by responsibility before committing.
 
-**Known legacy exceptions (must shrink):**
+**الحالة الفعلية (22 Nov 2026):**
 
 | File | Lines | Action |
 |---|---:|---|
-| `backend/DarEltahfeez.Api/DomainEndpoints.cs` | 1,680 | split by domain before migration |
-| `backend/DarEltahfeez.Api/SystemAdminEndpoints.cs` | 697 | split by admin area |
-| `backend/DarEltahfeez.Api/AuthEndpoints.cs` | 352 | replace with Identity module |
-| `frontend/src/application/useDarApplication.ts` | 874 | split by feature |
-| `frontend/src/SystemAdminView.tsx` | 456 | split by tab |
-| `frontend/src/components/ManagementReportBuilder.tsx` | 360 | split by report type |
+| `backend/DarEltahfeez.Api/AuthEndpoints.cs` | 472 | **يتجاوز الحد** — تقسيم/استبدال بـIdentity في الـmigration |
+| `backend/DarEltahfeez.Api/SystemAdminEndpoints.Requests.cs` | 484 | **يتجاوز الحد** — تقسيم |
+| `frontend/src/teacher/TeacherApp.tsx` | 475 | **يتجاوز الحد** — تقسيم sections (Phase 2.8) |
+| `frontend/src/teacher/teacherTypes.ts` | 406 | **يتجاوز الحد** — تقسيم حسب المجال |
+| `frontend/src/application/useDarApplication.ts` | 373 | مراقبة — قرب الحد |
+| `backend/DarEltahfeez.Api/DomainEndpoints.ScheduleAttendance.cs` | 371 | مراقبة — قرب الحد |
+| `frontend/src/SystemAdminView.tsx` | 327 | مراقبة |
+| `frontend/src/components/ManagementReportBuilder.tsx` | 360 | مراقبة |
 
-The new `src/` and `tests/` files are all under 200 lines (largest: 152).
+- أكبر ملف في `src/` = **301 سطر** (`src/Modules/Teaching/.../Teacher/SessionEndpoints.cs`).
+- أكبر ملف في `tests/` = **299 سطر** (`tests/Dar.IntegrationTests/Supervision/SupervisionAccessTests.cs`).
+- DomainEndpoints الأصلي (1,680) تم تقسيمه بالفعل إلى 14 partial تحت 400 سطر.
+- أي ملف يتجاوز 400 سطر لا تُضاف إليه ميزة جديدة قبل تقسيمه (Phase 2.8 = refactor مخصص).
 
 ---
 
@@ -316,7 +318,7 @@ The new `src/` and `tests/` files are all under 200 lines (largest: 152).
 
 ---
 
-## 7. Definition of Done
+## 8. Definition of Done
 
 - [ ] Build passes.
 - [ ] Tests pass.
@@ -332,7 +334,7 @@ The new `src/` and `tests/` files are all under 200 lines (largest: 152).
 
 ---
 
-## 8. Code Review Checklist
+## 9. Code Review Checklist
 
 - [ ] Does it belong to the current roadmap step?
 - [ ] Is the domain rule in Domain, not endpoint/component?

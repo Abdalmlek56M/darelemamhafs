@@ -1,7 +1,9 @@
-# RIGX Dar — Roadmap
+# RIGX Dar — Roadmap (Historical)
 
-**Status:** Current phase = **0.2 Intake**.
-**Rule:** Work on the next unchecked step only. Update the checkpoint in the same change.
+> ⚠️ **تاريخي:** هذا الملف يوثّق مراحل 0–1 القديمة بأرقامها وتسلسلها. **الخطة الحالية المعتمدة هي `docs/17-master-plan.md`**، والحالة الحالية في `docs/00-current-state.md`. لا تبدأ خطوة من هذا الملف بدون الرجوع للخطة الجديدة.
+
+**Status (historical):** كان آخر تحديث 18 Nov 2026.
+**Rule:** لم يُعد يُستخدم لتحديد الخطوة التالية.
 
 ---
 
@@ -503,7 +505,7 @@
 
 ---
 
-## Current Status
+## Current Status (تاريخي — 18 Nov 2026 — انظر docs/00)
 
 | Phase | Status |
 |---|---|

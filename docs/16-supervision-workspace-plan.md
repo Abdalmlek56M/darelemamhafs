@@ -1,7 +1,8 @@
 # Supervision Workspace, Communications and Admin UX — Plan
 
-**Date:** 16 Nov 2026
-**Status:** A1, A2, E1, F1, F2, A3.1, A3.2, permanent integration tests, communication templates, notes banner, public homepage/`/management`, admin notifications/teacher-notes pages and the PC teacher shell are live. Remaining: subscriptions/collections full review, admin schedule/attendance review, admin console parity, file/OOP refactor.
+**Date:** 16 Nov 2026 — محدّث 22 Nov 2026
+**Status:** ✅ live: A1، A2، A3.1، A3.2 (requests + scope hardening + secure WhatsApp)، A3.3 (templates + notes banner)، E1 (supervisor workspace)، F1، F2، permanent integration tests (16 unit + 20 integration)، public homepage/`/management`، admin notifications/teacher-notes pages، teacher PC shell، **payroll lock (migration 022)**، reports finance gate، offline outbox، teacher calendar/history، admin requests review، owner feedback round 2، final UI/QA، UI/UX audit.
+**Remaining (22 Nov 2026):** تجاوب 100% لواجهة الإدارة على الموبايل (Phase 2.4)، Reverse/Void بدل trash للاستحقاقات (Phase 2.3)، الخزنة + الإيرادات + تقفيل الشهر (Phase 2.6)، contract + E2E + تأكيد CI (Phase 2.5)، تنظيف ملفات >400 سطر (Phase 2.8). المرجع: `docs/17-master-plan.md`.
 **Owner approval:** all previously listed gaps and suggestions are approved. Manual adjustments, supervisor scope, offline handling, calendar, requests, admin notifications, WhatsApp sender, reports and the full admin/supervisor UI are in scope.
 
 Related: `docs/13-teacher-portal-requirements.md`, `docs/14-ui-audit-and-mobile-direction.md`, `docs/15-legacy-reuse-audit.md`, `docs/11-deployment.md`.
@@ -273,7 +274,7 @@ Do not build everything at once. Each phase = code + tests + docs + commit/push.
 | **D. WhatsApp + reports** | templates, sender, communication log, PDF sample/review, report additions | owner PDF approval + tests |
 | **E. Admin/supervisor UI overhaul** | full responsive design, navigation, polish, accessibility | visual QA + E2E + release |
 
-Start with **A1** because it is small, high-impact and prevents financial leakage. Then A2, B, C, D, E.
+**الحالة (22 Nov 2026):** كل هذه المراحل A→E مكتملة وlive؛ الجدول أعلاه سجل تصميم لا قائمة مهام. المرحلة التالية للواجهة = تجاوب 100% للوحة الإدارة (Phase 2.4).
 
 ---
 
@@ -332,37 +333,45 @@ If any default is wrong, the owner can change it before that phase starts.
 
 ---
 
-## 14. What Is Missing Today (as of 18 Nov 2026)
+## 14. What Is Missing Today (22 Nov 2026)
 
-- **Subscriptions/collections (done):** automatic proration removed, agreed fee used, 9 historical charges corrected with audit, integrity checks clean, audit panel added. Remaining: receipt/refund UI audit.
-- **Admin schedule + teacher attendance (done):** pay math/snapshots, month totals, filters, duration editing, weekday/future guards and inactive-circle handling verified. Open: device-local countdown vs Cairo; wide table on mobile.
-- **Admin requests review (done):** supervisors and admins can review attendance requests; approval applies audited attendance/pay effects. Pending requests can be edited; approved requests can be reopened (effect reversal) or soft-deleted; notes are appended instead of overwritten.
-- **Teacher:** weekly calendar and session/login history are implemented. Attendance has an offline IndexedDB outbox; session end/notes still require connectivity.
-- **Reports:** print/PDF exists through browser print; financial report columns now require `reports.finance` in addition to `finance.read`; the formal PDF sample/review approval is still pending.
-- **Payroll lock/approval:** implemented (migration 022): month lock/unlock with reasons and audit; edits and affected request approvals return 409 until unlocked.
-- **Admin console parity:** notifications and teacher-notes pages are live; finance, users, reports, dashboard and the settings visual check still need the full PC/mobile review.
-- **Owner actions:** re-test saving admin permissions after the Nginx buffer fix, link the `asmaa` account to a teacher record and grant permissions, change the supervisor temporary password and delete `/etc/dar/supervisor-initial-password`.
-- **Production E2E + GitHub Actions:** the supervision E2E suite and the first GitHub Actions run still need verification.
-- **File/folder/OOP refactor:** feature folders exist, but the largest files still need splitting (`TeacherApp.tsx` 433, `teacherTypes.ts` 404, `useDarApplication.ts` 373, `ManagementReportBuilder.tsx` 360, `SystemAdminView.tsx` 327, `AuthEndpoints.cs` 472, `DomainEndpoints.ScheduleAttendance.cs` 361).
+**مكتمل — لا يُعاد بناؤه:**
 
-Implemented and live: supervisor workspace/scope, requests, WhatsApp templates and log, admin notifications and teacher-notes pages, public homepage/`/management`, teacher PC shell and mobile shell, settings-controlled notes banner.
+- **Subscriptions/collections:** pro-rata أُزيل لصالح `agreed_monthly_fee`، 9 استحقاقات تاريخية صُححت بـaudit، integrity checks نظيفة. متبقٍ: مراجعة receipt/refund UI.
+- **Admin schedule + teacher attendance:** pay math/snapshots، month totals، filters، duration editing، weekday/future guards، inactive-circle handling — verified. متبقٍ: العدّاد يستخدم توقيت الجهاز مقابل Cairo.
+- **Admin requests review:** list/review/approve/reject مع effects مُدقّقة؛ تعديل pending، إعادة فتح approved (effect reversal)، soft-delete؛ notes تُضاف لا تُستبدل.
+- **Teacher:** calendar + session/login history + offline IndexedDB outbox؛ نهاية الجلسة/الملاحظات تحتاج اتصالًا.
+- **Reports:** browser print + finance gate (`reports.finance` + `finance.read`)؛ التوقيع الرسمي على نموذج PDF لسه.
+- **Payroll lock:** migration 022 — lock/unlock بأسباب وaudit؛ التعديلات واعتماد الطلبات المرتبطة ترجع 409.
+- **Admin notifications + teacher-notes pages:** live.
+- **Supervisor workspace/scope، requests، WhatsApp templates/log، homepage/`/management`، teacher PC/mobile shell، notes banner:** live.
+
+**متبقٍ (يخص مراحل مستقلة):**
+
+- **تجاوب 100% لواجهة الإدارة على الموبايل** — Phase 2.4 (أولوية معتمدة).
+- **Reverse/Void** بدل حذف/trash للسجلات المالية — Phase 2.3.
+- **الخزنة + الإيرادات + تقفيل الشهر** — Phase 2.6.
+- **CI/E2E/contract + أول GitHub Actions run** — Phase 2.5.
+- **تنظيف ملفات >400 سطر:** `AuthEndpoints.cs` 472، `SystemAdminEndpoints.Requests.cs` 484، `TeacherApp.tsx` 475، `teacherTypes.ts` 406 — Phase 2.8.
+- **Owner actions:** تأكيد حفظ صلاحيات admin بعد إصلاح Nginx، ربط `asmaa` بسجل معلمة، تغيير كلمة مرور supervisor المؤقتة وحذف ملفها.
 
 ---
 
-## 15. What I Will Start With
+## 15. What To Start With (updated 22 Nov 2026)
 
-**Phase A1** (small, high-value, low risk):
+مراحل هذا المستند A1→E **اكتملت** (بما فيها A3.3 templates). أولويات المرحلة التالية حسب الخطة المعتمدة (التفاصيل في `docs/17-master-plan.md`):
 
-1. Financial visibility gating in the teacher/supervisor UI and APIs (hide, never zero).
-2. `account.password.self` permission; admin-only password reset remains.
-3. Server-side no-early-start guard with a clear Arabic message; late start still recorded.
-4. Remove the version label from the admin UI.
-5. Clearer finish/notes presentation and teacher login memory (last username/profiles) without storing tokens.
-6. Tests for the above; commit/push; deploy; smoke.
+1. **Phase 2.1:** تأمين سكربتات النشر والـBackup (`preflight.sh` / `update.sh` / `rollback.sh` + manifest/healthcheck).
+2. **Phase 2.2:** التحقق 100% من منع تداخل مواعيد المعلمات (audit موثق + اختبارات Postgres/API).
+3. **Phase 2.3:** Reverse/Void للسجلات المالية بدل الحذف/الـtrash.
+4. **Phase 2.4:** تجاوب 100% لواجهة الإدارة على الموبايل (أولوية الواجهة المعتمدة).
+5. **Phase 2.5:** CI/CD + Contract + Test Baseline (typecheck/lint + contract test + إعادة اختبارات المال للـCI + Playwright smoke).
+6. **Phase 2.6:** الخزنة + الإيرادات + تقفيل الشهر (بدون قيد مزدوج).
+7. **Phase 2.7:** سبرنت الأمان والتشغيل (lockout + antiforgery + HSTS/CSP + تقييد origin بـCloudflare + إزالة بقايا desktop + rotation + monitoring).
+8. **Phase 2.8:** التنظيف وإعادة الهيكلة (تقسيم ملفات >400 + إزالة desktop-host/tools/runners/.vbs + إخراج .opencode + إصلاح Vite dev proxy + npm scripts).
+9. **Phase 2.9:** جودة الإطلاق (E2E كامل + restore drill آلي + load/pen test + مراجعة PDF الرسمية + دليل التسليم).
 
-Then Phase A2 (scope + supervision read models), then B/C/D/E as above.
-
-No code from later phases will be mixed into A1.
+لا كود من مراحل لاحقة يُخلط في مرحلة سابقة.
 
 ---
 

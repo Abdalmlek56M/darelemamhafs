@@ -1,7 +1,27 @@
 # RIGX Dar — Testing
 
-**Status:** Baseline. Tests must be isolated from production and from the real business environment.
+**Status:** Baseline + الواقع الحالي (22 Nov 2026 — Docs Reset).
 **Scope:** Strategy, layers, data, environments, CI, what not to test.
+**Source of truth:** `docs/00-current-state.md` — يحدد ما هو منفّذ الآن.
+
+---
+
+## 0. الواقع الحالي (22 Nov 2026)
+
+| Layer | الموجود | الحالة |
+|---|---|---|
+| Unit (.NET) | 16 حالة في `tests/Dar.UnitTests` (Money + PasswordHasher) | ✅ |
+| Integration (.NET) | 20 حالة في `tests/Dar.IntegrationTests` — Health (3)، SameOriginGuard (3)، Supervision (14) عبر Testcontainers `postgres:17` | ✅ في CI (يحتاج Docker) |
+| Frontend | 6 حالات Vitest في `frontend/src/application/selectors.test.ts` | ✅ |
+| Contract | غير موجود | ❌ Phase 2.5 |
+| E2E / Playwright | غير موجود | ❌ 2.5 (smoke) / 2.9 (كامل) |
+| Visual / A11y | مراجعة يدوية فقط | ⚠️ |
+| Financial regression | `tests/regression` (C#) + `tests/regression/sql` | ❌ خارج CI — تُنقل في Phase 2.5 |
+| PowerShell runners | 36 في `tests/runners`؛ 11 يشيرون إلى `TestCenter.ps1` المؤرشف | ⚠️ تُؤرشف/تُحوَّل |
+
+**آخر تحقق بناء (HEAD `43cf810`):** `dotnet build Dar.slnx` ✅ 0W/0E بالأعلام الآمنة (`-m:1 -nodeReuse:false`)؛ 16/16 unit ✅؛ 6/6 integration بلا DB ✅؛ 14 integration تحتاج Docker (غير متاح في جلسة التحقق)؛ `tsc -b` ✅؛ Vite build غير متحقق محليًا (قيود sandbox على esbuild). **يجب تشغيل البوابة كاملة على CI/جهاز غير مقيّد.**
+
+**حدود CI الحالي:** الوظائف موجودة لكن CI لا يلمس أي مسار مالي legacy ولا ينفّذ E2E/contract؛ الثقة في المسارات المالية تأتي من الاختبارات اليدوية/السابقة فقط حتى Phase 2.5.
 
 ---
 
@@ -23,16 +43,16 @@
 
 ## 2. Test Pyramid
 
-| Layer | Tool | Scope | Speed |
-|---|---|---|---|
-| Unit | xUnit (C#), Vitest (TS) | domain rules, pure functions | fast |
-| Integration | xUnit + Testcontainers | API + PostgreSQL + transactions | medium |
-| Contract | OpenAPI diff | API/client consistency | fast |
-| E2E | Playwright | critical user journeys | slow |
-| Visual | Playwright screenshots | key screens/states | slow |
-| Accessibility | axe-core | WCAG AA | medium |
-| Performance | k6 + Lighthouse | API/pages | slow |
-| Security | audits/scans | deps/secrets/containers | medium |
+| Layer | Tool | Scope | Speed | الحالة |
+|---|---|---|---|---|
+| Unit | xUnit (C#), Vitest (TS) | domain rules, pure functions | fast | ✅ 16 + 6 |
+| Integration | xUnit + Testcontainers | API + PostgreSQL + transactions | medium | ✅ 20 |
+| Contract | OpenAPI diff | API/client consistency | fast | ❌ Phase 2.5 |
+| E2E | Playwright | critical user journeys | slow | ❌ 2.5/2.9 |
+| Visual | Playwright screenshots | key screens/states | slow | ❌ |
+| Accessibility | axe-core | WCAG AA | medium | ❌ |
+| Performance | k6 + Lighthouse | API/pages | slow | ❌ |
+| Security | audits/scans | deps/secrets | medium | ✅ جزئي (dependency + secret scan) |
 
 **Rule:** most tests are unit; few are E2E; every critical money path has at least one integration + one E2E.
 
@@ -51,7 +71,7 @@
   - rounding.
 - Billing:
   - monthly charge.
-  - proration.
+  - agreed-fee charge (no pro-rata — ADR-0002).
   - discount percentage/fixed.
   - payment allocation oldest first.
   - refund/credit.
@@ -142,37 +162,40 @@ tests/Unit/Attendance/AttendanceRulesTests.cs
 
 ### 6.1 Frontend — Vitest
 
-- `npm test` runs `vitest run`.
-- `src/application/selectors.test.ts` covers text/status filters, current-month totals, first-month proration, dashboard profit, and per-circle net.
-- Keep pure selectors free of React/DOM so they stay fast.
+- `npm test` runs `vitest run` (6 حالات حاليًا).
+- `src/application/selectors.test.ts` يغطي: فلترة النص/الحالة للطلاب والمعلمات، مجاميع الشهر الحالي، **اقتراح الاستحقاق = `agreed_monthly_fee` بلا pro-rata** (ADR-0002)، ربح اللوحة، وصافي الحلقة.
+- لا مكوّنات/DOM داخل الاختبارات؛ تبقى pure selectors سريعة.
 
 ---
 
 ## 7. Integration Tests — .NET
 
-- `WebApplicationFactory` + Testcontainers PostgreSQL.
-- Real PostgreSQL via Dapper, real transactions.
-- Test API auth/permissions.
-- Test idempotency.
-- Test concurrency (two requests).
-- Test DB constraints.
-- Clean DB per test class or transaction rollback.
+**الحالي:** `tests/Dar.IntegrationTests` — 20 حالة عبر `WebApplicationFactory` + Testcontainers `postgres:17`:
+
+- `HealthEndpointTests` (3): live/ready/database.
+- `SameOriginGuardTests` (3): رفض cross-origin على unsafe methods + dev origin المسموح.
+- `SupervisionAccessTests` (14): finance/scope على unpaid، adjust خارج النطاق 403، notifications scope، subscription scoped، notes-kind قبل LIMIT، اعتماد request يحوّل correction (75 دقيقة → 62.50 عند 50/ساعة)، صلاحية communications + `wa.me`، templates/banner.
+- `SupervisionFixture`: يطبّق كل الـmigrations ويزرع حلقتين/معلمتين/طلاب/charges/payments/slots/attendance/إشعارات scoped.
+- Clean DB per test class (Testcontainers fresh).
+
+**الهدف:** idempotency، concurrency (طلبان متوازيان)، قيود DB، ومسارات الـlegacy المالية بعد نقل regression — Phase 2.5.
 
 ---
 
-## 8. Contract Tests
+## 8. Contract Tests (planned — Phase 2.5)
 
-- `openapi.v1.json` committed.
-- Test compares generated spec with file.
-- Fail if different.
-- Frontend typecheck uses generated types.
-- Breaking change requires version/migration.
+**غير موجودة حاليًا.** `packages/api-client/openapi.v1.json` ناقص (27 path مقابل 52 endpoint فعلي في `src/`) و`@dar/api-client` غير مستخدم في الواجهة؛ الأنواع مكتوبة يدويًا مؤقتًا.
+
+الهدف:
+- regenerate الـspec من `/api/openapi/v1.json` بعد تشغيل `src/Host/Dar.Api`.
+- Test compares generated spec with committed file → fail on diff.
+- Frontend typecheck uses generated types؛ Breaking change requires version/migration.
 
 ---
 
-## 9. E2E — Playwright
+## 9. E2E — Playwright (planned — smoke في 2.5، كامل في 2.9)
 
-Critical journeys:
+**غير موجودة حاليًا.** بعد إنشاء staging. Critical journeys:
 
 1. Login → dashboard.
 2. Create student → enroll in group.
@@ -230,22 +253,25 @@ Rules:
 
 ## 13. CI Gates
 
-**PR:**
-- `dotnet build`.
-- `dotnet test` (unit + integration).
-- `npm typecheck`.
-- `npm lint`.
-- `npm test`.
-- `npm build`.
-- OpenAPI diff.
-- dependency audit.
-- secret scan.
+**الحالي — `.github/workflows/ci.yml` (22 Nov 2026):**
 
-**Main:**
-- build images.
-- E2E on staging.
-- visual regression.
-- deploy.
+- `backend`: build legacy + build `Dar.slnx` + `dotnet test`.
+- `migrations`: تطبيق كل الـmigrations على PostgreSQL 17 service + التحقق من الجداول/الصلاحيات.
+- `frontend`: `npm ci` + `npm test` + `npm run build`.
+- `api-client`: `npm ci` + typecheck.
+- `deployment`: `docker compose config` على الـstack المتقاعد فقط.
+- `security`: `dotnet list package --vulnerable` + `npm audit --omit=dev` + built-in secret scan (git-grep regex، ليس gitleaks).
+- لا E2E، لا contract diff، لا تغطية للمسارات المالية legacy، لا deploy/rollback.
+- **أول تشغيل على GitHub لم يُتحقق منه بعد.**
+
+**المطلوب (Phase 2.5):**
+
+- إضافة scripts `typecheck`/`lint` للواجهة (غير موجودة في `frontend/package.json`).
+- Contract diff + توليد الـclient.
+- Playwright E2E smoke على staging.
+- نقل الاختبارات المالية من `tests/regression` إلى test projects.
+- التحقق من أول run فعلي على GitHub Actions.
+- deploy job + rollback verification بعد تأمين سكربتات النشر.
 
 No merge with failing tests, secrets, or contract drift.
 

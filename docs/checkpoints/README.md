@@ -1,6 +1,8 @@
 # Checkpoints Index
 
 > Every completed step gets a checkpoint. If a step is not checked, it is not done.
+>
+> **ملاحظة:** أرقام المراحل هنا تتبعه تسلسل كتابة الملفات وقد تختلف قليلًا عن أرقام `deepseek.md` للمراحل الأقدم. المرجع للحالة الحالية: `docs/00-current-state.md`، وللخطة: `docs/17-master-plan.md`.
 
 | Phase | Checkpoint | Status |
 |---|---|---|
@@ -61,8 +63,16 @@
 | 1.35.0 | [Owner feedback round 2](owner-feedback-round2-1.0.md) | ✅ live; 12h times, auto-refresh, request actions, circle roster/add students, bulk enrollment |
 | 1.36.0 | [Final UI/QA review](final-ui-qa-1.0.md) | ✅ complete; admin/teacher/supervisor PC+mobile audit, payment cards, teacher home, attendance date, 12h sweep, receipt verification |
 | 1.37.0 | [UI/UX Pro Max audit](uiux-pro-max-1.0.md) | ✅ complete; skill installed and search-driven audit, mobile touch targets, readability and state clarity |
+| 1.38.0 | [Subscriptions + collections review](subscriptions-collections-review-1.0.md) | ✅ live; integrity checks clean, mobile stats fix |
+| 1.39.0 | [Owner feedback round 2](owner-feedback-round2-1.0.md) | ✅ live; 12h times, auto-refresh, request actions, circle roster, bulk enrollment |
+| 1.40.0 | [Final UI/QA review](final-ui-qa-1.0.md) | ✅ live; admin/teacher/supervisor PC+mobile audit |
+| 1.41.0 | [UI/UX Pro Max audit](uiux-pro-max-1.0.md) | ✅ live; touch targets, readability, aria-current |
+| **2.0.0** | [Docs Reset + قرارات المالك](2.0-docs-reset-1.0.md) | ✅ مصدر الحقيقة `docs/00` + خطة `docs/17` + ADRs 0001–0005 |
+| **2.1.0** | [Deploy & Backup Safety](2.0-docs-reset-1.0.md) | ✅ منفّذة — تحتاج rehearsal على host + أول تشغيل healthcheck |
+| **2.2.0** | [Schedule Overlap Verification](2.0-docs-reset-1.0.md) | ✅ 45/45 PASS + 3360 نقطة؛ إصلاحات سباق/ذرية في المرحلة التالية |
+| **2.3.0** | Reverse/Void (التالي) | ⬜ |
 
-## Next in order
+## Next in order (superseded — انظر docs/17-master-plan.md)
 
 | Phase | Step | Checkpoint to create |
 |---|---|---|

@@ -1,7 +1,45 @@
 # RIGX Dar — UI Audit & Mobile-First Direction
 
-**Status:** audit + direction (16 Nov 2026). No UI implementation before owner approval of a sample.
+**Status:** audit + direction (16 Nov 2026) — محدّث بالحالة والقرارات 22 Nov 2026.
 **Scope:** existing React/Vite admin UI, teacher portal, supervisor views, design system, mobile behavior.
+**Source of truth:** `docs/00-current-state.md`.
+
+---
+
+## 0. الحالة والقرار (22 Nov 2026)
+
+> الواجهة النهائية: React 19 + Vite (ADR-0001)؛ العربية فقط الآن (الإنجليزية مؤجلة — ADR-0004). الأولوية المعتمدة للواجهة هي **تجاوب لوحة الإدارة**.
+
+### منفّذ
+
+| Item | الحالة/الدليل |
+|---|---|
+| بوابة المعلمة PWA: اليوم/الجلسة/الحضور/الإشعارات/حسابي | `/teacher` live (Phase 1.14–1.40) |
+| مساحة المشرفة: PC shell + mobile shell + demo mode | `/supervisor` live (E1/F1/F2) |
+| Bottom nav + "المزيد" sheet للمشرفة/المعلمة | Phase 1.19 |
+| أهداف لمس 44px وقراءة 10–12px على الموبايل | Phase 1.41 |
+| PWA baseline: manifest + service worker للـshell فقط | `frontend/src/main.tsx` |
+| إزالة رقم الإصدار من الواجهة | Phase A1 |
+| إزالة auto-start / connection controls | Phase 1.12 |
+| Financial gating — إخفاء وليس صفر | A1/F1 |
+| Card variants للجداول في مساحة المشرفة/المعلمة | E1/F1 |
+| Notification drawer/sheet | F1 |
+
+### متبقٍ
+
+| Item | Priority |
+|---|---|
+| **تجاوب 100% لواجهة الإدارة على الموبايل** — المقاسات، القوائم، الجداول، الحوارات، كل صفحة | **أولوية معتمدة 22 Nov — Phase 2.4** |
+| استبدال `window.confirm` المتبقي بحوارات مناسبة للموبايل | ضمن Phase 2.4 |
+| Skeletons/empty states منتظمة لبعض صفحات الإدارة | ضمن Phase 2.4 |
+| Route-level code splitting أوسع (bundle ~717KB) | تحسين لاحق |
+| إزالة بقايا desktop (`نسخة سطح المكتب` في footer، desktop bridges) | تنظيف |
+| i18n / English | مؤجل (ADR-0004) |
+| Playwright visual regression + axe | 2.5 (smoke) / 2.9 (كامل) |
+
+### أولوية معتمدة 22 Nov
+
+**تجاوب 100% للوحة الإدارة على الموبايل** — تفاصيل التنفيذ في `docs/audits/admin-mobile-responsive-audit.md` ومرحلة في `docs/17-master-plan.md`. لا تُقبل أي واجهة جديدة غير متجاوبة بعد هذه المرحلة.
 
 ---
 
@@ -29,14 +67,14 @@
 
 ### Real usability problems
 
-1. **Mobile navigation is broken for daily use:** below 760px, `.nav-item` is hidden and only the active item is shown. A teacher/admin cannot switch sections from the phone.
+1. **Admin mobile navigation is broken for daily use:** below 760px, `.nav-item` is hidden and only the active item is shown (teacher/supervisor shells already have bottom nav + "المزيد" sheet).
 2. **Dense tables are desktop-first:** many tables use 7–10 columns and small icon buttons; on a phone they require horizontal scrolling and precise taps.
 3. **Touch targets:** icon buttons are often 24–34px; below the 44px mobile guideline.
 4. **`window.confirm`** is used for destructive actions; it is ugly on mobile and cannot show rich context.
 5. **Toasts disappear:** notifications are not persistent, not filterable, and not role-aware.
 6. **Desktop clutter:** auto-start, connection check/settings, “local device” wording — removed in the current build; keep them out of the web UI.
-7. **No PWA:** no manifest, install prompt, offline shell, safe-area handling, or splash experience.
-8. **No teacher route:** teachers have no account or dedicated home.
+7. **PWA جزئية:** manifest + service worker للـshell موجودة لبوابة المعلمة/المشرفة؛ لا install prompt/splash/offline UX كاملة، ولوحة الإدارة بلا PWA.
+8. **بوابة المعلمة موجودة الآن:** `/teacher` live بحساب وجلسات؛ المتبقي هو تجاوب لوحة الإدارة نفسها.
 9. **Mixed density:** some pages are roomy, others are extremely dense (schedule/collections); no shared spacing scale.
 10. **No empty/loading skeletons** for several tables; refresh flashes.
 11. **Google Fonts dependency** adds a third-party request; self-host Cairo for reliability/privacy.
@@ -163,15 +201,11 @@ Keep the brand, rebuild the interaction model:
 
 ## 6. Next Design Step
 
-Produce a **static visual sample** (no production wiring) covering:
+بوابة العينة لهذه المرحلة **انتهت**: عينة بوابة المعلمة اعتُمدت ونُفِّذت (Phase 1.14)، ومساحة المشرفة نُفِّذت (E1)، ولوحة الإدارة تُراجَع تدريجيًا (F1/F2/UI-UX audit).
 
-1. Teacher home with “الحلقة الآن”.
-2. Live session screen with timer.
-3. Student attendance roster with sticky submit.
-4. Notifications center.
-5. Supervisor live/absent/unpaid board.
+**الخطوة التالية المعتمدة (22 Nov 2026):** تدقيق وتنفيذ **تجاوب 100% للوحة الإدارة على الموبايل** — التفاصيل في `docs/audits/admin-mobile-responsive-audit.md` والمرحلة في `docs/17-master-plan.md`.
 
-The owner approves or requests changes before any UI implementation.
+أي واجهة جديدة بعد ذلك تخضع لبوابة العينة (Rule 11 في `deepseek.md`).
 
 ---
 
@@ -190,4 +224,4 @@ UI additions:
 - Remove the `v0.8.25.0` label from the UI.
 - Replace hidden-only-active mobile nav with a full, touch-friendly navigation.
 
-Phase A1 starts with financial visibility gating, self-password permission, no-early-start, version removal, clearer notes and teacher login memory.
+Phase A1 (financial visibility gating، self-password، no-early-start، إزالة رقم النسخة، login memory) **مُنفَّذ وlive**، وكذلك A2/A3/E1/F1/F2. المتبقي في هذا الملف هو تجاوب لوحة الإدارة (Phase 2.4).

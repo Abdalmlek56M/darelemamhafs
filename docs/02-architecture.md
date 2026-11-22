@@ -1,69 +1,71 @@
 # RIGX Dar — Architecture
 
-**Status:** Current state (audited 15 Nov 2026) + target architecture.
+**Status:** Current state (22 Nov 2026 — Docs Reset) + target for the remaining migration.
 **Scope:** Shape, modules, data, API, frontend, deployment, decisions.
+**Source of truth:** `docs/00-current-state.md` — يحدد الحالة الآن. هذا الملف يشرح **الشكل والسبب**؛ وأي تعارض يُحسم لصالح `docs/00`.
 
 ---
 
 ## 1. Shape of the System
 
-### Current (legacy)
+### Current
 
 ```
-frontend/             React 19 + Vite SPA, custom CSS, framer-motion
-backend/DarEltahfeez.Api  ASP.NET Core 10 minimal API, raw Npgsql, 3 giant endpoint files
-desktop-host/         WPF + WebView2 shell
-database/*.sql        12 SQL migrations (public schema)
-tools/*.ps1           Windows launcher, local PostgreSQL, System Center
-tests/                PowerShell runners + 2 C# regression projects
-PostgreSQL 17         local runtime on 55432
+frontend/                 React 19 + Vite SPA — admin + teacher/supervisor PWA + homepage
+backend/DarEltahfeez.Api  ASP.NET Core 10 minimal API — legacy domain/admin APIs on 5080
+src/Host/Dar.Api          ASP.NET Core 10 minimal API — /api/v1 on 5081
+src/Modules/*             Identity + Secretariat + Teaching
+src/Common/*              AppException, PagedResult, Money, PermissionCodes
+database/*.sql            23 SQL migrations (public schema), ledger = web_schema_migrations
+tests/                    xUnit Unit/Integration (Testcontainers) + legacy regression/runners
+PostgreSQL 17             host PostgreSQL on 127.0.0.1:5432
 ```
 
-### Target
+- الواجهة **React 19 + Vite + TypeScript** نهائيًا — قرار Next.js ملغي (ADR-0001). لا `apps/web` ولا BFF.
+- الـSPA واحدة تخدم: الصفحة العامة `/`، لوحة الإدارة `/management`، بوابة المعلمة `/teacher`، ومساحة المشرفة `/supervisor`.
+- Strangler migration: الـbackend القديم لا يزال مالكًا للدومين والإدارة والمالية، والـhost الجديد يملك `/api/v1` فقط (Identity + Secretariat + Teaching).
+- كلا الـAPIs خلف نفس الـorigin عبر Nginx؛ الصلاحيات والجلسات مشتركة في قاعدة البيانات لكن بمصادقة منفصلة لكل host (انظر §6.4).
+
+### Target (remaining migration — not a second rewrite)
 
 ```
-apps/web              Next.js 16 (App Router, TypeScript strict)
-packages/api-client   openapi.v1.json + generated types + typed fetch wrapper
-src/Host/Dar.Api      ASP.NET Core 10 minimal API — composition root only
-src/Modules/*         Feature modules — domain, use cases, persistence, endpoints
-src/Common/*          Cross-cutting building blocks
-tests/*               xUnit + Testcontainers (real PostgreSQL)
-PostgreSQL 17         One database, public schema initially; module boundaries in code
+src/Host/Dar.Api      composition root — health, OpenAPI, security headers, migrations
+src/Modules/*         feature modules: domain, use cases, persistence, endpoints
+src/Common/*          cross-cutting building blocks
+tests/*               xUnit + Testcontainers; contract + Playwright later
+PostgreSQL 17         one database, public schema; module boundaries in code
 ```
-
-**Legacy stays runnable until the replacement passes the same flows.** Then it is removed.
 
 **Style: Modular Monolith.**
 
-- One deployable API + one deployable web app.
-- Strong module boundaries.
-- Any module can be extracted later because modules never share tables.
+- One deployable web app + two deployable APIs during migration (legacy 5080, new 5081).
+- Strong module boundaries; any module can be extracted later.
 - Microservices would add operations cost with no benefit at this scale.
 
-**Public origin:** `https://darelemamhaf.rigxhardware.com`
+**Public origin:** `https://dar-elemam-hafs.rigxhardware.com`
 
-- Next.js serves the UI.
-- `/api/*` is proxied internally to the .NET API.
-- The API is not exposed on a public subdomain in MVP.
-- PostgreSQL is not exposed publicly.
+- Nginx يخدم ملفات الـSPA الثابتة من الـlegacy API (5080 بعد `vite build`).
+- `/api/v1/*` → `127.0.0.1:5081`؛ أي `/api/*` آخر → `127.0.0.1:5080`.
+- PostgreSQL لا يُنشر للإنترنت. لا API subdomainعام.
 
 ---
 
 ## 2. Module Map
 
-| Module | Owns | Current status |
+| Module | Owns | Current status (22 Nov 2026) |
 |---|---|---|
-| **Identity** | users, sessions, roles/permissions, email OTP + Google, profile, device alerts | legacy: password login, flat permissions |
-| **Secretariat** | students, guardians, teachers, documents, enrollment/withdrawal | legacy: exists, guardian inline |
-| **Academic** | groups/levels, schedules, holidays, conflict detection | legacy: circles + schedule slots |
-| **Attendance** | student attendance, teacher attendance, approvals, edits, make-up sessions | legacy: exists, no approval workflow |
-| **Payroll** | teacher rates, session pay, payroll runs, payslips, advances, deductions, adjustments | partial: on-the-fly pay, no runs/lock |
-| **Billing** | fee plans, charges, discounts, payments, allocations, receipts, arrears, refunds | partial: charges/payments, no receipt sequence/discounts |
-| **Treasury** | accounts, expenses, transfers, reconciliation, journal entries, period close | partial: expenses only, no accounts/ledger |
-| **Reporting** | read models, reports, exports, dashboard KPIs | legacy: 6 PDF reports + saved snapshots |
-| **Notifications** | email outbox, absence alerts, payment reminders, WhatsApp links | missing |
-| **Auditing** | security events, business audit log, restore allowlist | legacy: audit/trash, mutable audit |
-| **System** | settings, backups, export, health, trash, data reset | legacy: settings/backups/export |
+| **Identity** | users, sessions, permissions, email OTP + Google, profile | legacy: password login + flat permissions؛ new `/api/v1`: password/sessions/change-password/OTP paths (Google deferred) |
+| **Secretariat** | students, guardians, teachers, documents, enrollment/withdrawal | legacy: كامل (طلاب/معلمات/حلقات/التحاقات)؛ new: `/api/v1/students` list/get/create فقط |
+| **Academic** | groups/levels, schedules, holidays, conflict detection | legacy: circles + schedule slots + منع تداخل المعلمة (migration 012) |
+| **Attendance** | student/teacher attendance, approvals, edits, make-up sessions | legacy: تسجيل مباشر بدون workflow اعتماد؛ teacher sessions/roster في Teaching |
+| **Payroll** | teacher rates, session pay, runs, payslips, adjustments | on-the-fly pay + **قفل شهري** (migration 022)؛ لا runs/payslips |
+| **Billing** | fee plans, charges, discounts, payments, allocations, receipts, refunds | charges/payments + Charge Audit؛ **لا** receipt_no ولا خصومات ولا Reverse/Void بعد |
+| **Treasury** | expenses, revenues, accounts, period close, journal entries | مصروفات + إعلانات فقط؛ الإيرادات وتقفيل الشهر في Phase 2.6؛ **لا** قيد مزدوج (ADR-0003) |
+| **Teaching** | teacher sessions, roster, requests, earnings, supervisor read models | ✅ live — `src/Modules/Teaching` (`/api/v1/teacher/*`, `/api/v1/supervisor/*`, `/api/v1/notifications`) |
+| **Reporting** | read models, reports, exports, dashboard KPIs | legacy: 6 تقارير PDF + snapshots؛ المالية محجوبة بدون `finance.read`+`reports.finance` |
+| **Notifications** | persistent center, absence/payment alerts, WhatsApp links | ✅ live — notifications + read/resolve + admin pages + `wa.me` + `communication_log` |
+| **Auditing** | security events, business audit log, restore allowlist | audit append-only (migration 015)؛ trash بصلاحيات لكل كيان؛ restore وصفي فقط |
+| **System** | settings, backups, export, health, trash, data reset | legacy: settings/backups/export/health/trash؛ تأمين النسخ والـdeploy في Phase 2.1 |
 
 **Rule:** a module owns its tables. One `public` schema initially; module boundaries are enforced in code. No cross-module table access. Cross-module communication goes through `Contracts`.
 
@@ -100,21 +102,23 @@ Rules:
 
 ## 4. Cross-Cutting
 
+> الحالة: Identity/Teaching في `src/` تطبّق معظم ما يلي فعليًا؛ الـlegacy API يطبّق جزءًا منه فقط. ما لم يُذكر في `docs/00` فهو هدف للـmigration الكامل.
+
 | Concern | Mechanism |
 |---|---|
-| **Errors** | `Common.Domain.AppException` (status + message + field errors). `ProblemDetailsExceptionHandler` maps once globally. Endpoints don't try/catch business errors. |
-| **Validation** | FluentValidation per request, run by one endpoint filter. |
-| **Authorization** | permission constants + `RequirePermission(...)` endpoint filter. Resource policies for row-level scoping. |
-| **Audit log** | Explicit audit in the use case/repository, written in the same transaction. Before/after scalar fields. Append-only DB trigger. Secrets masked. |
-| **Soft delete / Trash** | Soft delete for master data. **Financial records are never purged**; corrections via reversal/archive. |
-| **Concurrency** | `row_version` token. Conflict → `409`. |
-| **Time** | `TimeProvider` everywhere. No `DateTime.UtcNow` direct. Business dates use Africa/Cairo. |
-| **Paging/filtering** | `PagedResult<T> { items, page, pageSize, total }`. Max page size 100. |
-| **Background work** | hosted job runner (backups, reminders, reservation/charge jobs, outbox). |
-| **Email** | transactional outbox → sender job with retries. |
-| **Media** | storage abstraction (local volume now, S3-compatible later). |
-| **Logging** | Serilog structured logs + correlation id. |
-| **Idempotency** | `Idempotency-Key` table for financial POSTs. |
+| **Errors** | `Common.Domain.AppException` (status + message + field errors) + `AppExceptionHandler` فعليًا في `src/Host/Dar.Api`؛ legacy ما زال يرجع رسائل محلية في بعض المسارات. |
+| **Validation** | Validation يدوية/داخل handler في الوحدات الحالية؛ FluentValidation = هدف. |
+| **Authorization** | permission constants + `RequireAuthorization("<permission>")` في `src/`؛ legacy يستخدم policies مشتقة من `Security.cs`. |
+| **Audit log** | كتابة صريحة داخل المعاملة + أعمدة before/after؛ append-only DB trigger (migration 015). |
+| **Soft delete / Trash** | soft delete للبيانات الأساسية؛ **السجلات المالية لا تُحذف نهائيًا**؛ الاستحقاق/الدفعة سيُلغيان بـReverse/Void (ADR-0005). |
+| **Concurrency** | `row_version` هدف؛ الحالي يعتمد `FOR UPDATE` على صفوف المال. |
+| **Time** | `Africa/Cairo` للأعمال؛ الوقت يُحسب في C# (لا يوجد `TimeProvider` شامل بعد). |
+| **Paging/filtering** | `PagedResult<T>` موجود في `src/Common`؛ الـlegacy lists غير مُصفّحة (backlog). |
+| **Background work** | `NotificationSyncService` (كل 6 ساعات) فقط الآن؛ jobs أخرى هدف. |
+| **Email** | SMTP outbox هدف؛ OTP SMTP جاهز لكن ينتظر إعداد المزوّد. |
+| **Media** | الصور/الإيصالات BYTEA داخل القاعدة حاليًا (لا object storage). |
+| **Logging** | `DarFileLoggerProvider` في legacy + ILogger في `src/`؛ Serilog هدف. |
+| **Idempotency** | `Idempotency-Key` هدف؛ الاعتماد الحالي على المعاملة + `FOR UPDATE`. |
 
 ---
 
@@ -125,9 +129,9 @@ Rules:
 - PostgreSQL 17+.
 - One database, **one `public` schema initially**; module boundaries are enforced in code.
 - **Npgsql + Dapper** repositories, not EF Core. The existing SQL is the proven behavior; a full EF Core rewrite adds risk without business value.
-- SQL migrations remain the source of truth.
-- `DatabaseMigrator` is the single ordered list, with checksums and an advisory lock.
-- Run with `dotnet run --project src/Host/Dar.Api -- --migrate`.
+- SQL migrations are the ordered source of truth: **23 ملفًا (001→023)** في `database/`.
+- `MigrationRunner` (`dotnet run --project src/Host/Dar.Api -- --migrate`) هو المسؤول الوحيد: checksums + advisory lock + تبنّي ledger القديم.
+- `web_schema_migrations` هو الـledger الفعلي؛ `schema_migrations` القديم متوقف عند 16 ولن يُستخدم بعد الآن (إيقافه ضمن التنظيف — Phase 2.8).
 - Do **not** auto-apply migrations in Production.
 
 ### 5.2 Conventions
@@ -135,7 +139,7 @@ Rules:
 - Money: `numeric(14,2)` EGP. Never `float`.
 - Dates: `timestamptz` UTC; business display Africa/Cairo.
 - Statuses: enums/smart constants in Domain, stored as strings.
-- IDs: UUIDv7 or bigint identity + public code. Decide per table.
+- IDs: UUID (default) + public codes للأعمال.
 - `created_at`, `updated_at`, `row_version` where applicable.
 - Soft delete for master data; financial records immutable.
 
@@ -144,26 +148,23 @@ Rules:
 - Unique attendance per `(session_id, student_id)`.
 - Unique teacher attendance per `(session_id, teacher_id, role)`.
 - Partial unique active enrollment per `(student_id, group_id)`.
-- `EXCLUDE USING gist` to prevent overlapping teacher rate ranges.
+- منع تداخل جدول المعلمة أسبوعيًا (migration 012 + preflight).
 - Check constraints for amounts.
 - Payment allocation cannot exceed payment or charge.
-- Journal lines must balance (debit = credit).
-- Document sequences atomic and gap-free.
+- Document sequences atomic and gap-free (مطلوب مع Reverse/Void في Phase 2.3).
 
 ### 5.4 Transactions
 
 - Financial operations inside one transaction.
-- `Serializable`/`RepeatableRead` + retry for payroll and allocations.
-- `SELECT ... FOR UPDATE` on charge/account rows.
-- No side effects outside the transaction; use Outbox.
-- `statement_timeout`, `idle_in_transaction_session_timeout`.
+- `SELECT ... FOR UPDATE` on charge rows.
+- لا side effects خارج المعاملة.
 
 ### 5.5 Migrations
 
 - Expand/contract.
 - No destructive `DROP` in production without backup.
-- Test on staging.
-- Backup before sensitive migration.
+- Backup قبل أي migration إنتاجية (إلزامي — يُؤتمت في `deploy/update.sh`).
+- أي migration مطبّقة لا تُعدَّل (تغيير checksum يوقف الـrunner)؛ التصحيح = migration جديد.
 
 ### 5.6 Roles
 
@@ -178,15 +179,14 @@ Rules:
 - `REVOKE CREATE ON SCHEMA public FROM PUBLIC`.
 - `scram-sha-256`.
 - No public 5432.
+- ملاحظة: فصل الـDB roles لم يُنفّذ بالكامل على الـhost بعد (backlog).
 
 ### 5.7 Backups
 
-- `pg_dump -Fc` daily.
-- WAL archiving / `pgBackRest` if possible.
-- Encrypted offsite copy.
-- Retention: 7 daily, 4 weekly, 12 monthly.
-- Monthly restore drill.
-- RPO 24h minimum, RTO 4h.
+- `pg_dump -Fc` يوميًا (systemd timer) + نسخة offsite مشفّرة (Google Drive) — ✅ live.
+- الوضع الحالي: script واحد `deploy/scripts/dar-backup.sh` (dump + rclone + retention 30 يومًا).
+- المطلوب في Phase 2.1: `manifest.json` + SHA-256 + healthcheck + تنبيه فشل + restore drill موثّق.
+- RPO 24h minimum، RTO 4h.
 
 ---
 
@@ -194,13 +194,11 @@ Rules:
 
 ### 6.1 Shape
 
-- REST under `/api/v1`.
-- Admin under `/api/v1/admin`.
-- OpenAPI 3.1 generated from code.
-- `packages/api-client/openapi.v1.json` committed.
-- Contract test fails when code and file differ.
-- TypeScript types generated from the contract (`openapi-typescript`).
-- Typed fetch wrapper (`openapi-fetch`), no hand-written duplicate types.
+- REST: `/api/v1/*` على الـhost الجديد (52 endpoint)، و`/api/*` القديمة (91 endpoint) للدومين والإدارة حتى استكمال الـmigration.
+- OpenAPI 3.1 يُولَّد من `src/Host/Dar.Api` على `/api/openapi/v1.json` (غير منشور عبر Nginx).
+- `packages/api-client/openapi.v1.json` مُلتزم لكنه **ناقص** (27 path مقابل 52 endpoint فعلي) و**غير مستخدم** في الواجهة.
+- **لا يوجد contract test بعد** — إعادة التوليد + contract test + استخدام الـclient هي مرحلة Phase 2.5.
+- حتى ذلك الحين: أنواع TypeScript المكتوبة يدويًا (`frontend/src/domain/types.ts` و`frontend/src/teacher/teacherTypes.ts`) هي المصدر، وأي تغيير endpoint يحدّثها في نفس التغيير.
 
 ### 6.2 Errors
 
@@ -208,7 +206,7 @@ RFC 9457 ProblemDetails for every failure:
 
 ```json
 {
-  "type": "https://darelemamhaf.rigxhardware.com/errors/insufficient-balance",
+  "type": "https://dar-elemam-hafs.rigxhardware.com/errors/insufficient-balance",
   "title": "الرصيد غير كافٍ",
   "status": 422,
   "detail": "لا يمكن تخصيص 500 جنيه على استحقاق قيمته 300 جنيه.",
@@ -235,199 +233,157 @@ RFC 9457 ProblemDetails for every failure:
 
 ### 6.4 Auth
 
-- **Email OTP + Google only** — no passwords, no SMS.
-- OTP: 6 digits, 5 minutes, 5 attempts, single use, encrypted at rest.
-- Google: ID-token flow; validate signature, issuer, audience, lifetime.
-- Cookie sessions on the web origin.
-- `HttpOnly`, `Secure`, `SameSite=Lax`, `__Host-`.
-- CSRF token for unsafe methods.
-- Server-side ticket store + revocation.
-- Same-origin `/api` proxy; no CORS.
+- **المسار الحالي:** username/password (PBKDF2-SHA256, 210k iterations) + cookie sessions. لا SMS.
+- Email OTP paths مُنفّذة في Identity module وتحتاج SMTP + pepper؛ **Google مؤجل**؛ password fallback يبقى حتى تُجمع إيميلات الحسابات.
+- كوكيز منفصلة لكل host: `DarEltahfeez.Admin` (SameSite=Strict) للـlegacy، و`dar_session` (SameSite=Lax) للـnew API. كلاهما `HttpOnly` + `Secure` خارج Development.
+- Revocation: `session_version` bump عند تغيير كلمة المرور/إزالة صلاحية، ويُتحقق منه في الـhostين.
+- CSRF: **لا يوجد token** — الحماية الحالية origin/referer guard على الطلبات غير الآمنة + SameSite + لا CORS.
+- Rate limit: 10/دقيقة لكل IP على مسارات auth. **لا lockout لكل حساب بعد**.
+- لا `__Host-` prefix بعد. Session lifetime: 8 ساعات + sliding (legacy).
 - API docs disabled or protected in production.
-- Permission on every admin endpoint.
-- Step-up email code for destructive actions.
 
 ### 6.5 Background Jobs
 
-| Job | Purpose |
+| Job | Status |
 |---|---|
-| `BillingChargeJob` | monthly charges, idempotent |
-| `PayrollDraftJob` | draft payroll after period close |
-| `NotificationJob` | absence/payment emails |
-| `BackupJob` | daily backup |
-| `CleanupJob` | expired sessions, idempotency keys, trash purge |
-| `ReportJob` | heavy exports |
+| `NotificationSyncService` | ✅ يعمل كل 6 ساعات — upsert لإشعارات الدفع المقيّدة بالـscope |
+| `BillingChargeJob` | هدف — الشهر الحالي يدوي |
+| `PayrollDraftJob` | هدف — لا runs بعد |
+| `BackupJob` | ✅ خارج التطبيق: systemd timer + script |
+| `CleanupJob` | هدف — جداول sessions/OTP بلا تنظيف دوري |
+| `ReportJob` | هدف — التقارير عبر window.print الآن |
 
-- Idempotent.
-- Retries with backoff.
-- Dead-letter.
-- Distributed lock.
+- Idempotent، retries، dead-letter، distributed lock = متطلبات التصميم للـjobs الجديدة.
 
 ---
 
 ## 7. Frontend
 
-### 7.1 Shape
+### 7.1 Shape (React 19 + Vite — final)
 
 ```
-apps/web/src/
-  app/
-    (auth)/login/
-    (dashboard)/
-      students/
-      teachers/
-      groups/
-      attendance/
-      payroll/
-      billing/
-      reports/
-      settings/
-    (print)/payslips/[id]/
-    api/                # same-origin proxy / BFF only
-  components/ui/        # shadcn/Radix
-  features/             # feature folders
-  lib/api/              # generated client
-  lib/auth/             # session
-  lib/format/           # money/date
+frontend/src/
+  main.tsx              route switch: / → home، /teacher و /supervisor → TeacherApp، غير ذلك → admin
+  App.tsx               admin shell (sidebar/topbar/theme/login gate + password dialog)
+  SystemAdminView.tsx   لوحة النظام (backup/export/trash/audit/settings)
+  home/                 الصفحة العامة
+  pages/                صفحات الإدارة: dashboard, students, teachers, circles, schedule, payments,
+                        users, system, notifications, requests
+  application/          app state hooks + selectors (useDarApplication, useDarAuth, useDarDataLoaders)
+  components/           shared UI + dialogs (ApplicationDialogs, ManagementReportBuilder, ...)
+  domain/               types + defaults
+  services/             apiClient + desktop bridges (desktop ميت على الويب — يُزال في التنظيف)
+  system/               أدوات ثابتة للوحة النظام (constants, formatting)
+  teacher/              بوابة المعلمة + مساحة المشرفة (TeacherApp, SupervisorWorkspace, teacherApi, ...)
+  styles/               CSS tokens + styles لكل منطقة (12 ملف CSS)
 ```
+
+- SPA واحدة تُبنى بـ`vite build` وتُخدَم من `wwwroot` الخاص بالـlegacy API؛ manifest + service worker للـPWA على `/teacher` و`/supervisor`.
+- التوجيه يدوي حسب `window.location.pathname` في `main.tsx`؛ لا router library ولا i18n.
+- الواجهة الإدارية تتكلم مع `/api/*` القديمة؛ بوابة المعلمة/المشرفة تتكلم مع `/api/v1/*` فقط.
+- **لا Next.js، لا `apps/web`، لا Server Components، لا BFF** — القرار ملغي نهائيًا (ADR-0001). تطوير التصميم لاحقًا على نفس الواجهة.
 
 ### 7.2 Data Fetching
 
-- Server Components fetch from the API through the same-origin proxy.
-- Mutations via Server Actions or Route Handlers.
-- TanStack Query for interactive screens, through the same origin.
-- No tokens in the browser.
-- `server-only` to prevent leaking server code.
+- `fetch` + `credentials: 'include'` + `cache: 'no-store'`، same-origin فقط؛ لا tokens في المتصفح.
+- Wrappers مكتوبة يدويًا: `services/apiClient.ts` (admin) و`teacher/teacherApi.ts` (teacher/supervisor).
+- React hooks عادية (`useState/useEffect`)؛ لا TanStack Query.
+- Loading/empty/error/no-permission required على كل صفحة.
 
 ### 7.3 Design System
 
-- **Arabic + English** via `next-intl`; Arabic is the default.
-- Tokens: colors, spacing, typography, radii, shadows.
-- Font: IBM Plex Sans Arabic or Cairo.
-- RTL: `dir="rtl"`, logical properties, mirrored directional icons.
-- Components: Button, Input, Select, Dialog, Drawer, Table, Tabs, Badge, Toast, EmptyState, ErrorState, Skeleton.
+- CSS tokens في `frontend/src/styles/`؛ Font: Cairo؛ navy/teal + glass cards؛ dark/light عبر `data-theme`.
+- **العربية فقط الآن** (RTL)؛ الإنجليزية مؤجلة (ADR-0004).
+- Components: Button, Input, Select, Dialog/Sheet, Table (+ mobile cards), Tabs, Badge, Toast, EmptyState, ErrorState, Skeleton.
 - States: loading, empty, error, no-permission, long-text.
 
 ### 7.4 Motion
 
-- Motion (`motion/react`).
-- Page transitions, shared layout, stagger for small lists.
-- Skeleton → content.
-- Number ticker.
-- Optimistic updates for attendance/payments.
+- framer-motion.
+- 150–250ms micro-interactions؛ transform/opacity فقط.
 - `prefers-reduced-motion`.
 - No row-by-row table animation.
-- Transform/opacity only.
 
 ### 7.5 Accessibility
 
 - WCAG 2.2 AA.
 - Keyboard navigation, focus visible, labels, error association.
 - Contrast 4.5:1.
-- Touch targets 44px.
-- Screen reader checks.
+- Touch targets 44px (تم تعديل أهداف الموبايل في Phase 1.41).
 
 ### 7.6 Performance
 
-- RSC + streaming + Suspense.
-- Code splitting for charts/editors.
-- Virtualization for large tables.
-- Bundle analyzer.
+- Route-level lazy loading: `TeacherApp` محمّل بـ`lazy()` مسبقًا.
+- Bundle الحالي ~717 KB JS / ~200 KB gzip.
 - Budgets: LCP < 2.5s, INP < 200ms, CLS < 0.1.
+- **أولوية UI المعتمدة (22 Nov): تجاوب 100% للوحة الإدارة على الموبايل** — Phase 2.4؛ انظر `docs/audits/admin-mobile-responsive-audit.md`.
 
 ### 7.7 Visual QA
 
-- Playwright screenshots: 1440/1024/390.
-- RTL + light/dark.
-- Empty/loading/error/long text/0/1/1000 rows.
-- Visual regression in CI.
-- axe + Lighthouse.
-- Print: A4 Arabic receipts/payslips.
+- مراجعة يدوية على 1440/1024/390 + أجهزة حقيقية.
+- RTL + light/dark؛ empty/loading/error/long text/0/1/1000 rows.
+- Playwright + visual regression = هدف: smoke في Phase 2.5، وE2E كامل في Phase 2.9.
+- Print: A4 للتقارير والإيصالات عبر `window.print()`.
 
 ---
 
 ## 8. Deployment
 
-### 8.1 Topology
+### 8.1 Topology (live)
 
 ```mermaid
 flowchart TB
     U[Browser] --> CF[Cloudflare DNS / WAF]
-    CF --> Caddy[Caddy]
-    Caddy --> Web[Next.js]
-    Web --> API[.NET API internal]
-    API --> PG[(PostgreSQL)]
-    API --> Worker[Background jobs]
-    Worker --> PG
-    API --> Storage[(Media / Backups)]
+    CF --> N[Nginx + Certbot 80/443]
+    N --> L[dar-legacy 127.0.0.1:5080<br/>SPA + legacy /api]
+    N -->|/api/v1/*| A[dar-api 127.0.0.1:5081<br/>/api/v1]
+    L --> PG[(PostgreSQL 17 127.0.0.1:5432)]
+    A --> PG
+    B[dar-backup.timer] --> PG
+    B --> G[Google Drive offsite]
 ```
 
 ### 8.2 Domains
 
 | Domain | Service |
 |---|---|
-| `darelemamhaf.rigxhardware.com` | Next.js UI + `/api` proxy |
-| `api.darelemamhaf.rigxhardware.com` | optional later; not public in MVP |
-| `staging.darelemamhaf.rigxhardware.com` | optional staging |
+| `dar-elemam-hafs.rigxhardware.com` | Nginx → SPA + APIs (live) |
+| `api.` subdomain | غير مستخدم؛ الـAPIs داخلية فقط |
+| `staging.` | غير مُنشأ بعد |
 
-- Cloudflare DNS/WAF.
-- SSL Full (strict).
-- Origin firewall allows Cloudflare IPs only.
-- HSTS + Always Use HTTPS.
+- Cloudflare DNS/WAF؛ SSL Full (strict)؛ Certbot DNS-01 عبر Cloudflare token.
+- تقييد الـorigin على Cloudflare IPs: **غير منفَّذ** (ضمن سبرنت الأمان).
 
 ### 8.3 Host
 
-| Scenario | Specs |
-|---|---|
-| Minimum | 4 vCPU / 8GB / 100GB NVMe |
-| Recommended (DB + worker same host) | 8 vCPU / 16GB / 160–240GB NVMe |
-| Managed DB | 4 vCPU / 8GB for app |
+- Contabo VPS 4: 4 vCPU / 8GB / 100GB، Ubuntu 24.04 LTS، TZ `Africa/Cairo`.
+- UFW: 22/80/443؛ SSH keys only؛ fail2ban؛ unattended upgrades.
+- Docker/Caddy stack **متقاعد** على هذا الـhost؛ الـvolumes محفوظة كنسخة rollback.
 
-- Ubuntu 24.04 LTS.
-- Do not buy yet.
-
-### 8.4 Docker Services
+### 8.4 Services
 
 | Service | Notes |
 |---|---|
-| `caddy` | TLS + reverse proxy |
-| `web` | Next.js standalone |
-| `api` | .NET API |
-| `worker` | background jobs (optional separate) |
-| `postgres` | volume, no public port |
-| `backup` | cron + pg_dump |
-| `uptime-kuma` | monitoring (optional) |
+| `nginx` | TLS + reverse proxy + buffers (إصلاح 502) |
+| `dar-legacy.service` | SPA + `/api/*` على 5080 |
+| `dar-api.service` | `/api/v1/*` + health على 5081 |
+| `postgresql` | 17 على 127.0.0.1:5432 |
+| `dar-backup.timer` | dump يومي + offsite |
+| `certbot.timer` | تجديد الشهادات |
 
-- Non-root users.
-- Healthchecks.
-- Resource limits.
-- Log rotation.
-- Private network.
+- الخدمات تعمل بمستخدم `dar` (غير جذري)؛ الإعداد الحالي غير قابل لإعادة التنفيذ بالكامل من السكربتات — يُصلَح في Phase 2.1.
 
 ### 8.5 CI/CD
 
-**PR:**
-- build.
-- unit + integration (Postgres service/Testcontainers).
-- API contract diff.
-- frontend typecheck/lint/build.
-- dependency audit + secret scan.
-
-**Main:**
-- build images.
-- push to GHCR.
-- SSH deploy.
-- run migrations.
-- health check.
-- rollback on failure.
+- GitHub Actions `ci.yml`: build legacy + `Dar.slnx`، migrations على PostgreSQL، frontend test/build، api-client typecheck، compose validation، وحساسية dependency/secret scans.
+- **لا نشر آلي ولا rollback job**؛ أول تشغيل على GitHub لم يُتحقق منه بعد.
+- تحديث الـhost يدوي حاليًا (`git pull` + publish + restart) — **ممنوع بدون backup + `--migrate`**؛ تُؤمَّن في Phase 2.1 عبر `deploy/preflight.sh` + `deploy/update.sh` + `deploy/rollback.sh`.
+- لا registry/images على الـhost الحي (الـDocker stack متقاعد).
 
 ### 8.6 Monitoring
 
-- `/health/live`, `/health/ready`.
-- Uptime Kuma.
-- Serilog JSON logs + requestId.
-- Telegram/email alerts.
-- DB connections/slow queries/disk.
+- `/health/live` و`/health/ready` على كلا الـAPIs (Nginx ينشر `/health/*` من legacy).
+- Uptime/monitoring/alerting: غير مُنشأة بعد (Phase 2.x)؛ فشل النسخ يظهر عبر `systemctl --failed`.
 
 ---
 
@@ -436,73 +392,77 @@ flowchart TB
 | # | Decision | Why |
 |---|---|---|
 | 1 | .NET 10 + ASP.NET Core minimal API | owner choice; strong typing, long-term support |
-| 2 | Next.js 16 frontend | RSC, routing, design system, animations |
+| 2 | ~~Next.js 16 frontend~~ → **ملغى** (استُبدل بـ#27) | RSC/SSR غير مطلوب لنظام إداري؛ Next.js لم يُبنَ أبدًا |
 | 3 | PostgreSQL 17 + **Npgsql/Dapper** | preserve proven SQL; relational money data; transactions/row locks |
 | 4 | Modular monolith | one owner + AI engineers; low ops cost |
 | 5 | One `public` schema initially | avoid risky table moves; module boundaries in code |
 | 6 | Vertical slices | small files, one place per use case |
-| 7 | Same-origin `/api` proxy | `__Host-` cookies, CSRF, no CORS, API hidden |
+| 7 | Same-origin Nginx proxy | cookies بلا CORS، والـAPIs داخلية |
 | 8 | Cookie sessions | HttpOnly, revocation, no tokens in browser |
-| 9 | OpenAPI contract + generated TS client | frontend cannot drift from backend |
+| 9 | OpenAPI contract + generated TS client | هدف Phase 2.5 — لم يُفعَّل بعد؛ الـclient غير مستخدم والمَلف ناقص |
 | 10 | No `.bat` | production web deployment, cross-platform |
-| 11 | Tests inside the solution | xUnit/Testcontainers/Playwright; isolated DB; no test panel/routes |
-| 12 | Double-entry ledger | financial integrity and reconciliation |
+| 11 | Tests inside the solution | xUnit/Testcontainers; isolated DB; no test panel/routes |
+| 12 | ~~Double-entry ledger from day one~~ → **مؤجل** (انظر #28) | المرحلة الحالية: treasury + إيرادات/مصروفات + تقفيل شهري بدون ledger |
 | 13 | Soft delete + audit | no history loss, accountability |
 | 14 | Reports HTML print + XLSX | reliable Arabic typography |
 | 15 | Strangler migration | preserve working UI/business logic |
 | 16 | Keep existing SQL/business rules | don't rewrite proven financial behavior blindly |
 | 17 | Email OTP + Google | owner decision; temporary password fallback during migration |
-| 18 | Remove WPF/WebView2/desktop | web-only product; `darelemamhaf.rigxhardware.com` |
-| 19 | No purge of financial history | corrections via reversal/archive only |
-| 20 | Arabic + English | next-intl; Arabic default |
+| 18 | Remove WPF/WebView2/desktop | web-only product; `dar-elemam-hafs.rigxhardware.com` |
+| 19 | No purge of financial history | corrections via Reverse/Void (انظر #30 وADR-0005) |
+| 20 | ~~Arabic + English~~ → **العربية الآن، الإنجليزية مؤجلة** (انظر #29) | لم يُنفَّذ i18n؛ لا حاجة تشغيلية حاليًا |
 | 21 | .NET is the final backend | owner decision; TypeScript/NestJS rejected to avoid a second rewrite |
 | 22 | Google login deferred | temporary password + sessions is the current path |
 | 23 | File size budget 200–400 lines | split every use case; legacy exceptions documented |
 | 24 | One unified .NET backend; OpenAPI is the generated/stable boundary | contract stability + replaceable modules; no duplicated backend |
 | 25 | UI sample gate | owner approves a visual sample before any UI implementation |
 | 26 | Legacy split first, no behavior change | partial classes → feature files → modules; build after each slice |
+| **27** | **React 19 + Vite + TypeScript نهائي؛ Next.js ملغي** | نظام إداري داخلي؛ الواجهة الحالية live ومُختبرة؛ إعادة كتابة Next.js بلا قيمة مقابل تكلفتها (ADR-0001) |
+| **28** | **الخزنة الآن بدون قيد مزدوج** | نطاق Phase 2.6: خزنة + إيرادات + مصروفات + تقفيل شهري؛ القيد المزدوج مؤجل لمرحلة متقدمة (ADR-0003) |
+| **29** | **الإنجليزية مؤجلة** | العربية فقط الآن؛ i18n في خطة مستقبلية دون التزام تاريخي (ADR-0004) |
+| **30** | **Reverse/Void بدل الحذف المالي** | كل سجل مالي يبقى ظاهرًا؛ الإلغاء بإجراء عكسي + سبب إلزامي + Audit؛ يُستبدل نقل الاستحقاق للـtrash (ADR-0005) |
 
 ---
 
-## 10. Current State — Audited 15 Nov 2026
+## 10. Current State — 22 Nov 2026
 
-| Area | Current | Target |
-|---|---|---|
-| Backend | 1 API project, 11 C# files, 3 giant endpoint files | `src/Host/Dar.Api` + `src/Modules/*` + `src/Common/*` |
-| Frontend | React 19 + Vite SPA, 874-line hook, Arabic only | Next.js 16 App Router + ar/en + BFF |
-| Database | PostgreSQL 17, public schema, 12 migrations, 25 tables | Same DB; migration CLI + checksums; schema moves optional |
-| Auth | username/password, PBKDF2, no rate limit/lockout | Email OTP + Google; temporary password fallback |
-| Tests | 39 PowerShell scripts + Test Center + 2 C# regression projects | xUnit + Testcontainers + Playwright inside solution |
-| Deployment | Windows/WPF/WebView2, local PostgreSQL 55432, `.bat`, Task Scheduler | Ubuntu 24.04 + Docker + Caddy + Cloudflare |
-| `.bat` | 12 files | removed |
-| Docs | old handoffs + 14 docs | new `docs/` structure |
+> التفاصيل الكاملة في `docs/00-current-state.md`؛ هذا ملخص معماري.
+
+| Area | Current |
+|---|---|
+| Frontend | React 19 + Vite SPA واحدة (bundle ~717KB) — Home `/`، Admin `/management`، Teacher `/teacher`، Supervisor `/supervisor` |
+| Backend (legacy) | `backend/DarEltahfeez.Api` — 33 ملف C#، **91 endpoint** على 5080، يخدم الـSPA + كل الدومين/الإدارة/المالية |
+| Backend (new) | `src/` — 79 ملف C#، **52 endpoint** على 5081: Identity + Secretariat (students) + Teaching (teacher/supervisor/notifications) |
+| Database | PostgreSQL 17 — **23 migration** (001→023)؛ ledger `web_schema_migrations`؛ `schema_migrations` متوقف عند 16 |
+| Auth | password + cookie sessions على الـhostين؛ OTP path جاهز، Google مؤجل؛ `session_version` revocation |
+| Tests | 16 unit + 20 integration (Testcontainers) + 6 Vitest؛ لا Contract ولا Playwright/E2E |
+| CI | موجود للمسارات الأساسية؛ لا deploy/rollback؛ أول run غير متحقق |
+| Deployment | Ubuntu + Nginx + Certbot + systemd + PostgreSQL 17؛ Docker/Caddy متقاعد |
+| Live | `https://dar-elemam-hafs.rigxhardware.com` — آخر commit متحقق `43cf810` |
 
 **Legacy tables (25):**
 `app_users`, `roles`, `permissions`, `role_permissions`, `user_roles`, `user_permissions`, `students`, `teachers`, `circles`, `circle_enrollments`, `monthly_charges`, `payments`, `student_notes`, `teacher_notes`, `circle_schedule_slots`, `teacher_attendance`, `student_attendance`, `advertising_expenses`, `operating_expenses`, `school_settings`, `audit_log`, `trash_items`, `system_backups`, `collection_reports`, `schema_migrations`.
 
-**Note:** `roles`, `role_permissions`, and `user_roles` exist but are not used by the legacy API; it uses `user_permissions` directly.
+**Note:** `roles`, `role_permissions`, `user_roles` موجودة لكن الـlegacy API يستخدم `user_permissions` مباشرة؛ role templates تُستخدم كقوالب seed فقط.
 
-**Intake result:** `docs/07-gap-audit.md` (P0/P1/P2 + evidence).
-**Migration rule:** legacy stays runnable until replacement passes the same flows.
-
-### New foundation (Phase 2.1) — started
+### New modules (live)
 
 ```
-Dar.slnx
-src/Host/Dar.Api              minimal API host, health, OpenAPI, ProblemDetails, security headers
+src/Host/Dar.Api              composition root, health, security headers, migration runner, notification sync
 src/Common/Dar.Common         AppException, PagedResult, Money, PermissionCodes
-src/Modules/Identity          Email OTP, Google ID token, password fallback, sessions, /me, logout, set email
-src/Modules/Secretariat       students list/get/create, paged search, audit
-packages/api-client           OpenAPI 3.1 spec + generated TS types + openapi-fetch client
-tests/Dar.UnitTests           xUnit domain/identity tests (16 passing)
-tests/Dar.IntegrationTests    WebApplicationFactory + Testcontainers tests (15 passing: health, same-origin, supervision scope/requests/communication/templates)
-database/013_auth_email_otp.sql
+src/Modules/Identity          password/sessions/change-password/OTP paths + set email + /me + logout
+src/Modules/Secretariat       students list/get/create
+src/Modules/Teaching          teacher today/sessions/roster/attendance/earnings/subscriptions/calendar/history/requests
+                              + supervisor live/absences/unpaid/students/circles/teachers/attendance/scopes/requests
+                              + notifications + WhatsApp communication
+packages/api-client           OpenAPI spec (ناقص) + generated types + openapi-fetch (غير مستخدم)
+tests/Dar.UnitTests           domain/identity unit tests (16 passing)
+tests/Dar.IntegrationTests    WebApplicationFactory + Testcontainers (20 passing — health, same-origin, supervision)
 ```
 
-- Build: 0 warnings, 0 errors.
-- `Microsoft.OpenApi` pinned to `2.7.5` to remove the known high-severity advisory.
-- Identity verified end-to-end on an isolated PostgreSQL container.
-- No self-registration; admins provision emails. Password fallback is temporary.
+- Build: 0 warnings / 0 errors.
+- الاختبارات المالية ومسارات الـlegacy الكبيرة خارج CI حتى Phase 2.5.
+- لا يوجد contract/E2E بعد.
 
 ---
 
@@ -510,22 +470,21 @@ database/013_auth_email_otp.sql
 
 ### Resolved
 
-- **Auth (target):** Email OTP + Google، بدون SMS.
-- **Auth (current):** OTP + Google (Google مؤجل) مع كلمة مرور مؤقتة لحين ترحيل كل الحسابات النشطة.
-- **Language:** Arabic + English.
-- **DB:** PostgreSQL on the same server.
-- **Tests:** projects inside the solution, not a separate app.
-- **Scope:** administrative/financial only, not an LMS.
+- **Frontend:** React 19 + Vite + TypeScript — نهائي (ADR-0001). Next.js ملغي.
+- **Backend:** .NET 10 — نهائي؛ لا TypeScript backend.
+- **DB:** PostgreSQL 17 على نفس السيرفر؛ `public` schema.
+- **Auth (current):** password + sessions؛ OTP path مُنفّذ؛ Google مؤجل.
+- **Language:** العربية فقط الآن؛ الإنجليزية مؤجلة (ADR-0004).
+- **Scope:** إداري/مالي فقط، ليس LMS.
+- **Financial:** agreed fee بلا pro-rata؛ أجر بالدقيقة بلا تقريب 5؛ لا حذف مالي — Reverse/Void (ADR-0002/0005).
+- **Treasury:** الخزنة/الإيرادات/المصروفات/تقفيل الشهر الآن؛ القيد المزدوج مؤجل (ADR-0003).
 
 ### Open
 
-1. Correct times for the 3 conflicting schedule slots (`00:07/00:10/00:11`).
-2. Mid-month pause billing policy: prorate by active days, full month, or manual.
-3. Emails for existing users/teachers (needed for OTP/Google).
-4. Email/WhatsApp provider.
-5. Step-up scope.
-6. Double-entry from day one?
-7. Guardian/student portal in year one?
-8. Launch priority: payroll, billing, or reports? — after audit.
-9. More than one branch?
-10. Legacy Excel/paper import?
+1. المواعيد الثلاثة المتداخلة قديمًا (`00:07/00:10/00:11`) — تحتاج تحققًا إنتاجيًا موثقًا (Phase 2.2).
+2. مزود البريد/واتساب (SMTP provider) — مطلوب لتفعيل OTP فعليًا.
+3. مدة/شروط خطوة step-up والتوقيع.
+4. أولوية الإيصالات المرقّمة / مسير الرواتب / خصومات وخطط رسوم (backlog — مؤجل 3.0+ بعد Phase 2.6).
+5. بوابة ولي الأمر/الطالبة — خارج العام الأول.
+6. أكثر من فرع؟
+7. بيانات Excel/ورق قديمة تحتاج استيراد؟

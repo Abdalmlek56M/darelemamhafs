@@ -35,3 +35,6 @@ desktop-host/obj/
 .idea/
 Thumbs.db
 
+# Agent / verification scratch directories
+.tmp*/
+.verify/

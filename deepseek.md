@@ -9,16 +9,18 @@
 
 اقرأ بالترتيب:
 
-1. `docs/07-gap-audit.md` — P0/P1/P2 الحالية.
-2. `docs/01-business.md`
-3. `docs/02-architecture.md`
-4. `docs/03-security.md`
-5. `docs/04-engineering-standards.md`
-6. `docs/05-roadmap.md`
+1. `docs/00-current-state.md` — الحالة الحالية الموثقة (مصدر الحقيقة).
+2. `docs/17-master-plan.md` — الخطة الثابتة المعتمدة وترتيب المراحل.
+3. `docs/01-business.md` — المجال والقواعد.
+4. `docs/02-architecture.md`
+5. `docs/03-security.md`
+6. `docs/04-engineering-standards.md`
 7. `docs/06-operations.md`
 8. `docs/08-testing.md`
-9. آخر ملف في `docs/checkpoints/`
+9. `docs/adr/*` — القرارات الملزمة.
+10. آخر ملف في `docs/checkpoints/`.
 
+`docs/05-roadmap.md` مرجع تاريخي لمراحل سابقة. `docs/07-gap-audit.md` و`docs/10-code-review.md` سجلات تاريخية وليست قوائم مهام حالية.
 ثم افحص الكود ذي الصلة فقط. لا تقرأ المشروع كله في كل مرة.
 
 ---
@@ -33,18 +35,20 @@
 - حضور طالبات ومعلمات.
 - أجر معلمات بالساعة/الحصة + مسير + قسائم.
 - اشتراكات طالبات + مدفوعات + إيصالات + متأخرات.
-- خزنة ومصروفات ودفتر قيود.
+- خزنة ومصروفات وتقفيل شهري (القيد المزدوج مؤجل).
 - تقارير ولوحة.
 
 **Scope:** إداري/مالي فقط — ليس منصة تعليمية (LMS). لا مناهج/محتوى/امتحانات إلكترونية في MVP.
 
+**Treasury:** خزنة + إيرادات + مصروفات + تقفيل الشهر — القيد المزدوج مؤجل (ADR-0003).
+
 **Domain:** `darelemamhaf.rigxhardware.com`
 **Backend:** .NET 10 / ASP.NET Core minimal API + Npgsql + Dapper
-**Frontend:** Next.js 16 + React 19
+**Frontend:** React 19 + Vite + TypeScript — **نهائي**؛ قرار Next.js ملغي (ADR-0001).
 **Database:** PostgreSQL 17+ على نفس السيرفر
 **Auth:** Email OTP + Google (Google deferred)؛ كلمة مرور/جلسة مؤقتة الآن، بدون SMS
-**Language:** عربي + إنجليزي
-**Deploy:** Ubuntu 24.04 + Docker Compose + Caddy + Cloudflare
+**Language:** عربي فقط الآن (RTL)؛ الإنجليزية مؤجلة (ADR-0004).
+**Deploy:** Ubuntu 24.04 + Nginx + Certbot + systemd + host PostgreSQL 17 + Cloudflare DNS (Docker/Caddy stack متقاعد)
 
 **الهدف النهائي:** تسليم النظام كاملًا على **host + domain** إنتاجي مع HTTPS ونسخ احتياطي ومراقبة — وليس مجرد بناء محلي أو Demo. أي مرحلة لا تُعد مكتملة إلا إذا كانت قابلة للنشر ضمن هذا المسار.
 
@@ -106,17 +110,21 @@
 - **Phase 1.39:** Owner feedback round 2 — ✅ live (commit `78511b9`, migration **023**, ledger 23). 12-hour time display across admin/supervisor/teacher/reports; automatic teacher refresh before the next slot; request notes appended instead of overwritten; effect snapshots + edit/reopen/soft-delete for requests; per-student attendance in circle detail; supervisor add-students to circle; admin bulk enrollment picker; `useTeacherOutbox` OOP extraction. Tests 16 unit + 20 integration. Pre/post backups `dar-20261118-150223.dump` / `dar-20261118-150616.dump`. See `docs/checkpoints/owner-feedback-round2-1.0.md`.
 - **Phase 1.40:** Final UI/QA review — ✅ live (commit `54d0fb2`, frontend only, no migration). Full admin, teacher and supervisor audit at 1440px and 390px; payments four-card layout fix; teacher home no longer claims there are no circles when a past/awaiting slot exists; live-session 12-hour header and remaining-time chip; supervisor attendance duplicate date removed; remaining 24-hour displays in dialogs/history/overview converted to 12-hour; report session matching normalized for legacy slot-less rows; receipt upload/preview/download verified end to end. Installed 17 curated `.opencode/skills` after a security audit (excluded `getsentry/security-review`). Build passed; 16 unit + 20 integration passed. Pre/post backups `dar-20261118-215031.dump` / `dar-20261118-215411.dump`; live `/`, `/management`, `/teacher`, `/supervisor` return 200. QA containers/processes/proxy/settings removed or restored. See `docs/checkpoints/final-ui-qa-1.0.md`.
 - **Phase 1.41:** UI/UX Pro Max audit — ✅ live (commit `3ce3524`, frontend only). Installed `ui-ux-pro-max` v2.15 after a security audit (WARN reviewed: 0 critical, 1 safe temp-file unlink). Ran its local search/design-system engine against the current Dar UI; the generated glassmorphism/data-dense direction matches the existing brand, so no restyle was applied. Fixed real findings: 44px mobile icon targets on admin/teacher/supervisor, 10-12px mobile secondary text instead of 8-10px, teacher stat captions at 10px, past-unstarted slot now says "لم تُسجل", and `aria-current` added to navigation. Verified no horizontal overflow at 390px. Pre/post backups `dar-20261118-234051.dump` / `dar-20261118-234342.dump`; live routes 200. See `docs/checkpoints/uiux-pro-max-1.0.md`.
-- **Queued owner tasks (recorded):** production E2E; first GitHub Actions run; split the three remaining files above 400 lines (`SystemAdminEndpoints.Requests.cs`, `AuthEndpoints.cs`, `TeacherApp.tsx`) in a dedicated refactor phase; formal PDF report sign-off. Receipt/refund UI audit and admin console parity are complete. Admin 502 fixed via Nginx proxy buffers.
+
+- **Phase 2.0–2.2 (22 Nov 2026):** Docs Reset + قرارات المالك + تأمين النشر/النسخ + التحقق من تداخل المواعيد — ✅ مكتملة (checkpoint: `docs/checkpoints/2.0-docs-reset-1.0.md`). القرارات المثبتة: React+Vite نهائي (Next.js ملغي)، agreed fee بدون pro-rata، أجر بالدقيقة بدون تقريب، الإنجليزية مؤجلة، الخزنة بدون قيد مزدوج، Reverse/Void بدل الحذف. الخطة الثابتة في `docs/17-master-plan.md` والحالة في `docs/00-current-state.md`. المراحل التالية: 2.1 تأمين النشر/النسخ، 2.2 تداخل المواعيد، 2.3 Reverse/Void، 2.4 تجاوب لوحة الإدارة، 2.5 CI/contract، 2.6 الخزنة والتقفيل.
+- **Queued after Phase 2.0:** production E2E; first GitHub Actions run; contract test; split remaining >400-line files (`AuthEndpoints.cs` 472، `SystemAdminEndpoints.Requests.cs` 484، `TeacherApp.tsx` 475، `teacherTypes.ts` 406) في مرحلة التنظيف؛ formal PDF report sign-off؛ وفي backlog: إيصالات مرقّمة، مسير/قسائم رواتب، خصومات/خطط رسوم.
 - **Owner actions pending:** re-test saving admin permissions after the Nginx fix; link `asmaa` to a teacher record and grant permissions; change the supervisor temporary password and delete `/etc/dar/supervisor-initial-password`; approve the 9 historical charge corrections.
 - **UI gate:** no UI implementation before the owner approves a visual sample.
 - **Backend decision:** ✅ .NET is final (owner, 15 Nov 2026). TypeScript/NestJS is rejected; do not propose or build a second backend.
 - **Google login:** deferred; temporary password + sessions is the current path.
 - **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` is the source of truth. Run `git log -1` for the deployed commit; the visual sample and reuse audit are included.
 - **Git rule:** every completed checkpoint = commit + push. No force-push.
-- **Next:** complete production E2E/GitHub Actions and the dedicated large-file refactor. Final UI/QA patch is live (`54d0fb2`); owner feedback round 2 live (`78511b9`, migration 023); subscriptions review (`d4c67bb`); payroll lock (`782623b`); reports gate (`d343396`); offline outbox (`bc6b907`); teacher calendar/history (`998c3a0`); admin requests (`8cc90dd`); charges corrected (`5938c4f`). Keep the supervisor temporary password unchanged until the owner finishes.
+- **Next:** تنفيذ `docs/17-master-plan.md` بالترتيب — 2.0 → 2.1 → 2.2 → 2.3 (Reverse/Void) → 2.4 (تجاوب لوحة الإدارة) → 2.5 (CI/contract) → 2.6 (الخزنة/التقفيل). لا تبدأ مرحلة قبل مراجعة المالك للتي قبلها. Final UI/QA patch is live (`54d0fb2`); owner feedback round 2 live (`78511b9`, migration 023); subscriptions review (`d4c67bb`); payroll lock (`782623b`); reports gate (`d343396`); offline outbox (`bc6b907`); teacher calendar/history (`998c3a0`); admin requests (`8cc90dd`); charges corrected (`5938c4f`). Keep the supervisor temporary password unchanged until the owner finishes.
 - **Legacy stack:** .NET 10 minimal API + React 19/Vite + PostgreSQL 17 + WPF/WebView2 + PowerShell Test Center. No `.bat` files remain.
 
 ### What Was Done vs. What Was Not
+
+> ⚠️ **قسم تاريخي (15 Nov 2026) — لا يعكس الحالة الحالية.** الحالة الحقيقية في `docs/00-current-state.md`، والخطة في `docs/17-master-plan.md`. يُحفظ للمرجعية فقط.
 
 **Legacy code modified (P0 guards only):**
 - `Program.cs` — rate limit, security headers, auto-migrate gate.
@@ -217,15 +225,17 @@ dotnet run --project src/Host/Dar.Api -- --migrate
 npm install
 npm run dev
 npm run build
-npm run typecheck
-npm run lint
 npm run test
+# ملاحظة: لا توجد scripts باسم typecheck/lint حاليًا — استخدم `npx tsc -b --force`،
+# وستُضاف السكربتات في Phase 2.5 (CI + Contract).
 ```
 
 ### Full
 ```bash
-docker compose up -d postgres
-docker compose up -d
+# الإنتاج الحقيقي: Nginx + systemd + PostgreSQL host (Docker/Caddy stack متقاعد).
+# النشر والتحديث عبر: sudo bash deploy/update.sh  (انظر docs/11-deployment.md)
+# الطوارئ: sudo bash deploy/rollback.sh --list ثم rollback.sh <stamp>
+# الفحص المسبق: sudo bash deploy/preflight.sh
 ```
 
 ### Git
@@ -249,12 +259,6 @@ dotnet build backend/DarEltahfeez.Api/DarEltahfeez.Api.csproj
 dotnet build Dar.slnx
 dotnet test Dar.slnx
 npm run build --prefix frontend
-```
-
-When `apps/web` exists, run its build too:
-
-```bash
-npm run build --prefix apps/web
 ```
 
 Rules:
@@ -344,7 +348,7 @@ Date: DD Mon YYYY
 
 **Resolved:**
 - Auth: Email OTP + Google فقط.
-- Language: عربي + إنجليزي.
+- Language: العربية فقط الآن؛ الإنجليزية مؤجلة (ADR-0004).
 - DB: PostgreSQL على نفس السيرفر.
 - Tests: مشاريع داخل الحل، وليست تطبيقًا منفصلًا.
 - Data access: Npgsql + Dapper.
@@ -366,6 +370,11 @@ Date: DD Mon YYYY
 
 **Resolved:**
 - Backend: .NET final. TypeScript rejected.
+- **Frontend: React 19 + Vite نهائي؛ Next.js ملغي (22 Nov 2026 — ADR-0001).**
+- **المالية: agreed fee بدون pro-rata + أجر بالدقيقة بدون تقريب (ADR-0002).**
+- **الخزنة: إيرادات/مصروفات/تقفيل شهر؛ القيد المزدوج مؤجل (ADR-0003).**
+- **الإنجليزية: مؤجلة — العربية فقط الآن (ADR-0004).**
+- **Reverse/Void بدل حذف أي سجل مالي (ADR-0005).**
 - Google: deferred. Password + session is the current path.
 - File size: 200–300 target, 400 hard max; legacy exceptions listed in `docs/04-engineering-standards.md`.
 
@@ -377,6 +386,25 @@ Date: DD Mon YYYY
 - غيّر قاعدة مالية → `docs/01` + اختبارات + موافقة.
 - غيّر صلاحية → `docs/03` + اختبارات سلبية.
 - غيّر نشرًا → `docs/06`.
-- أنهيت خطوة → Checkpoint + `docs/05`.
+- أنهيت خطوة → Checkpoint + تحديث `docs/00-current-state.md` + `docs/17-master-plan.md`.
+- غيّر قرارًا ماليًا/معماريًا → ADR في `docs/adr/` + `docs/01`/`docs/02` + هذا الملف.
+- الخطة الثابتة هي `docs/17-master-plan.md`؛ لا تغيّر ترتيب المراحل بدون موافقة المالك.
 - إذا شككت → توقف واسأل.
 - رد بالعربية المصرية، مختصر وواضح.
+
+---
+
+## 12. Approved Master Plan (22 Nov 2026)
+
+الخطة الثابتة المعتمدة بترتيب المراحل والقرارات الملزمة في `docs/17-master-plan.md`:
+
+1. **2.0** Docs Reset + القرارات (هذه المرحلة).
+2. **2.1** تأمين سكربتات النشر والنسخ الاحتياطي.
+3. **2.2** التحقق 100% من منع تداخل المواعيد.
+4. **2.3** Reverse/Void للسجلات المالية.
+5. **2.4** تجاوب لوحة الإدارة 100% على الموبايل.
+6. **2.5** CI/CD + Contract + اختبارات.
+7. **2.6** الخزنة والإيرادات وتقفيل الشهر.
+8. **2.7–2.9** أمان وتنظيف وجودة إطلاق.
+
+المؤجل بقرار المالك: الإنجليزية، القيد المزدوج، مسير/قسائم الرواتب، خصومات/خطط رسوم، إيصالات مرقّمة، بوابة ولي الأمر.

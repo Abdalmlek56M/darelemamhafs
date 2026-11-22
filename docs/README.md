@@ -1,21 +1,24 @@
 # RIGX Dar — Documentation Index
 
-> ابدأ من `deepseek.md` في جذر المشروع، ثم هذه المستندات بالترتيب.
+> ابدأ من `deepseek.md` في جذر المشروع، ثم هذا الفهرس. **مصدر الحقيقة للحالة الحالية هو `docs/00-current-state.md`، وللخطة `docs/17-master-plan.md`.**
+> قاعدة: الوثيقة الأحدث لا تُلغي الوثيقة الأصح — أي تعارض يُحل بالرجوع إلى `docs/00-current-state.md` ثم `docs/17-master-plan.md`.
 
 ---
 
 ## Reading Order
 
 1. [`../deepseek.md`](../deepseek.md) — تعليمات التشغيل والقراءة الأولى.
-2. [`01-business.md`](01-business.md) — المجال، الأدوار، القواعد.
-3. [`02-architecture.md`](02-architecture.md) — الحالة الحالية والمستهدفة.
-4. [`03-security.md`](03-security.md) — الأمان والصلاحيات.
-5. [`04-engineering-standards.md`](04-engineering-standards.md) — معايير الكود.
-6. [`05-roadmap.md`](05-roadmap.md) — الخطوات الحالية والقادمة.
-7. [`06-operations.md`](06-operations.md) — التشغيل والنشر والنسخ.
-8. [`07-gap-audit.md`](07-gap-audit.md) — فحص المشروع القديم.
+2. [`00-current-state.md`](00-current-state.md) — **الحالة الآن** (Stack، المسارات، الوضع المالي، الاختبارات).
+3. [`17-master-plan.md`](17-master-plan.md) — **الخطة الثابتة المعتمدة** وترتيب المراحل.
+4. [`01-business.md`](01-business.md) — المجال، الأدوار، القواعد المالية المعتمدة.
+5. [`02-architecture.md`](02-architecture.md) — الحالة والهدف المعماري (React+Vite نهائي).
+6. [`03-security.md`](03-security.md) — الأمان والصلاحيات.
+7. [`04-engineering-standards.md`](04-engineering-standards.md) — معايير الكود.
+8. [`06-operations.md`](06-operations.md) — التشغيل والنشر والنسخ.
 9. [`08-testing.md`](08-testing.md) — الاختبارات وعزلها.
-10. آخر ملف في [`checkpoints/`](checkpoints/).
+10. [`11-deployment.md`](11-deployment.md) — النشر الفعلي على الـhost.
+11. [`adr/`](adr/) — القرارات الملزمة (واجهة، مالية، خزنة، لغة، Reverse/Void).
+12. آخر ملف في [`checkpoints/`](checkpoints/).
 
 ---
 
@@ -23,45 +26,49 @@
 
 | File | Purpose | Status |
 |---|---|---|
-| `01-business.md` | ما الذي يفعله النظام ولمن | Draft — after audit |
-| `02-architecture.md` | .NET + Next.js + PostgreSQL | Target |
-| `03-security.md` | Auth, RBAC, hardening, audit | Baseline |
-| `04-engineering-standards.md` | C#/TS standards, review, DoD | Baseline |
-| `05-roadmap.md` | Phases 0–6 | Current: 0.2 |
-| `06-operations.md` | Setup, migrations, backups, deploy | Target |
-| `07-gap-audit.md` | Findings ledger | Pending intake |
-| `08-testing.md` | Test strategy, isolation, CI | Baseline |
-| `checkpoints/*.md` | Done/Remaining/Decisions per step | Living |
+| `00-current-state.md` | الحالة الحالية الموثقة (مصدر الحقيقة) | 🟢 حيّ |
+| `17-master-plan.md` | الخطة الثابتة والمراحل والقرارات | 🟢 حيّ — معتمد 22 Nov 2026 |
+| `01-business.md` | المجال، الأدوار، القواعد المالية | 🟢 محدّث 22 Nov 2026 |
+| `02-architecture.md` | الحالة والهدف المعماري | 🟢 محدّث 22 Nov 2026 |
+| `03-security.md` | Auth, RBAC, hardening, audit | 🟢 محدّث 22 Nov 2026 |
+| `04-engineering-standards.md` | C#/React+Vite standards, review, DoD | 🟢 محدّث 22 Nov 2026 |
+| `05-roadmap.md` | مراحل 0–1 القديمة | 🟡 تاريخي |
+| `06-operations.md` | Setup, migrations, backups, deploy | 🟢 محدّث 22 Nov 2026 |
+| `07-gap-audit.md` | فحص المشروع القديم (15–16 Nov) | 🟡 تاريخي |
+| `08-testing.md` | Test strategy, isolation, CI | 🟢 محدّث 22 Nov 2026 |
+| `09-legacy-refactor-plan.md` | خطة تفكيك الملفات القديمة | 🟡 تاريخي/مرجعي |
+| `10-code-review.md` | مراجعة الكود (16 Nov) | 🟡 تاريخي |
+| `11-deployment.md` | Host + domain deployment | 🟢 حيّ |
+| `13-teacher-portal-requirements.md` | متطلبات بوابة المعلمة | 🟢 محدّث |
+| `14-ui-audit-and-mobile-direction.md` | UI audit واتجاه الموبايل | 🟢 محدّث — التجارب مستمرة |
+| `15-legacy-reuse-audit.md` | تدقيق إعادة استخدام القديم | 🟢 محدّث ماليًا |
+| `16-supervision-workspace-plan.md` | خطة مساحة الإشراف والتواصل | 🟢 محدّث الحالة |
+| `adr/` | ADRs (0001–0005) | 🟢 حيّ |
+| `audits/` | تقارير تدقيق (تداخل المواعيد، تجاوب الموبايل) | 🟢 جديد |
+| `checkpoints/` | سجل Done/Remaining/Decisions لكل خطوة | 🟢 حيّ |
+| `samples/` | نماذج PDF/تقارير | 🟡 مرجعي |
+
+> لا يوجد `docs/12-*` — الترقيم يقفز من 11 إلى 13 (وثيقة قديمة أُزيلت).
 
 ---
 
-## Current Status
+## Current Status (22 Nov 2026)
 
-- **Phase 0.1:** Foundation docs + skill — ✅ Done.
-- **Phase 0.2–0.4:** Intake, baseline, audit — ✅ Done (visual screenshots pending).
-- **Phase 0.6:** Legacy docs consolidation — ✅ Done.
-- **Phase 1.1:** P0 guards — 🟡 Partial (rate limit, login audit, headers, purge guard).
-- **Phase 1.2:** `.bat` removal — ✅ Done (12 files).
-- **Phase 2.1:** New .NET solution — ✅ Done.
-- **Phase 2.3:** Identity — 🟡 First slice (Email OTP, Google path, password fallback, sessions).
-- **Next:** migration CLI + first business module + Next.js shell.
-- **Backend:** .NET 10 + Npgsql/Dapper — **final** (TypeScript rejected).
-- **Frontend:** Next.js 16 (target).
-- **Database:** PostgreSQL 17+ on the same server, `public` schema initially.
-- **Domain:** `darelemamhaf.rigxhardware.com`.
-- **Auth:** Email OTP + Google; temporary password fallback during migration.
-- **Language:** Arabic + English.
-- **No `.bat` files.**
-- **Tests:** 16 unit + 15 integration passing; isolated DB/environment; no test panel.
+- **النظام Live** على `dar-elemam-hafs.rigxhardware.com` (Nginx + systemd + PostgreSQL 17).
+- **الواجهة:** React 19 + Vite (نهائي) — `/`، `/management`، `/teacher`، `/supervisor`.
+- **Backend:** legacy API (كل الدومين) + new API `/api/v1` (Identity + Secretariat + Teaching).
+- **الترحيلات:** 23 (001→023).
+- **الاختبارات:** 16 unit + 20 integration + 6 Vitest؛ لا Playwright/Contract بعد.
+- **تم 22 Nov:** 2.0 Docs Reset + 2.1 تأمين النشر/النسخ (تحتاج rehearsal) + 2.2 تداخل المواعيد (45/45 PASS).
+- **التالي:** 2.3 Reverse/Void ثم 2.4 تجاوب لوحة الإدارة — التفاصيل في `docs/17-master-plan.md`.
+- **مؤجل بقرار المالك:** الإنجليزية، القيد المزدوج، مسير/قسائم الرواتب، خصومات/خطط رسوم، إيصالات مرقّمة، بوابة ولي الأمر.
 
 ---
 
 ## Rules
 
-- The newest doc + checkpoint wins.
-- No code without a roadmap step.
-- No step without a checkpoint.
-- No secrets in docs.
-- No destructive DB commands without backup.
-- Missing business decision → ask, don't invent.
-- Arabic RTL first.
+- الحالة الحالية الموثقة في `docs/00`؛ الخطة في `docs/17`؛ لا تخترع قرارًا.
+- الوثائق الأحدث تُحدّث مع كل checkpoint.
+- لا أسرار في الوثائق.
+- كل قاعدة مالية = كود + اختبار + وثيقة (ADR عند التغيير).
+- العربية هي لغة المنتج والتوثيق الحالية؛ الإنجليزية مؤجلة.

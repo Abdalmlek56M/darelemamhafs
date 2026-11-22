@@ -1,6 +1,6 @@
 # RIGX Dar — Teacher Portal & Notification Requirements
 
-**Status:** requirements, sample, first implementation slice, and live deployment (migration 017, scoped APIs, mobile `/teacher` and `/supervisor` PWA) are complete (16 Nov 2026). Real account setup and production E2E are next.
+**Status:** requirements, sample, first implementation slice, and live deployment (migration 017, scoped APIs, mobile `/teacher` and `/supervisor` PWA) are complete (16 Nov 2026). **مراجعة 22 Nov 2026:** سياسات الأجر/التقريب أدناه مطابقة لـ`docs/adr/0002-financial-policy.md`؛ المسير/القسيمة/الاعتماد المزدوج مؤجلة؛ الإنجليزية مؤجلة (ADR-0004). Real account setup and production E2E are next.
 **Scope:** teacher accounts, supervisor account, live attendance, student attendance, teacher earnings, mobile-first UI, notification center.
 
 ---
@@ -97,13 +97,13 @@ Each card shows: circle name, time, duration, student count, teacher name, statu
 - Show per session: duration, hourly-rate snapshot, payable amount.
 - Show month-to-date: sessions, hours, payable.
 - Never expose another teacher’s earnings to a teacher account.
-- Admin/payroll can lock a month later; teacher view becomes read-only.
+- Month lock exists (`payroll_locks`، migration 022)؛ بعد القفل يصبح عرض المعلمة للشهر المقفول للقراءة فقط.
 
 ### 3.6 Absence / late / cancellation
 
 - Teacher can mark the session as **لم تنعقد** with a reason (optional supervisor approval).
 - If a substitute teacher takes the session, the session records the substitute; original teacher does not get paid.
-- Grace period and rounding policy must be decided (see open questions).
+- **سياسة الأجر المعتمدة (ADR-0002، 22 Nov 2026):** الدقائق الفعلية بدون تقريب؛ إذا بلغت/تجاوزت المدة المجدولة يُدفع المجدول والزائد overtime يُسجل للمراجعة؛ الانصراف المبكر يُدفع بالفعلي بحد أدنى دقيقة؛ التقريب الوحيد للمبلغ منزلتان `AwayFromZero`. نسب الإلغاء/البديلة/سماح التأخير تبقى **مؤجلة** خارج النطاق حتى قرار مالك.
 
 ---
 
@@ -160,7 +160,9 @@ Replace the current mix of toast + browser notification + local reminder with a 
 - Touch targets ≥ 44px; safe-area insets; no hover-only actions.
 - RTL + Cairo; dark/light themes; reduced motion respected.
 - PWA: manifest, install prompt, offline shell, “أضف إلى الشاشة الرئيسية”.
-- Admin console remains desktop-first but fully responsive; tables become cards or horizontally scrollable with a sticky first column on phones.
+- Admin console: **متجاوب 100% على الموبايل** (قرار 22 Nov 2026)؛ الجداول تتحول لكروت أو scroll أفقي مع عمود أول ثابت.
+- **اللغة:** العربية فقط حاليًا (RTL)؛ الإنجليزية مؤجلة (ADR-0004).
+- **الواجهة:** React 19 + Vite + TypeScript نهائيًا؛ Next.js ملغى (قرار 22 Nov 2026 — `docs/01-business.md` §8).
 
 See `docs/14-ui-audit-and-mobile-direction.md` for the audit and design system.
 
@@ -250,7 +252,7 @@ All endpoints derive the teacher from the authenticated session; never trust a c
 6. No mobile-first teacher UI or PWA.
 7. No absent/unpaid follow-up screens; data exists but is scattered.
 8. No attendance approval/correction workflow.
-9. No payroll lock; earnings are calculated from attendance on the fly.
+9. ~~No payroll lock~~ — **مطبّق:** قفل شهري `payroll_locks` (migration 022)؛ المسير/الاعتماد/القسيمة لا يزالون مؤجلين، والأجر يُجمع on-the-fly.
 10. No test coverage for teacher scoping, session races, or notification deduplication.
 
 ---
@@ -266,7 +268,7 @@ All endpoints derive the teacher from the authenticated session; never trust a c
 | 5 | **Manual adjustment:** the admin can adjust paid duration and amount manually after reviewing the note. Every adjustment is audited with before/after values. A supervisor may adjust only with the explicit `supervisor.attendance.correct` permission. |
 | 6 | **Notes at finish:** the finish sheet has a note field for overtime/early end, reason, or detail. The note is stored on the session and the attendance row and is visible to the owner/supervisor. Notes can also be added during the session, but the finish sheet always offers the field. |
 | 7 | **Attendance statuses:** the teacher roster has only **حاضر / غائب بعذر / غائب بدون عذر**. This maps to `student_attendance.status` = `present` / `excused` / `absent`. |
-| 8 | **Rounding:** minute-level duration; money at 2 decimals (`MoneyRules`). No 5-minute pay rounding. A 5-minute grace is only for the late warning. |
+| 8 | **Rounding:** minute-level duration; money at 2 decimals (`MoneyRules`, `AwayFromZero`). No 5-minute pay rounding and no 5-EGP rounding (ADR-0002). A 5-minute grace is only for the late warning. |
 | 9 | **Supervisor lock:** the admin can lock/unlock the supervisor account. A locked account cannot sign in or act. The same lock applies to any teacher account. |
 | 10 | **Unpaid alerts:** surface at the end of the month, or one month after the student joins. The alert resolves only when the charge is fully paid. |
 | 11 | **Timezone:** all UI and date logic use `Africa/Cairo`. |
@@ -330,10 +332,10 @@ The sample encodes: late start; a finish sheet with actual vs scheduled duration
 | **P3** | Teacher PWA UI (mobile-first) | ✅ first slice; visual parity checked at 430×932 |
 | **P4** | Supervisor dashboard + absent/unpaid | ✅ first slice; live/absences/unpaid/adjust |
 | **P5** | Notification center + dedupe/read state | ✅ open/resolved, read ≠ resolved, payment trigger |
-| **P6** | Payroll lock/approval + reports | pending |
+| **P6** | Payroll lock/approval + reports | 🟡 قفل الشهر ✅ (migration 022)؛ المسير/الاعتماد/القسائم + PDF الرسمي مؤجل |
 | **P7** | Full code review fixes + E2E + production deploy | deploy ✅; E2E/accounts pending |
 
-P1 is approved. P2 is in progress: migration 017 and the pay policy are done; scoped APIs and the PWA follow.
+P1–P5 معتمدة ومنفذة ومنشورة. P6 جزئي (قفل الشهر فقط)، وP7 النشر ✅ مع بقاء E2E/تهيئة الحسابات.
 
 ---
 

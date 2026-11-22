@@ -4,6 +4,8 @@
 **Scope:** Existing project at `DarEltahfeez/`.
 **Rule:** Every finding has evidence. No claim without a file/line, API response, build result, or measurement.
 
+> ⚠️ **سجل تاريخي — 15/16 Nov 2026.** جزء كبير من P0/P1 هنا أُغلق فعلًا (النشر، حذف الـDELETE، الـaudit append-only، purge المالي، rate limit…). **لا تستخدم هذا الملف كقائمة مهام حالية**؛ راجع `docs/00-current-state.md` و`docs/17-master-plan.md`. يُحفظ كسجل منهجية وأدلة.
+
 ---
 
 ## 1. Executive Summary

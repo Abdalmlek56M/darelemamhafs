@@ -1,5 +1,7 @@
 # RIGX Dar — Full Code Review
 
+> **تاريخي — 16 Nov 2026 snapshot، لا يعكس الحالة الحالية.** الحالة الحالية في `docs/00-current-state.md`؛ هذا الملف سجل مراجعة وقتئذٍ (لا يُستخدم كقائمة مهام).
+
 **Date:** 16 Nov 2026
 **Scope:** Legacy API/front-end, new `.NET` solution, Identity/Secretariat modules, migrations, CI, tests, deployment paths.
 **Method:** static read of the changed and security-sensitive paths; `dotnet build` (legacy + `Dar.slnx`), `dotnet test` (12 unit + 3 integration), `npm run build`, `dotnet list package --vulnerable`, `npm audit --omit=dev`. No production data or `.env`/secret files were read.
