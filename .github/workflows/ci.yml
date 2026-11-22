@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# TODO (Phase 2.5-b, not enabled here on purpose): image build + GHCR push + SSH deploy,
+# migrations-on-deploy with a mandatory pre-deploy backup, smoke tests + automatic binary
+# rollback, and real Playwright E2E against a staging environment. Those need host secrets
+# and a staging target; the safe runbook lives in deploy/update.sh + docs/11-deployment.md.
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -30,9 +35,13 @@ jobs:
         run: dotnet build Dar.slnx --no-restore --nologo
       - name: Test
         run: dotnet test Dar.slnx --no-build --nologo
-      - name: Check deploy script syntax
+      - name: Check deploy script syntax (bash -n)
         run: |
-          for file in deploy/*.sh deploy/scripts/*.sh; do
+          set -euo pipefail
+          shopt -s nullglob
+          files=(deploy/*.sh deploy/scripts/*.sh)
+          echo "Checking ${#files[@]} deploy scripts: ${files[*]}"
+          for file in "${files[@]}"; do
             bash -n "$file"
           done
 
@@ -80,6 +89,113 @@ jobs:
                  to_regclass('public.notifications') IS NOT NULL AS notifications_ready;
           SQL
 
+      # The single source of truth for the applied schema is the count of SQL files in
+      # database/; any drift means a migration file was added/removed without being applied.
+      - name: Verify migration count matches database files
+        run: |
+          set -euo pipefail
+          expected="$(find database -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d '[:space:]')"
+          actual="$(docker exec -i -e PGPASSWORD=dar "${{ job.services.postgres.id }}" \
+            psql -U dar -d dar_ci -tAc 'SELECT count(*) FROM web_schema_migrations' | tr -d '[:space:]')"
+          echo "database/*.sql files = ${expected}; web_schema_migrations rows = ${actual}"
+          # Invariant: every database/*.sql file was applied (no missing/extra ledger rows).
+          test "${expected}" -eq "${actual}"
+          echo "::notice::applied ${expected} migration(s); database/*.sql is the source of truth. Keep docs/00-current-state.md in sync when this count changes."
+
+      # Schema invariants for the two money/schedule safety systems added in Phases 2.2/2.3.
+      # The advisory-lock keys live inside the trigger bodies (not catalog-visible), so CI
+      # asserts the guard triggers/functions exist instead of grepping function bodies.
+      - name: Verify financial Reverse/Void schema
+        run: |
+          docker exec -i -e PGPASSWORD=dar "${{ job.services.postgres.id }}" \
+            psql -U dar -d dar_ci -v ON_ERROR_STOP=1 <<'SQL'
+          DO $check$
+          DECLARE v integer;
+          BEGIN
+            SELECT count(*) INTO v FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='monthly_charges'
+               AND column_name IN ('voided_at','voided_by','void_reason');
+            IF v <> 3 THEN RAISE EXCEPTION 'monthly_charges void columns expected 3, got %', v; END IF;
+            SELECT count(*) INTO v FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='payments'
+               AND column_name IN ('voided_at','voided_by','void_reason');
+            IF v <> 3 THEN RAISE EXCEPTION 'payments void columns expected 3, got %', v; END IF;
+            SELECT count(*) INTO v
+              FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+             WHERE n.nspname='public' AND p.proname IN ('dar_void_charge','dar_void_payment');
+            IF v <> 2 THEN RAISE EXCEPTION 'void functions expected 2, got %', v; END IF;
+            SELECT count(*) INTO v FROM permissions WHERE code='finance.void';
+            IF v <> 1 THEN RAISE EXCEPTION 'finance.void permission expected 1, got %', v; END IF;
+            IF to_regclass('public.uq_monthly_charges_active_enrollment_month') IS NULL THEN
+              RAISE EXCEPTION 'missing partial unique index uq_monthly_charges_active_enrollment_month';
+            END IF;
+            RAISE NOTICE 'financial void schema OK';
+          END
+          $check$;
+          SQL
+
+      - name: Verify schedule overlap protection schema
+        run: |
+          docker exec -i -e PGPASSWORD=dar "${{ job.services.postgres.id }}" \
+            psql -U dar -d dar_ci -v ON_ERROR_STOP=1 <<'SQL'
+          DO $check$
+          DECLARE v integer;
+          BEGIN
+            SELECT count(*) INTO v FROM pg_trigger
+             WHERE NOT tgisinternal
+               AND tgname IN ('trg_circle_schedule_slots_teacher_overlap','trg_circles_teacher_schedule_overlap');
+            IF v <> 2 THEN RAISE EXCEPTION 'schedule overlap triggers expected 2, got %', v; END IF;
+            SELECT count(*) INTO v
+              FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+             WHERE n.nspname='public'
+               AND p.proname IN ('dar_teacher_has_schedule_overlap','dar_guard_schedule_slot_teacher_overlap','dar_guard_circle_teacher_schedule_overlap');
+            IF v <> 3 THEN RAISE EXCEPTION 'schedule overlap functions expected 3, got %', v; END IF;
+            RAISE NOTICE 'schedule overlap schema OK';
+          END
+          $check$;
+          SQL
+
+      # SQL regression scripts are self-contained (single transaction + ROLLBACK), so they
+      # can run against the freshly migrated database without leaving rows behind.
+      - name: Run financial void SQL verification
+        run: |
+          log=void_verify.log
+          if ! docker exec -i -e PGPASSWORD=dar "${{ job.services.postgres.id }}" \
+              psql -U dar -d dar_ci -v ON_ERROR_STOP=1 -f - \
+              < tests/regression/sql/financial_void_verify.sql > "$log" 2>&1; then
+            echo "::error::financial_void_verify.sql failed (psql exit code)"
+            tail -n 120 "$log"
+            exit 1
+          fi
+          tail -n 40 "$log"
+          if grep -q 'FAIL' "$log"; then
+            echo "::error::financial void verification reported FAIL scenarios"
+            exit 1
+          fi
+
+      - name: Run teacher schedule overlap SQL verification
+        run: |
+          log=overlap_verify.log
+          if ! docker exec -i -e PGPASSWORD=dar "${{ job.services.postgres.id }}" \
+              psql -U dar -d dar_ci -v ON_ERROR_STOP=1 -f - \
+              < tests/regression/sql/schedule_overlap_verify.sql > "$log" 2>&1; then
+            echo "::error::schedule_overlap_verify.sql failed (its internal gate raises on any FAIL)"
+            tail -n 120 "$log"
+            exit 1
+          fi
+          tail -n 20 "$log"
+
+      - name: Run schedule overlap hardening SQL verification
+        run: |
+          log=overlap_hardening_verify.log
+          if ! docker exec -i -e PGPASSWORD=dar "${{ job.services.postgres.id }}" \
+              psql -U dar -d dar_ci -v ON_ERROR_STOP=1 -f - \
+              < tests/regression/sql/schedule_overlap_hardening_verify.sql > "$log" 2>&1; then
+            echo "::error::schedule_overlap_hardening_verify.sql failed (advisory locks / atomic guards)"
+            tail -n 120 "$log"
+            exit 1
+          fi
+          tail -n 20 "$log"
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -95,6 +211,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install
         run: npm ci
+      - name: Typecheck (tsc -b --force)
+        run: npm run typecheck
       - name: Test
         run: npm test
       - name: Build
@@ -117,6 +235,12 @@ jobs:
         run: npm ci
       - name: Typecheck
         run: npm run typecheck
+      # openapi-typescript regenerates src/schema.d.ts from the committed spec; the diff
+      # must stay empty. A stale generated client is contract drift.
+      - name: Generated schema check (no drift)
+        run: |
+          npm run generate
+          git diff --exit-code -- src/schema.d.ts
 
   deployment:
     runs-on: ubuntu-latest
