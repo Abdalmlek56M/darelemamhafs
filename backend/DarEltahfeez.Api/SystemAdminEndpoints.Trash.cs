@@ -14,6 +14,8 @@ public static partial class SystemAdminEndpoints
         if (!SystemAdminService.TrashTables.TryGetValue(request.EntityType ?? "", out var table)) return Results.BadRequest(new { message = "نوع السجل غير مدعوم في سلة المهملات." });
         var type = request.EntityType!;
         if (!CanManageTrashEntity(principal, type)) return Results.Forbid();
+        if (string.Equals(type, "monthly-charge", StringComparison.OrdinalIgnoreCase) || string.Equals(type, "payment", StringComparison.OrdinalIgnoreCase))
+            return Results.Conflict(new { message = "السجلات المالية لا تُحذف — استخدم الإلغاء (Void) بسبب موثق؛ يبقى السجل محفوظًا في السجل والتقارير." });
         var retention = 30;
         await using (var getRetention = db.CreateCommand("SELECT trash_retention_days FROM school_settings WHERE id=1;")) retention = (int)(await getRetention.ExecuteScalarAsync(ct) ?? 30);
         await using var connection = await db.OpenConnectionAsync(ct); await using var tx = await connection.BeginTransactionAsync(ct);

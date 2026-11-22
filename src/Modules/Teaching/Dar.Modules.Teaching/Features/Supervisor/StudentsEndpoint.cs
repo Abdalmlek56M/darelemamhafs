@@ -31,10 +31,10 @@ public static class StudentsEndpoint
                        ELSE 'unpaid' END
                     FROM circle_enrollments ce2
                     JOIN circles c2 ON c2.id=ce2.circle_id AND c2.is_trashed=FALSE
-                    LEFT JOIN monthly_charges mc ON mc.enrollment_id=ce2.id AND mc.billing_month=@month AND mc.is_trashed=FALSE
+                    LEFT JOIN monthly_charges mc ON mc.enrollment_id=ce2.id AND mc.billing_month=@month AND mc.is_trashed=FALSE AND mc.voided_at IS NULL
                     LEFT JOIN LATERAL (
                         SELECT SUM(pay.amount) AS paid FROM payments pay
-                        WHERE pay.monthly_charge_id=mc.id AND pay.is_trashed=FALSE
+                        WHERE pay.monthly_charge_id=mc.id AND pay.is_trashed=FALSE AND pay.voided_at IS NULL
                     ) p ON TRUE
                     WHERE ce2.student_id=s.id AND ce2.is_trashed=FALSE AND ce2.status IN ('active','paused')
                       AND (@all OR c2.id = ANY(@circles))) AS subscription_status,
@@ -228,9 +228,9 @@ public static class StudentsEndpoint
                 LEFT JOIN LATERAL (
                     SELECT COALESCE(SUM(amount), 0) AS paid
                     FROM payments
-                    WHERE monthly_charge_id = mc.id AND is_trashed = FALSE
+                    WHERE monthly_charge_id = mc.id AND is_trashed = FALSE AND voided_at IS NULL
                 ) p ON TRUE
-                WHERE ce.student_id = @id AND mc.is_trashed = FALSE
+                WHERE ce.student_id = @id AND mc.is_trashed = FALSE AND mc.voided_at IS NULL
                   AND mc.billing_month = date_trunc('month', @today::date)::date
                   AND (@all OR c.id = ANY(@circles))
                 ORDER BY c.name

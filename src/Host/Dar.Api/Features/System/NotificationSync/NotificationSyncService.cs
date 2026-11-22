@@ -51,9 +51,10 @@ public sealed class NotificationSyncService(
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS paid
                 FROM payments
-                WHERE monthly_charge_id = mc.id AND is_trashed = FALSE
+                WHERE monthly_charge_id = mc.id AND is_trashed = FALSE AND voided_at IS NULL
             ) p ON TRUE
             WHERE mc.is_trashed = FALSE
+              AND mc.voided_at IS NULL
               AND mc.amount_due > COALESCE(p.paid, 0)
               AND (now() AT TIME ZONE 'Africa/Cairo')::date >= (mc.billing_month + INTERVAL '1 month - 1 day')
             ON CONFLICT (dedupe_key) DO UPDATE SET

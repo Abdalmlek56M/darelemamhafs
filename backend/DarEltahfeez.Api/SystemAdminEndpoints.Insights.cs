@@ -170,9 +170,9 @@ public static partial class SystemAdminEndpoints
                 JOIN circles c ON c.id=ce.circle_id AND c.is_trashed=FALSE
                 LEFT JOIN (
                     SELECT monthly_charge_id, SUM(amount) AS paid
-                    FROM payments WHERE is_trashed=FALSE GROUP BY monthly_charge_id
+                    FROM payments WHERE is_trashed=FALSE AND voided_at IS NULL GROUP BY monthly_charge_id
                 ) p ON p.monthly_charge_id=mc.id
-                WHERE mc.billing_month=@month AND mc.is_trashed=FALSE
+                WHERE mc.billing_month=@month AND mc.is_trashed=FALSE AND mc.voided_at IS NULL
                   AND mc.amount_due <> ce.agreed_monthly_fee
                 ORDER BY c.name, s.full_name;
                 """, connection))

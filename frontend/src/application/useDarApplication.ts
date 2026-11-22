@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
-import type { Theme, Branding, Page, Gate, StudentStatus, TeacherStatus, Session, Student, Teacher, Circle, CollectionRow, Permission, AdminUser, SavedReport, HistoryData, CircleStudent, Notice, StudentForm, TeacherForm, CircleForm, CircleScheduleDraft, EnrollmentForm, ChargeForm, PaymentForm, UserForm, ReportSnapshot, ScheduleSlot, AttendanceRow, AdExpense, AdExpenseForm, OperatingExpense, OperatingExpenseForm, CircleProfitSummary, TeacherPaySummary, TeacherHistoryData, StudentAttendanceSummary } from '../domain/types'
+import type { Theme, Branding, Page, Gate, StudentStatus, TeacherStatus, Session, Student, Teacher, Circle, CollectionRow, Permission, AdminUser, SavedReport, HistoryData, CircleStudent, Notice, StudentForm, TeacherForm, CircleForm, CircleScheduleDraft, EnrollmentForm, ChargeForm, PaymentForm, UserForm, ReportSnapshot, ScheduleSlot, AttendanceRow, AdExpense, AdExpenseForm, OperatingExpense, OperatingExpenseForm, CircleProfitSummary, TeacherPaySummary, TeacherHistoryData, StudentAttendanceSummary, VoidTarget } from '../domain/types'
 import { defaultBranding, weekDays, blankAdExpense, blankOperatingExpense, blankStudent, blankTeacher, blankCircle, blankEnrollment, blankCharge, blankPayment } from '../domain/defaults'
+import { FINANCE_VOID_PERMISSION, VOID_REASON_MAX_LENGTH, VOID_REASON_MIN_LENGTH } from '../system/constants'
 import { statusLabels } from '../domain/labels'
 import { localDateString, localDateKey, currentMonth, formatTime12 } from '../lib/dates'
 import { formatDate, money } from '../lib/formatters'
@@ -105,6 +106,8 @@ export default function useDarApplication() {
   const [saving, setSaving] = useState(false)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<Notice | null>(null)
+  const [voidTarget, setVoidTarget] = useState<VoidTarget | null>(null)
+  const [voidReason, setVoidReason] = useState('')
 
   useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('dar-theme', theme) }, [theme])
   useEffect(() => { document.title = branding.brandName + ' — لوحة الإدارة'; localStorage.setItem('dar-brand-name', branding.brandName) }, [branding.brandName])
@@ -132,7 +135,7 @@ export default function useDarApplication() {
     if (id === 'teachers') return ['teachers.read','teachers.create','teachers.edit','teachers.delete'].some(code => codes.includes(code))
     if (id === 'circles') return ['circles.read','circles.create','circles.edit','circles.delete'].some(code => codes.includes(code))
     if (id === 'schedule') return ['schedule.read','schedule.edit','attendance.read','attendance.edit'].some(code => codes.includes(code))
-    if (id === 'payments') return ['finance.read','finance.create','finance.edit','finance.delete'].some(code => codes.includes(code))
+    if (id === 'payments') return ['finance.read','finance.create','finance.edit','finance.delete','finance.void'].some(code => codes.includes(code))
     if (id === 'users') return codes.includes('users.manage')
     return ['settings.manage','audit.read','trash.manage','backup.manage','exports.manage'].some(code => codes.includes(code))
   }, [])
@@ -273,12 +276,39 @@ export default function useDarApplication() {
 
   const openChargeCreate = (row: CollectionRow) => { closeDetailLayers(); setEditingChargeId(null); setChargeForm(blankCharge(row.enrollmentId, currentMonthValue, getSuggestedMonthlyCharge(row))); setChargeModal(true) }
   const saveCharge = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSaving(true); try { if (editingChargeId) await request(`/api/charges/${editingChargeId}`, { method: 'PUT', body: JSON.stringify({ amountDue: Number(chargeForm.amountDue), note: chargeForm.note.trim() || null }) }); else await request('/api/charges', { method: 'POST', body: JSON.stringify({ ...chargeForm, amountDue: Number(chargeForm.amountDue) }) }); setChargeModal(false); setEditingChargeId(null); await loadCollections(); setToast({ tone: 'success', text: editingChargeId ? 'تم تعديل الاستحقاق.' : 'تم تسجيل استحقاق الشهر للحلقة والطالب.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ الاستحقاق.' }) } finally { setSaving(false) } }
-  const deleteCharge = async (row: CollectionRow) => { if (!row.chargeId || !await moveRecordToTrash('monthly-charge', row.chargeId, `استحقاق ${row.studentName} · ${row.circleName} · ${currentMonthValue}`)) return; await Promise.all([loadCollections(), loadStudents()]) }
+  const openVoidCharge = (chargeId: string, label: string, studentId?: string) => {
+    if (!has(FINANCE_VOID_PERMISSION)) { setToast({ tone: 'error', text: 'إلغاء سجل مالي يحتاج صلاحية إلغاء السجلات المالية (finance.void). اطلبها من المدير.' }); return }
+    setVoidReason('')
+    setVoidTarget({ kind: 'charge', id: chargeId, label, studentId })
+  }
+  const openVoidPayment = (paymentId: string, label: string, studentId?: string) => {
+    if (!has(FINANCE_VOID_PERMISSION)) { setToast({ tone: 'error', text: 'إلغاء سجل مالي يحتاج صلاحية إلغاء السجلات المالية (finance.void). اطلبها من المدير.' }); return }
+    setVoidReason('')
+    setVoidTarget({ kind: 'payment', id: paymentId, label, studentId })
+  }
+  const closeVoidDialog = () => { if (saving) return; setVoidTarget(null); setVoidReason('') }
+  const submitVoid = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!voidTarget) return
+    const reason = voidReason.trim()
+    if (reason.length < VOID_REASON_MIN_LENGTH || reason.length > VOID_REASON_MAX_LENGTH) { setToast({ tone: 'error', text: 'سبب الإلغاء يجب أن يكون بين 3 و500 حرف.' }); return }
+    const target = voidTarget
+    setSaving(true)
+    try {
+      await request('/api/' + (target.kind === 'charge' ? 'charges' : 'payments') + '/' + target.id + '/void', { method: 'POST', body: JSON.stringify({ reason }) })
+      setVoidTarget(null)
+      setVoidReason('')
+      await Promise.all([loadCollections(), loadStudents()])
+      if (target.studentId && history?.student.id === target.studentId) await openHistory(target.studentId)
+      setToast({ tone: 'success', text: target.kind === 'charge' ? 'تم إلغاء الاستحقاق (Void) مع الاحتفاظ بالسجل وسبب الإلغاء.' : 'تم إلغاء حركة التحصيل (Void) مع الاحتفاظ بالسجل وإعادة احتساب المتبقي.' })
+    } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر إلغاء السجل المالي.' }) }
+    finally { setSaving(false) }
+  }
   const deleteReport = async (report: SavedReport) => { if (!await moveRecordToTrash('collection-report', report.id, report.title)) return; await loadReports() }
 
   const openPaymentCreate = (row: CollectionRow) => { if (!row.chargeId) return; closeDetailLayers(); setPaymentForm(blankPayment(row.chargeId, row.balance)); setPaymentModal(true) }
   const savePayment = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSaving(true); try { const data = { ...paymentForm, amount: Number(paymentForm.amount), paidAt: new Date().toISOString(), method: paymentForm.method || null, reference: paymentForm.reference.trim() || null, note: paymentForm.note.trim() || null }; if (paymentReceipt) { const form = new FormData(); Object.entries(data).forEach(([key,value])=>form.append(key, value == null ? '' : String(value))); form.append('receipt',paymentReceipt); await requestForm('/api/payments/with-receipt',form) } else { await request('/api/payments', { method: 'POST', body: JSON.stringify(data) }) } setPaymentModal(false); setPaymentReceipt(null); setPaymentReceiptPreview(null); await Promise.all([loadCollections(), loadStudents()]); if (selectedStudent) await openHistory(selectedStudent.id); setToast({ tone: 'success', text: paymentReceipt ? 'تم تسجيل التحصيل وحفظ صورة الإيصال داخل قاعدة البيانات.' : 'تم تسجيل مبلغ التحصيل.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر تسجيل التحصيل.' }) } finally { setSaving(false) } }
-  const deletePayment = async (id: string, studentId?: string) => { if (!await moveRecordToTrash('payment', id, 'حركة تحصيل')) return; await Promise.all([loadCollections(), loadStudents()]); if (studentId) await openHistory(studentId) }
+
 
   const createReport = async () => { setSaving(true); try { await request('/api/collection-reports', { method: 'POST', body: JSON.stringify({ billingMonth: currentMonthValue, title: `تقرير تحصيل ${currentMonthValue}` }) }); await loadReports(); setToast({ tone: 'success', text: 'تم حفظ نسخة ثابتة من تقرير التحصيل في النظام.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ التقرير.' }) } finally { setSaving(false) } }
   const openSavedReport = async (report: SavedReport) => { try { setReportView(await request<ReportSnapshot>(`/api/collection-reports/${report.id}`)) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر فتح التقرير المحفوظ.' }) } }
@@ -377,8 +407,9 @@ export default function useDarApplication() {
     saveScheduleSlot, removeScheduleSlot, markAttendance, updateAttendanceDuration,
     saveAdExpense, deleteAdExpense, enableNotifications, nextSessions, monthSessions, monthlyTeacherPay,
     openEnrollmentCreate, saveEnrollment, endEnrollment, pauseEnrollment, resumeEnrollment,
-    openChargeCreate, saveCharge, deleteCharge, deleteReport,
-    openPaymentCreate, savePayment, deletePayment, createReport, openSavedReport,
+    openChargeCreate, saveCharge, deleteReport,
+    openPaymentCreate, savePayment, createReport, openSavedReport,
+    voidTarget, setVoidTarget, voidReason, setVoidReason, openVoidCharge, openVoidPayment, submitVoid, closeVoidDialog,
     downloadCollectionSvg, downloadSavedCsv, downloadSavedJson,
     resetOperatingExpenseForm, editOperatingExpense, saveOperatingExpense, deleteOperatingExpense,
     openUserCreate, openUserEdit, saveUser, deactivateUser,

@@ -134,14 +134,14 @@ public static partial class DomainEndpoints
         if (financeVisible)
         {
             await using(var cmd=db.CreateCommand("""
-              SELECT mc.id,mc.billing_month,mc.amount_due,mc.note,c.name,p.id,p.amount,p.paid_at,p.method,p.reference,p.note,(p.receipt_data IS NOT NULL)
+              SELECT mc.id,mc.billing_month,mc.amount_due,mc.note,c.name,p.id,p.amount,p.paid_at,p.method,p.reference,p.note,(p.receipt_data IS NOT NULL),mc.voided_at,mc.void_reason,p.voided_at,p.void_reason
               FROM circle_enrollments ce JOIN circles c ON c.id=ce.circle_id JOIN monthly_charges mc ON mc.enrollment_id=ce.id
               LEFT JOIN payments p ON p.monthly_charge_id=mc.id AND p.is_trashed=FALSE WHERE ce.student_id=@id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE
               ORDER BY mc.billing_month DESC,p.paid_at DESC;
               """))
             {cmd.Parameters.AddWithValue("id",id);await using var reader=await cmd.ExecuteReaderAsync(ct);while(await reader.ReadAsync(ct)){
-                var chargeId=reader.GetGuid(0);if(!charges.TryGetValue(chargeId,out var charge)){charge=new ChargeHistoryBuilder(chargeId,reader.GetFieldValue<DateOnly>(1),reader.GetDecimal(2),reader.IsDBNull(3)?null:reader.GetString(3),reader.GetString(4));charges.Add(chargeId,charge);}
-                if(!reader.IsDBNull(5))charge.Payments.Add(new PaymentHistory(reader.GetGuid(5),reader.GetDecimal(6),reader.GetFieldValue<DateTimeOffset>(7),reader.IsDBNull(8)?null:reader.GetString(8),reader.IsDBNull(9)?null:reader.GetString(9),reader.IsDBNull(10)?null:reader.GetString(10),reader.GetBoolean(11)));
+                var chargeId=reader.GetGuid(0);if(!charges.TryGetValue(chargeId,out var charge)){charge=new ChargeHistoryBuilder(chargeId,reader.GetFieldValue<DateOnly>(1),reader.GetDecimal(2),reader.IsDBNull(3)?null:reader.GetString(3),reader.GetString(4),reader.IsDBNull(12)?(DateTimeOffset?)null:reader.GetFieldValue<DateTimeOffset>(12),reader.IsDBNull(13)?null:reader.GetString(13));charges.Add(chargeId,charge);}
+                if(!reader.IsDBNull(5))charge.Payments.Add(new PaymentHistory(reader.GetGuid(5),reader.GetDecimal(6),reader.GetFieldValue<DateTimeOffset>(7),reader.IsDBNull(8)?null:reader.GetString(8),reader.IsDBNull(9)?null:reader.GetString(9),reader.IsDBNull(10)?null:reader.GetString(10),reader.GetBoolean(11),reader.IsDBNull(14)?(DateTimeOffset?)null:reader.GetFieldValue<DateTimeOffset>(14),reader.IsDBNull(15)?null:reader.GetString(15)));
               }}
         }
         var notes=new List<StudentNoteResponse>();

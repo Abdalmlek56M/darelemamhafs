@@ -160,13 +160,13 @@ public static partial class SystemAdminEndpoints
                 SELECT mc.id, concat(s.full_name,' · ',c.name,' · ',mc.billing_month::text)
                 FROM monthly_charges mc JOIN circle_enrollments ce ON ce.id=mc.enrollment_id
                 JOIN students s ON s.id=ce.student_id JOIN circles c ON c.id=ce.circle_id
-                WHERE mc.is_trashed=FALSE ORDER BY mc.billing_month DESC,s.full_name;
+                WHERE mc.is_trashed=FALSE AND mc.voided_at IS NULL ORDER BY mc.billing_month DESC,s.full_name;
                 """, ct);
             var payments = await ReadResetCandidatesAsync(db, """
                 SELECT p.id, concat(s.full_name,' · ',c.name,' · ',to_char(p.paid_at,'DD/MM/YYYY'))
                 FROM payments p JOIN monthly_charges mc ON mc.id=p.monthly_charge_id
                 JOIN circle_enrollments ce ON ce.id=mc.enrollment_id JOIN students s ON s.id=ce.student_id JOIN circles c ON c.id=ce.circle_id
-                WHERE p.is_trashed=FALSE ORDER BY p.paid_at DESC,s.full_name;
+                WHERE p.is_trashed=FALSE AND p.voided_at IS NULL ORDER BY p.paid_at DESC,s.full_name;
                 """, ct);
             var advertisingExpenses = await ReadResetCandidatesAsync(db, """
                 SELECT a.id, concat(c.name,' · ',COALESCE(a.platform,'إعلان'),' · ',to_char(a.start_date,'DD/MM/YYYY'))

@@ -97,11 +97,11 @@ public static class MoneyEndpoints
             FROM circle_enrollments ce
             JOIN students s ON s.id=ce.student_id AND s.is_trashed=FALSE
             JOIN circles c ON c.id=ce.circle_id AND c.is_trashed=FALSE
-            LEFT JOIN monthly_charges mc ON mc.enrollment_id=ce.id AND mc.billing_month=@month AND mc.is_trashed=FALSE
+            LEFT JOIN monthly_charges mc ON mc.enrollment_id=ce.id AND mc.billing_month=@month AND mc.is_trashed=FALSE AND mc.voided_at IS NULL
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount),0) AS paid
                 FROM payments
-                WHERE monthly_charge_id=mc.id AND is_trashed=FALSE
+                WHERE monthly_charge_id=mc.id AND is_trashed=FALSE AND voided_at IS NULL
             ) p ON TRUE
             WHERE c.teacher_id=@teacher AND ce.is_trashed=FALSE AND ce.status='active'
             ORDER BY s.full_name;

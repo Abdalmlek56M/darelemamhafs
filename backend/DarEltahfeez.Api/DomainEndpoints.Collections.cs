@@ -25,7 +25,7 @@ public static partial class DomainEndpoints
                   AND ce.starts_on<=(@month+INTERVAL '1 month - 1 day')::date
                   AND (ce.ends_on IS NULL OR ce.ends_on>=@month)
                   AND public.dar_enrollment_has_active_day_in_month(ce.id,@month)
-                  AND NOT EXISTS(SELECT 1 FROM monthly_charges existing_charge WHERE existing_charge.enrollment_id=ce.id AND existing_charge.billing_month=@month AND existing_charge.is_trashed=FALSE)
+                  AND NOT EXISTS(SELECT 1 FROM monthly_charges existing_charge WHERE existing_charge.enrollment_id=ce.id AND existing_charge.billing_month=@month AND existing_charge.is_trashed=FALSE AND existing_charge.voided_at IS NULL)
                 ORDER BY c.name,s.full_name;
                 """))
             {
@@ -41,7 +41,7 @@ public static partial class DomainEndpoints
                 JOIN circle_enrollments ce ON ce.id=mc.enrollment_id
                 JOIN students s ON s.id=ce.student_id
                 JOIN circles c ON c.id=ce.circle_id
-                WHERE mc.billing_month=@month AND mc.is_trashed=FALSE AND ce.is_trashed=FALSE
+                WHERE mc.billing_month=@month AND mc.is_trashed=FALSE AND mc.voided_at IS NULL AND ce.is_trashed=FALSE
                   AND s.is_trashed=FALSE AND c.is_trashed=FALSE
                 ORDER BY c.name,s.full_name;
                 """))
@@ -100,13 +100,13 @@ public static partial class DomainEndpoints
             await using var conn = await db.OpenConnectionAsync(ct);
             await using var tx = await conn.BeginTransactionAsync(ct);
             decimal paid;
-            await using (var check = new NpgsqlCommand("SELECT id FROM monthly_charges WHERE id=@id AND is_trashed=FALSE FOR UPDATE;", conn, tx))
+            await using (var check = new NpgsqlCommand("SELECT id FROM monthly_charges WHERE id=@id AND is_trashed=FALSE AND voided_at IS NULL FOR UPDATE;", conn, tx))
             {
                 check.Parameters.AddWithValue("id", id);
                 var value = await check.ExecuteScalarAsync(ct);
                 if (value is null) return Results.NotFound(new { message = "الاستحقاق غير موجود." });
             }
-            await using (var sum = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE monthly_charge_id=@id AND is_trashed=FALSE;", conn, tx))
+            await using (var sum = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE monthly_charge_id=@id AND is_trashed=FALSE AND voided_at IS NULL;", conn, tx))
             {
                 sum.Parameters.AddWithValue("id", id);
                 paid = Convert.ToDecimal(await sum.ExecuteScalarAsync(ct) ?? 0m, System.Globalization.CultureInfo.InvariantCulture);
@@ -135,12 +135,12 @@ public static partial class DomainEndpoints
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["amount"] = ["حدد الاستحقاق واكتب مبلغًا صحيحًا أكبر من صفر وبحد أقصى 9,999,999,999.99 ج.م."] });
             await using var conn=await db.OpenConnectionAsync(ct);await using var tx=await conn.BeginTransactionAsync(ct);
             decimal due,paid;
-            await using(var check=new NpgsqlCommand("SELECT amount_due FROM monthly_charges WHERE id=@id AND is_trashed=FALSE FOR UPDATE;",conn,tx))
+            await using(var check=new NpgsqlCommand("SELECT amount_due FROM monthly_charges WHERE id=@id AND is_trashed=FALSE AND voided_at IS NULL FOR UPDATE;",conn,tx))
             {
                 check.Parameters.AddWithValue("id",request.MonthlyChargeId);var value=await check.ExecuteScalarAsync(ct);
                 if(value is null)return Results.NotFound(new{message="الاستحقاق غير موجود."});due=Convert.ToDecimal(value,System.Globalization.CultureInfo.InvariantCulture);
             }
-            await using(var sum=new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE monthly_charge_id=@id AND is_trashed=FALSE;",conn,tx))
+            await using(var sum=new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE monthly_charge_id=@id AND is_trashed=FALSE AND voided_at IS NULL;",conn,tx))
             {sum.Parameters.AddWithValue("id",request.MonthlyChargeId);paid=Convert.ToDecimal(await sum.ExecuteScalarAsync(ct)??0m,System.Globalization.CultureInfo.InvariantCulture);}
             if (MoneyRules.ExceedsOutstanding(paymentAmount, due, paid))
                 return Results.Conflict(new { message = CanReadFinance(principal) ? $"المبلغ أكبر من المتبقي ({MoneyRules.RoundCurrency(due - paid):0.00}). سجّل مبلغًا مساويًا أو أقل من المتبقي." : "المبلغ يتجاوز المتبقي المسموح لهذا الاستحقاق." });
@@ -181,10 +181,10 @@ public static partial class DomainEndpoints
             if (reference?.Length > 120 || note?.Length > 5000) return Results.ValidationProblem(new Dictionary<string, string[]> { ["note"] = ["المرجع أو الملاحظات أطول من المسموح."] });
             await using var conn = await db.OpenConnectionAsync(ct); await using var tx = await conn.BeginTransactionAsync(ct);
             decimal due;
-            await using (var check = new NpgsqlCommand("SELECT amount_due FROM monthly_charges WHERE id=@id AND is_trashed=FALSE FOR UPDATE;", conn, tx))
+            await using (var check = new NpgsqlCommand("SELECT amount_due FROM monthly_charges WHERE id=@id AND is_trashed=FALSE AND voided_at IS NULL FOR UPDATE;", conn, tx))
             { check.Parameters.AddWithValue("id", chargeId); var value = await check.ExecuteScalarAsync(ct); if (value is null) return Results.NotFound(new { message = "الاستحقاق غير موجود." }); due = Convert.ToDecimal(value, System.Globalization.CultureInfo.InvariantCulture); }
             decimal paid;
-            await using (var sum = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE monthly_charge_id=@id AND is_trashed=FALSE;", conn, tx))
+            await using (var sum = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE monthly_charge_id=@id AND is_trashed=FALSE AND voided_at IS NULL;", conn, tx))
             { sum.Parameters.AddWithValue("id", chargeId); paid = Convert.ToDecimal(await sum.ExecuteScalarAsync(ct) ?? 0m, System.Globalization.CultureInfo.InvariantCulture); }
             if (MoneyRules.ExceedsOutstanding(amount, due, paid))
                 return Results.Conflict(new { message = CanReadFinance(principal) ? $"المبلغ أكبر من المتبقي ({MoneyRules.RoundCurrency(due - paid):0.00}). سجّل مبلغًا مساويًا أو أقل من المتبقي." : "المبلغ يتجاوز المتبقي المسموح لهذا الاستحقاق." });
@@ -214,6 +214,103 @@ public static partial class DomainEndpoints
             return Results.File(data,contentType);
         }).RequireAuthorization("finance.read");
 
+        app.MapPost("/api/charges/{id:guid}/void", async Task<IResult> (Guid id, VoidRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
+        {
+            var actor = ActorId(principal);
+            if (actor == Guid.Empty) return Results.Unauthorized();
+            await using var conn = await db.OpenConnectionAsync(ct);
+            await using var tx = await conn.BeginTransactionAsync(ct);
+            int outcome;
+            await using (var call = new NpgsqlCommand("SELECT public.dar_void_charge(@id,@actor,@reason);", conn, tx))
+            {
+                call.Parameters.AddWithValue("id", id);
+                call.Parameters.AddWithValue("actor", actor);
+                AddNullable(call, "reason", request.Reason);
+                outcome = Convert.ToInt32(await call.ExecuteScalarAsync(ct) ?? 4, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            if (outcome != 0)
+            {
+                await tx.RollbackAsync(ct);
+                return outcome switch
+                {
+                    1 => Results.NotFound(new { message = "الاستحقاق غير موجود أو موجود في سلة المهملات." }),
+                    2 => Results.Conflict(new { message = "الاستحقاق ملغي بالفعل." }),
+                    3 => Results.Conflict(new { message = "لا يمكن إلغاء استحقاق عليه دفعات سارية — ألغِ الدفعات أولًا." }),
+                    _ => Results.ValidationProblem(new Dictionary<string, string[]> { ["reason"] = ["سبب الإلغاء مطلوب وبين 3 و500 حرف."] })
+                };
+            }
+            decimal amountDue; DateTimeOffset? voidedAt; string? voidReason;
+            await using (var read = new NpgsqlCommand("SELECT amount_due,voided_at,void_reason FROM monthly_charges WHERE id=@id;", conn, tx))
+            {
+                read.Parameters.AddWithValue("id", id);
+                await using var reader = await read.ExecuteReaderAsync(ct);
+                if (!await reader.ReadAsync(ct)) { await tx.RollbackAsync(ct); return Results.NotFound(new { message = "الاستحقاق غير موجود." }); }
+                amountDue = reader.GetDecimal(0);
+                voidedAt = reader.IsDBNull(1) ? null : reader.GetFieldValue<DateTimeOffset>(1);
+                voidReason = reader.IsDBNull(2) ? null : reader.GetString(2);
+                await reader.CloseAsync();
+            }
+            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'charge.void','monthly_charge',@id,jsonb_build_object('amountDue',@amount,'voidReason',@reason));", conn, tx))
+            {
+                audit.Parameters.AddWithValue("actor", actor);
+                audit.Parameters.AddWithValue("id", id);
+                audit.Parameters.AddWithValue("amount", amountDue);
+                AddNullable(audit, "reason", voidReason ?? request.Reason);
+                await audit.ExecuteNonQueryAsync(ct);
+            }
+            await tx.CommitAsync(ct);
+            return Results.Ok(new { id, voidedAt, voidReason });
+        }).RequireAuthorization("finance.void");
+
+        app.MapPost("/api/payments/{id:guid}/void", async Task<IResult> (Guid id, VoidRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
+        {
+            var actor = ActorId(principal);
+            if (actor == Guid.Empty) return Results.Unauthorized();
+            await using var conn = await db.OpenConnectionAsync(ct);
+            await using var tx = await conn.BeginTransactionAsync(ct);
+            int outcome;
+            await using (var call = new NpgsqlCommand("SELECT public.dar_void_payment(@id,@actor,@reason);", conn, tx))
+            {
+                call.Parameters.AddWithValue("id", id);
+                call.Parameters.AddWithValue("actor", actor);
+                AddNullable(call, "reason", request.Reason);
+                outcome = Convert.ToInt32(await call.ExecuteScalarAsync(ct) ?? 4, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            if (outcome != 0)
+            {
+                await tx.RollbackAsync(ct);
+                return outcome switch
+                {
+                    1 => Results.NotFound(new { message = "حركة التحصيل غير موجودة أو موجودة في سلة المهملات." }),
+                    2 => Results.Conflict(new { message = "حركة التحصيل ملغاة بالفعل." }),
+                    _ => Results.ValidationProblem(new Dictionary<string, string[]> { ["reason"] = ["سبب الإلغاء مطلوب وبين 3 و500 حرف."] })
+                };
+            }
+            Guid chargeId; decimal amount; DateTimeOffset? voidedAt; string? voidReason;
+            await using (var read = new NpgsqlCommand("SELECT monthly_charge_id,amount,voided_at,void_reason FROM payments WHERE id=@id;", conn, tx))
+            {
+                read.Parameters.AddWithValue("id", id);
+                await using var reader = await read.ExecuteReaderAsync(ct);
+                if (!await reader.ReadAsync(ct)) { await tx.RollbackAsync(ct); return Results.NotFound(new { message = "حركة التحصيل غير موجودة." }); }
+                chargeId = reader.GetGuid(0);
+                amount = reader.GetDecimal(1);
+                voidedAt = reader.IsDBNull(2) ? null : reader.GetFieldValue<DateTimeOffset>(2);
+                voidReason = reader.IsDBNull(3) ? null : reader.GetString(3);
+                await reader.CloseAsync();
+            }
+            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'payment.void','payment',@id,jsonb_build_object('chargeId',@charge,'amount',@amount,'voidReason',@reason));", conn, tx))
+            {
+                audit.Parameters.AddWithValue("actor", actor);
+                audit.Parameters.AddWithValue("id", id);
+                audit.Parameters.AddWithValue("charge", chargeId);
+                audit.Parameters.AddWithValue("amount", amount);
+                AddNullable(audit, "reason", voidReason ?? request.Reason);
+                await audit.ExecuteNonQueryAsync(ct);
+            }
+            await tx.CommitAsync(ct);
+            return Results.Ok(new { id, monthlyChargeId = chargeId, voidedAt, voidReason });
+        }).RequireAuthorization("finance.void");
+
     }
     private static async Task<CollectionRow[]> LoadCollections(NpgsqlDataSource db,DateOnly month,CancellationToken ct)
     {
@@ -224,8 +321,8 @@ public static partial class DomainEndpoints
                  CASE WHEN mc.id IS NULL THEN 'not-set' WHEN COALESCE(p.paid,0)>=mc.amount_due THEN 'paid' WHEN COALESCE(p.paid,0)>0 THEN 'partial' ELSE 'unpaid' END,
                  ce.starts_on,ce.ends_on,c.starts_on
           FROM circle_enrollments ce JOIN students s ON s.id=ce.student_id JOIN circles c ON c.id=ce.circle_id LEFT JOIN teachers t ON t.id=c.teacher_id
-          LEFT JOIN monthly_charges mc ON mc.enrollment_id=ce.id AND mc.billing_month=@month AND mc.is_trashed=FALSE
-          LEFT JOIN LATERAL(SELECT COALESCE(SUM(amount),0) AS paid FROM payments WHERE monthly_charge_id=mc.id AND is_trashed=FALSE) p ON TRUE
+          LEFT JOIN monthly_charges mc ON mc.enrollment_id=ce.id AND mc.billing_month=@month AND mc.is_trashed=FALSE AND mc.voided_at IS NULL
+          LEFT JOIN LATERAL(SELECT COALESCE(SUM(amount),0) AS paid FROM payments WHERE monthly_charge_id=mc.id AND is_trashed=FALSE AND voided_at IS NULL) p ON TRUE
           WHERE ce.is_trashed=FALSE AND s.is_trashed=FALSE AND c.is_trashed=FALSE AND (ce.status='active' OR mc.id IS NOT NULL) AND ce.starts_on<=(@month+INTERVAL '1 month - 1 day')::date AND (ce.ends_on IS NULL OR ce.ends_on>=@month) AND (c.starts_on<=(@month+INTERVAL '1 month - 1 day')::date OR mc.id IS NOT NULL)
           ORDER BY c.name,s.full_name;
           """);cmd.Parameters.AddWithValue("month",month);await using var reader=await cmd.ExecuteReaderAsync(ct);

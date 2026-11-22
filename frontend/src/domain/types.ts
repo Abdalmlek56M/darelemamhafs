@@ -22,14 +22,17 @@ export type CollectionRow = { enrollmentId: string; chargeId: string | null; stu
 export type Permission = { code: string; nameAr: string }
 export type AdminUser = { id: string; username: string; displayName: string; isActive: boolean; isLocked: boolean; teacherId: string | null; lockReason: string | null; permissionCodes: string[]; scopeCircleIds: string[]; scopeTeacherIds: string[]; createdAt: string }
 export type SavedReport = { id: string; title: string; billingMonth: string; createdAt: string }
-export type HistoryPayment = { id: string; amount: number; paidAt: string; method: string | null; reference: string | null; note: string | null; hasReceipt?: boolean }
-export type HistoryCharge = { id: string; billingMonth: string; amountDue: number; paidAmount: number; balance: number; note: string | null; circleName: string; payments: HistoryPayment[] }
+export type HistoryPayment = { id: string; amount: number; paidAt: string; method: string | null; reference: string | null; note: string | null; hasReceipt?: boolean; voidedAt?: string | null; voidReason?: string | null }
+export type HistoryCharge = { id: string; billingMonth: string; amountDue: number; paidAmount: number; balance: number; note: string | null; circleName: string; payments: HistoryPayment[]; voidedAt?: string | null; voidReason?: string | null }
 export type HistoryStudentAttendance = { id: string; sessionDate: string; circleName: string; startsAt: string; status: 'present' | 'absent' | 'excused'; teacherName: string; note: string | null; markedAt: string }
 export type HistoryData = {
   student: Student; financeVisible?: boolean; attendanceVisible?: boolean; attendance?: HistoryStudentAttendance[]; enrollments: { id: string; circleId: string; circleName: string; teacherName: string; startsOn: string; endsOn: string | null; agreedMonthlyFee: number | null; status: string }[]
   charges: HistoryCharge[]; notes: { id: string; noteText: string; createdAt: string; createdBy: string }[]
 }
 export type CircleStudent = { enrollmentId: string; studentId: string; studentCode: string; studentName: string; ageYears: number | null; startsOn: string; endsOn: string | null; enrollmentStatus: string; agreedMonthlyFee: number | null; currentMonthDue: number | null; currentMonthPaid: number | null; chargeId: string | null }
+export type VoidTargetKind = 'charge' | 'payment'
+/** Record selected for a Void/Reverse action — the record is kept, never deleted (ADR-0005). */
+export type VoidTarget = { kind: VoidTargetKind; id: string; label: string; studentId?: string }
 export type Notice = { tone: 'success' | 'error' | 'info'; text: string }
 export type StudentForm = { studentCode: string; fullName: string; ageYears: string; phone: string; guardianName: string; guardianPhone: string; joinedOn: string; status: StudentStatus; notes: string }
 export type TeacherForm = { teacherCode: string; fullName: string; phone: string; hourlyRate: string; status: TeacherStatus; notes: string }

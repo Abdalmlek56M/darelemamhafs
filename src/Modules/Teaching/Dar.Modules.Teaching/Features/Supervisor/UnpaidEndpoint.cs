@@ -31,9 +31,10 @@ public static class UnpaidEndpoint
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(amount), 0) AS paid
                 FROM payments
-                WHERE monthly_charge_id = mc.id AND is_trashed = FALSE
+                WHERE monthly_charge_id = mc.id AND is_trashed = FALSE AND voided_at IS NULL
             ) p ON TRUE
             WHERE mc.is_trashed = FALSE
+              AND mc.voided_at IS NULL
               AND mc.billing_month = @month
               AND mc.amount_due > COALESCE(p.paid, 0)
               AND (@all OR c.id = ANY(@circles))

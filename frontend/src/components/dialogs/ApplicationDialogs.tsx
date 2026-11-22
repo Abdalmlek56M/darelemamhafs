@@ -13,6 +13,7 @@ import StudentHistoryDialog from './StudentHistoryDialog'
 import CircleDetailsDialog from './CircleDetailsDialog'
 import SavedReportDialog from './SavedReportDialog'
 import EndEnrollmentDialog from './EndEnrollmentDialog'
+import VoidDialog from './VoidDialog'
 
 type Props = { ctx: DarApplicationContext }
 
@@ -26,6 +27,7 @@ export default function ApplicationDialogs({ ctx }: Props) {
       {ctx.endingEnrollment && <EndEnrollmentDialog ctx={ctx} />}
       {ctx.chargeModal && <ChargeDialog ctx={ctx} />}
       {ctx.paymentModal && <PaymentDialog ctx={ctx} />}
+      {ctx.voidTarget && <VoidDialog ctx={ctx} />}
       {ctx.userModal && <UserDialog ctx={ctx} />}
       {(ctx.history !== null || (ctx.historyLoading && ctx.selectedStudentPreview !== null)) && <StudentHistoryDialog ctx={ctx} />}
       {ctx.selectedTeacherDetails !== null && <TeacherHistoryDialog ctx={ctx} />}

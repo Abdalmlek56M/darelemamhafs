@@ -28,6 +28,7 @@ public static class AppPermissions
         ("finance.create", "تسجيل الاستحقاقات والمدفوعات وحفظ تقارير التحصيل"),
         ("finance.edit", "تعديل الاستحقاقات"),
         ("finance.delete", "حذف حركات التحصيل وتقاريرها"),
+        ("finance.void", "إلغاء السجلات المالية بسبب موثق"),
         ("users.manage", "إدارة الحسابات والصلاحيات"),
         ("settings.manage", "إدارة إعدادات الدار"),
         ("audit.read", "عرض سجل التدقيق والتغييرات"),

@@ -14,22 +14,22 @@ public static partial class DomainEndpoints
                          FROM circle_enrollments ce JOIN circles c ON c.id=ce.circle_id
                          WHERE ce.student_id=s.id AND ce.status='active' AND ce.is_trashed=FALSE AND c.is_active=TRUE AND c.is_trashed=FALSE), ''),
                COALESCE((SELECT SUM(mc.amount_due) FROM circle_enrollments ce
-                         JOIN monthly_charges mc ON mc.enrollment_id=ce.id AND mc.billing_month=date_trunc('month', CURRENT_DATE)::date AND mc.is_trashed=FALSE
-                         WHERE ce.student_id=s.id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE), 0),
+                         JOIN monthly_charges mc ON mc.enrollment_id=ce.id AND mc.billing_month=date_trunc('month', CURRENT_DATE)::date AND mc.is_trashed=FALSE AND mc.voided_at IS NULL
+                         WHERE ce.student_id=s.id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE AND mc.voided_at IS NULL), 0),
                COALESCE((SELECT SUM(p.amount) FROM payments p JOIN monthly_charges mc ON mc.id=p.monthly_charge_id
                          JOIN circle_enrollments ce ON ce.id=mc.enrollment_id
-                         WHERE ce.student_id=s.id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE AND p.is_trashed=FALSE AND mc.billing_month=date_trunc('month', CURRENT_DATE)::date), 0),
+                         WHERE ce.student_id=s.id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE AND mc.voided_at IS NULL AND p.is_trashed=FALSE AND p.voided_at IS NULL AND mc.billing_month=date_trunc('month', CURRENT_DATE)::date), 0),
                CASE
                  WHEN NOT EXISTS (SELECT 1 FROM circle_enrollments ce JOIN monthly_charges mc ON mc.enrollment_id=ce.id
-                                  WHERE ce.student_id=s.id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE AND mc.billing_month=date_trunc('month', CURRENT_DATE)::date) THEN 'not-set'
+                                  WHERE ce.student_id=s.id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE AND mc.voided_at IS NULL AND mc.billing_month=date_trunc('month', CURRENT_DATE)::date) THEN 'not-set'
                  WHEN COALESCE((SELECT SUM(p.amount) FROM payments p JOIN monthly_charges mc ON mc.id=p.monthly_charge_id
                                 JOIN circle_enrollments ce ON ce.id=mc.enrollment_id
-                                WHERE ce.student_id=s.id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE AND p.is_trashed=FALSE AND mc.billing_month=date_trunc('month', CURRENT_DATE)::date), 0)
+                                WHERE ce.student_id=s.id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE AND mc.voided_at IS NULL AND p.is_trashed=FALSE AND p.voided_at IS NULL AND mc.billing_month=date_trunc('month', CURRENT_DATE)::date), 0)
                     >= COALESCE((SELECT SUM(mc.amount_due) FROM circle_enrollments ce JOIN monthly_charges mc ON mc.enrollment_id=ce.id
-                                 WHERE ce.student_id=s.id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE AND mc.billing_month=date_trunc('month', CURRENT_DATE)::date), 0) THEN 'paid'
+                                 WHERE ce.student_id=s.id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE AND mc.voided_at IS NULL AND mc.billing_month=date_trunc('month', CURRENT_DATE)::date), 0) THEN 'paid'
                  WHEN COALESCE((SELECT SUM(p.amount) FROM payments p JOIN monthly_charges mc ON mc.id=p.monthly_charge_id
                                 JOIN circle_enrollments ce ON ce.id=mc.enrollment_id
-                                WHERE ce.student_id=s.id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE AND p.is_trashed=FALSE AND mc.billing_month=date_trunc('month', CURRENT_DATE)::date), 0) > 0 THEN 'partial'
+                                WHERE ce.student_id=s.id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE AND mc.voided_at IS NULL AND p.is_trashed=FALSE AND p.voided_at IS NULL AND mc.billing_month=date_trunc('month', CURRENT_DATE)::date), 0) > 0 THEN 'partial'
                  ELSE 'unpaid'
                END AS current_month_payment_status
         FROM students s
@@ -89,9 +89,13 @@ public sealed record CollectionRow(Guid EnrollmentId,Guid? ChargeId,Guid Student
 {
     public decimal Balance=>Math.Max(0,AmountDue-PaidAmount);
 }
-public sealed record PaymentHistory(Guid Id,decimal Amount,DateTimeOffset PaidAt,string? Method,string? Reference,string? Note,bool HasReceipt);
-public sealed class ChargeHistoryBuilder(Guid id,DateOnly billingMonth,decimal amountDue,string? note,string circleName)
+public sealed record PaymentHistory(Guid Id,decimal Amount,DateTimeOffset PaidAt,string? Method,string? Reference,string? Note,bool HasReceipt,DateTimeOffset? VoidedAt=null,string? VoidReason=null);
+public sealed class ChargeHistoryBuilder(Guid id,DateOnly billingMonth,decimal amountDue,string? note,string circleName,DateTimeOffset? voidedAt=null,string? voidReason=null)
 {
-    public Guid Id {get;}=id; public DateOnly BillingMonth {get;}=billingMonth; public decimal AmountDue {get;}=amountDue; public string? Note {get;}=note; public string CircleName {get;}=circleName; public List<PaymentHistory> Payments {get;}=[];
-    public object ToResponse()=>new{id=Id,billingMonth=BillingMonth,amountDue=AmountDue,paidAmount=Payments.Sum(p=>p.Amount),balance=Math.Max(0,AmountDue-Payments.Sum(p=>p.Amount)),note=Note,circleName=CircleName,payments=Payments};
+    public Guid Id {get;}=id; public DateOnly BillingMonth {get;}=billingMonth; public decimal AmountDue {get;}=amountDue; public string? Note {get;}=note; public string CircleName {get;}=circleName;
+    public DateTimeOffset? VoidedAt {get;}=voidedAt; public string? VoidReason {get;}=voidReason;
+    public List<PaymentHistory> Payments {get;}=[];
+    public decimal PaidAmount=>Payments.Where(p=>p.VoidedAt is null).Sum(p=>p.Amount);
+    public object ToResponse()=>new{id=Id,billingMonth=BillingMonth,amountDue=AmountDue,paidAmount=PaidAmount,balance=Math.Max(0,AmountDue-PaidAmount),note=Note,circleName=CircleName,voidedAt=VoidedAt,voidReason=VoidReason,payments=Payments};
 }
+public sealed record VoidRequest(string? Reason,string? Note=null);

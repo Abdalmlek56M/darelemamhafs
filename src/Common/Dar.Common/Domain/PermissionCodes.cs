@@ -29,6 +29,7 @@ public static class PermissionCodes
         ("finance.create", "تسجيل الاستحقاقات والمدفوعات"),
         ("finance.edit", "تعديل الاستحقاقات"),
         ("finance.delete", "إلغاء الحركات المالية"),
+        ("finance.void", "إلغاء السجلات المالية بسبب موثق"),
         ("users.manage", "إدارة الحسابات والصلاحيات"),
         ("settings.manage", "إدارة إعدادات الدار"),
         ("audit.read", "عرض سجل التدقيق"),

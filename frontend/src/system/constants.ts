@@ -50,7 +50,12 @@ export const systemTabs: { id: SystemTab; label: string; icon: typeof Settings2;
   { id: 'reset', label: 'تصفير بيانات التشغيل', icon: DatabaseZap, permission: 'trash.manage' },
 ]
 
-/** Mirrors the server-side trash permission map. */
+/** Permission required to void (Reverse) a financial record with a mandatory reason — records are never deleted (ADR-0005). */
+export const FINANCE_VOID_PERMISSION = 'finance.void'
+export const VOID_REASON_MIN_LENGTH = 3
+export const VOID_REASON_MAX_LENGTH = 500
+
+/** Mirrors the server-side trash permission map. Financial types are voided instead (ADR-0005); the mapping remains for legacy trash rows. */
 export function trashPermissionFor(entityType: string): string | null {
   switch (entityType) {
     case 'student': return 'students.delete'
