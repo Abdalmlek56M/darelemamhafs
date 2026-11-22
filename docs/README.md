@@ -57,7 +57,7 @@
 - **النظام Live** على `dar-elemam-hafs.rigxhardware.com` (Nginx + systemd + PostgreSQL 17).
 - **الواجهة:** React 19 + Vite (نهائي) — `/`، `/management`، `/teacher`، `/supervisor`.
 - **Backend:** legacy API (كل الدومين) + new API `/api/v1` (Identity + Secretariat + Teaching).
-- **الترحيلات:** 23 (001→023).
+- **الترحيلات:** 24 في المستودع (001→024)؛ الإنتاج على 23 حتى النشر القادم.
 - **الاختبارات:** 16 unit + 20 integration + 6 Vitest؛ لا Playwright/Contract بعد.
 - **تم 22 Nov:** 2.0 Docs Reset + 2.1 تأمين النشر/النسخ (تحتاج rehearsal) + 2.2 تداخل المواعيد (45/45 PASS).
 - **التالي:** 2.3 Reverse/Void ثم 2.4 تجاوب لوحة الإدارة — التفاصيل في `docs/17-master-plan.md`.

@@ -21,7 +21,7 @@
 | الواجهة | **React 19 + Vite + TypeScript** + CSS tokens + framer-motion — **لا Next.js** (القرار ملغي نهائيًا، ADR-0001) |
 | Backend (قديم) | ASP.NET Core 10 Minimal API — `backend/DarEltahfeez.Api` على 5080 (يخدم الـSPA + كل الـdomain APIs) |
 | Backend (جديد) | `Dar.slnx`: `src/Host/Dar.Api` على 5081 — `/api/v1/*` (Identity + Secretariat + Teaching فقط) |
-| قاعدة البيانات | PostgreSQL 17 — `public` schema — 23 migration (001→023) |
+| قاعدة البيانات | PostgreSQL 17 — `public` schema — **24 migration في المستودع (001→024)**؛ الإنتاج على 23 حتى تطبيق `deploy/update.sh` القادم |
 | النشر | Ubuntu 24.04 + Nginx + Certbot + systemd + منافذ داخلية 5080/5081 |
 | الاختبارات | 16 unit + 20 integration (Testcontainers) + 6 Vitest |
 | اللغة | العربية فقط الآن — الإنجليزية مؤجلة (ADR-0004) |
@@ -64,7 +64,7 @@
 - **استحقاق الطالبة:** `agreed_monthly_fee` المسجّل وقت الالتحاق — **لا pro-rata**، ولا تقريب لأقرب 5 جنيه.
 - **أجر المعلمة:** `hourly_rate_snapshot × payable_duration_minutes ÷ 60`، منزلتان عشريتان AwayFromZero — **لا تقريب 5 دقائق/5 جنيه**. القابل للدفع = scheduled عند بلوغ المدة، و= actual (بحد أدنى دقيقة) عند الانصراف المبكر؛ الوقت الإضافي يُسجّل ولا يُدفع آليًا.
 - **الإلغاء/البديلة/التأخير/التعويض:** غير منفّذة — قواعد مؤجلة تحتاج قرار مالك.
-- **الحذف المالي:** ممنوع — حاليًا الاستحقاق يُنقل للـtrash ولا يمكن purge المالي؛ سيُستبدل بـReverse/Void بسبب وسجل (Phase 2.3، ADR-0005).
+- **الحذف المالي:** ممنوع — **Reverse/Void منفّذ (Phase 2.3، migration 024، ADR-0005)**: `voided_at/by/reason` على الاستحقاقات والدفعات + `finance.void` + Audit + استبعاد الملغي من كل المجاميع مع بقائه ظاهرًا في سجل الطالب. نقل السجلات المالية للـtrash ممنوع (409).
 - **الخزنة:** مصروفات + دفعات/استحقاقات فقط حاليًا؛ الإيرادات وتقفيل الشهر يُنفّذان في Phase 2.6. لا قيد مزدوج (مؤجل).
 - **الإيصالات:** لا receipt_no متسلسل بعد (backlog).
 
@@ -133,6 +133,9 @@
 ---
 
 ## 11. آخر التحديثات (22 Nov 2026)
+
+- **Phase 2.3 Reverse/Void:** منفّذة (migration 024 + دوال + endpoints + صلاحية finance.void + استبعاد الملغي من legacy وnew API + UI حوار/شارة + SQL verify 23/23 PASS).
+- **Phase 2.4-a Responsive shell:** منفّذة (Drawer + Bottom Nav + viewport dvh + Modal bottom-sheet + إصلاح تسريب CSS + إزالة بقايا desktop من shell). 2.4-b/c متبقيتان.
 
 - اعتماد المالك النهائي للقرارات D1–D8 وتثبيت الخطة في `docs/17-master-plan.md`.
 - Docs Reset شامل (كل الوثائق المتعارضة صُححت؛ 05/07/10 صارت سجلات تاريخية).

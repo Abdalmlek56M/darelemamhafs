@@ -129,7 +129,7 @@ Rules:
 - PostgreSQL 17+.
 - One database, **one `public` schema initially**; module boundaries are enforced in code.
 - **Npgsql + Dapper** repositories, not EF Core. The existing SQL is the proven behavior; a full EF Core rewrite adds risk without business value.
-- SQL migrations are the ordered source of truth: **23 ملفًا (001→023)** في `database/`.
+- SQL migrations are the ordered source of truth: **24 ملفًا (001→024)** في `database/` — الإنتاج على 23 حتى تطبيق `deploy/update.sh` القادم.
 - `MigrationRunner` (`dotnet run --project src/Host/Dar.Api -- --migrate`) هو المسؤول الوحيد: checksums + advisory lock + تبنّي ledger القديم.
 - `web_schema_migrations` هو الـledger الفعلي؛ `schema_migrations` القديم متوقف عند 16 ولن يُستخدم بعد الآن (إيقافه ضمن التنظيف — Phase 2.8).
 - Do **not** auto-apply migrations in Production.
@@ -433,7 +433,7 @@ flowchart TB
 | Frontend | React 19 + Vite SPA واحدة (bundle ~717KB) — Home `/`، Admin `/management`، Teacher `/teacher`، Supervisor `/supervisor` |
 | Backend (legacy) | `backend/DarEltahfeez.Api` — 33 ملف C#، **91 endpoint** على 5080، يخدم الـSPA + كل الدومين/الإدارة/المالية |
 | Backend (new) | `src/` — 79 ملف C#، **52 endpoint** على 5081: Identity + Secretariat (students) + Teaching (teacher/supervisor/notifications) |
-| Database | PostgreSQL 17 — **23 migration** (001→023)؛ ledger `web_schema_migrations`؛ `schema_migrations` متوقف عند 16 |
+| Database | PostgreSQL 17 — **24 migration في المستودع** (001→024؛ الإنتاج 23 حتى النشر)؛ ledger `web_schema_migrations`؛ `schema_migrations` متوقف عند 16 |
 | Auth | password + cookie sessions على الـhostين؛ OTP path جاهز، Google مؤجل؛ `session_version` revocation |
 | Tests | 16 unit + 20 integration (Testcontainers) + 6 Vitest؛ لا Contract ولا Playwright/E2E |
 | CI | موجود للمسارات الأساسية؛ لا deploy/rollback؛ أول run غير متحقق |

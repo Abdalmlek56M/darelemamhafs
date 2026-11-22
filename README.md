@@ -11,7 +11,7 @@
 | الواجهة | **React 19 + Vite 6 + TypeScript** — SPA واحدة. **لا Next.js** (القرار ملغي — ADR-0001) |
 | Backend (legacy) | ASP.NET Core 10 Minimal API — `backend/DarEltahfeez.Api` على 5080 (يخدم الـSPA + معظم الـAPIs) |
 | Backend (new) | `Dar.slnx`: `src/Host/Dar.Api` على 5081 — `/api/v1/*` (Identity + Secretariat + Teaching) |
-| قاعدة البيانات | PostgreSQL 17 — **23 migration** (001→023) — ledger `web_schema_migrations` |
+| قاعدة البيانات | PostgreSQL 17 — **24 migration في المستودع** (001→024) — الإنتاج على 23 حتى النشر القادم — ledger `web_schema_migrations` |
 | النشر | Ubuntu 24.04 + Nginx + Certbot + systemd (Docker/Caddy متقاعد) |
 | اللغة | العربية فقط الآن؛ الإنجليزية مؤجلة (ADR-0004) |
 | الخزنة | خزنة + إيرادات + مصروفات + تقفيل شهري؛ **بدون قيد مزدوج** (ADR-0003) |

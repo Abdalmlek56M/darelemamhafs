@@ -70,7 +70,8 @@
 | **2.0.0** | [Docs Reset + قرارات المالك](2.0-docs-reset-1.0.md) | ✅ مصدر الحقيقة `docs/00` + خطة `docs/17` + ADRs 0001–0005 |
 | **2.1.0** | [Deploy & Backup Safety](2.0-docs-reset-1.0.md) | ✅ منفّذة — تحتاج rehearsal على host + أول تشغيل healthcheck |
 | **2.2.0** | [Schedule Overlap Verification](2.0-docs-reset-1.0.md) | ✅ 45/45 PASS + 3360 نقطة؛ إصلاحات سباق/ذرية في المرحلة التالية |
-| **2.3.0** | Reverse/Void (التالي) | ⬜ |
+| **2.3.0** | [Reverse/Void للمالية + Responsive shell](2.3-2.4a-void-responsive-1.0.md) | ✅ migration 024 + finance.void + SQL verify 23/23 + 2.4-a (Drawer/Bottom Nav/Modal/CSS leak) |
+| **2.4.0** | Responsive admin UI (2.4-b/c) | ⬜ |
 
 ## Next in order (superseded — انظر docs/17-master-plan.md)
 
