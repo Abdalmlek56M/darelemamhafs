@@ -1,8 +1,10 @@
 # Phase 3.0 — Google Meet Recording & Live Streaming (Plan)
 
-**Status:** 📝 تخطيط — **بانتظار موافقة المالك قبل أي كود** (22 Nov 2026)
+**Status:** ✅ **معتمد ومنفّذ جزئيًا** — 3.0 + 3.1 منفذتان (22 Nov 2026)؛ 3.2 → 3.7 التالية.
 **Requested by:** owner — تسجيل وبث حلقات Google Meet تلقائيًا + ربط Google Calendar + HLS/DVR + رفع Google Drive + مشغل داخل لوحة الإدارة.
 **Rules:** كل ملف كود 300–400 سطر كحد أقصى؛ Modular Monolith؛ راجع deepseek.md و docs/00 و docs/17.
+**ADRs:** `docs/adr/0006-meet-auth-bridge.md` (جسر الجلسة) + `docs/adr/0007-meet-recording-architecture.md` (المعمارية) — القرارات الملزمة الآن.
+**Checkpoint:** `docs/checkpoints/3.0-3.1-meet-calendar-1.0.md`.
 
 ---
 
@@ -279,8 +281,8 @@ database/026_meet_recording.sql (~250–350 سطر): جداول meet_calendar_ac
 
 | # | المرحلة | المحتوى | معيار القبول | التقدير |
 |---|---|---|---|---|
-| **3.0** | Prerequisites + ADRs | ADR-0006 (auth bridge) + 0007 (architecture)؛ تأكيد حساب البوت/2FA؛ rclone client ID مخصص؛ حزم السيرفر؛ بروفايل Playwright يدوي أول مرة | قرارات موقعة + السيرفر جاهز + self-test بسيط (Xvfb+ffmpeg) | 1 يوم |
-| **3.1** | Calendar + Events UI | migration 026 + OAuth + sync worker + قائمة أحداث + ربط حلقة + استثناء/تفعيل | مزامنة فعلية لحساب حقيقي؛ incremental sync أقل من 60s؛ اختبارات API | 1.5–2 يوم |
+| **3.0** | Prerequisites + ADRs | ADR-0006 (auth bridge) + 0007 (architecture)؛ تأكيد حساب البوت/2FA؛ rclone client ID مخصص؛ حزم السيرفر؛ بروفايل Playwright يدوي أول مرة | قرارات موقعة + السيرفر جاهز + self-test بسيط (Xvfb+ffmpeg) | 1 يوم — ✅ **ADR + جسر الجلسة منفّذان**؛ حزم السيرفر/البروفايل متبقية (عمل host) |
+| **3.1** | Calendar + Events UI | migration 026 + OAuth + sync worker + قائمة أحداث + ربط حلقة + استثناء/تفعيل | مزامنة فعلية لحساب حقيقي؛ incremental sync أقل من 60s؛ اختبارات API | 1.5–2 يوم — ✅ **منفّذة** (يتبقى تحقق OAuth/مزامنة فعلية على الإنتاج) |
 | **3.2** | Bot skeleton + self-test | خدمة Node/systemd + state machine + DB queue + claim/heartbeat + تسجيل شاشة اختبارية إلى MP4/HLS (بدون Meet) | self-test ينتج MP4+HLS بحالة ready؛ لا تسريب أداء | 2 يوم |
 | **3.3** | Meet join + live capture | Playwright join (mute/camera off) + Xvfb/Pulse/FFmpeg/MediaMTX + HLS حي + SSE + مشغل Vidstack | تسجيل حصة حقيقية تجريبية؛ LIVE/DVR/stop تلقائي | 3 يوم |
 | **3.4** | Drive upload + media lifecycle | rclone copy/checksum/link + حالات الرفع + إعادة رفع + حذف يدوي محمي + استبعاد الحذف التلقائي | رفع فعلي لـDrive + رابط يعمل + حذف محلي بعد تحقق | 1.5 يوم |
@@ -292,18 +294,19 @@ database/026_meet_recording.sql (~250–350 سطر): جداول meet_calendar_ac
 
 ---
 
-## 9. القرارات المطلوبة من المالك قبل البدء
+## 9. قرارات المالك — معتمدة نهائيًا (22 Nov 2026)
 
-1. **نوع حساب Google:** Gmail شخصي أم Google Workspace؟ (Workspace يفتح خيار Recording API رسمي — لكن بتكلفة/إعداد؛ الشخصي = بوت متصفح فقط). هل 2FA مفعّل ومَن يملك الوصول للسيرفر لإدخاله يدويًا أول مرة؟
-2. **رابط Drive:** anyone-with-link (يفتح لكل من لديه الرابط) أم restricted + مشاركة ببريد محدد؟ (يؤثر على خصوصية الحلقات).
-3. **سياسة التسجيل والموافقة:** إخطار المعلمة/الطالبات، وهل كل الحلقات تُسجَّل أم حلقات مختارة فقط؟
-4. **الحد الأقصى للجلسات المتزامنة:** توافق على 1 على هذا السيرفر؟ (بديل: VPS منفصل للبوت ~8–12 دولار/شهر).
-5. **حدود القرص:** عتبات التحذير/المنع (مقترح: منع أقل من 25GB، تحذير أقل من 40GB).
-6. **HLS بعد الانتهاء:** نحذف segments الحية بعد finalize ونبقي MP4 للمشاهدة (مقترح) أم إبقاء الاثنين؟
-7. **صلاحيات المشاهدة:** مَن يرى التسجيلات في النظام (المالك فقط؟ المدير؟ المشرفة؟).
-8. **اعتماد ADR-0006** (جسر جلسة الـAPIين) أو تفضيل تنفيذ الوحدة داخل legacy API مؤقتًا.
-9. **قبول مخاطر Google** (احتمال حظر/تحدي دخول البوت) وخطة الطوارئ اليدوية.
-10. **rclone OAuth client مخصص** قبل تفعيل الرفع طويل الأمد (حالياً shared client ID سيتقاعد 2026).
+| # | القرار | الأثر التنفيذي |
+|---|---|---|
+| 1 | **حساب Gmail عادي مخصص للدار**، وأول تسجيل دخول يدوي على السيرفر لحفظ الجلسة | بروفايل Playwright دائم في `/var/lib/dar/meet/profile` (0700)؛ لا كلمة مرور في DB |
+| 2 | **رابط Drive مقيّد (Restricted)** لحساب الدار فقط | لا anyone-with-link؛ `--drive-shared-with-me` غير مستخدم؛ حفظ `drive_file_id` + `verified_on_drive` |
+| 3 | **نطاق التسجيل: حلقات مختارة يحددها المالك من اللوحة** مع المزامنة العكسية والربط الذكي والإشعارات | `meet_circle_settings.auto_record` + `meet_events.recording_mode` + المطابقة الذكية في `MeetCircleMatcher` |
+| 4 | **تسجيل واحد متزامن** + عزل موارد `systemd slice`؛ تنبيه <40GB ومنع <25GB | `meet_settings` (max=1، disk_block=25، disk_warn=40) + `dar-meet.slice` |
+| 5 | **حذف HLS بعد الانتهاء وإبقاء MP4**؛ لا حذف MP4 إلا بزر يدوي بضغطتين | `meet_media_assets.status` + حذف مؤقت آلي مقابل حذف يدوي موثّق |
+| 6 | **الصلاحيات: المالك/الأدمن والمشرفة**، وقابلية التحكم في `meet.media.view` من نظام الصلاحيات | seed + backfill (users.manage → الخمسة، supervisor.portal → view + media.view) |
+| 7 | **موافقة على ADR-0006** (توحيد مفاتيح الجلسة) وعلى **OAuth مخصص لـrclone** | منفّذ في الكود (ADR-0006)؛ rclone client ID بند host قبل 3.4 |
+
+**لم يُطلب قرار إضافي بعد.** أي تغيير في هذه القرارات يحتاج تعديل هذا الجدول + ADR-0007.
 
 ---
 
@@ -311,5 +314,5 @@ database/026_meet_recording.sql (~250–350 سطر): جداول meet_calendar_ac
 
 - **التوقيت:** كل حسابات الزمن على Africa/Cairo للجدولة والعرض، وتخزين UTC في DB؛ البوت يدخل T-60s ويقف عند end+هامش دقيقتين؛ DST يُعالج عبر تسجيل end UTC من Google.
 - **القيود الحالية:** لا Docker إنتاج (systemd مباشر)؛ لا نضيف Redis/Kafka؛ كل الملفات الجديدة ≤ 400 سطر وفق docs/04.
-- **لا يكسر الخطة الحالية:** يضاف كـPhase 3.0 بعد 2.9؛ لو المالك عايز تقديمه، ننفذ 3.0/3.1 فقط أولًا (Calendar + قائمة الأحداث) لتسليم سريع ثم بقية التسجيل.
+- **تم تقديمه بطلب المالك:** نُفّذت 3.0/3.1 الآن (Calendar + الأحداث + جسر الجلسة) قبل استكمال 2.4-c/2.5-b، ثم يتوقف التنفيذ لمراجعة المالك قبل 3.2 (بوت التسجيل).
 - **تراجع آمن:** البوت وحدة مستقلة يمكن تعطيلها (systemctl stop dar-meet-bot) دون أي تأثير على الموقع؛ كل endpoints الجديدة مستقلة.

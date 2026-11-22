@@ -21,9 +21,9 @@
 | الواجهة | **React 19 + Vite + TypeScript** + CSS tokens + framer-motion — **لا Next.js** (القرار ملغي نهائيًا، ADR-0001) |
 | Backend (قديم) | ASP.NET Core 10 Minimal API — `backend/DarEltahfeez.Api` على 5080 (يخدم الـSPA + كل الـdomain APIs) |
 | Backend (جديد) | `Dar.slnx`: `src/Host/Dar.Api` على 5081 — `/api/v1/*` (Identity + Secretariat + Teaching فقط) |
-| قاعدة البيانات | PostgreSQL 17 — `public` schema — **25 migration في المستودع (001→025)**؛ الإنتاج على 23 حتى تطبيق `deploy/update.sh` القادم (يتضمن 024 Void + 025 تحصين التداخل) |
+| قاعدة البيانات | PostgreSQL 17 — `public` schema — **26 migration في المستودع (001→026)**؛ الإنتاج على 23 حتى تطبيق `deploy/update.sh` القادم (024 Void + 025 تحصين + 026 Meet) |
 | النشر | Ubuntu 24.04 + Nginx + Certbot + systemd + منافذ داخلية 5080/5081 |
-| الاختبارات | 16 unit + 20 integration (Testcontainers) + 6 Vitest |
+| الاختبارات | 16 unit سابقة + **22 unit جديدة لـMeet** + 20 integration (Testcontainers) + 6 Vitest |
 | اللغة | العربية فقط الآن — الإنجليزية مؤجلة (ADR-0004) |
 
 ---
@@ -49,8 +49,8 @@
 | المجلد | المحتوى | ملاحظات |
 |---|---|---|
 | `backend/DarEltahfeez.Api/` | 33 ملف C# — 91 endpoint — كل الإدارة/المالية/الحضور/التقارير | لا يزال مصدر معظم الوظائف |
-| `src/Host/Dar.Api/` + `src/Modules/*` | 79 ملف C# — 52 endpoint — Identity/Secretariat/Teaching | هوست جديد + وحدات |
-| `frontend/src/` | 135 ملف TS/TSX — SPA واحدة تحمل admin + teacher + supervisor + home | admin: `App.tsx`/`SystemAdminView.tsx`/`pages/` — teacher/supervisor: `teacher/` |
+| `src/Host/Dar.Api/` + `src/Modules/*` | 94 ملف C# — Identity/Secretariat/Teaching/**Meet** (+12 endpoint) | هوست جديد + وحدات؛ Meet = تقويم Google + أحداث + نطاق تسجيل (3.1) |
+| `frontend/src/` | 120 ملف TS/TSX — SPA واحدة تحمل admin + teacher + supervisor + home | admin: `App.tsx`/`SystemAdminView.tsx`/`pages/` + `meet/` — teacher/supervisor: `teacher/` |
 | `database/` | 23 ملف SQL مرتّب + ledger في `web_schema_migrations` | legacy `schema_migrations` متوقف عند 16 |
 | `tests/` | UnitTests + IntegrationTests (Testcontainers) + regression قديمة + 36 runner قديم | 11 runner يشير لـTestCenter المؤرشف |
 | `deploy/` | Nginx/systemd/backup/setup scripts + Docker stack قديم (متقاعد) | يُعاد تأمينها في Phase 2.1 |
@@ -73,9 +73,10 @@
 ## 6. الصلاحيات والأدوار الحالية
 
 - `user_permissions` مسطّحة (لا أدوار مستخدمة فعليًا) + role templates seed.
-- كتالوج الصلاحيات مكرر في 3 مصادر: `backend/.../Security.cs`، `src/Common/Dar.Common/Domain/PermissionCodes.cs`، وseed في `database/017` و`018`.
-- Scopes: `app_user_scopes` (circle/teacher) — لا صفوف = الكل.
+- كتالوج الصلاحيات مكرر في **4 مصادر**: `backend/.../Security.cs`، `src/Common/Dar.Common/Domain/PermissionCodes.cs`، seed في `database/017`/`018`/**`026`**، و`frontend/src/domain/permissions.ts`.
+- Scopes: `app_user_scopes` (circle/teacher) — لا صفوف = الكل. تطبَّق أيضًا على بيانات Meet (`MeetAccessScope`).
 - المالية مخفية تمامًا بدون `finance.read` (UI + API).
+- **Meet (3.1):** `meet.view` / `meet.manage` / `meet.calendar.manage` / `meet.media.view` / `meet.media.delete` — المالك/الأدمن (users.manage) يأخذ الخمسة، المشرفة تأخذ view + media.view قابلة للسحب.
 
 ---
 
@@ -85,11 +86,11 @@
 |---|---|
 | **dotnet build** (legacy + Dar.slnx) | ✅ 0 warnings / 0 errors (بالأعلام الآمنة -m:1 -nodeReuse:false) |
 | **TypeScript** (frontend tsc -b + api-client) | ✅ 0 errors |
-| **Unit tests** | ✅ 16/16 (reflection runner) |
+| **Unit tests** | ✅ **38/38** (16 سابقة + 22 Meet) عبر reflection runner — `dotnet test` نفسه محجوب محليًا (testhost: `Win32Exception 5` على العملية الأب)؛ CI هو الحكم |
 | **Integration بلا DB** | ✅ 6/6 (Health + SameOrigin) |
 | **Integration بـDB (14)** | ⏭️ تحتاج Docker/Testcontainers — غير متاحة في الساندبوكس المحلي |
 | **Overlap protection** | ✅ 45/45 + 3360 نقطة (012)؛ تحصين 025: 17/17 PASS + اختبار تزامن Testcontainers للـCI |
-| **Vite build / Vitest** | ❌ محجوب محليًا (esbuild spawn EPERM) — الحكم في CI |
+| **Vite build** | ✅ البناء الإنتاجي نجح (2096 module) بعد توجيه `TMP/TEMP` داخل مساحة العمل؛ تحذير حجم chunk قائم مسبقًا. Vitest يبقى في CI |
 | **bash -n لسكربتات النشر** | ⚠️ غير قابل للتنفيذ محليًا (MSYS sandbox) — بديل shfmt + فحص بنيوي؛ الحكم في CI |
 | **GitHub Actions** | ⚠️ لم يُتحقق من أول تشغيل فعلي بعد |
 | **E2E / Contract** | ❌ غير موجودة (Phase 2.5) |
@@ -107,9 +108,11 @@
 
 ## 9. ما هو ناقص/مؤجل (22 Nov 2026)
 
-**تم:** Docs Reset + قرارات المالك (2.0)؛ تأمين النشر/النسخ + healthcheck (2.1 — تحتاج rehearsal)؛ التحقق 45/45 من تداخل المواعيد + تحصين 025 (2.2)؛ Reverse/Void مالي (2.3)؛ Responsive shell + جداول/لمس/ConfirmSheet/MonthPicker (2.4-a/b)؛ CI typecheck/migration-count/SQL regression/schema-drift + إصلاح Vite proxy (2.5-a).
+**تم:** Docs Reset + قرارات المالك (2.0)؛ تأمين النشر/النسخ + healthcheck (2.1 — تحتاج rehearsal)؛ التحقق 45/45 من تداخل المواعيد + تحصين 025 (2.2)؛ Reverse/Void مالي (2.3)؛ Responsive shell + جداول/لمس/ConfirmSheet/MonthPicker (2.4-a/b)؛ CI typecheck/migration-count/SQL regression/schema-drift + إصلاح Vite proxy (2.5-a)؛ **Meet 3.0/3.1** (ADR-0006/0007 + migration 026 + تقويم Google + واجهة الأحداث ونطاق التسجيل).
 
 **التالي بالترتيب:**
+- **مراجعة المالك لـ3.1** ثم **3.2** (بوت التسجيل + self-test) — هي نقطة التوقف الحالية.
+- 3.3 التقاط حي + HLS/DVR + SSE + المشغل؛ 3.4 رفع Drive + دورة حياة الوسائط؛ 3.5 تحكم يدوي + موثوقية؛ 3.6 أمان/صلاحيات؛ 3.7 QA/نشر.
 - 2.4-c: QA بصري 390/1440، 3 جداول SystemAdminView، print/reduced-motion، pagination، مراجعة RTL نهائية.
 - 2.5-b: contract حقيقي مقابل API يعمل، Playwright E2E، deploy/rollback verification، lint.
 - 2.6 الخزنة والإيرادات وتقفيل الشهر (بدون قيد مزدوج).
@@ -132,6 +135,7 @@
 
 ## 11. آخر التحديثات (22 Nov 2026)
 
+- **Phase 3.0/3.1 — Meet Calendar + Recording scope:** ADR-0006 (جسر جلسة الأدمن: Data Protection مشترك + `dar_admin_bridge`) + ADR-0007 (المعمارية) + migration **026** (`meet_calendar_accounts`/`meet_events`/`meet_event_links`/`meet_circle_settings`/`meet_bot_jobs`/`meet_sessions`/`meet_media_assets`/`meet_settings` + 5 صلاحيات + backfill) + وحدة `Dar.Modules.Meet` (OAuth offline، مزامنة incremental/full بـsyncToken، اقتراح وربط الحلقة، نطاق التسجيل، Audit) + واجهة **التسجيل والمحاضرات** في `/management`. لم يُنفّذ البوت بعد (3.2).
 - **Phase 2.2-fix (تحصين التداخل):** migration 025 — advisory locks لكل معلمة + رفض غير READ COMMITTED + رسالة تكرار منفصلة + حفظ ذري للحلقة/المواعيد + PUT للموعد + اختبارات (17/17 + 45/45 PASS).
 - **Phase 2.4-b (جداول/لمس):** ResponsiveTable (16 جدولًا → كروت <768px)، ConfirmSheet بدل 16 `window.confirm`، MonthPicker بدل 7 `type=month`، responsive-admin.css (44px، خطوط ≥14/12، تباين، حقول 16px، segmented filters). متبقٍ: 3 جداول SystemAdminView + QA بصري (2.4-c).
 - **Phase 2.5-a (CI/proxy):** `npm run typecheck` + إصلاح Vite proxy (`/api/v1`→5081 قبل `/api`→5080) + CI: typecheck، migration-count dynamic، asserts لـVoid/التداخل، تشغيل SQL regression scripts، schema-drift للـapi-client. المتبقي: contract حقيقي/E2E/deploy job (2.5-b).
@@ -151,11 +155,11 @@
 
 ## 12. نقطة التوقف الحالية (22 Nov 2026) — Resume Here
 
-> **الحالة:** الخطة موقوفة مؤقتًا بناءً على طلب المالك (22 Nov 2026) لإضافة **مميزات جديدة**. كل الشغل متسجل ومُcommit محليًا، وشجرة العمل نظيفة. الـgoal الخاص بالخطة **Paused** (يمكن استئنافه بكلمة واحدة).
+> **الحالة:** **3.0 + 3.1 منفذتان ومُcommit محليًا**؛ التنفيذ متوقف بطلب المالك لمراجعة النتيجة قبل **3.2 (بوت التسجيل)**. المسار 2.x (2.4-c/2.5-b) لا يزال مؤجلًا بقرار المالك لصالح مميزات Meet.
 
 ### آخر commit
-- `HEAD` = 5 مراحل مالية/UX/CI + commit توثيق نقطة التوقف (راجع `git log --oneline -12`).
-- **محليًا 12+ commit قبل `origin/main`** — الـpush محجوب من الساندبوكس (SEC_E_NO_CREDENTIALS). المطلوب: `git push origin main` من طرفية عادية.
+- `HEAD` = commit «Phase 3.0+3.1 Meet» (راجع `git log --oneline -6`).
+- **محليًا عدة commits قبل `origin/main`** — الـpush محجوب من الساندبوكس (SEC_E_NO_CREDENTIALS). المطلوب: `git push origin main` من طرفية عادية.
 
 ### المنجز (بالترتيب)
 | المرحلة | الحالة | checkpoint |
@@ -167,25 +171,27 @@
 | 2.4-a Responsive shell (Drawer/Bottom Nav/Modal sheet/CSS leak) | ✅ | `2.3-2.4a…` |
 | 2.4-b جداول/لمس/ConfirmSheet/MonthPicker | ✅ (16 جدولًا؛ 3 SystemAdminView متبقية) | `2.2fix-2.4b-2.5a-1.0.md` |
 | 2.5-a CI (typecheck/migration-count/SQL regression/schema drift) + Vite proxy | ✅ | `2.2fix-2.4b-2.5a-1.0.md` |
+| **3.0 Meet — ADRs + جسر الجلسة + الصلاحيات** | ✅ (أعمال host متبقية) | `3.0-3.1-meet-calendar-1.0.md` |
+| **3.1 Meet — migration 026 + Calendar + Events UI** | ✅ (تحقق OAuth/مزامنة فعلية على السيرفر متبقٍ) | `3.0-3.1-meet-calendar-1.0.md` |
 
 ### المتبقي بالترتيب (عند الاستئناف)
-1. **2.4-c:** QA بصري 390/1440 لكل صفحة (محجوب محليًا — يحتاج متصفح)، 3 جداول `SystemAdminView`، print CSS، reduced-motion، pagination/«عرض المزيد»، مراجعة RTL نهائية، تقليل blur/perf.
-2. **2.5-b:** contract حقيقي (spec مقابل API يعمل)، Playwright E2E، deploy/rollback verification، **أول تشغيل GitHub Actions**، lint (يحتاج قرار إضافة ESLint).
-3. **2.6:** الخزنة + الإيرادات + المصروفات + تقفيل الشهر + منع Void بعد التقفيل.
-4. **2.7:** أمان/تشغيل (lockout، antiforgery، HSTS/Nginx، Cloudflare origin، rotation، monitoring).
-5. **2.8:** تنظيف/إعادة هيكلة (>400 سطر: `useDarApplication.ts` 404، `SystemAdminView`، `AuthEndpoints` 472، `SystemAdminEndpoints.Requests` 484، `TeacherApp` 475، `teacherTypes` 406) + إزالة `desktop-host`/`tools`/`runners`/vbs + إخراج `.opencode` من الريبو.
-6. **2.9:** E2E شامل، restore drill آلي، load/pen test، PDF sign-off، handover.
+1. **مراجعة المالك لـ3.1** ثم **3.2:** خدمة `dar-meet-bot` (Node/Playwright) + state machine + claim/heartbeat + self-test ينتج MP4/HLS دون Meet.
+2. **3.3 → 3.7:** التقاط حي/HLS/DVR/SSE/المشغل، رفع Drive ودورة حياة الوسائط، التحكم اليدوي والموثوقية، الأمان، QA والنشر.
+3. **2.4-c:** QA بصري 390/1440 لكل صفحة (محجوب محليًا — يحتاج متصفح)، 3 جداول `SystemAdminView`، print CSS، reduced-motion، pagination، مراجعة RTL نهائية.
+4. **2.5-b:** contract حقيقي (spec مقابل API يعمل)، Playwright E2E، deploy/rollback verification، **أول تشغيل GitHub Actions**، lint.
+5. **2.6 → 2.9:** الخزنة/التقفيل، الأمان والتشغيل، التنظيف (>400 سطر: `useDarApplication.ts`, `SystemAdminView`, `AuthEndpoints`, `SystemAdminEndpoints.Requests`, `TeacherApp`, `teacherTypes`)، وجودة الإطلاق.
 
 ### Blockers/قيود معروفة
 - **push** محجوب بيئيًا (Windows Credential Manager) → تنفيذ يدوي.
-- **نشر** migration 024/025 لم يُطبّق على الإنتاج بعد (الإنتاج على 23 migration) → عبر `deploy/update.sh` مع نسخة قبلية.
-- **تحقق بصري/E2E/Testcontainers/bash -n** محجوبة في الساندبوكس (esbuild EPERM / no Docker / MSYS pipes) → CI أو جهاز غير مقيّد.
+- **نشر** migrations 024/025/026 لم تُطبّق على الإنتاج بعد (الإنتاج على 23) → عبر `deploy/update.sh` مع نسخة قبلية + **نافذة قصيرة** لأن ADR-0006 يُبطل جلسات الأدمن الحالية مرة واحدة.
+- **تحقق بصري/E2E/Testcontainers/bash -n/dotnet test (testhost)** محجوبة في الساندبوكس (esbuild EPERM / no Docker / process handles) → CI أو جهاز غير مقيّد.
+- **Meet 3.1 غير مختبرة ضد Google فعليًا** — تحتاج مفاتيح OAuth + `Meet__EncryptionKey` على السيرفر (docs/19).
 - **سكربتات Phase 2.1** لم تُجرّب على host بعد (rehearsal مطلوب).
 - **cleanup**: مجلد `.tmp-deploy` متبقٍ (pip temp، متجاهل في git ولا يؤثر).
 
 ### للاستئناف
 1. `git push origin main` (أو من طرفية المالك).
-2. استئناف الـgoal من `docs/17-master-plan.md` — التالي 2.4-c ثم 2.5-b.
+2. مراجعة المالك لنتيجة 3.1 ثم البدء في **3.2** — أو العودة إلى 2.4-c إن أراد إكمال المسار 2.x أولًا.
 
-### طلب جديد قيد التخطيط (22 Nov 2026)
-- **Phase 3.0 — Meet Recording & Live Streaming:** خطة كاملة + تحليل + تقسيم ملفات + قرارات مطلوبة في `docs/18-meet-recording-plan.md`. **بانتظار موافقة المالك** قبل أي كود. لا تبدأ التنفيذ قبل اعتماد القرارات العشرة في §9 من الوثيقة.
+### Phase 3.0 (22 Nov 2026) — معتمدة
+- القرارات السبعة في `docs/18-meet-recording-plan.md` §9؛ التنفيذ بدأ بـ3.0/3.1 (هذا الـcheckpoint)؛ 3.2+ بانتظار المراجعة.

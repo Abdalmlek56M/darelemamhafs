@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Common\Dar.Common\Dar.Common.csproj" />
     <ProjectReference Include="..\..\src\Modules\Identity\Dar.Modules.Identity\Dar.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Meet\Dar.Modules.Meet\Dar.Modules.Meet.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,8 +1,9 @@
-﻿using System.Net;
+using System.Net;
 using System.Threading.RateLimiting;
 using DarEltahfeez.Api;
 using DarEltahfeez.Api.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Npgsql;
@@ -98,6 +99,14 @@ builder.Services.AddSingleton(sp =>
 });
 
 builder.Services.AddSingleton<SystemAdminService>();
+
+// ADR-0006: the admin session is shared with Dar.Api (/api/v1/meet/*). Both APIs must use
+// the same Data Protection key ring and application name, otherwise the new API cannot
+// decrypt the DarEltahfeez.Admin cookie. Changing the name invalidates existing sessions.
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("DarEltahfeez");
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

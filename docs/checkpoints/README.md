@@ -6,6 +6,7 @@
 
 | Phase | Checkpoint | Status |
 |---|---|---|
+| 3.0 + 3.1 | [Meet — ADRs + Calendar + Recording scope](3.0-3.1-meet-calendar-1.0.md) | ✅ (3.2+ pending owner review) |
 | 0.1 | [Foundation docs + skill](0.1-foundation.md) | ✅ |
 | 0.2 | [Intake](0.2-intake.md) | ✅ |
 | 0.3 | [Baseline](0.3-baseline.md) | ✅ (screenshots pending) |

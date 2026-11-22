@@ -14,6 +14,7 @@ import TeacherNotesPage from './pages/TeacherNotesPage'
 import CirclesPage from './pages/CirclesPage'
 import SchedulePage from './pages/SchedulePage'
 import PaymentsPage from './pages/PaymentsPage'
+import MeetPage from './meet/MeetPage'
 import UsersPage from './pages/UsersPage'
 import SystemPage from './pages/SystemPage'
 import ApplicationDialogs from './components/dialogs/ApplicationDialogs'
@@ -34,6 +35,7 @@ const mobileNavLabels: Record<string, string> = {
   circles: 'الحلقات',
   schedule: 'المواعيد',
   payments: 'التحصيل',
+  meet: 'التسجيل',
   users: 'الحسابات',
   system: 'النظام',
 }
@@ -166,6 +168,7 @@ export default function App() {
         {page === 'circles' && <CirclesPage ctx={ctx} />}
         {page === 'schedule' && <SchedulePage ctx={ctx} />}
         {page === 'payments' && <PaymentsPage ctx={ctx} />}
+        {page === 'meet' && has('meet.view') && <MeetPage ctx={ctx} />}
         {page === 'users' && <UsersPage ctx={ctx} />}
         {page === 'system' && <SystemPage ctx={ctx} />}
       </AnimatePresence>

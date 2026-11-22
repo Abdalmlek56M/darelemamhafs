@@ -1,4 +1,4 @@
-import { Bell, BookOpen, CalendarClock, ClipboardCheck, GraduationCap, LayoutDashboard, MessageSquareText, Settings, ShieldCheck, Users, Wallet } from 'lucide-react'
+import { Bell, BookOpen, CalendarClock, ClipboardCheck, GraduationCap, LayoutDashboard, MessageSquareText, Settings, ShieldCheck, Users, Video, Wallet } from 'lucide-react'
 import type { Page } from './types'
 
 export const navItems: { id: Page; label: string; icon: typeof LayoutDashboard; permission: string }[] = [
@@ -11,6 +11,7 @@ export const navItems: { id: Page; label: string; icon: typeof LayoutDashboard; 
   { id: 'circles', label: 'الحلقات', icon: BookOpen, permission: 'circles.read' },
   { id: 'schedule', label: 'المواعيد وحضور المعلمات', icon: CalendarClock, permission: 'schedule.read' },
   { id: 'payments', label: 'الاشتراكات والتحصيل', icon: Wallet, permission: 'finance.read' },
+  { id: 'meet', label: 'التسجيل والمحاضرات', icon: Video, permission: 'meet.view' },
   { id: 'users', label: 'الحسابات والصلاحيات', icon: ShieldCheck, permission: 'users.manage' },
   { id: 'system', label: 'النظام والنسخ الاحتياطي', icon: Settings, permission: 'settings.manage' },
 ]

@@ -65,7 +65,12 @@ public static class AppPermissions
         ("teacher.calendar", "تقويم المعلمة الأسبوعي"),
         ("teacher.history.self", "سجل حلقات المعلمة السابقة"),
         ("teacher.requests", "تقديم طلبات الغياب والتصحيح"),
-        ("reports.finance", "الأقسام المالية في التقارير")
+        ("reports.finance", "الأقسام المالية في التقارير"),
+        ("meet.view", "عرض التسجيل والمحاضرات"),
+        ("meet.manage", "إدارة التسجيل وربط الحلقات"),
+        ("meet.calendar.manage", "ربط ومزامنة تقويم Google"),
+        ("meet.media.view", "مشاهدة تسجيلات الحلقات"),
+        ("meet.media.delete", "حذف ملفات التسجيل يدويًا")
     ];
 
     public static bool IsKnown(string? code) => All.Any(x => x.Code == code);

@@ -126,6 +126,9 @@ public static class IdentityModule
                 .Configure<ITicketStore>((options, store) => options.SessionStore = store);
         }
 
+        // The admin SPA keeps using the legacy cookie (ADR-0006). The bridge is read-only.
+        services.AddAdminSessionBridge(configuration, isDevelopment);
+
         services.AddAuthorization(options =>
         {
             foreach (var permission in PermissionCodes.All)

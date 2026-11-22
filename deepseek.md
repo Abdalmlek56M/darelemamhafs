@@ -114,6 +114,7 @@
 - **Phase 2.0–2.2 (22 Nov 2026):** Docs Reset + قرارات المالك + تأمين النشر/النسخ + التحقق من تداخل المواعيد — ✅ مكتملة (checkpoint: `docs/checkpoints/2.0-docs-reset-1.0.md`).
 - **Phase 2.3–2.4a (22 Nov 2026):** Reverse/Void للمالية (migration 024، finance.void، SQL verify 23/23) + Responsive shell للوحة الإدارة (Drawer/Bottom Nav/Modal sheet/CSS leak) — ✅ مكتملة (checkpoint: `docs/checkpoints/2.3-2.4a-void-responsive-1.0.md`).
 - **Phase 2.2-fix / 2.4-b / 2.5-a (22 Nov 2026):** تحصين تداخل المواعيد (migration 025: أقفال advisory لكل معلمة + ذرية الحفظ + PUT + 17/17 و45/45 PASS) + جداول متجاوبة/لمس/ConfirmSheet/MonthPicker + CI (typecheck، migration-count، SQL regression، schema drift) وإصلاح Vite proxy — ✅ مكتملة (checkpoint: `docs/checkpoints/2.2fix-2.4b-2.5a-1.0.md`). متبقٍ: 2.4-c و2.5-b. القرارات المثبتة: React+Vite نهائي (Next.js ملغي)، agreed fee بدون pro-rata، أجر بالدقيقة بدون تقريب، الإنجليزية مؤجلة، الخزنة بدون قيد مزدوج، Reverse/Void بدل الحذف. الخطة الثابتة في `docs/17-master-plan.md` والحالة في `docs/00-current-state.md`. المراحل التالية: 2.1 تأمين النشر/النسخ، 2.2 تداخل المواعيد، 2.3 Reverse/Void، 2.4 تجاوب لوحة الإدارة، 2.5 CI/contract، 2.6 الخزنة والتقفيل.
+- **Phase 3.0 + 3.1 — Meet Recording (22 Nov 2026):** ✅ ADR-0006 (جسر جلسة الأدمن: Data Protection مشترك + `dar_admin_bridge`) + ADR-0007 (المعمارية) + migration **026** (`meet_*` + 5 صلاحيات + backfill) + وحدة `Dar.Modules.Meet` (OAuth offline، مزامنة incremental/full، ربط الأحداث بالحلقات، نطاق التسجيل، Audit) + واجهة «التسجيل والمحاضرات» في `/management` + 22 اختبار وحدة. **التوقف قبل 3.2 (بوت التسجيل) لمراجعة المالك** — checkpoint: `docs/checkpoints/3.0-3.1-meet-calendar-1.0.md`، التشغيل: `docs/19-meet-operations.md`.
 - **Queued after Phase 2.0:** production E2E; first GitHub Actions run; contract test; split remaining >400-line files (`AuthEndpoints.cs` 472، `SystemAdminEndpoints.Requests.cs` 484، `TeacherApp.tsx` 475، `teacherTypes.ts` 406) في مرحلة التنظيف؛ formal PDF report sign-off؛ وفي backlog: إيصالات مرقّمة، مسير/قسائم رواتب، خصومات/خطط رسوم.
 - **Owner actions pending:** re-test saving admin permissions after the Nginx fix; link `asmaa` to a teacher record and grant permissions; change the supervisor temporary password and delete `/etc/dar/supervisor-initial-password`; approve the 9 historical charge corrections.
 - **UI gate:** no UI implementation before the owner approves a visual sample.
@@ -121,7 +122,7 @@
 - **Google login:** deferred; temporary password + sessions is the current path.
 - **Git:** `origin` = `https://github.com/Abdalmlek56M/darelemamhafs.git`; `main` is the source of truth. Run `git log -1` for the deployed commit; the visual sample and reuse audit are included.
 - **Git rule:** every completed checkpoint = commit + push. No force-push.
-- **Next:** تنفيذ `docs/17-master-plan.md` بالترتيب — 2.0 → 2.1 → 2.2 → 2.3 (Reverse/Void) → 2.4 (تجاوب لوحة الإدارة) → 2.5 (CI/contract) → 2.6 (الخزنة/التقفيل). لا تبدأ مرحلة قبل مراجعة المالك للتي قبلها. Final UI/QA patch is live (`54d0fb2`); owner feedback round 2 live (`78511b9`, migration 023); subscriptions review (`d4c67bb`); payroll lock (`782623b`); reports gate (`d343396`); offline outbox (`bc6b907`); teacher calendar/history (`998c3a0`); admin requests (`8cc90dd`); charges corrected (`5938c4f`). Keep the supervisor temporary password unchanged until the owner finishes.
+- **Next:** مراجعة المالك لـ**3.1** ثم **3.2 (بوت التسجيل)** — أو العودة إلى 2.4-c ثم 2.5-b ثم 2.6 إن أراد إكمال المسار 2.x أولًا. لا تبدأ مرحلة قبل مراجعة المالك للتي قبلها. Final UI/QA patch is live (`54d0fb2`); owner feedback round 2 live (`78511b9`, migration 023); subscriptions review (`d4c67bb`); payroll lock (`782623b`); reports gate (`d343396`); offline outbox (`bc6b907`); teacher calendar/history (`998c3a0`); admin requests (`8cc90dd`); charges corrected (`5938c4f`). Keep the supervisor temporary password unchanged until the owner finishes.
 - **Legacy stack:** .NET 10 minimal API + React 19/Vite + PostgreSQL 17 + WPF/WebView2 + PowerShell Test Center. No `.bat` files remain.
 
 ### What Was Done vs. What Was Not
@@ -398,7 +399,8 @@ Date: DD Mon YYYY
 
 ## 12. Approved Master Plan (22 Nov 2026)
 
-> ⏸️ **الخطة موقوفة مؤقتًا (22 Nov 2026)** بطلب المالك لإضافة مميزات جديدة. نقطة التوقف الكاملة + المتبقي + طريقة الاستئناف في `docs/00-current-state.md` §12. الاستئناف من 2.4-c ثم 2.5-b.
+> ⏸️ **المسار 2.x موقوف مؤقتًا (22 Nov 2026)** بطلب المالك لإضافة مميزات جديدة. نقطة التوقف الكاملة + المتبقي + طريقة الاستئناف في `docs/00-current-state.md` §12. الاستئناف من 2.4-c ثم 2.5-b.
+> ✅ **Phase 3.0 (Meet) معتمدة ومنفّذة جزئيًا:** 3.0 + 3.1 ✅ (ADR-0006/0007 + migration 026 + تقويم Google + واجهة الأحداث ونطاق التسجيل) — checkpoint `docs/checkpoints/3.0-3.1-meet-calendar-1.0.md`. التوقف قبل 3.2 لمراجعة المالك.
 
 الخطة الثابتة المعتمدة بترتيب المراحل والقرارات الملزمة في `docs/17-master-plan.md`:
 

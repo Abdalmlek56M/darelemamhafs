@@ -155,6 +155,37 @@ jobs:
           $check$;
           SQL
 
+      # Phase 3.1 Meet: the recording module owns one durable queue and one settings row.
+      # The count of meet_* tables is asserted so a partially applied 026 is caught here.
+      - name: Verify Meet recording schema
+        run: |
+          docker exec -i -e PGPASSWORD=dar "${{ job.services.postgres.id }}" \
+            psql -U dar -d dar_ci -v ON_ERROR_STOP=1 <<'SQL'
+          DO $check$
+          DECLARE v integer;
+          BEGIN
+            SELECT count(*) INTO v FROM information_schema.tables
+             WHERE table_schema='public' AND table_name IN (
+               'meet_calendar_accounts','meet_events','meet_event_links','meet_circle_settings',
+               'meet_bot_jobs','meet_sessions','meet_media_assets','meet_settings');
+            IF v <> 8 THEN RAISE EXCEPTION 'meet tables expected 8, got %', v; END IF;
+            SELECT count(*) INTO v FROM meet_settings;
+            IF v <> 1 THEN RAISE EXCEPTION 'meet_settings expected 1 row, got %', v; END IF;
+            SELECT count(*) INTO v FROM permissions
+             WHERE code IN ('meet.view','meet.manage','meet.calendar.manage','meet.media.view','meet.media.delete');
+            IF v <> 5 THEN RAISE EXCEPTION 'meet permissions expected 5, got %', v; END IF;
+            IF to_regclass('public.uq_meet_calendar_account_active') IS NULL THEN
+              RAISE EXCEPTION 'missing partial unique index uq_meet_calendar_account_active';
+            END IF;
+            SELECT count(*) INTO v FROM pg_constraint
+             WHERE conname = 'meet_events_recording_mode_check'
+               AND pg_get_constraintdef(oid) LIKE '%exclude%';
+            IF v <> 1 THEN RAISE EXCEPTION 'meet_events recording_mode check is missing'; END IF;
+            RAISE NOTICE 'meet recording schema OK';
+          END
+          $check$;
+          SQL
+
       # SQL regression scripts are self-contained (single transaction + ROLLBACK), so they
       # can run against the freshly migrated database without leaving rows behind.
       - name: Run financial void SQL verification

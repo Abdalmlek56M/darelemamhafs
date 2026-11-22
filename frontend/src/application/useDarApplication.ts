@@ -137,6 +137,7 @@ export default function useDarApplication() {
     if (id === 'circles') return ['circles.read','circles.create','circles.edit','circles.delete'].some(code => codes.includes(code))
     if (id === 'schedule') return ['schedule.read','schedule.edit','attendance.read','attendance.edit'].some(code => codes.includes(code))
     if (id === 'payments') return ['finance.read','finance.create','finance.edit','finance.delete','finance.void'].some(code => codes.includes(code))
+    if (id === 'meet') return ['meet.view','meet.manage','meet.calendar.manage','meet.media.view','meet.media.delete'].some(code => codes.includes(code))
     if (id === 'users') return codes.includes('users.manage')
     return ['settings.manage','audit.read','trash.manage','backup.manage','exports.manage'].some(code => codes.includes(code))
   }, [])

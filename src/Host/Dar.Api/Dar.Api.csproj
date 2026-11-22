@@ -5,6 +5,7 @@
     <ProjectReference Include="..\..\Modules\Identity\Dar.Modules.Identity\Dar.Modules.Identity.csproj" />
     <ProjectReference Include="..\..\Modules\Secretariat\Dar.Modules.Secretariat\Dar.Modules.Secretariat.csproj" />
     <ProjectReference Include="..\..\Modules\Teaching\Dar.Modules.Teaching\Dar.Modules.Teaching.csproj" />
+    <ProjectReference Include="..\..\Modules\Meet\Dar.Modules.Meet\Dar.Modules.Meet.csproj" />
   </ItemGroup>
 
   <ItemGroup>

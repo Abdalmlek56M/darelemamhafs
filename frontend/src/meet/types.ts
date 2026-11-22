@@ -1,0 +1,83 @@
+/** Contracts mirrored from Dar.Modules.Meet (camelCase JSON). */
+export type MeetRecordingMode = 'inherit' | 'force' | 'exclude'
+export type MeetFilter = 'all' | 'linked' | 'unlinked' | 'recording' | 'cancelled'
+
+export type MeetCalendarStatus = {
+  moduleConfigured: boolean
+  missingPrerequisites: string[]
+  connected: boolean
+  accountEmail: string | null
+  calendarId: string | null
+  status: string | null
+  lastSyncAt: string | null
+  lastFullSyncAt: string | null
+  lastErrorCode: string | null
+  lastErrorMessage: string | null
+  consecutiveFailures: number
+}
+
+export type MeetSyncResult = {
+  ok: boolean
+  fullResync: boolean
+  added: number
+  updated: number
+  cancelled: number
+  autoLinked: number
+  syncedAt: string | null
+  message: string | null
+}
+
+export type MeetEvent = {
+  id: string
+  googleEventId: string
+  summary: string | null
+  meetLink: string | null
+  htmlLink: string | null
+  startsAt: string
+  endsAt: string
+  timeZone: string | null
+  googleStatus: 'confirmed' | 'tentative' | 'cancelled' | string
+  isRecurring: boolean
+  recordingMode: MeetRecordingMode
+  circleId: string | null
+  circleName: string | null
+  linkedAutomatically: boolean
+  suggestedCircleId: string | null
+  suggestedCircleName: string | null
+  suggestedConfidence: number
+  recordingEligible: boolean
+}
+
+export type MeetEventPage = {
+  from: string
+  to: string
+  page: number
+  pageSize: number
+  total: number
+  items: MeetEvent[]
+  nextCursor: string | null
+}
+
+export type MeetCircleSetting = {
+  circleId: string
+  name: string
+  isActive: boolean
+  autoRecord: boolean
+  autoLink: boolean
+  upcomingLinkedEvents: number
+}
+
+export type MeetCirclesResponse = { scoped: boolean; circles: MeetCircleSetting[] }
+
+export type MeetSettings = {
+  recordingEnabled: boolean
+  joinLeadSeconds: number
+  stopGraceSeconds: number
+  maxConcurrentSessions: number
+  diskBlockGb: number
+  diskWarnGb: number
+  uploadBwLimit: string
+  hlsRetentionHours: number
+}
+
+export type MeetConnectResponse = { authorizationUrl: string }
