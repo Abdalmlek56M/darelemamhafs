@@ -323,7 +323,9 @@ public sealed class MeetCalendarRepository(NpgsqlDataSource dataSource)
         command.Parameters.AddWithValue("account", accountId);
         command.Parameters.AddWithValue("from", from.ToUniversalTime());
         command.Parameters.AddWithValue("to", to.ToUniversalTime());
-        command.Parameters.AddWithValue("search", (object?)searchTerm ?? DBNull.Value);
+        // Npgsql cannot infer a type for a NULL parameter used in "@search IS NULL"; an
+        // untyped NULL makes PostgreSQL reject the whole statement with 42P08.
+        command.Parameters.AddWithValue("search", NpgsqlTypes.NpgsqlDbType.Text, (object?)searchTerm ?? DBNull.Value);
         if (circleScope is not null) command.Parameters.AddWithValue("circles", circleScope);
     }
 
