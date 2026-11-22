@@ -50,6 +50,15 @@ if [ "$(id -u)" -eq 0 ]; then SUDO=""; else
   SUDO="sudo"
 fi
 
+# Runs a command as the dar service user, whether this script runs as root or via sudo.
+run_as_dar() {
+  if [ "$(id -u)" -eq 0 ]; then
+    runuser -u dar -- env HOME=/var/lib/dar "$@"
+  else
+    sudo -n -u dar env HOME=/var/lib/dar "$@"
+  fi
+}
+
 [ -d "$SRC_DIR" ] || { echo "Missing bot sources: $SRC_DIR" >&2; exit 1; }
 if ! id dar >/dev/null 2>&1; then
   echo "System user 'dar' is missing; run deploy/setup-host-services.sh first." >&2
@@ -63,6 +72,8 @@ echo "==> Directories"
 $SUDO install -d -m 0755 -o dar -g dar "$BOT_DIR"
 $SUDO install -d -m 0750 -o dar -g dar "$MEDIA_ROOT"
 $SUDO install -d -m 0750 -o dar -g dar "$MEDIA_ROOT/.runtime"
+# Chrome's persistent profile lives here from phase 3.3; the unit mounts it writable.
+$SUDO install -d -m 0700 -o dar -g dar /var/lib/dar/meet
 
 echo "==> Sources -> $BOT_DIR"
 if command -v rsync >/dev/null 2>&1; then
@@ -78,7 +89,7 @@ $SUDO chown -R dar:dar "$BOT_DIR"
 if [ "$SKIP_BUILD" -eq 0 ]; then
   echo "==> Build"
   # npm install (not ci) until a package-lock.json is committed.
-  $SUDO -u dar env HOME=/var/lib/dar bash -c "cd '$BOT_DIR' && npm install --no-audit --no-fund && npm run build"
+  run_as_dar bash -c "cd '$BOT_DIR' && npm install --no-audit --no-fund && npm run build"
 fi
 [ -f "$BOT_DIR/dist/index.js" ] || { echo "Build output missing: $BOT_DIR/dist/index.js" >&2; exit 1; }
 

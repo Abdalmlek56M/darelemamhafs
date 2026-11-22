@@ -3,12 +3,12 @@ Description=Dar Google Meet recorder bot
 Documentation=file:/opt/dar/docs/19-meet-operations.md
 After=network-online.target dar-api.service
 Wants=network-online.target dar-api.service
-Slice=dar-meet.slice
 
 [Service]
 Type=simple
 User=dar
 Group=dar
+Slice=dar-meet.slice
 WorkingDirectory=/opt/dar-meet-bot
 EnvironmentFile=/etc/dar/meet-bot.env
 Environment=HOME=/var/lib/dar
@@ -23,14 +23,13 @@ TimeoutStopSec=45
 RuntimeDirectory=dar-meet
 RuntimeDirectoryMode=0700
 
-# Hardening (ADR-0007 §5).
+# Hardening (ADR-0007 §5). PrivateDevices is intentionally off: Chromium needs /dev/shm.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/dar/media/meet /var/lib/dar/meet /run/dar-meet
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-PrivateDevices=true
 
 Nice=10
 IOSchedulingClass=best-effort
