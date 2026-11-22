@@ -146,3 +146,43 @@
 - التحقق من تداخل المواعيد: 45/45 PASS؛ ثغرات سباق/ذرية موثقة للإصلاح.
 - تدقيق تجاوب لوحة الإدارة جاهز (398 سطر) لتنفيذ 2.4.
 - Checkpoint: `docs/checkpoints/2.0-docs-reset-1.0.md`.
+
+---
+
+## 12. نقطة التوقف الحالية (22 Nov 2026) — Resume Here
+
+> **الحالة:** الخطة موقوفة مؤقتًا بناءً على طلب المالك (22 Nov 2026) لإضافة **مميزات جديدة**. كل الشغل متسجل ومُcommit محليًا، وشجرة العمل نظيفة. الـgoal الخاص بالخطة **Paused** (يمكن استئنافه بكلمة واحدة).
+
+### آخر commit
+- `HEAD` = 5 مراحل مالية/UX/CI + commit توثيق نقطة التوقف (راجع `git log --oneline -12`).
+- **محليًا 12+ commit قبل `origin/main`** — الـpush محجوب من الساندبوكس (SEC_E_NO_CREDENTIALS). المطلوب: `git push origin main` من طرفية عادية.
+
+### المنجز (بالترتيب)
+| المرحلة | الحالة | checkpoint |
+|---|---|---|
+| 2.0 Docs Reset + قرارات المالك | ✅ | `docs/checkpoints/2.0-docs-reset-1.0.md` |
+| 2.1 تأمين النشر/النسخ + healthcheck | ✅ (تحتاج rehearsal) | `2.0-docs-reset-1.0.md` |
+| 2.2 تداخل المواعيد (45/45) + تحصين 025 (17/17) | ✅ | `2.0…` + `2.2fix-2.4b-2.5a-1.0.md` |
+| 2.3 Reverse/Void مالي (migration 024، SQL verify 23/23) | ✅ | `2.3-2.4a-void-responsive-1.0.md` |
+| 2.4-a Responsive shell (Drawer/Bottom Nav/Modal sheet/CSS leak) | ✅ | `2.3-2.4a…` |
+| 2.4-b جداول/لمس/ConfirmSheet/MonthPicker | ✅ (16 جدولًا؛ 3 SystemAdminView متبقية) | `2.2fix-2.4b-2.5a-1.0.md` |
+| 2.5-a CI (typecheck/migration-count/SQL regression/schema drift) + Vite proxy | ✅ | `2.2fix-2.4b-2.5a-1.0.md` |
+
+### المتبقي بالترتيب (عند الاستئناف)
+1. **2.4-c:** QA بصري 390/1440 لكل صفحة (محجوب محليًا — يحتاج متصفح)، 3 جداول `SystemAdminView`، print CSS، reduced-motion، pagination/«عرض المزيد»، مراجعة RTL نهائية، تقليل blur/perf.
+2. **2.5-b:** contract حقيقي (spec مقابل API يعمل)، Playwright E2E، deploy/rollback verification، **أول تشغيل GitHub Actions**، lint (يحتاج قرار إضافة ESLint).
+3. **2.6:** الخزنة + الإيرادات + المصروفات + تقفيل الشهر + منع Void بعد التقفيل.
+4. **2.7:** أمان/تشغيل (lockout، antiforgery، HSTS/Nginx، Cloudflare origin، rotation، monitoring).
+5. **2.8:** تنظيف/إعادة هيكلة (>400 سطر: `useDarApplication.ts` 404، `SystemAdminView`، `AuthEndpoints` 472، `SystemAdminEndpoints.Requests` 484، `TeacherApp` 475، `teacherTypes` 406) + إزالة `desktop-host`/`tools`/`runners`/vbs + إخراج `.opencode` من الريبو.
+6. **2.9:** E2E شامل، restore drill آلي، load/pen test، PDF sign-off، handover.
+
+### Blockers/قيود معروفة
+- **push** محجوب بيئيًا (Windows Credential Manager) → تنفيذ يدوي.
+- **نشر** migration 024/025 لم يُطبّق على الإنتاج بعد (الإنتاج على 23 migration) → عبر `deploy/update.sh` مع نسخة قبلية.
+- **تحقق بصري/E2E/Testcontainers/bash -n** محجوبة في الساندبوكس (esbuild EPERM / no Docker / MSYS pipes) → CI أو جهاز غير مقيّد.
+- **سكربتات Phase 2.1** لم تُجرّب على host بعد (rehearsal مطلوب).
+- **cleanup**: مجلد `.tmp-deploy` متبقٍ (pip temp، متجاهل في git ولا يؤثر).
+
+### للاستئناف
+1. `git push origin main` (أو من طرفية المالك).
+2. استئناف الـgoal من `docs/17-master-plan.md` — التالي 2.4-c ثم 2.5-b.
