@@ -1,0 +1,40 @@
+[Unit]
+Description=Dar Google Meet recorder bot
+Documentation=file:/opt/dar/docs/19-meet-operations.md
+After=network-online.target dar-api.service
+Wants=network-online.target dar-api.service
+Slice=dar-meet.slice
+
+[Service]
+Type=simple
+User=dar
+Group=dar
+WorkingDirectory=/opt/dar-meet-bot
+EnvironmentFile=/etc/dar/meet-bot.env
+Environment=HOME=/var/lib/dar
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node /opt/dar-meet-bot/dist/index.js
+Restart=always
+RestartSec=10
+KillSignal=SIGTERM
+TimeoutStopSec=45
+
+# A private runtime dir keeps the bot's PulseAudio server away from every other process.
+RuntimeDirectory=dar-meet
+RuntimeDirectoryMode=0700
+
+# Hardening (ADR-0007 §5).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/dar/media/meet /var/lib/dar/meet /run/dar-meet
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+PrivateDevices=true
+
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+[Install]
+WantedBy=multi-user.target

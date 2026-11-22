@@ -13,6 +13,15 @@ public sealed class MeetOptions
     /// <summary>Base64 of a 32-byte AES-GCM key used for the refresh token and OAuth state.</summary>
     public string EncryptionKey { get; set; } = "";
 
+    /// <summary>Shared secret for the loopback-only bot API (Meet__InternalToken).</summary>
+    public string InternalToken { get; set; } = "";
+
+    /// <summary>Where the bot keeps HLS segments and final MP4 files.</summary>
+    public string MediaRoot { get; set; } = "/var/lib/dar/media/meet";
+
+    /// <summary>A job whose heartbeat is older than this is reported as stale.</summary>
+    public int BotHealthStaleSeconds { get; set; } = 90;
+
     /// <summary>Where the OAuth callback returns the browser (the admin SPA route).</summary>
     public string AdminRedirectPath { get; set; } = "/management";
 
