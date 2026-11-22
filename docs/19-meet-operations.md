@@ -7,7 +7,7 @@
 
 ## 1. متغيرات البيئة المطلوبة
 
-تُوضع في `/etc/dar/meet.env` بصلاحيات `640 root:dar`، وتُقرأ عبر `EnvironmentFile` في خدمتَي dar-api وdar-legacy (خدمة الـlegacy تحتاج مفاتيح Data Protection فقط).
+تُوضع أسرار Meet في **`/etc/dar/meet.env`** بصلاحيات `640 root:dar`، ويقرأها `dar-api` عبر `EnvironmentFile=-/etc/dar/meet.env` (سطر أضافه `deploy/setup-host-services.sh` ويكتب الملف أول مرة بمفتاح تشفير عشوائي).
 
 ```env
 # Google Cloud Console → OAuth 2.0 Client (Web application)
@@ -15,16 +15,16 @@ Meet__Google__ClientId=...apps.googleusercontent.com
 Meet__Google__ClientSecret=...
 Meet__Google__RedirectUri=https://dar-elemam-hafs.rigxhardware.com/api/v1/meet/calendar/callback
 
-# 32 bytes base64 (AES-256-GCM) — لتشفير refresh token وتوقيع state
-Meet__EncryptionKey=<openssl rand -base64 32>
+# 32 bytes base64 (AES-256-GCM) — يُولَّد تلقائيًا مع أول إنشاء للملف
+#Meet__EncryptionKey=...
 
 # اختياري
-Meet__SyncIntervalSeconds=60
-Meet__FullSyncHours=6
-Meet__AdminRedirectPath=/management
+#Meet__SyncIntervalSeconds=60
+#Meet__FullSyncHours=6
+#Meet__AdminRedirectPath=/management
 ```
 
-**مفتاح Data Protection مشترك (إلزامي للـAPIين):** أضِف السطر التالي إلى **`/etc/dar/api.env` و`/etc/dar/legacy.env` معًا** (أو أضف `EnvironmentFile=/etc/dar/meet.env` إلى وحدتَي systemd):
+**مفتاح Data Protection مشترك (إلزامي للـAPIين):** يُكتب في **`/etc/dar/api.env` و`/etc/dar/legacy.env` معًا** (يفعلها `deploy/setup-host-services.sh` تلقائيًا):
 
 ```env
 DataProtection__KeysPath=/var/lib/dar/keys
@@ -34,6 +34,8 @@ DataProtection__KeysPath=/var/lib/dar/keys
 1. لا تُكتب هذه القيم في appsettings.json ولا في Git ولا في اللوجات.
 2. تغيير `Meet__EncryptionKey` يُفقد كل refresh tokens المخزنة → يلزم إعادة ربط Google.
 3. تغيير `DataProtection__KeysPath` أو حذف المفاتيح → كل جلسات الأدمن والمعلمات تُلغى.
+4. `EnvironmentFile=-` بعلامة `-` تعني «اختياري»: لو الملف غير موجود فالخدمة تعمل والوحدة تبقى «غير مهيأة» (fail-closed) بدل أن تسقط.
+5. ترتيب `EnvironmentFile` مهم: `meet.env` يأتي **بعد** `api.env` فقيمه هي التي تُطبَّق عند التعارض.
 
 ## 2. حلقة مفاتيح Data Protection (ADR-0006)
 

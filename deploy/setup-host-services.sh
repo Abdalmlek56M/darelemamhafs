@@ -80,6 +80,8 @@ SMTP_PASSWORD="$(sed -n 's/^SMTP_PASSWORD=//p' "$ENV_FILE" | head -n 1)"
 SMTP_FROM="$(sed -n 's/^SMTP_FROM=//p' "$ENV_FILE" | head -n 1)"
 SMTP_ENABLE_SSL="$(sed -n 's/^SMTP_ENABLE_SSL=//p' "$ENV_FILE" | head -n 1)"
 GOOGLE_CLIENT_ID="$(sed -n 's/^GOOGLE_CLIENT_ID=//p' "$ENV_FILE" | head -n 1)"
+DAR_DOMAIN_VALUE="$(sed -n 's/^DAR_DOMAIN=//p' "$ENV_FILE" | head -n 1 || true)"
+[ -n "$DAR_DOMAIN_VALUE" ] || DAR_DOMAIN_VALUE="dar-elemam-hafs.rigxhardware.com"
 
 if [ -z "$POSTGRES_PASSWORD" ] || [ "$POSTGRES_PASSWORD" = "change-me-hex" ]; then
   echo "POSTGRES_PASSWORD is missing or still the example value in $ENV_FILE." >&2
@@ -109,6 +111,9 @@ $SUDO install -d -m 0750 -o dar -g dar /var/lib/dar/backups
 $SUDO install -d -m 0750 -o dar -g dar /var/lib/dar/backups/db
 $SUDO install -d -m 0750 -o dar -g dar /var/lib/dar/app
 $SUDO install -d -m 0750 -o dar -g dar /var/lib/dar/logs
+# ADR-0006: both APIs must share one Data Protection key ring, otherwise the
+# admin cookie issued by dar-legacy cannot be read by dar-api.
+$SUDO install -d -m 0700 -o dar -g dar /var/lib/dar/keys
 $SUDO install -d -m 0750 -o dar -g dar /var/lib/dar/.local/share/DarEltahfeez/Logs
 $SUDO install -d -m 0755 -o root -g root /var/log/dar
 $SUDO install -d -m 0755 -o root -g root "$APP_ROOT"
@@ -152,6 +157,7 @@ ConnectionStrings__DarDatabase=$DB
 Database__ApplyMigrationsOnStartup=false
 Backup__RootPath=/var/lib/dar/backups
 Auth__SetupToken=
+DataProtection__KeysPath=/var/lib/dar/keys
 TZ=Africa/Cairo
 HOME=/var/lib/dar
 ForwardedHeaders__KnownProxies__0=127.0.0.1
@@ -169,10 +175,34 @@ Auth__Smtp__Password=$SMTP_PASSWORD
 Auth__Smtp__From=$SMTP_FROM
 Auth__Smtp__EnableSsl=$SMTP_ENABLE_SSL
 Auth__Google__ClientId=$GOOGLE_CLIENT_ID
+DataProtection__KeysPath=/var/lib/dar/keys
 TZ=Africa/Cairo
 HOME=/var/lib/dar
 ForwardedHeaders__KnownProxies__0=127.0.0.1
 EOF
+
+# Meet recording module (ADR-0007, docs/19). Created once and never rewritten:
+# it holds the Google OAuth secret and the AES key that protects stored tokens.
+MEET_ENV_FILE="$CONFIG_DIR/meet.env"
+if [ -f "$MEET_ENV_FILE" ]; then
+  echo "==> Meet env: keeping existing $MEET_ENV_FILE"
+else
+  echo "==> Meet env: creating $MEET_ENV_FILE"
+  meet_key="$(openssl rand -base64 32)"
+  meet_tmp="$(mktemp)"
+  cat >"$meet_tmp" <<EOF
+# Google Calendar OAuth (fill once, then: systemctl restart dar-api). See docs/19.
+Meet__Google__ClientId=
+Meet__Google__ClientSecret=
+Meet__Google__RedirectUri=https://$DAR_DOMAIN_VALUE/api/v1/meet/calendar/callback
+# AES-256-GCM key for the stored refresh token and the signed OAuth state.
+Meet__EncryptionKey=$meet_key
+EOF
+  unset meet_key
+  chmod 0640 "$meet_tmp"
+  $SUDO chown root:dar "$meet_tmp"
+  $SUDO mv -f "$meet_tmp" "$MEET_ENV_FILE"
+fi
 
 echo "==> systemd units"
 write_unit_file "$UNIT_DIR/dar-legacy.service" <<'EOF'
@@ -214,6 +244,7 @@ User=dar
 Group=dar
 WorkingDirectory=/opt/dar/app/api
 EnvironmentFile=/etc/dar/api.env
+EnvironmentFile=-/etc/dar/meet.env
 ExecStart=/usr/bin/dotnet /opt/dar/app/api/Dar.Api.dll
 Restart=always
 RestartSec=5
