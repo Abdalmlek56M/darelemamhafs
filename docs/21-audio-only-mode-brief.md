@@ -68,3 +68,22 @@
 - استهلاك المعالج أثناء الجلسة أقل بوضوح من وضع video (`top` على Chrome/Xvfb/parecord، بدون ffmpeg).
 - `tsc` و`vitest` ينجحان. الوضع الافتراضي `video` يسلك كما قبل تمامًا.
 - لا أسرار في الريبو.
+---
+
+## ✅ التنفيذ والنشر — 23 Nov 2026 (Cairo)
+
+- **التنفيذ:** `BOT_RECORD_MODE=audio|video` (الافتراضي video) في `services/meet-recorder/src/config.ts`.
+  - في وضع audio: `ScreenCapture` يشغّل `parecord` فقط (48kHz stereo s16le) طوال الحصة، **بلا x11grab ولا libx264 ولا HLS**.
+  - عند الإيقاف: تحويل WAV→AAC/MP4 (`-b:a 128k`، faststart) ثم حذف WAV، مع duration/SHA-256.
+  - `selftest.ts` يدعم الوضع ويقيس المدة؛ `jobs/recording.ts` لا يرسل آرتيفاكت hls/poster في audio mode (mp4 فقط).
+  - أضيفت تبعية `playwright ^1.65.1` إلى `package.json` (كانت موجودة على السيرفر فقط).
+- **النشر الفعلي على السيرفر (14:19 Cairo):** نسخة احتياطية `src.bak.20261123-141839` + `meet-bot.env.bak.20261123-141839`، `npx tsc` OK، ثم audio selftest: **MP4 15.2s، 8,018 bytes (صمت رقمي)، 0 failures**، ثم `BOT_RECORD_MODE=audio` + `BOT_CHROME_AUDIO_BUFFER=16384` في `/etc/dar/meet-bot.env` و`systemctl restart dar-meet-bot` → **active**.
+- **التأثير المتوقع:** إزالة ترميز الفيديو (~54% core في 720p15) وx11grab يفرغ CPU لـChromium، فتقل احتمالية underrun الصوت بشدة. لا ينتج HLS/poster وبالتالي **لا بث حي** لهذه الحصص — التسجيل للصوت فقط ويُشغَّل من لوحة التسجيلات.
+- **التحقق بعد الحصة:** `ffprobe` للمدة + حجم الملف + `ffmpeg -af silencedetect` لكشف أي فراغات صوتية.
+
+### الرجوع إلى وضع الفيديو (لو احتجت)
+```bash
+sudo sed -i 's/^BOT_RECORD_MODE=.*/BOT_RECORD_MODE=video/' /etc/dar/meet-bot.env
+sudo systemctl restart dar-meet-bot
+```
+وللرجوع الكامل للكود: استعد `src.bak.20261123-141839` ثم `npx tsc` وأعد التشغيل.

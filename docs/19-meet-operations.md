@@ -165,3 +165,22 @@ curl -s -H "X-Dar-Service-Token: $TOKEN" http://127.0.0.1:5081/internal/meet/hea
 
 - **دخول Google Meet فعليًا** (Playwright/Chromium + البروفايل)، البث الحي HLS/DVR عبر MediaMTX، مسارات `/media/meet/*` المحمية، SSE، رفع rclone إلى Drive، والحذف اليدوي المحمي — كلها 3.3 → 3.6.
 - حتى ذلك الحين: الخدمة تعمل وتلتقط شاشة وهمية، لكنها **لا تنضم لأي اجتماع ولا تنتج تسجيلات حلقات**؛ المزامنة والربط فقط هما الجاهزان.
+---
+
+## وضع التسجيل الصوتي فقط (BOT_RECORD_MODE=audio) — 23 Nov 2026
+
+- مفيد للحصص الصوتية (تلاوة/شرح) حيث الأولوية لنقاء الصوت وحمل السيرفر.
+- لا ينتج HLS ولا poster ولا بث حي؛ الأرتيفاكت الوحيد `mp4` (AAC 128k stereo 48kHz) يظهر في لوحة التسجيلات ويعمل مشغل الفيديو/الصوت.
+- يستهلك CPU أقل بكثير (لا libx264/x11grab أثناء الحصة)؛ Chromium يبقى مطلوبًا للانضمام واستقبال صوت Meet.
+- التشغيل/الإيقاف:
+```bash
+sudo sed -i 's/^BOT_RECORD_MODE=.*/BOT_RECORD_MODE=audio/' /etc/dar/meet-bot.env   # أو video
+sudo systemctl restart dar-meet-bot
+sudo journalctl -u dar-meet-bot -n 20 --no-pager
+```
+- اختبار سريع: `sudo -u dar env HOME=/var/lib/dar bash -lc 'set -a; . /etc/dar/meet-bot.env; set +a; cd /opt/dar-meet-bot && BOT_RECORD_MODE=audio BOT_DISPLAY=97 BOT_SELFTEST_SECONDS=15 node dist/index.js --selftest'`.
+- فحص جودة حصة مسجلة:
+```bash
+ffprobe -v error -show_entries format=duration,size -of default=nw=1 <recording.mp4>
+ffmpeg -v error -i <recording.mp4> -af silencedetect=noise=-50dB:d=0.5 -f null - 2>&1 | tail -20
+```
