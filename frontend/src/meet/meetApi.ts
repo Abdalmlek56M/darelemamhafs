@@ -8,6 +8,7 @@ import type {
   MeetEventPage,
   MeetFilter,
   MeetRecordingMode,
+  MeetSessionsResponse,
   MeetSettings,
   MeetSyncResult,
 } from './types'
@@ -75,6 +76,8 @@ export const meetApi = {
     }),
 
   circles: () => api<MeetCirclesResponse>('/api/v1/meet/circles'),
+
+  sessions: () => api<MeetSessionsResponse>('/api/v1/meet/sessions?limit=50'),
 
   saveCircle: (circleId: string, autoRecord: boolean, autoLink: boolean) =>
     api<MeetCircleSetting>(`/api/v1/meet/circles/${circleId}`, {

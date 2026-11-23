@@ -3,6 +3,7 @@ using Dar.Modules.Meet.Features.Calendar;
 using Dar.Modules.Meet.Features.Circles;
 using Dar.Modules.Meet.Features.Events;
 using Dar.Modules.Meet.Features.Internal;
+using Dar.Modules.Meet.Features.Media;
 using Dar.Modules.Meet.Infrastructure;
 using Dar.Modules.Meet.Persistence;
 
@@ -19,6 +20,7 @@ public static class MeetModule
         services.AddScoped<MeetCalendarRepository>();
         services.AddScoped<MeetScopeRepository>();
         services.AddScoped<MeetBotJobRepository>();
+        services.AddScoped<MeetMediaRepository>();
         services.AddScoped<CalendarSyncService>();
         services.AddHostedService<Workers.CalendarSyncWorker>();
         services.AddHostedService<Workers.MeetSchedulerWorker>();
@@ -41,6 +43,7 @@ public static class MeetModule
         group.MapMeetCalendar();
         group.MapMeetEvents();
         group.MapMeetCircles();
+        group.MapMeetMedia();
 
         // Loopback-only control plane for the recorder. Nginx never proxies this prefix and
         // every call needs the service token (Meet__InternalToken).

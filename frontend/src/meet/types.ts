@@ -81,3 +81,18 @@ export type MeetSettings = {
 }
 
 export type MeetConnectResponse = { authorizationUrl: string }
+
+export type MeetSession = {
+  id: string
+  summary: string | null
+  circleName: string | null
+  startedAt: string
+  durationSeconds: number | null
+  status: 'live' | 'finalizing' | 'uploading' | 'ready' | 'partial' | 'failed' | string
+  sizeBytes: number | null
+  uploadedToDrive: boolean
+  streamUrl: string | null
+  posterUrl: string | null
+}
+
+export type MeetSessionsResponse = { count: number; sessions: MeetSession[] }

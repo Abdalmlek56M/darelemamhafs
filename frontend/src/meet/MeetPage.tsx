@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { CalendarDays, Plus, RefreshCw, Video } from 'lucide-react'
+import { CalendarDays, Film, Plus, RefreshCw, Video } from 'lucide-react'
 import { confirmAction } from '../components/common/confirmService'
 import type { DarApplicationContext } from '../application/useDarApplication'
 import { meetApi } from './meetApi'
 import CalendarStatusCard from './components/CalendarStatusCard'
 import CalendarEventsPanel from './components/CalendarEventsPanel'
 import RecordingScopePanel from './components/RecordingScopePanel'
+import RecordingsPanel from './components/RecordingsPanel'
 import LinkEventDialog from './components/LinkEventDialog'
 import CreateEventDialog, { type CreateEventInput } from './components/CreateEventDialog'
 import { addDays, cairoDayKey } from './format'
@@ -21,7 +22,7 @@ import type {
 import './meet.css'
 
 type Props = { ctx: DarApplicationContext }
-type Tab = 'events' | 'scope'
+type Tab = 'events' | 'recordings' | 'scope'
 
 const pageSize = 25
 const callbackMessages: Record<string, string> = {
@@ -292,6 +293,13 @@ export default function MeetPage({ ctx }: Props) {
       <button
         type="button"
         role="tab"
+        aria-selected={tab === 'recordings'}
+        className={'meet-tab' + (tab === 'recordings' ? ' is-active' : '')}
+        onClick={() => setTab('recordings')}
+      ><Film size={16} /> التسجيلات</button>
+      <button
+        type="button"
+        role="tab"
         aria-selected={tab === 'scope'}
         className={'meet-tab' + (tab === 'scope' ? ' is-active' : '')}
         onClick={() => setTab('scope')}
@@ -300,8 +308,7 @@ export default function MeetPage({ ctx }: Props) {
 
     {error && <p className="meet-page-error" role="alert">{error}</p>}
 
-    {tab === 'events'
-      ? <CalendarEventsPanel
+    {tab === 'events' && <CalendarEventsPanel
         events={events}
         total={total}
         page={page}
@@ -321,8 +328,11 @@ export default function MeetPage({ ctx }: Props) {
         onLink={setLinkTarget}
         onUnlink={(event) => void unlink(event)}
         onMode={(event, mode) => void changeMode(event, mode)}
-      />
-      : <RecordingScopePanel
+      />}
+
+    {tab === 'recordings' && <RecordingsPanel canView={ctx.has('meet.media.view')} />}
+
+    {tab === 'scope' && <RecordingScopePanel
         circles={circles}
         scoped={scoped}
         canManage={canManage}
