@@ -223,3 +223,8 @@
 - الهدف: إزالة حمل الترميز (~54% core) عن سيرفر مشترك وحماية نقاء الصوت.
 - سيلفتست إنتاجي: `{ ok: true, durationSeconds: 15.2 }`؛ الخدمة `active`؛ الحصص القادمة 15:19 و20:00 ستُسجَّل audio-only.
 - التفاصيل + الرجوع: `docs/21` و`docs/19` و`docs/checkpoints/3.3b-audio-only-mode-1.0.md`.
+
+### 24 Nov 2026 — تحسين إلحاق الطلاب الجماعي (طلب مالك)
+- حوار إلحاق الطلاب بالحلقة أصبح يدعم: بحث، تحديد الكل/إلغاء، **رسوم متفق عليها لكل طالب** (افتراضي = سعر الحلقة)، سعر موحّد يُطبّق على المحددين، وإجمالي شهري.
+- الـAPI: `POST /api/circle-enrollments/bulk` يقبل `students: [{studentId, agreedMonthlyFee}]` (مع توافق خلفي مع `studentIds`)، يتحقق من صلاحية `finance.edit` عند تمرير رسوم، يطبّق المعاملة ذريًا (jsonb_to_recordset + partial unique index)، ويسجل `feesSet` في الـaudit.
+- build: legacy 0W/0E + tsc 0 errors. يحتاج نشر عبر `deploy/update.sh` (بدون migration).

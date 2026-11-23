@@ -58,14 +58,36 @@ public static partial class DomainEndpoints
 
         app.MapPost("/api/circle-enrollments/bulk", async Task<IResult> (BulkEnrollmentWriteRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
-            if (request.CircleId == Guid.Empty || request.StudentIds is null || request.StudentIds.Count == 0)
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["enrollment"] = ["اختر الحلقة وطالبة واحدة على الأقل."] });
+            if (request.CircleId == Guid.Empty)
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["enrollment"] = ["اختر الحلقة."] });
             if (request.StartsOn == default)
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["startsOn"] = ["حدد تاريخ بداية الالتحاق."] });
             if (request.AllowClosedCircle && !principal.HasClaim("permission", "circles.edit")) return Results.Forbid();
-            var studentIds = request.StudentIds.Where(value => value != Guid.Empty).Distinct().Take(200).ToArray();
-            if (studentIds.Length == 0)
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["studentIds"] = ["اختر طالبة واحدة على الأقل."] });
+
+            // The explicit per-student list wins; the legacy studentIds payload keeps working
+            // and falls back to the circle monthly fee (previous behaviour).
+            var canEditFinancials = CanEditFinancialValues(principal);
+            var requested = (request.Students is { Count: > 0 }
+                    ? request.Students
+                        .Where(item => item.StudentId != Guid.Empty)
+                        .GroupBy(item => item.StudentId)
+                        .Select(group => group.First())
+                    : (request.StudentIds ?? []).Where(value => value != Guid.Empty).Distinct().Select(value => new BulkEnrollmentStudent(value, null)))
+                .Take(200)
+                .ToArray();
+            if (requested.Length == 0)
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["students"] = ["اختر طالبة واحدة على الأقل."] });
+
+            var fees = new decimal?[requested.Length];
+            for (var index = 0; index < requested.Length; index++)
+            {
+                if (requested[index].AgreedMonthlyFee is not { } fee) continue;
+                if (!canEditFinancials) return Results.Forbid();
+                if (!MoneyRules.TryNormalizeNonNegativeCurrency(fee, out var normalizedFee))
+                    return Results.ValidationProblem(new Dictionary<string, string[]> { ["agreedMonthlyFee"] = ["رسوم أحد الطلاب غير صالحة (رقم غير سالب بمنزلتين عشريتين على الأكثر)."] });
+                fees[index] = normalizedFee;
+            }
+            var studentIds = requested.Select(item => item.StudentId).ToArray();
 
             await using var conn = await db.OpenConnectionAsync(ct);
             await using var tx = await conn.BeginTransactionAsync(ct);
@@ -83,10 +105,11 @@ public static partial class DomainEndpoints
             var added = new List<(Guid EnrollmentId, Guid StudentId)>();
             await using (var insert = new NpgsqlCommand("""
                 INSERT INTO circle_enrollments(student_id,circle_id,starts_on,agreed_monthly_fee,status)
-                SELECT s.id,c.id,@starts,c.monthly_fee,'active'
-                FROM students s CROSS JOIN circles c
-                WHERE s.id=ANY(@students) AND s.is_trashed=FALSE AND s.status='active'
-                  AND c.id=@circle AND c.is_trashed=FALSE
+                SELECT s.id,c.id,@starts,COALESCE(rec.fee,c.monthly_fee),'active'
+                FROM jsonb_to_recordset(@students::jsonb) AS rec(student_id uuid, fee numeric)
+                JOIN students s ON s.id=rec.student_id AND s.is_trashed=FALSE AND s.status='active'
+                CROSS JOIN circles c
+                WHERE c.id=@circle AND c.is_trashed=FALSE
                   AND NOT EXISTS (
                       SELECT 1 FROM circle_enrollments existing
                       WHERE existing.student_id=s.id AND existing.circle_id=c.id
@@ -95,7 +118,8 @@ public static partial class DomainEndpoints
                 RETURNING id,student_id;
                 """, conn, tx))
             {
-                insert.Parameters.AddWithValue("students", studentIds);
+                var studentsJson = JsonSerializer.Serialize(requested.Select((item, index) => new { student_id = item.StudentId, fee = fees[index] }));
+                insert.Parameters.AddWithValue("students", studentsJson);
                 insert.Parameters.AddWithValue("circle", request.CircleId);
                 insert.Parameters.AddWithValue("starts", request.StartsOn);
                 await using var reader = await insert.ExecuteReaderAsync(ct);
@@ -105,17 +129,19 @@ public static partial class DomainEndpoints
             foreach (var (enrollmentId, _) in added)
                 await InsertEnrollmentStatusEventAsync(conn, tx, enrollmentId, "enrollment.status.baseline", "active", request.StartsOn, "بداية الالتحاق الجماعي.", ActorId(principal), ct);
 
-            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'enrollment.bulk_create','circle',@circle,jsonb_build_object('requested',@requested,'added',@added,'startsOn',@starts));", conn, tx))
+            var feesApplied = fees.Count(value => value.HasValue);
+            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'enrollment.bulk_create','circle',@circle,jsonb_build_object('requested',@requested,'added',@added,'startsOn',@starts,'feesSet',@feesSet));", conn, tx))
             {
                 audit.Parameters.AddWithValue("actor", ActorId(principal));
                 audit.Parameters.AddWithValue("circle", request.CircleId);
                 audit.Parameters.AddWithValue("requested", studentIds.Length);
                 audit.Parameters.AddWithValue("added", added.Count);
                 audit.Parameters.AddWithValue("starts", request.StartsOn);
+                audit.Parameters.AddWithValue("feesSet", feesApplied);
                 await audit.ExecuteNonQueryAsync(ct);
             }
             await tx.CommitAsync(ct);
-            return Results.Ok(new { added = added.Count, skipped = studentIds.Length - added.Count });
+            return Results.Ok(new { added = added.Count, skipped = studentIds.Length - added.Count, feesApplied });
         }).RequireAuthorization("students.edit");
 
         app.MapPatch("/api/enrollments/{id:guid}/pause", async Task<IResult> (Guid id, EnrollmentStatusChangeRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
@@ -221,4 +247,13 @@ public static partial class DomainEndpoints
     }
 }
 
-public sealed record BulkEnrollmentWriteRequest(Guid CircleId, DateOnly StartsOn, List<Guid>? StudentIds, bool AllowClosedCircle = false);
+public sealed record BulkEnrollmentStudent(Guid StudentId, decimal? AgreedMonthlyFee);
+
+/// <summary>Bulk enrollment: the legacy studentIds list (circle fee applies) or a per-student
+/// list with an explicit agreed monthly fee. The explicit list wins when both are present.</summary>
+public sealed record BulkEnrollmentWriteRequest(
+    Guid CircleId,
+    DateOnly StartsOn,
+    List<Guid>? StudentIds,
+    bool AllowClosedCircle = false,
+    List<BulkEnrollmentStudent>? Students = null);

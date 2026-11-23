@@ -124,3 +124,25 @@
   .app-shell .sidebar .sidebar-account { display: none; }
   .app-shell .sidebar .sidebar-bottom { display: none !important; }
 }
+
+/* Bulk enrollment with per-student agreed fee (owner request 24 Nov 2026). */
+.bulk-list-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 8px; }
+.bulk-list-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+.bulk-fee-toolbar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: color-mix(in srgb, var(--accent) 3%, transparent); }
+.bulk-fee-toolbar .form-field { min-width: 160px; flex: 0 1 220px; margin: 0; }
+.bulk-fee-note { font-size: 10px; color: var(--muted); max-width: 360px; line-height: 1.8; }
+.bulk-enrollment-row { align-items: center; }
+.bulk-enrollment-row.is-selected { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.bulk-student-copy { flex: 1; min-width: 0; }
+.bulk-student-copy strong { white-space: normal; }
+.bulk-fee-field { margin-right: auto; display: flex; flex-direction: column; gap: 2px; align-items: flex-end; min-width: 128px; }
+.bulk-fee-field small { color: var(--muted); font-size: 9px; }
+.bulk-fee-field input { width: 110px; padding: 6px 8px; font-size: 12px; border-radius: 8px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 70%, var(--bg)); color: var(--text); min-height: 34px; }
+.bulk-total { font-size: 12px; color: var(--muted); margin: 2px 0 0; }
+@media (max-width: 700px) {
+  .bulk-fee-toolbar { flex-direction: column; align-items: stretch; }
+  .bulk-fee-toolbar .form-field { flex: 1; }
+  .bulk-enrollment-row { align-items: flex-start; flex-wrap: wrap; }
+  .bulk-fee-field { width: 100%; align-items: flex-start; margin-right: 0; padding-right: 26px; }
+  .bulk-fee-field input { width: 100%; }
+}
