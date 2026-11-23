@@ -1,6 +1,7 @@
 import { DarClient } from '../api/darClient.js'
 import type { BotConfig } from '../config.js'
 import type { Logger } from '../logger.js'
+import { runRecordingJob } from './recording.js'
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
@@ -26,13 +27,13 @@ export async function runPoller(config: BotConfig, logger: Logger, signal: Abort
         continue
       }
 
-      logger.warn('claimed a job but recording is not implemented in this phase', { jobId: job.id, status: job.status })
-      await client.reportStatus(
-        job.id,
-        'failed',
-        'recorder_not_ready',
-        'phase 3.2 provides the queue and the self test only'
-      )
+      logger.info('job claimed', {
+        jobId: job.id,
+        meetLink: job.meetLink,
+        startsAt: job.scheduledStart,
+        endsAt: job.scheduledEnd
+      })
+      await runRecordingJob(job, config, logger, client)
     } catch (error) {
       logger.error('poller iteration failed', { error: String(error) })
       await sleep(Math.max(config.pollIntervalMs, 10_000), signal)

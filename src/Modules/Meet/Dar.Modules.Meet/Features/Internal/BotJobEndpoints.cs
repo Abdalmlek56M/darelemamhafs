@@ -7,7 +7,20 @@ using Microsoft.Extensions.Options;
 
 namespace Dar.Modules.Meet.Features.Internal;
 
-public sealed record BotStatusRequest(string? Status, string? ErrorCode, string? ErrorMessage);
+public sealed record BotArtifactRequest(
+    string? Kind,
+    string? LocalPath,
+    long SizeBytes,
+    string? Sha256,
+    int DurationSeconds,
+    short PartNo = 1);
+
+public sealed record BotStatusRequest(
+    string? Status,
+    string? ErrorCode,
+    string? ErrorMessage,
+    int DurationSeconds = 0,
+    IReadOnlyList<BotArtifactRequest>? Artifacts = null);
 
 /// <summary>
 /// Loopback-only control plane used by dar-meet-bot. Every call must carry
@@ -71,6 +84,8 @@ public static class BotJobEndpoints
                 scheduledStart = job.ScheduledStart,
                 scheduledEnd = job.ScheduledEnd,
                 joinAt = job.JoinAt,
+                stopGraceSeconds = job.StopGraceSeconds,
+                joinLeadSeconds = job.JoinLeadSeconds,
                 circleId = job.CircleId,
                 summary = job.Summary,
                 meetLink = job.MeetLink
@@ -106,11 +121,39 @@ public static class BotJobEndpoints
             return Results.Json(new { message = "حالة غير معروفة." }, statusCode: 422);
 
         var rejection = await repository.SetStatusAsync(id, status, request.ErrorCode, request.ErrorMessage, ct);
-        if (rejection is null) return Results.NoContent();
+        if (rejection is not null)
+        {
+            return rejection == "job_not_found"
+                ? Results.Json(new { message = "المهمة غير موجودة." }, statusCode: 404)
+                : Results.Json(new { message = "انتقال حالة غير مسموح.", detail = rejection }, statusCode: 409);
+        }
 
-        return rejection == "job_not_found"
-            ? Results.Json(new { message = "المهمة غير موجودة." }, statusCode: 404)
-            : Results.Json(new { message = "انتقال حالة غير مسموح.", detail = rejection }, statusCode: 409);
+        if (status == MeetJobStates.Live)
+        {
+            var sessionId = await repository.EnsureSessionAsync(id, ct);
+            return Results.Ok(new { sessionId });
+        }
+
+        if (status is MeetJobStates.Ready or MeetJobStates.Failed or MeetJobStates.Partial)
+        {
+            var artifacts = (request.Artifacts ?? [])
+                .Where(item => !string.IsNullOrWhiteSpace(item.Kind) && !string.IsNullOrWhiteSpace(item.LocalPath))
+                .Select(item => new BotArtifact(
+                    item.Kind!.Trim().ToLowerInvariant(),
+                    item.LocalPath!,
+                    item.SizeBytes,
+                    item.Sha256,
+                    item.DurationSeconds,
+                    item.PartNo))
+                .ToArray();
+            var sessionStatus = status == MeetJobStates.Ready ? "ready"
+                : status == MeetJobStates.Partial ? "partial"
+                : "failed";
+            await repository.FinishSessionAsync(id, sessionStatus, request.DurationSeconds, artifacts, ct);
+            return Results.Ok(new { artifacts = artifacts.Length });
+        }
+
+        return Results.NoContent();
     }
 
     private static IResult? Deny(HttpContext context, IOptions<MeetOptions> options)

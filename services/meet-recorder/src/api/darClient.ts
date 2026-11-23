@@ -1,5 +1,18 @@
 import type { Logger } from '../logger.js'
 
+export type BotArtifactPayload = {
+  kind: string
+  localPath: string
+  sizeBytes: number
+  sha256: string | null
+  durationSeconds: number
+}
+
+export type BotStatusExtras = {
+  durationSeconds?: number
+  artifacts?: BotArtifactPayload[]
+}
+
 export type BotJob = {
   id: string
   eventId: string
@@ -8,6 +21,8 @@ export type BotJob = {
   scheduledStart: string
   scheduledEnd: string
   joinAt: string
+  stopGraceSeconds: number
+  joinLeadSeconds: number
   circleId: string | null
   meetLink: string | null
   summary: string | null
@@ -45,10 +60,22 @@ export class DarClient {
     await this.request<unknown>(`/internal/meet/jobs/${jobId}/heartbeat`, { method: 'POST', body: '{}' })
   }
 
-  async reportStatus(jobId: string, status: string, errorCode?: string, errorMessage?: string): Promise<void> {
+  async reportStatus(
+    jobId: string,
+    status: string,
+    errorCode?: string,
+    errorMessage?: string,
+    extras?: BotStatusExtras
+  ): Promise<void> {
     await this.request<unknown>(`/internal/meet/jobs/${jobId}/status`, {
       method: 'POST',
-      body: JSON.stringify({ status, errorCode: errorCode ?? null, errorMessage: errorMessage ?? null })
+      body: JSON.stringify({
+        status,
+        errorCode: errorCode ?? null,
+        errorMessage: errorMessage ?? null,
+        durationSeconds: extras?.durationSeconds ?? 0,
+        artifacts: extras?.artifacts ?? []
+      })
     })
   }
 
@@ -73,7 +100,6 @@ export class DarClient {
       const body = await response.text().catch(() => '')
       throw new DarApiError(`${path} failed with ${response.status}: ${body.slice(0, 300)}`, response.status)
     }
-    if (response.status === 204) return null
     const text = await response.text()
     return text ? (JSON.parse(text) as T) : null
   }

@@ -21,6 +21,7 @@ public static class MeetModule
         services.AddScoped<MeetBotJobRepository>();
         services.AddScoped<CalendarSyncService>();
         services.AddHostedService<Workers.CalendarSyncWorker>();
+        services.AddHostedService<Workers.MeetSchedulerWorker>();
 
         services.AddAuthorization(options =>
         {

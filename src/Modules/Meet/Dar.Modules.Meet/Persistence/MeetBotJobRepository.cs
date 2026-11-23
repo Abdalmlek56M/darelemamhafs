@@ -12,9 +12,20 @@ public sealed record BotJobClaim(
     DateTimeOffset JoinAt,
     Guid? CircleId,
     string? Summary,
-    string? MeetLink);
+    string? MeetLink,
+    int StopGraceSeconds,
+    int JoinLeadSeconds);
 
 public sealed record BotQueueSnapshot(int Pending, int Active, int Stale);
+
+/// <summary>One produced file reported by the bot when a recording finishes.</summary>
+public sealed record BotArtifact(
+    string Kind,
+    string LocalPath,
+    long SizeBytes,
+    string? Sha256,
+    int DurationSeconds,
+    short PartNo = 1);
 
 /// <summary>
 /// Durable recording queue. The bot claims a job atomically with SKIP LOCKED so two
@@ -30,11 +41,17 @@ public sealed class MeetBotJobRepository(NpgsqlDataSource dataSource)
         BotJobClaim? job = null;
         await using (var select = new NpgsqlCommand("""
             SELECT j.id, j.event_id, j.occurrence_key, j.scheduled_start, j.scheduled_end, j.join_at,
-                   j.circle_id, e.summary, e.meet_link
+                   j.circle_id, e.summary, e.meet_link, s.stop_grace_seconds, s.join_lead_seconds
             FROM meet_bot_jobs j
             JOIN meet_events e ON e.id = j.event_id
-            WHERE j.status = 'scheduled'
+            CROSS JOIN meet_settings s
+            WHERE s.id = TRUE
+              AND j.status = 'scheduled'
               AND j.join_at <= now()
+              -- One concurrent recording (owner decision): never claim while another is active.
+              AND NOT EXISTS (
+                    SELECT 1 FROM meet_bot_jobs a
+                    WHERE a.status IN ('joining', 'live', 'finalizing', 'uploading'))
             ORDER BY j.join_at
             FOR UPDATE OF j SKIP LOCKED
             LIMIT 1;
@@ -51,7 +68,9 @@ public sealed class MeetBotJobRepository(NpgsqlDataSource dataSource)
                     reader.GetFieldValue<DateTimeOffset>(5),
                     reader.IsDBNull(6) ? null : reader.GetGuid(6),
                     reader.IsDBNull(7) ? null : reader.GetString(7),
-                    reader.IsDBNull(8) ? null : reader.GetString(8));
+                    reader.IsDBNull(8) ? null : reader.GetString(8),
+                    reader.GetInt32(9),
+                    reader.GetInt32(10));
             }
         }
 
@@ -135,6 +154,140 @@ public sealed class MeetBotJobRepository(NpgsqlDataSource dataSource)
 
         await transaction.CommitAsync(ct);
         return null;
+    }
+
+    /// <summary>
+    /// Creates jobs for events that should be recorded: linked to a circle the owner selected
+    /// (or forced on the event) with a Meet link, starting inside the scheduling horizon.
+    /// Idempotent through the (event, start) check and the occurrence_key unique index.
+    /// </summary>
+    public async Task<int> ScheduleDueAsync(int horizonMinutes, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO meet_bot_jobs(event_id, occurrence_key, circle_id, scheduled_start, scheduled_end, join_at)
+            SELECT e.id,
+                   e.id::text || ':' || to_char(e.occurrence_start AT TIME ZONE 'UTC', 'YYYYMMDD"T"HH24MISS'),
+                   l.circle_id,
+                   e.occurrence_start,
+                   e.occurrence_end,
+                   e.occurrence_start - make_interval(secs => s.join_lead_seconds)
+            FROM meet_events e
+            LEFT JOIN meet_event_links l ON l.event_id = e.id
+            LEFT JOIN meet_circle_settings cs ON cs.circle_id = l.circle_id
+            CROSS JOIN meet_settings s
+            WHERE s.id = TRUE
+              AND e.occurrence_start > now()
+              AND e.occurrence_start <= now() + make_interval(mins => @horizon)
+              AND e.google_status <> 'cancelled'
+              AND e.meet_link IS NOT NULL
+              AND e.recording_mode <> 'exclude'
+              AND (e.recording_mode = 'force'
+                   OR (l.circle_id IS NOT NULL AND COALESCE(cs.auto_record, FALSE)))
+              AND NOT EXISTS (
+                    SELECT 1 FROM meet_bot_jobs j
+                    WHERE j.event_id = e.id AND j.scheduled_start = e.occurrence_start)
+            ON CONFLICT (occurrence_key) DO NOTHING;
+            """, connection);
+        command.Parameters.AddWithValue("horizon", horizonMinutes);
+        return await command.ExecuteNonQueryAsync(ct);
+    }
+
+    /// <summary>Cancels jobs whose calendar event was cancelled or removed.</summary>
+    public async Task<int> CancelOrphanedAsync(CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            UPDATE meet_bot_jobs j
+            SET status = 'cancelled',
+                error_code = 'event_cancelled',
+                error_message = 'أُلغي الحدث من تقويم Google.',
+                finished_at = now(),
+                updated_at = now()
+            FROM meet_events e
+            WHERE j.event_id = e.id
+              AND j.status IN ('scheduled', 'waiting')
+              AND e.google_status = 'cancelled';
+            """, connection);
+        return await command.ExecuteNonQueryAsync(ct);
+    }
+
+    /// <summary>Creates (or returns) the recording session row when the bot goes live.</summary>
+    public async Task<Guid?> EnsureSessionAsync(Guid jobId, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO meet_sessions(job_id, event_id, circle_id, status, scheduled_end)
+            SELECT j.id, j.event_id, j.circle_id, 'live', j.scheduled_end
+            FROM meet_bot_jobs j
+            WHERE j.id = @job
+              AND NOT EXISTS (SELECT 1 FROM meet_sessions s WHERE s.job_id = j.id)
+            RETURNING id;
+            """, connection);
+        command.Parameters.AddWithValue("job", jobId);
+        var created = await command.ExecuteScalarAsync(ct);
+        if (created is Guid id) return id;
+
+        await using var existing = new NpgsqlCommand(
+            "SELECT id FROM meet_sessions WHERE job_id = @job ORDER BY started_at DESC LIMIT 1;", connection);
+        existing.Parameters.AddWithValue("job", jobId);
+        return await existing.ExecuteScalarAsync(ct) as Guid?;
+    }
+
+    /// <summary>Closes the session and stores the produced MP4/HLS/poster metadata.</summary>
+    public async Task FinishSessionAsync(
+        Guid jobId,
+        string sessionStatus,
+        int durationSeconds,
+        IReadOnlyList<BotArtifact> artifacts,
+        CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var transaction = await connection.BeginTransactionAsync(ct);
+
+        Guid? sessionId = null;
+        await using (var close = new NpgsqlCommand("""
+            UPDATE meet_sessions
+            SET status = @status,
+                ended_at = COALESCE(ended_at, now()),
+                duration_seconds = @duration,
+                updated_at = now()
+            WHERE job_id = @job
+            RETURNING id;
+            """, connection, transaction))
+        {
+            close.Parameters.AddWithValue("job", jobId);
+            close.Parameters.AddWithValue("status", sessionStatus);
+            close.Parameters.AddWithValue("duration", durationSeconds);
+            sessionId = await close.ExecuteScalarAsync(ct) as Guid?;
+        }
+
+        if (sessionId is { } id)
+        {
+            foreach (var artifact in artifacts)
+            {
+                await using var insert = new NpgsqlCommand("""
+                    INSERT INTO meet_media_assets(session_id, kind, part_no, local_path, size_bytes, sha256, duration_seconds, status)
+                    VALUES (@session, @kind, @part, @path, @size, @sha, @duration, 'local')
+                    ON CONFLICT (session_id, kind, part_no) DO UPDATE
+                    SET local_path = EXCLUDED.local_path,
+                        size_bytes = EXCLUDED.size_bytes,
+                        sha256 = EXCLUDED.sha256,
+                        duration_seconds = EXCLUDED.duration_seconds,
+                        updated_at = now();
+                    """, connection, transaction);
+                insert.Parameters.AddWithValue("session", id);
+                insert.Parameters.AddWithValue("kind", artifact.Kind);
+                insert.Parameters.AddWithValue("part", artifact.PartNo);
+                insert.Parameters.AddWithValue("path", artifact.LocalPath);
+                insert.Parameters.AddWithValue("size", artifact.SizeBytes);
+                insert.Parameters.AddWithValue("sha", (object?)artifact.Sha256 ?? DBNull.Value);
+                insert.Parameters.AddWithValue("duration", artifact.DurationSeconds);
+                await insert.ExecuteNonQueryAsync(ct);
+            }
+        }
+
+        await transaction.CommitAsync(ct);
     }
 
     public async Task<BotQueueSnapshot> SnapshotAsync(int staleSeconds, CancellationToken ct)
