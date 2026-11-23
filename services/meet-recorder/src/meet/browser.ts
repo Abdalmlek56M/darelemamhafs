@@ -27,6 +27,11 @@ export async function launchBrowser(
     args: [
       '--no-sandbox',
       '--disable-dev-shm-usage',
+      // Kiosk removes the tab strip and URL bar, so the recording contains the meeting
+      // only (1280x720 matches the Xvfb screen exactly).
+      '--kiosk',
+      '--start-fullscreen',
+      '--disable-gpu',
       '--disable-blink-features=AutomationControlled',
       '--use-fake-ui-for-media-stream',
       '--use-fake-device-for-media-stream',
@@ -41,6 +46,17 @@ export async function launchBrowser(
 
   const page = context.pages()[0] ?? (await context.newPage())
   page.setDefaultTimeout(30_000)
+
+  // Kiosk/fullscreen flags are ignored by Playwright's launcher; CDP does it reliably and
+  // the recording then contains the meeting only, without the tab strip and URL bar.
+  try {
+    const session = await context.newCDPSession(page)
+    const { windowId } = await session.send('Browser.getWindowForTarget')
+    await session.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'fullscreen' } })
+  } catch (error) {
+    logger.warn('could not switch the browser window to fullscreen', { error: String(error).slice(0, 120) })
+  }
+
   logger.info('browser launched', { profileDir, display, pages: context.pages().length })
   return { context, page }
 }
