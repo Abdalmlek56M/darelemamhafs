@@ -179,13 +179,15 @@
 | **3.0 Meet — ADRs + جسر الجلسة + الصلاحيات** | ✅ منفّذة ومنشورة | `3.0-3.1-meet-calendar-1.0.md` |
 | **3.1 Meet — migration 026 + Calendar + Events UI** | ✅ **منشورة على الإنتاج** | `3.0-3.1-meet-calendar-1.0.md` + `3.1-meet-deploy-1.0.md` |
 | **3.2 Meet — بوت التسجيل + self-test** | ✅ **منشورة على الإنتاج** (خدمة `dar-meet-bot` تعمل) | `3.2-meet-bot-1.0.md` |
+| **3.3 Meet — دخول مضيف + تسجيل حقيقي** | ✅ **منشورة ومختبرة** (job ready، جلسة 176s، MP4 7.79MB) | `3.3-meet-join-recording-1.0.md` |
 
 ### المتبقي بالترتيب (عند الاستئناف)
-1. **3.3:** Playwright + Chromium + بروفايل البوت (تسجيل دخول يدوي مرة واحدة) + الانضمام لـMeet + MediaMTX (بث/DVR) + SSE + مشغل Vidstack + جدولة `meet_bot_jobs` من الأحداث (T-60s).
-2. **3.4 → 3.7:** رفع Drive ودورة حياة الوسائط، التحكم اليدوي والموثوقية، الأمان، QA والنشر النهائي.
-3. **2.4-c:** QA بصري 390/1440 لكل صفحة (محجوب محليًا — يحتاج متصفح)، 3 جداول `SystemAdminView`، print CSS، reduced-motion، pagination، مراجعة RTL نهائية.
-4. **2.5-b:** contract حقيقي (spec مقابل API يعمل)، Playwright E2E، deploy/rollback verification، **أول تشغيل GitHub Actions**، lint.
-5. **2.6 → 2.9:** الخزنة/التقفيل، الأمان والتشغيل، التنظيف (>400 سطر: `useDarApplication.ts`, `SystemAdminView`, `AuthEndpoints`, `SystemAdminEndpoints.Requests`, `TeacherApp`, `teacherTypes`)، وجودة الإطلاق.
+1. **3.4:** رفع MP4 إلى Drive (rclone + checksum + رابط) + **الحذف اليدوي بضغطتين** + منع الحذف قبل التحقق.
+2. **3.5:** reaper للمهام المعلّقة، إعادة انضمام تلقائية، **فحص جلسة Google قبل كل حصة 15 دقيقة + تنبيه**.
+3. **3.6:** مسارات `/media/meet/*` محمية بـX-Accel + SSE + مشغل في الواجهة + اختبارات صلاحيات سلبية.
+4. **3.7:** QA بصري/E2E + نشرة + docs/11.
+5. **T0.2/T0.3:** تعديل/حذف حصة من اللوحة + شاشة إعدادات التسجيل.
+6. **2.4-c / 2.5-b / 2.6 → 2.9:** المسار 2.x كما هو.
 
 ### Blockers/قيود معروفة
 - **push** محجوب بيئيًا: لا يوجد GitHub write credential (مفتاح الدخول للسيرفر ليس مفتاح GitHub، ومفتاح GitHub على السيرفر **read-only**) → المالك يدفع يدويًا. الإنتاج الآن على `db0beda` + إصلاح وحدة `8c98b13` مطبَّق يدويًا، وGitHub على `a823b32`.

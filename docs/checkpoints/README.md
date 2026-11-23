@@ -6,6 +6,7 @@
 
 | Phase | Checkpoint | Status |
 |---|---|---|
+| 3.3 | [Meet join + real recording](3.3-meet-join-recording-1.0.md) | ✅ live (`4f75198` + unit AF_NETLINK) |
 | 3.2 | [Meet recorder bot + self test](3.2-meet-bot-1.0.md) | ✅ live (`db0beda`، service active) |
 | 3.1 | [Meet deploy to production](3.1-meet-deploy-1.0.md) | ✅ live (`a823b32`، 26/26 migrations) |
 | 3.0 + 3.1 | [Meet — ADRs + Calendar + Recording scope](3.0-3.1-meet-calendar-1.0.md) | ✅ (3.2+ pending owner review) |
