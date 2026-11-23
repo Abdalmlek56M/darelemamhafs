@@ -9,6 +9,7 @@ import { VirtualDisplay } from '../media/display.js'
 import { launchBrowser, type LaunchedBrowser } from '../meet/browser.js'
 import { joinMeet, leaveCall } from '../meet/join.js'
 import { admitWaiting, countParticipants, openMeetingAccess } from '../meet/access.js'
+import { collectWebRtcAudio } from '../meet/webrtc.js'
 import { isStopping } from '../lifecycle.js'
 import { assertFreeSpace } from '../storage/disk.js'
 
@@ -111,6 +112,16 @@ export async function runRecordingJob(
           return null
         })
       await admitWaiting(browser.page, logger).catch(() => 0)
+
+      // Google's own audio counters: separates network loss from recorder problems.
+      const webrtcAudio = await collectWebRtcAudio(browser.page).catch(() => ({ peers: 0, hooked: false, types: [], stats: [] }))
+      logger.info('webrtc audio', {
+        jobId: job.id,
+        peers: webrtcAudio.peers,
+        hooked: webrtcAudio.hooked,
+        ...(webrtcAudio.stats.length === 0 ? { types: webrtcAudio.types } : {}),
+        stats: webrtcAudio.stats
+      })
 
       if (commands?.stop) {
         logger.info('stop requested from the admin panel', { jobId: job.id })

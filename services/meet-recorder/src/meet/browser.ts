@@ -47,6 +47,23 @@ export async function launchBrowser(
   const page = context.pages()[0] ?? (await context.newPage())
   page.setDefaultTimeout(30_000)
 
+  // Must run before any Meet navigation: keeps a handle on every RTCPeerConnection so the
+  // recording loop can log Google's inbound-audio counters (loss, jitter, concealment).
+  await context.addInitScript(() => {
+    const scope = window as unknown as { __pcs?: RTCPeerConnection[]; __pcsHooked?: boolean; RTCPeerConnection?: unknown }
+    const Original = scope.RTCPeerConnection
+    if (typeof Original !== 'function') return
+    scope.__pcs = []
+    scope.__pcsHooked = true
+    const Patched = function (this: unknown, ...args: unknown[]) {
+      const pc = new (Original as new (...rest: unknown[]) => RTCPeerConnection)(...args)
+      ;(scope.__pcs as RTCPeerConnection[]).push(pc)
+      return pc
+    } as unknown as typeof RTCPeerConnection
+    Patched.prototype = (Original as { prototype: RTCPeerConnection }).prototype
+    scope.RTCPeerConnection = Patched
+  })
+
   // Kiosk/fullscreen flags are ignored by Playwright's launcher; CDP does it reliably and
   // the recording then contains the meeting only, without the tab strip and URL bar.
   try {
