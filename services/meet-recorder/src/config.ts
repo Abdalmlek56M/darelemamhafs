@@ -6,6 +6,7 @@ export type BotConfig = {
   serviceToken: string
   workerName: string
   mediaRoot: string
+  profileDir: string
   displayNumber: number
   width: number
   height: number
@@ -47,6 +48,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, mode: BotConfig['mode']): Bot
     serviceToken: text(env, 'DAR_SERVICE_TOKEN', ''),
     workerName: text(env, 'BOT_WORKER_NAME', 'dar-meet-bot-1'),
     mediaRoot: text(env, 'BOT_MEDIA_ROOT', '/var/lib/dar/media/meet'),
+    profileDir: text(env, 'BOT_PROFILE_DIR', '/var/lib/dar/meet/profile'),
     displayNumber: integer(env, 'BOT_DISPLAY', 99, 1, 999),
     width,
     height,
