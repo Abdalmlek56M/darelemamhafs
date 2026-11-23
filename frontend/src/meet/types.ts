@@ -46,6 +46,8 @@ export type MeetEvent = {
   suggestedCircleName: string | null
   suggestedConfidence: number
   recordingEligible: boolean
+  /** per-event access override; null inherits the module default. */
+  accessType?: 'open' | 'trusted' | null
 }
 
 export type MeetEventPage = {
@@ -78,6 +80,8 @@ export type MeetSettings = {
   diskWarnGb: number
   uploadBwLimit: string
   hlsRetentionHours: number
+  defaultAccessType: 'open' | 'trusted'
+  maxSessionMinutes: number
 }
 
 export type MeetConnectResponse = { authorizationUrl: string }

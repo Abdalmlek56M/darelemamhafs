@@ -25,6 +25,10 @@ export type BotJob = {
   joinAt: string
   stopGraceSeconds: number
   joinLeadSeconds: number
+  /** open = anyone with the link enters; trusted = invited accounts only. */
+  accessType?: string
+  maxSessionMinutes?: number
+  idleStopSeconds?: number
   circleId: string | null
   meetLink: string | null
   summary: string | null

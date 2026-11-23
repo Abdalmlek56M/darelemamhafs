@@ -109,6 +109,22 @@ export const meetApi = {
       body: JSON.stringify({ id: id ?? null }),
     }),
 
+  updateSettings: (body: {
+    joinLeadSeconds: number
+    stopGraceSeconds: number
+    diskWarnGb: number
+    diskBlockGb: number
+    defaultAccessType: 'open' | 'trusted'
+    maxSessionMinutes: number
+    hlsRetentionHours: number
+  }) => api<MeetSettings>('/api/v1/meet/settings', { method: 'PUT', body: JSON.stringify(body) }),
+
+  setEventAccess: (eventId: string, accessType: 'open' | 'trusted' | null) =>
+    api<{ accessType: 'open' | 'trusted' | null }>(`/api/v1/meet/events/${eventId}/access`, {
+      method: 'POST',
+      body: JSON.stringify({ accessType }),
+    }),
+
   saveCircle: (circleId: string, autoRecord: boolean, autoLink: boolean) =>
     api<MeetCircleSetting>(`/api/v1/meet/circles/${circleId}`, {
       method: 'PUT',

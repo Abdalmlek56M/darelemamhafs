@@ -234,6 +234,22 @@ export default function MeetPage({ ctx }: Props) {
     }
   }
 
+  const changeAccess = async (event: MeetEvent, access: 'open' | 'trusted' | null) => {
+    setBusyId(event.id)
+    try {
+      await meetApi.setEventAccess(event.id, access)
+      await loadEvents()
+      ctx.setToast({
+        tone: 'success',
+        text: access === null ? 'عاد الاجتماع للوصول الافتراضي.' : `الوصول الآن ${access}.`,
+      })
+    } catch (exception) {
+      ctx.setToast({ tone: 'error', text: exception instanceof Error ? exception.message : 'تعذّر تحديث نوع الوصول.' })
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   const createEvent = async (input: CreateEventInput) => {
     setCreating(true)
     try {
@@ -285,7 +301,11 @@ export default function MeetPage({ ctx }: Props) {
       onDisconnect={() => void disconnect()}
     />
 
-    <BotControlCard canControl={ctx.has('meet.bot.control')} />
+    <BotControlCard
+      canControl={ctx.has('meet.bot.control')}
+      settings={settings}
+      onSettingsSaved={(next) => setSettings(next)}
+    />
 
     <div className="meet-tabs" role="tablist" aria-label="أقسام التسجيل">
       <button
@@ -335,6 +355,7 @@ export default function MeetPage({ ctx }: Props) {
         onMode={(event, mode) => void changeMode(event, mode)}
         showAll={showAll}
         onShowAll={(value) => { setShowAll(value); setPage(1) }}
+        onAccess={(event, access) => void changeAccess(event, access)}
       />}
 
     {tab === 'recordings' && <RecordingsPanel canView={ctx.has('meet.media.view')} />}

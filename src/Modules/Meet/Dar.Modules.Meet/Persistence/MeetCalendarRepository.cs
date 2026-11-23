@@ -241,7 +241,7 @@ public sealed class MeetCalendarRepository(NpgsqlDataSource dataSource)
             SELECT e.id, e.google_event_id, e.summary, e.meet_link, e.html_link,
                    e.occurrence_start, e.occurrence_end, e.time_zone, e.google_status, e.is_recurring,
                    e.recording_mode, l.circle_id, c.name, COALESCE(l.auto_matched, FALSE),
-                   COALESCE(cs.auto_record, FALSE)
+                   COALESCE(cs.auto_record, FALSE), e.access_type
             FROM meet_events e
             LEFT JOIN meet_event_links l ON l.event_id = e.id
             LEFT JOIN circles c ON c.id = l.circle_id
@@ -292,7 +292,7 @@ public sealed class MeetCalendarRepository(NpgsqlDataSource dataSource)
             SELECT e.id, e.google_event_id, e.summary, e.meet_link, e.html_link,
                    e.occurrence_start, e.occurrence_end, e.time_zone, e.google_status, e.is_recurring,
                    e.recording_mode, l.circle_id, c.name, COALESCE(l.auto_matched, FALSE),
-                   COALESCE(cs.auto_record, FALSE)
+                   COALESCE(cs.auto_record, FALSE), e.access_type
             FROM meet_events e
             LEFT JOIN meet_event_links l ON l.event_id = e.id
             LEFT JOIN circles c ON c.id = l.circle_id
@@ -378,7 +378,8 @@ public sealed class MeetCalendarRepository(NpgsqlDataSource dataSource)
         LinkedCircleId = reader.IsDBNull(11) ? null : reader.GetGuid(11),
         LinkedCircleName = reader.IsDBNull(12) ? null : reader.GetString(12),
         LinkedAutomatically = reader.GetBoolean(13),
-        CircleAutoRecord = reader.GetBoolean(14)
+        CircleAutoRecord = reader.GetBoolean(14),
+        AccessType = reader.IsDBNull(15) ? null : reader.GetString(15)
     };
 
     private static MeetAccount MapAccount(NpgsqlDataReader reader) => new()

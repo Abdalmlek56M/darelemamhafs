@@ -88,6 +88,9 @@ public static class BotJobEndpoints
                 joinAt = job.JoinAt,
                 stopGraceSeconds = job.StopGraceSeconds,
                 joinLeadSeconds = job.JoinLeadSeconds,
+                accessType = job.AccessType,
+                maxSessionMinutes = job.MaxSessionMinutes,
+                idleStopSeconds = job.IdleStopSeconds,
                 circleId = job.CircleId,
                 summary = job.Summary,
                 meetLink = job.MeetLink

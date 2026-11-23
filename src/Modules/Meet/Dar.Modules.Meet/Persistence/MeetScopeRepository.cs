@@ -190,7 +190,7 @@ public sealed class MeetScopeRepository(NpgsqlDataSource dataSource)
         await using var command = new NpgsqlCommand("""
             SELECT recording_enabled, join_lead_seconds, stop_grace_seconds,
                    max_concurrent_sessions, disk_block_gb, disk_warn_gb,
-                   upload_bwlimit, hls_retention_hours
+                   upload_bwlimit, hls_retention_hours, default_access_type, max_session_minutes
             FROM meet_settings WHERE id = TRUE;
             """, connection);
         await using var reader = await command.ExecuteReaderAsync(ct);
@@ -204,7 +204,59 @@ public sealed class MeetScopeRepository(NpgsqlDataSource dataSource)
             DiskBlockGb = reader.GetInt32(4),
             DiskWarnGb = reader.GetInt32(5),
             UploadBwLimit = reader.GetString(6),
-            HlsRetentionHours = reader.GetInt32(7)
+            HlsRetentionHours = reader.GetInt32(7),
+            DefaultAccessType = reader.GetString(8),
+            MaxSessionMinutes = reader.GetInt32(9)
         };
+    }
+
+    /// <summary>Owner-editable settings; every value is validated in the endpoint first.</summary>
+    public async Task<MeetSettingsRow?> UpdateSettingsAsync(
+        int joinLeadSeconds,
+        int stopGraceSeconds,
+        int diskWarnGb,
+        int diskBlockGb,
+        string defaultAccessType,
+        int maxSessionMinutes,
+        int hlsRetentionHours,
+        CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            UPDATE meet_settings
+            SET join_lead_seconds = @lead,
+                stop_grace_seconds = @grace,
+                disk_warn_gb = @warn,
+                disk_block_gb = @block,
+                default_access_type = @access,
+                max_session_minutes = @maxSession,
+                hls_retention_hours = @hls,
+                updated_at = now()
+            WHERE id = TRUE;
+            """, connection);
+        command.Parameters.AddWithValue("lead", joinLeadSeconds);
+        command.Parameters.AddWithValue("grace", stopGraceSeconds);
+        command.Parameters.AddWithValue("warn", diskWarnGb);
+        command.Parameters.AddWithValue("block", diskBlockGb);
+        command.Parameters.AddWithValue("access", defaultAccessType);
+        command.Parameters.AddWithValue("maxSession", maxSessionMinutes);
+        command.Parameters.AddWithValue("hls", hlsRetentionHours);
+        await command.ExecuteNonQueryAsync(ct);
+        return await GetSettingsAsync(ct);
+    }
+
+    /// <summary>Per-event access override; null restores the module default.</summary>
+    public async Task<bool> SetEventAccessAsync(Guid eventId, string? accessType, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            UPDATE meet_events
+            SET access_type = @access, updated_at = now()
+            WHERE id = @event
+            RETURNING id;
+            """, connection);
+        command.Parameters.AddWithValue("event", eventId);
+        command.Parameters.AddWithValue("access", (object?)accessType ?? DBNull.Value);
+        return await command.ExecuteScalarAsync(ct) is Guid;
     }
 }

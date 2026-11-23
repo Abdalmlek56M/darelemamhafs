@@ -104,6 +104,17 @@
 
 .meet-checkbox { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); cursor: pointer; }
 
+.meet-access-select { font-size: 11px; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: inherit; }
+
+.meet-settings-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.meet-settings-form label { display: grid; gap: 4px; font-size: 11px; color: var(--muted); }
+.meet-settings-form input, .meet-settings-form select { width: 100%; }
+.meet-settings-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+
+@media (max-width: 640px) {
+  .meet-settings-form { grid-template-columns: 1fr; }
+}
+
 /* Bot control ------------------------------------------------------------ */
 .meet-control-card { display: grid; gap: 10px; padding: 14px 16px; }
 .meet-control-head { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }

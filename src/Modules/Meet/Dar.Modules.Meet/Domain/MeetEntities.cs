@@ -36,6 +36,8 @@ public sealed class MeetEventRow
     public string? LinkedCircleName { get; init; }
     public bool LinkedAutomatically { get; init; }
     public bool CircleAutoRecord { get; init; }
+    /// <summary>open/trusted override for this occurrence; null inherits the module default.</summary>
+    public string? AccessType { get; init; }
 }
 
 public sealed class MeetCircleRow
@@ -58,4 +60,8 @@ public sealed class MeetSettingsRow
     public int DiskWarnGb { get; init; } = 40;
     public string UploadBwLimit { get; init; } = "8M";
     public int HlsRetentionHours { get; init; } = 24;
+    /// <summary>Access applied when the bot hosts the meeting: open or trusted.</summary>
+    public string DefaultAccessType { get; init; } = "open";
+    /// <summary>Hard cap for one recording, independent of the calendar end.</summary>
+    public int MaxSessionMinutes { get; init; } = 240;
 }

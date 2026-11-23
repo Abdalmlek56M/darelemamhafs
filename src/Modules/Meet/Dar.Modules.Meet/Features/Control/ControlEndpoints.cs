@@ -8,6 +8,15 @@ namespace Dar.Modules.Meet.Features.Control;
 
 public sealed record ManualJoinRequest(string? Url, string? Title);
 public sealed record PauseRequest(bool Paused);
+public sealed record MeetSettingsRequest(
+    int? JoinLeadSeconds,
+    int? StopGraceSeconds,
+    int? DiskWarnGb,
+    int? DiskBlockGb,
+    string? DefaultAccessType,
+    int? MaxSessionMinutes,
+    int? HlsRetentionHours);
+public sealed record EventAccessRequest(string? AccessType);
 
 /// <summary>
 /// Owner controls over the recorder: start on any Meet link, stop, pause/resume, and read
@@ -26,6 +35,8 @@ public static class ControlEndpoints
         group.MapPost("/jobs/{id:guid}/pause", PauseAsync).RequireAuthorization(MeetPermissions.BotControl).WithName("MeetBotPause");
         group.MapGet("/alerts", AlertsAsync).RequireAuthorization(MeetPermissions.View).WithName("MeetAlerts");
         group.MapPost("/alerts/read", MarkReadAsync).RequireAuthorization(MeetPermissions.View).WithName("MeetAlertsRead");
+        group.MapPut("/settings", UpdateSettingsAsync).RequireAuthorization(MeetPermissions.BotControl).WithName("MeetSettingsUpdate");
+        group.MapPost("/events/{id:guid}/access", SetEventAccessAsync).RequireAuthorization(MeetPermissions.Manage).WithName("MeetEventAccess");
         return group;
     }
 
@@ -107,6 +118,59 @@ public static class ControlEndpoints
 
     private static async Task<IResult> MarkReadAsync(Guid? id, MeetAlertRepository repository, CancellationToken ct)
         => Results.Ok(new { updated = await repository.MarkReadAsync(id, ct) });
+
+    /// <summary>Owner-editable recording settings (lead, grace, disk, access, cap).</summary>
+    private static async Task<IResult> UpdateSettingsAsync(
+        MeetSettingsRequest request,
+        MeetScopeRepository repository,
+        CancellationToken ct)
+    {
+        var current = await repository.GetSettingsAsync(ct)
+                      ?? throw AppException.NotFound("إعدادات التسجيل غير موجودة.");
+
+        var access = request.DefaultAccessType?.Trim().ToLowerInvariant() ?? current.DefaultAccessType;
+        if (access is not ("open" or "trusted"))
+            throw AppException.Validation("defaultAccessType", "نوع الوصول يجب أن يكون open أو trusted.");
+
+        var lead = request.JoinLeadSeconds ?? current.JoinLeadSeconds;
+        if (lead is < 10 or > 600)
+            throw AppException.Validation("joinLeadSeconds", "مهلة الانضمام بين 10 و600 ثانية.");
+
+        var grace = request.StopGraceSeconds ?? current.StopGraceSeconds;
+        if (grace is < 0 or > 900)
+            throw AppException.Validation("stopGraceSeconds", "مهلة الإيقاف بين 0 و900 ثانية.");
+
+        var warn = request.DiskWarnGb ?? current.DiskWarnGb;
+        var block = request.DiskBlockGb ?? current.DiskBlockGb;
+        if (warn < block)
+            throw AppException.Validation("diskWarnGb", "حد التنبيه يجب أن يكون أكبر من حد المنع.");
+
+        var maxSession = request.MaxSessionMinutes ?? current.MaxSessionMinutes;
+        if (maxSession is < 5 or > 720)
+            throw AppException.Validation("maxSessionMinutes", "أقصى مدة بين 5 و720 دقيقة.");
+
+        var hls = request.HlsRetentionHours ?? current.HlsRetentionHours;
+        var updated = await repository.UpdateSettingsAsync(lead, grace, warn, block, access, maxSession, hls, ct);
+        return Results.Ok(updated);
+    }
+
+    /// <summary>open/trusted override for one event; null restores the module default.</summary>
+    private static async Task<IResult> SetEventAccessAsync(
+        Guid id,
+        EventAccessRequest request,
+        MeetScopeRepository repository,
+        CancellationToken ct)
+    {
+        var value = request.AccessType?.Trim().ToLowerInvariant();
+        if (value is not (null or "" or "open" or "trusted"))
+            throw AppException.Validation("accessType", "نوع الوصول يجب أن يكون open أو trusted أو فارغًا.");
+
+        var normalized = string.IsNullOrEmpty(value) ? null : value;
+        var ok = await repository.SetEventAccessAsync(id, normalized, ct);
+        return ok
+            ? Results.Ok(new { accessType = normalized })
+            : throw AppException.NotFound("الحدث غير موجود.");
+    }
 
     /// <summary>Accepts only https://meet.google.com/&lt;code&gt; links, with an optional query.</summary>
     private static string NormalizeMeetLink(string? raw)

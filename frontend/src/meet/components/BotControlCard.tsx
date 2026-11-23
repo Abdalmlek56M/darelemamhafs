@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Bell, Bot, Pause, Play, Square, UserRound } from 'lucide-react'
+import { Bell, Bot, Pause, Play, Settings, Square, UserRound } from 'lucide-react'
 import { meetApi } from '../meetApi'
 import { cairoTime } from '../format'
-import type { MeetActiveJob, MeetAlert } from '../types'
+import RecordingSettingsDialog from './RecordingSettingsDialog'
+import type { MeetActiveJob, MeetAlert, MeetSettings } from '../types'
 
-type Props = { canControl: boolean }
+type Props = {
+  canControl: boolean
+  settings: MeetSettings | null
+  onSettingsSaved: (next: MeetSettings) => void
+}
 
 const statusLabels: Record<string, string> = {
   scheduled: 'في الانتظار',
@@ -18,7 +23,7 @@ const statusLabels: Record<string, string> = {
  * Live control strip: start the bot on any Meet link, watch participants, pause, resume or
  * stop the current recording, and read the operational alerts.
  */
-export default function BotControlCard({ canControl }: Props) {
+export default function BotControlCard({ canControl, settings, onSettingsSaved }: Props) {
   const [active, setActive] = useState<MeetActiveJob | null>(null)
   const [alerts, setAlerts] = useState<MeetAlert[]>([])
   const [link, setLink] = useState('')
@@ -26,6 +31,7 @@ export default function BotControlCard({ canControl }: Props) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const refresh = useCallback(async () => {
     try {
@@ -85,6 +91,10 @@ export default function BotControlCard({ canControl }: Props) {
       {active && <span className="status-pill status-active">
         <UserRound size={13} /> {active.participants ?? 0} داخل الاجتماع
       </span>}
+      {canControl && settings && <button type="button" className="small-icon-button" title="إعدادات التسجيل"
+        onClick={() => setSettingsOpen(true)}>
+        <Settings size={15} />
+      </button>}
     </div>
 
     {active && <div className="meet-control-active">
@@ -133,5 +143,11 @@ export default function BotControlCard({ canControl }: Props) {
         <small className="meet-muted">{cairoTime(alert.createdAt)}</small>
       </div>)}
     </div>}
+
+    {settingsOpen && settings && <RecordingSettingsDialog
+      settings={settings}
+      close={() => setSettingsOpen(false)}
+      saved={(next) => { onSettingsSaved(next); setMessage('حُفظت الإعدادات.') }}
+    />}
   </section>
 }

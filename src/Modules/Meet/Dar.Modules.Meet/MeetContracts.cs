@@ -44,7 +44,8 @@ public sealed record MeetEventDto(
     Guid? SuggestedCircleId,
     string? SuggestedCircleName,
     int SuggestedConfidence,
-    bool RecordingEligible);
+    bool RecordingEligible,
+    string? AccessType = null);
 
 public sealed record MeetEventPageDto(
     DateTimeOffset From,

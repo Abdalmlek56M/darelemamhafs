@@ -27,6 +27,7 @@ type Props = {
   /** true shows events without a Meet link; the default hides them (Zoom imports etc.). */
   showAll: boolean
   onShowAll: (value: boolean) => void
+  onAccess: (event: MeetEvent, access: 'open' | 'trusted' | null) => void
 }
 
 const filters: MeetFilter[] = ['all', 'linked', 'unlinked', 'recording', 'cancelled']
@@ -34,7 +35,7 @@ const filters: MeetFilter[] = ['all', 'linked', 'unlinked', 'recording', 'cancel
 export default function CalendarEventsPanel(props: Props) {
   const {
     events, total, page, pageSize, filter, search, from, to, loading, canManage, busyId,
-    onFilter, onSearch, onFrom, onTo, onPage, onLink, onUnlink, onMode, showAll, onShowAll,
+    onFilter, onSearch, onFrom, onTo, onPage, onLink, onUnlink, onMode, showAll, onShowAll, onAccess,
   } = props
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
 
@@ -133,6 +134,13 @@ export default function CalendarEventsPanel(props: Props) {
         },
       ]}
       actions={canManage ? (event) => <>
+        <select className="meet-access-select" title="نوع الوصول للاجتماع"
+          value={event.accessType ?? ''}
+          onChange={(change) => onAccess(event, change.target.value === '' ? null : change.target.value as 'open' | 'trusted')}>
+          <option value="">الوصول: افتراضي</option>
+          <option value="open">Open</option>
+          <option value="trusted">Trusted</option>
+        </select>
         <button type="button" className="secondary-button" onClick={() => onLink(event)} disabled={busyId === event.id}>
           <Video size={15} /> {event.circleId ? 'تغيير الربط' : 'ربط بحلقة'}
         </button>

@@ -54,8 +54,13 @@ export async function runRecordingJob(
     }
 
     await client.reportStatus(job.id, 'live')
-    // Participants must not wait for a human: open the meeting and admit anyone who knocks.
-    await openMeetingAccess(browser.page, logger).catch(() => undefined)
+    // Participants must not wait for a human: open the meeting (unless the owner chose
+    // trusted) and admit anyone who knocks.
+    if ((job.accessType ?? 'open') === 'open') {
+      await openMeetingAccess(browser.page, logger).catch(() => undefined)
+    } else {
+      logger.info('meeting access left as trusted by settings', { jobId: job.id })
+    }
 
     capture = new ScreenCapture(config, sessionDir, logger)
     await capture.start(display.name, audio.monitorSource, { ...audio.env, DISPLAY: display.name })
@@ -72,10 +77,18 @@ export async function runRecordingJob(
     }
 
     const scheduledEnd = new Date(job.scheduledEnd).getTime()
-    const stopAt = Math.min(scheduledEnd + job.stopGraceSeconds * 1000, Date.now() + MAX_SESSION_MS)
+    const maxSessionMs = (job.maxSessionMinutes ?? 240) * 60_000
+    const idleStopMs = (job.idleStopSeconds ?? 300) * 1000
+    const stopAt = Math.min(
+      scheduledEnd + job.stopGraceSeconds * 1000,
+      Date.now() + maxSessionMs,
+      Date.now() + MAX_SESSION_MS
+    )
     logger.info('recording until the scheduled end', {
       jobId: job.id,
       scheduledEnd: job.scheduledEnd,
+      accessType: job.accessType ?? 'open',
+      idleStopSeconds: job.idleStopSeconds ?? 300,
       stopAt: new Date(stopAt).toISOString()
     })
 
@@ -84,6 +97,7 @@ export async function runRecordingJob(
     let paused = false
     let audioOk: boolean | null = null
     let ticks = 0
+    let emptySince: number | null = null
     while (Date.now() < stopAt) {
       await sleep(TICK_MS)
       ticks += 1
@@ -105,6 +119,19 @@ export async function runRecordingJob(
         paused = commands.pause
         if (paused) capture.pause()
         else capture.resume()
+      }
+
+      // Smart length: only the bot left in the room means the class is over.
+      if (idleStopMs > 0 && participants !== null) {
+        if (participants <= 1) {
+          emptySince ??= Date.now()
+          if (Date.now() - emptySince >= idleStopMs) {
+            logger.info('stopping: the room stayed empty', { jobId: job.id, participants })
+            break
+          }
+        } else {
+          emptySince = null
+        }
       }
     }
 

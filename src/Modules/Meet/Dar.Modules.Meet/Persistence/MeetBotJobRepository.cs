@@ -14,7 +14,10 @@ public sealed record BotJobClaim(
     string? Summary,
     string? MeetLink,
     int StopGraceSeconds,
-    int JoinLeadSeconds);
+    int JoinLeadSeconds,
+    string AccessType,
+    int MaxSessionMinutes,
+    int IdleStopSeconds);
 
 public sealed record BotQueueSnapshot(int Pending, int Active, int Stale);
 
@@ -54,7 +57,9 @@ public sealed class MeetBotJobRepository(NpgsqlDataSource dataSource)
         await using (var select = new NpgsqlCommand("""
             SELECT j.id, j.event_id, j.occurrence_key, j.scheduled_start, j.scheduled_end, j.join_at,
                    j.circle_id, COALESCE(j.summary, e.summary), COALESCE(j.meet_link, e.meet_link),
-                   s.stop_grace_seconds, s.join_lead_seconds
+                   s.stop_grace_seconds, s.join_lead_seconds,
+                   COALESCE(e.access_type, s.default_access_type), s.max_session_minutes,
+                   s.idle_stop_seconds
             FROM meet_bot_jobs j
             LEFT JOIN meet_events e ON e.id = j.event_id
             CROSS JOIN meet_settings s
@@ -87,7 +92,10 @@ public sealed class MeetBotJobRepository(NpgsqlDataSource dataSource)
                     reader.IsDBNull(7) ? null : reader.GetString(7),
                     reader.IsDBNull(8) ? null : reader.GetString(8),
                     reader.GetInt32(9),
-                    reader.GetInt32(10));
+                    reader.GetInt32(10),
+                    reader.GetString(11),
+                    reader.GetInt32(12),
+                    reader.GetInt32(13));
             }
         }
 

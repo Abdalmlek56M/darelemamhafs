@@ -189,6 +189,7 @@ public static class EventEndpoints
             match?.CircleId,
             match?.CircleName,
             match?.Confidence ?? 0,
-            MeetRecordingPolicy.IsEligible(row.RecordingMode, linked, row.CircleAutoRecord, row.GoogleStatus));
+            MeetRecordingPolicy.IsEligible(row.RecordingMode, linked, row.CircleAutoRecord, row.GoogleStatus),
+            row.AccessType);
     }
 }
