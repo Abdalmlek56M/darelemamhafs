@@ -9,6 +9,7 @@ import { VirtualDisplay } from '../media/display.js'
 import { launchBrowser, type LaunchedBrowser } from '../meet/browser.js'
 import { joinMeet, leaveCall } from '../meet/join.js'
 import { admitWaiting, countParticipants, openMeetingAccess } from '../meet/access.js'
+import { collectWebRtcAudio } from '../meet/webrtc.js'
 import { isStopping } from '../lifecycle.js'
 import { assertFreeSpace } from '../storage/disk.js'
 
@@ -42,7 +43,12 @@ export async function runRecordingJob(
     await display.start()
     await audio.start()
 
-    browser = await launchBrowser(config.profileDir, display.name, logger, audio.env)
+    // Chromium alone gets a larger Pulse buffer; FFmpeg/parecord keep their own settings.
+    const chromeEnv: NodeJS.ProcessEnv =
+      config.chromePulseLatencyMs > 0
+        ? { ...audio.env, PULSE_LATENCY_MSEC: String(config.chromePulseLatencyMs) }
+        : audio.env
+    browser = await launchBrowser(config.profileDir, display.name, logger, chromeEnv)
     if (!job.meetLink) {
       await client.reportStatus(job.id, 'failed', 'missing_meet_link', 'الحدث بلا رابط Google Meet.')
       return
@@ -111,6 +117,16 @@ export async function runRecordingJob(
           return null
         })
       await admitWaiting(browser.page, logger).catch(() => 0)
+
+      // Google's own audio counters: separates network loss from recorder problems.
+      const webrtcAudio = await collectWebRtcAudio(browser.page).catch(() => ({ peers: 0, hooked: false, types: [], stats: [] }))
+      logger.info('webrtc audio', {
+        jobId: job.id,
+        peers: webrtcAudio.peers,
+        hooked: webrtcAudio.hooked,
+        ...(webrtcAudio.stats.length === 0 ? { types: webrtcAudio.types } : {}),
+        stats: webrtcAudio.stats
+      })
 
       if (commands?.stop) {
         logger.info('stop requested from the admin panel', { jobId: job.id })
