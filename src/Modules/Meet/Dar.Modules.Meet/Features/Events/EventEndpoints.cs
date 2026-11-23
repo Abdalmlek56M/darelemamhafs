@@ -35,6 +35,7 @@ public static class EventEndpoints
         string? search,
         int? page,
         int? pageSize,
+        bool? meetOnly,
         MeetCalendarRepository repository,
         MeetScopeRepository scopeRepository,
         NpgsqlDataSource dataSource,
@@ -60,7 +61,7 @@ public static class EventEndpoints
 
         var (items, total) = await repository.ListEventsAsync(
             account.Id, startsAt, endsAt, normalizedFilter, search,
-            scope.All ? null : scope.CircleIds, pageNumber, size, ct);
+            scope.All ? null : scope.CircleIds, meetOnly ?? true, pageNumber, size, ct);
         var circles = await scopeRepository.ListCircleNamesAsync(scope.All ? null : scope.CircleIds, ct);
         var mapped = items.Select(item => ToDto(item, circles)).ToList();
 

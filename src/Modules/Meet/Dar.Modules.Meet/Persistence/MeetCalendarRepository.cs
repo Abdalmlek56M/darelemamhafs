@@ -223,6 +223,7 @@ public sealed class MeetCalendarRepository(NpgsqlDataSource dataSource)
         string filter,
         string? search,
         Guid[]? circleScope,
+        bool meetOnly,
         int page,
         int pageSize,
         CancellationToken ct)
@@ -233,7 +234,7 @@ public sealed class MeetCalendarRepository(NpgsqlDataSource dataSource)
         var offset = (page - 1) * pageSize;
 
         await using var connection = await dataSource.OpenConnectionAsync(ct);
-        var total = await CountAsync(connection, accountId, from, to, predicate, scopePredicate, searchTerm, circleScope, ct);
+        var total = await CountAsync(connection, accountId, from, to, predicate, scopePredicate, searchTerm, circleScope, meetOnly, ct);
         var items = new List<MeetEventRow>();
 
         await using (var command = new NpgsqlCommand($"""
@@ -250,12 +251,13 @@ public sealed class MeetCalendarRepository(NpgsqlDataSource dataSource)
               AND e.occurrence_start < @to
               AND ({predicate})
               AND ({scopePredicate})
+              AND (@meetOnly = FALSE OR e.meet_link IS NOT NULL)
               AND (@search IS NULL OR e.summary ILIKE @search)
             ORDER BY e.occurrence_start
             LIMIT @take OFFSET @skip;
             """, connection))
         {
-            AddListParameters(command, accountId, from, to, searchTerm, circleScope);
+            AddListParameters(command, accountId, from, to, searchTerm, circleScope, meetOnly);
             command.Parameters.AddWithValue("take", pageSize);
             command.Parameters.AddWithValue("skip", offset);
             await using var reader = await command.ExecuteReaderAsync(ct);
@@ -312,6 +314,7 @@ public sealed class MeetCalendarRepository(NpgsqlDataSource dataSource)
         string scopePredicate,
         string? searchTerm,
         Guid[]? circleScope,
+        bool meetOnly,
         CancellationToken ct)
     {
         await using var command = new NpgsqlCommand($"""
@@ -324,9 +327,10 @@ public sealed class MeetCalendarRepository(NpgsqlDataSource dataSource)
               AND e.occurrence_start < @to
               AND ({predicate})
               AND ({scopePredicate})
+              AND (@meetOnly = FALSE OR e.meet_link IS NOT NULL)
               AND (@search IS NULL OR e.summary ILIKE @search);
             """, connection);
-        AddListParameters(command, accountId, from, to, searchTerm, circleScope);
+        AddListParameters(command, accountId, from, to, searchTerm, circleScope, meetOnly);
         return Convert.ToInt32(await command.ExecuteScalarAsync(ct) ?? 0);
     }
 
@@ -336,7 +340,8 @@ public sealed class MeetCalendarRepository(NpgsqlDataSource dataSource)
         DateTimeOffset from,
         DateTimeOffset to,
         string? searchTerm,
-        Guid[]? circleScope)
+        Guid[]? circleScope,
+        bool meetOnly)
     {
         command.Parameters.AddWithValue("account", accountId);
         command.Parameters.AddWithValue("from", from.ToUniversalTime());
@@ -344,6 +349,7 @@ public sealed class MeetCalendarRepository(NpgsqlDataSource dataSource)
         // Npgsql cannot infer a type for a NULL parameter used in "@search IS NULL"; an
         // untyped NULL makes PostgreSQL reject the whole statement with 42P08.
         command.Parameters.AddWithValue("search", NpgsqlTypes.NpgsqlDbType.Text, (object?)searchTerm ?? DBNull.Value);
+        command.Parameters.AddWithValue("meetOnly", meetOnly);
         if (circleScope is not null) command.Parameters.AddWithValue("circles", circleScope);
     }
 

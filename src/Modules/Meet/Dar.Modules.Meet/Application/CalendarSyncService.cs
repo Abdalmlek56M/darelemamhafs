@@ -175,7 +175,7 @@ public sealed class CalendarSyncService(
         for (var page = 1; page <= 5; page++)
         {
             var (items, _) = await calendarRepository.ListEventsAsync(
-                accountId, from, to, "unlinked", null, null, page, 200, ct);
+                accountId, from, to, "unlinked", null, null, false, page, 200, ct);
             if (items.Count == 0) break;
 
             foreach (var item in items)

@@ -24,6 +24,9 @@ type Props = {
   onLink: (event: MeetEvent) => void
   onUnlink: (event: MeetEvent) => void
   onMode: (event: MeetEvent, mode: MeetRecordingMode) => void
+  /** true shows events without a Meet link; the default hides them (Zoom imports etc.). */
+  showAll: boolean
+  onShowAll: (value: boolean) => void
 }
 
 const filters: MeetFilter[] = ['all', 'linked', 'unlinked', 'recording', 'cancelled']
@@ -31,7 +34,7 @@ const filters: MeetFilter[] = ['all', 'linked', 'unlinked', 'recording', 'cancel
 export default function CalendarEventsPanel(props: Props) {
   const {
     events, total, page, pageSize, filter, search, from, to, loading, canManage, busyId,
-    onFilter, onSearch, onFrom, onTo, onPage, onLink, onUnlink, onMode,
+    onFilter, onSearch, onFrom, onTo, onPage, onLink, onUnlink, onMode, showAll, onShowAll,
   } = props
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
 
@@ -53,6 +56,10 @@ export default function CalendarEventsPanel(props: Props) {
       <label className="meet-search">
         <Search size={15} />
         <input type="search" placeholder="ابحث في عنوان الحدث" value={search} onChange={(event) => onSearch(event.target.value)} />
+      </label>
+      <label className="meet-checkbox">
+        <input type="checkbox" checked={!showAll} onChange={(event) => onShowAll(!event.target.checked)} />
+        إظهار الأحداث بلا رابط Meet
       </label>
     </div>
 

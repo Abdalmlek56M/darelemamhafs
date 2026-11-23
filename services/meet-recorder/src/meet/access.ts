@@ -106,16 +106,22 @@ export async function admitWaiting(page: Page, logger: Logger): Promise<number> 
 export async function countParticipants(page: Page): Promise<number | null> {
   return page
     .evaluate(() => {
-      const labelled = Array.from(document.querySelectorAll('button, [role="button"]'))
+      const labelled = Array.from(document.querySelectorAll('[aria-label]'))
         .map((element) => element.getAttribute('aria-label') ?? '')
-        .map((label) => label.match(/(\d+)\s*(participant|people|in the call)/i))
+        .map((label) => label.match(/(\d+)\s*(participant|people|everyone|in the call)/i))
         .find((match) => match)
       if (labelled) return Number(labelled[1])
 
-      const counter = Array.from(document.querySelectorAll('button'))
-        .map((button) => (button.innerText ?? '').trim())
-        .find((text) => /^\d{1,3}$/.test(text))
-      return counter ? Number(counter) : null
+      // Meet renders the count as a bare number next to the people icon (and inside the
+      // meeting details row). Take the largest small numeric leaf in the top bar.
+      const leaves = Array.from(document.querySelectorAll('span, div, button'))
+        .filter((element) => element.children.length === 0)
+        .map((element) => (element.textContent ?? '').trim())
+        .filter((text) => /^\d{1,3}$/.test(text))
+        .map((text) => Number(text))
+        .filter((value) => value > 0 && value < 200)
+      if (leaves.length === 0) return null
+      return Math.max(...leaves)
     })
     .catch(() => null)
 }

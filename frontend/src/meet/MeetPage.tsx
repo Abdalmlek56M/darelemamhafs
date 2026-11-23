@@ -47,6 +47,8 @@ export default function MeetPage({ ctx }: Props) {
   const [search, setSearch] = useState('')
   const [from, setFrom] = useState(() => cairoDayKey(addDays(new Date(), -7)))
   const [to, setTo] = useState(() => cairoDayKey(addDays(new Date(), 45)))
+  const [showAll, setShowAll] = useState(false)
+  const meetOnly = !showAll
   const [tab, setTab] = useState<Tab>('events')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
@@ -77,7 +79,7 @@ export default function MeetPage({ ctx }: Props) {
     const ticket = ++requestRef.current
     setLoading(true)
     try {
-      const data = await meetApi.events({ from, to, filter, search, page, pageSize })
+      const data = await meetApi.events({ from, to, filter, search, page, pageSize, meetOnly })
       if (ticket !== requestRef.current) return
       setEvents(data.items)
       setTotal(data.total)
@@ -88,7 +90,7 @@ export default function MeetPage({ ctx }: Props) {
     } finally {
       if (ticket === requestRef.current) setLoading(false)
     }
-  }, [from, to, filter, search, page])
+  }, [from, to, filter, search, page, meetOnly])
 
   useEffect(() => {
     void loadStatus().catch((exception: unknown) => setError(exception instanceof Error ? exception.message : 'تعذّر تحميل حالة التقويم.'))
@@ -331,6 +333,8 @@ export default function MeetPage({ ctx }: Props) {
         onLink={setLinkTarget}
         onUnlink={(event) => void unlink(event)}
         onMode={(event, mode) => void changeMode(event, mode)}
+        showAll={showAll}
+        onShowAll={(value) => { setShowAll(value); setPage(1) }}
       />}
 
     {tab === 'recordings' && <RecordingsPanel canView={ctx.has('meet.media.view')} />}

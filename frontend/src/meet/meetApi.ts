@@ -22,6 +22,8 @@ type EventsQuery = {
   search: string
   page: number
   pageSize: number
+  /** false shows events without a Meet link (Zoom imports etc.); the default hides them. */
+  meetOnly?: boolean
 }
 
 function eventQuery(params: EventsQuery) {
@@ -33,6 +35,7 @@ function eventQuery(params: EventsQuery) {
     pageSize: String(params.pageSize),
   })
   if (params.search.trim()) query.set('search', params.search.trim())
+  if (params.meetOnly === false) query.set('meetOnly', 'false')
   return query.toString()
 }
 
