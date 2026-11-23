@@ -13,14 +13,17 @@ export type LaunchedBrowser = { context: BrowserContext; page: Page }
 export async function launchBrowser(
   profileDir: string,
   display: string,
-  logger: Logger
+  logger: Logger,
+  extraEnv: NodeJS.ProcessEnv = {}
 ): Promise<LaunchedBrowser> {
   const context = await chromium.launchPersistentContext(profileDir, {
     headless: false,
     viewport: { width: 1280, height: 720 },
     locale: 'en-US',
     timezoneId: 'Africa/Cairo',
-    env: { ...process.env, DISPLAY: display, LANG: 'en_US.UTF-8' },
+    // The audio env must reach Chromium too: it plays the meeting into the null sink that
+    // FFmpeg records, and without PULSE_SERVER the recording comes out silent.
+    env: { ...process.env, ...extraEnv, DISPLAY: display, LANG: 'en_US.UTF-8' },
     args: [
       '--no-sandbox',
       '--disable-dev-shm-usage',

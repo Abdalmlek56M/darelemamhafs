@@ -8,11 +8,12 @@ import { ScreenCapture } from '../media/capture.js'
 import { VirtualDisplay } from '../media/display.js'
 import { launchBrowser, type LaunchedBrowser } from '../meet/browser.js'
 import { joinMeet, leaveCall } from '../meet/join.js'
-import { admitWaiting, openMeetingAccess } from '../meet/access.js'
+import { admitWaiting, countParticipants, openMeetingAccess } from '../meet/access.js'
 import { assertFreeSpace } from '../storage/disk.js'
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 const MAX_SESSION_MS = 4 * 60 * 60 * 1000
+const TICK_MS = 5000
 
 /**
  * One recording job: reveal the profile, join the Meet, capture the display and the
@@ -34,14 +35,13 @@ export async function runRecordingJob(
   const audio = new NullAudioSink('darmeet_job', runtimeDir, logger)
   let browser: LaunchedBrowser | null = null
   let capture: ScreenCapture | null = null
-  let heartbeat: NodeJS.Timeout | null = null
 
   try {
     await assertFreeSpace(config.mediaRoot, config.diskBlockGb)
     await display.start()
     await audio.start()
 
-    browser = await launchBrowser(config.profileDir, display.name, logger)
+    browser = await launchBrowser(config.profileDir, display.name, logger, audio.env)
     if (!job.meetLink) {
       await client.reportStatus(job.id, 'failed', 'missing_meet_link', 'الحدث بلا رابط Google Meet.')
       return
@@ -56,14 +56,20 @@ export async function runRecordingJob(
     await client.reportStatus(job.id, 'live')
     // Participants must not wait for a human: open the meeting and admit anyone who knocks.
     await openMeetingAccess(browser.page, logger).catch(() => undefined)
-    heartbeat = setInterval(() => {
-      void client.heartbeat(job.id).catch((error: unknown) => {
-        logger.warn('heartbeat failed', { jobId: job.id, error: String(error) })
-      })
-    }, config.heartbeatMs)
 
     capture = new ScreenCapture(config, sessionDir, logger)
     await capture.start(display.name, audio.monitorSource, { ...audio.env, DISPLAY: display.name })
+
+    // Audio canary: if Chromium never connects to the null sink the file will be silent.
+    for (const waitMs of [5000, 5000, 10000]) {
+      await sleep(waitMs)
+      const inputs = await audio.sinkInputs()
+      logger.info('audio check', { sinkInputs: inputs })
+      if (inputs > 0) break
+    }
+    if ((await audio.sinkInputs()) === 0) {
+      logger.warn('no audio client on the null sink: the recording may be silent')
+    }
 
     const scheduledEnd = new Date(job.scheduledEnd).getTime()
     const stopAt = Math.min(scheduledEnd + job.stopGraceSeconds * 1000, Date.now() + MAX_SESSION_MS)
@@ -72,9 +78,34 @@ export async function runRecordingJob(
       scheduledEnd: job.scheduledEnd,
       stopAt: new Date(stopAt).toISOString()
     })
+
+    // The wait loop doubles as the control channel: every tick reports telemetry and reads
+    // the commands queued from the admin UI (stop / pause / resume) plus admits knockers.
+    let paused = false
+    let audioOk: boolean | null = null
+    let ticks = 0
     while (Date.now() < stopAt) {
-      await sleep(4000)
+      await sleep(TICK_MS)
+      ticks += 1
+      if (ticks % 3 === 0) audioOk = (await audio.sinkInputs()) > 0
+      const participants = await countParticipants(browser.page).catch(() => null)
+      const commands = await client
+        .heartbeat(job.id, participants, audioOk)
+        .catch((error: unknown) => {
+          logger.warn('heartbeat failed', { jobId: job.id, error: String(error) })
+          return null
+        })
       await admitWaiting(browser.page, logger).catch(() => 0)
+
+      if (commands?.stop) {
+        logger.info('stop requested from the admin panel', { jobId: job.id })
+        break
+      }
+      if (commands && commands.pause !== paused) {
+        paused = commands.pause
+        if (paused) capture.pause()
+        else capture.resume()
+      }
     }
 
     // The state machine requires live -> finalizing -> ready; reporting ready directly is
@@ -106,7 +137,6 @@ export async function runRecordingJob(
       .reportStatus(job.id, 'failed', 'recording_failed', String(error).slice(0, 500))
       .catch(() => undefined)
   } finally {
-    if (heartbeat) clearInterval(heartbeat)
     await capture?.stop().catch(() => undefined)
     // Leave cleanly so the account is not "already in the call" for the next job.
     if (browser) await leaveCall(browser.page, logger).catch(() => undefined)

@@ -8,6 +8,8 @@ import type {
   MeetEventPage,
   MeetFilter,
   MeetRecordingMode,
+  MeetActiveJob,
+  MeetAlertsResponse,
   MeetSessionsResponse,
   MeetSettings,
   MeetSyncResult,
@@ -78,6 +80,31 @@ export const meetApi = {
   circles: () => api<MeetCirclesResponse>('/api/v1/meet/circles'),
 
   sessions: () => api<MeetSessionsResponse>('/api/v1/meet/sessions?limit=50'),
+
+  botJoin: (url: string, title?: string) =>
+    api<{ jobId: string; meetLink: string; message: string }>('/api/v1/meet/bot/join', {
+      method: 'POST',
+      body: JSON.stringify({ url, title: title ?? null }),
+    }),
+
+  botActive: () => api<MeetActiveJob>('/api/v1/meet/bot/active'),
+
+  botStop: (jobId: string) =>
+    api<{ message: string }>(`/api/v1/meet/jobs/${jobId}/stop`, { method: 'POST' }),
+
+  botPause: (jobId: string, paused: boolean) =>
+    api<{ paused: boolean }>(`/api/v1/meet/jobs/${jobId}/pause`, {
+      method: 'POST',
+      body: JSON.stringify({ paused }),
+    }),
+
+  alerts: (limit = 20) => api<MeetAlertsResponse>(`/api/v1/meet/alerts?limit=${limit}`),
+
+  markAlertsRead: (id?: string) =>
+    api<{ updated: number }>('/api/v1/meet/alerts/read', {
+      method: 'POST',
+      body: JSON.stringify({ id: id ?? null }),
+    }),
 
   saveCircle: (circleId: string, autoRecord: boolean, autoLink: boolean) =>
     api<MeetCircleSetting>(`/api/v1/meet/circles/${circleId}`, {

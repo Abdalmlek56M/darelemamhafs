@@ -88,4 +88,14 @@ export class ManagedProcess {
     }
     return result
   }
+
+  /** Sends an arbitrary signal (SIGSTOP/SIGCONT for pause and resume). */
+  signal(signal: NodeJS.Signals): boolean {
+    if (!this.child || this.exitCode !== null) return false
+    try {
+      return this.child.kill(signal)
+    } catch {
+      return false
+    }
+  }
 }

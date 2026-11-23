@@ -78,6 +78,24 @@ export class ScreenCapture {
     return await this.finalize()
   }
 
+  /** Freezes the encoder (SIGSTOP): the recording keeps a single timeline. */
+  pause(): boolean {
+    const ok = this.process?.signal('SIGSTOP') ?? false
+    if (ok) this.logger.info('capture paused')
+    return ok
+  }
+
+  /** Resumes a paused encoder. */
+  resume(): boolean {
+    const ok = this.process?.signal('SIGCONT') ?? false
+    if (ok) this.logger.info('capture resumed')
+    return ok
+  }
+
+  get running(): boolean {
+    return this.process?.running ?? false
+  }
+
   /** Waits for FFmpeg to finish on its own (used when a fixed duration was requested). */
   async waitForExit(timeoutMs: number): Promise<number | null> {
     return this.process ? this.process.wait(timeoutMs) : null

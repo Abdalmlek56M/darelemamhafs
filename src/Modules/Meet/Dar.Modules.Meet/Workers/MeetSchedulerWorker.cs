@@ -40,6 +40,20 @@ public sealed class MeetSchedulerWorker(
                 if (options.IsConfigured && crypto.IsReady)
                 {
                     var repository = provider.GetRequiredService<MeetBotJobRepository>();
+                    var reaped = await repository.ReapStalledAsync(150, stoppingToken);
+                    if (reaped > 0)
+                    {
+                        logger.LogWarning("Meet scheduler: closed {Count} stalled recording sessions", reaped);
+                        await provider.GetRequiredService<MeetAlertRepository>().CreateAsync(
+                            "critical",
+                            "bot_stalled",
+                            "توقف البوت أثناء التسجيل",
+                            "أُغلقت جلسة تسجيل بسبب انقطاع البوت. راجع الخدمة والسجلات.",
+                            null,
+                            null,
+                            stoppingToken);
+                    }
+
                     var created = await repository.ScheduleDueAsync(HorizonMinutes, stoppingToken);
                     var cancelled = await repository.CancelOrphanedAsync(stoppingToken);
                     if (created > 0 || cancelled > 0)

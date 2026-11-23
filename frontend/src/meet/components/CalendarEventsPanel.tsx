@@ -74,7 +74,11 @@ export default function CalendarEventsPanel(props: Props) {
               <span className={eventBadgeClass(event)}>{eventStatusLabel(event)}</span>
               {event.isRecurring && <span className="status-pill status-archived">متكرر</span>}
               {event.meetLink
-                ? <a className="text-link" href={event.meetLink} target="_blank" rel="noreferrer"><ExternalLink size={13} /> Meet</a>
+                ? <>
+                  <a className="text-link" href={event.meetLink} target="_blank" rel="noreferrer"><ExternalLink size={13} /> Meet</a>
+                  <button type="button" className="small-link" title="نسخ رابط الاجتماع"
+                    onClick={() => void navigator.clipboard?.writeText(event.meetLink ?? '')}>نسخ</button>
+                </>
                 : <span className="meet-muted">بلا رابط Meet</span>}
             </span>
           </div>,

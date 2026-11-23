@@ -32,7 +32,10 @@ export class NullAudioSink {
     return {
       ...process.env,
       XDG_RUNTIME_DIR: this.runtimeDir,
-      PULSE_RUNTIME_PATH: join(this.runtimeDir, 'pulse')
+      PULSE_RUNTIME_PATH: join(this.runtimeDir, 'pulse'),
+      // Explicit server address matters: Chromium otherwise falls back to the (missing)
+      // default socket and plays the meeting audio into nowhere.
+      PULSE_SERVER: `unix:${join(this.runtimeDir, 'pulse', 'native')}`
     }
   }
 
@@ -61,7 +64,21 @@ export class NullAudioSink {
       'sink_properties=device.description=DarMeet'
     ], { env: this.env })
     this.moduleId = stdout.trim()
+    // Route every client (Chromium) to this sink by default, otherwise Meet's audio goes
+    // to the auto-null device and the recording ends up silent.
+    await run('pactl', ['set-default-sink', this.sinkName], { env: this.env }).catch(() => undefined)
+    await run('pactl', ['set-default-source', this.monitorSource], { env: this.env }).catch(() => undefined)
     this.logger.info('null audio sink ready', { sink: this.sinkName, moduleId: this.moduleId, socket })
+  }
+
+  /** Number of clients currently playing into the sink (Chromium should appear here). */
+  async sinkInputs(): Promise<number> {
+    try {
+      const { stdout } = await run('pactl', ['list', 'sink-inputs', 'short'], { env: this.env })
+      return stdout.trim() ? stdout.trim().split('\n').length : 0
+    } catch {
+      return 0
+    }
   }
 
   async stop(): Promise<void> {

@@ -96,3 +96,28 @@ export type MeetSession = {
 }
 
 export type MeetSessionsResponse = { count: number; sessions: MeetSession[] }
+
+export type MeetActiveJob = {
+  active: boolean
+  id?: string
+  status?: string
+  summary?: string | null
+  meetLink?: string | null
+  startedAt?: string | null
+  scheduledEnd?: string
+  participants?: number | null
+  paused?: boolean
+  stopRequested?: boolean
+}
+
+export type MeetAlert = {
+  id: string
+  severity: 'info' | 'warning' | 'critical'
+  code: string
+  title: string
+  body: string | null
+  createdAt: string
+  isRead: boolean
+}
+
+export type MeetAlertsResponse = { count: number; unread: number; alerts: MeetAlert[] }

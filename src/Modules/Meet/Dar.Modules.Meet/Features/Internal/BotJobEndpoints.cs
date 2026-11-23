@@ -15,6 +15,8 @@ public sealed record BotArtifactRequest(
     int DurationSeconds,
     short PartNo = 1);
 
+public sealed record BotHeartbeatRequest(int? Participants = null, bool? AudioOk = null);
+
 public sealed record BotStatusRequest(
     string? Status,
     string? ErrorCode,
@@ -94,6 +96,7 @@ public static class BotJobEndpoints
 
     private static async Task<IResult> HeartbeatAsync(
         Guid id,
+        BotHeartbeatRequest? request,
         HttpContext context,
         IOptions<MeetOptions> options,
         MeetBotJobRepository repository,
@@ -103,7 +106,10 @@ public static class BotJobEndpoints
 
         if (!await repository.HeartbeatAsync(id, ct))
             return Results.Json(new { message = "المهمة غير موجودة أو ليست نشطة." }, statusCode: 404);
-        return Results.NoContent();
+
+        await repository.RecordTelemetryAsync(id, request?.Participants, request?.AudioOk, ct);
+        var (stop, pause) = await repository.GetCommandsAsync(id, ct);
+        return Results.Ok(new { stop, pause });
     }
 
     private static async Task<IResult> SetStatusAsync(
@@ -112,6 +118,7 @@ public static class BotJobEndpoints
         HttpContext context,
         IOptions<MeetOptions> options,
         MeetBotJobRepository repository,
+        MeetAlertRepository alerts,
         CancellationToken ct)
     {
         if (Deny(context, options) is { } denied) return denied;
@@ -150,6 +157,20 @@ public static class BotJobEndpoints
                 : status == MeetJobStates.Partial ? "partial"
                 : "failed";
             await repository.FinishSessionAsync(id, sessionStatus, request.DurationSeconds, artifacts, ct);
+
+            if (status == MeetJobStates.Failed)
+            {
+                // Surface it immediately: a silent failed recording is the worst outcome.
+                await alerts.CreateAsync(
+                    "critical",
+                    request.ErrorCode ?? "recording_failed",
+                    "فشل تسجيل حصة",
+                    request.ErrorMessage ?? "أنهى البوت المهمة بحالة فشل.",
+                    id,
+                    null,
+                    ct);
+            }
+
             return Results.Ok(new { artifacts = artifacts.Length });
         }
 

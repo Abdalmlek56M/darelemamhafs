@@ -18,6 +18,18 @@ public sealed record BotJobClaim(
 
 public sealed record BotQueueSnapshot(int Pending, int Active, int Stale);
 
+/// <summary>What the control panel shows about the current recording.</summary>
+public sealed record ActiveJobRow(
+    Guid Id,
+    string Status,
+    string? Summary,
+    string? MeetLink,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset ScheduledEnd,
+    int? Participants,
+    bool Paused,
+    bool StopRequested);
+
 /// <summary>One produced file reported by the bot when a recording finishes.</summary>
 public sealed record BotArtifact(
     string Kind,
@@ -41,17 +53,20 @@ public sealed class MeetBotJobRepository(NpgsqlDataSource dataSource)
         BotJobClaim? job = null;
         await using (var select = new NpgsqlCommand("""
             SELECT j.id, j.event_id, j.occurrence_key, j.scheduled_start, j.scheduled_end, j.join_at,
-                   j.circle_id, e.summary, e.meet_link, s.stop_grace_seconds, s.join_lead_seconds
+                   j.circle_id, COALESCE(j.summary, e.summary), COALESCE(j.meet_link, e.meet_link),
+                   s.stop_grace_seconds, s.join_lead_seconds
             FROM meet_bot_jobs j
-            JOIN meet_events e ON e.id = j.event_id
+            LEFT JOIN meet_events e ON e.id = j.event_id
             CROSS JOIN meet_settings s
             WHERE s.id = TRUE
               AND j.status = 'scheduled'
               AND j.join_at <= now()
-              -- One concurrent recording (owner decision): never claim while another is active.
+              -- One concurrent recording (owner decision): never claim while another is active,
+              -- and never let a job with a dead heartbeat block the queue.
               AND NOT EXISTS (
                     SELECT 1 FROM meet_bot_jobs a
-                    WHERE a.status IN ('joining', 'live', 'finalizing', 'uploading'))
+                    WHERE a.status IN ('joining', 'live', 'finalizing', 'uploading')
+                      AND a.heartbeat_at > now() - interval '150 seconds')
             ORDER BY j.join_at
             FOR UPDATE OF j SKIP LOCKED
             LIMIT 1;
@@ -61,7 +76,9 @@ public sealed class MeetBotJobRepository(NpgsqlDataSource dataSource)
             if (await reader.ReadAsync(ct))
             {
                 job = new BotJobClaim(
-                    reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2),
+                    reader.GetGuid(0),
+                    reader.IsDBNull(1) ? Guid.Empty : reader.GetGuid(1),
+                    reader.GetString(2),
                     "scheduled",
                     reader.GetFieldValue<DateTimeOffset>(3),
                     reader.GetFieldValue<DateTimeOffset>(4),
@@ -206,6 +223,7 @@ public sealed class MeetBotJobRepository(NpgsqlDataSource dataSource)
                 updated_at = now()
             FROM meet_events e
             WHERE j.event_id = e.id
+              AND j.manual = FALSE
               AND j.status IN ('scheduled', 'waiting')
               AND e.google_status = 'cancelled';
             """, connection);
@@ -288,6 +306,150 @@ public sealed class MeetBotJobRepository(NpgsqlDataSource dataSource)
         }
 
         await transaction.CommitAsync(ct);
+    }
+
+    /// <summary>
+    /// Queues an immediate recording for any Google Meet link the owner pastes, without a
+    /// calendar event. The caller has already validated the host (Meet only).
+    /// </summary>
+    public async Task<Guid> CreateManualJobAsync(
+        string meetLink,
+        string? summary,
+        Guid createdBy,
+        int maxSessionSeconds,
+        CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO meet_bot_jobs(event_id, occurrence_key, circle_id, scheduled_start,
+                                      scheduled_end, join_at, status, meet_link, summary, manual, created_by)
+            VALUES (NULL, 'manual:' || gen_random_uuid()::text, NULL, now(),
+                    now() + make_interval(secs => @max), now(), 'scheduled',
+                    @link, @summary, TRUE, @user)
+            RETURNING id;
+            """, connection);
+        command.Parameters.AddWithValue("link", meetLink);
+        command.Parameters.AddWithValue("summary", (object?)summary ?? DBNull.Value);
+        command.Parameters.AddWithValue("user", createdBy);
+        command.Parameters.AddWithValue("max", maxSessionSeconds);
+        return (Guid)(await command.ExecuteScalarAsync(ct))!;
+    }
+
+    /// <summary>Asks the running bot to stop; it finalises on its next heartbeat.</summary>
+    public async Task<bool> RequestStopAsync(Guid jobId, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            UPDATE meet_bot_jobs
+            SET stop_requested_at = now(), updated_at = now()
+            WHERE id = @id AND status IN ('joining', 'live', 'finalizing', 'uploading')
+            RETURNING id;
+            """, connection);
+        command.Parameters.AddWithValue("id", jobId);
+        return await command.ExecuteScalarAsync(ct) is Guid;
+    }
+
+    /// <summary>Freezes or resumes the active capture.</summary>
+    public async Task<bool> SetPausedAsync(Guid jobId, bool paused, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            UPDATE meet_bot_jobs
+            SET pause_requested = @paused, updated_at = now()
+            WHERE id = @id AND status IN ('joining', 'live')
+            RETURNING id;
+            """, connection);
+        command.Parameters.AddWithValue("id", jobId);
+        command.Parameters.AddWithValue("paused", paused);
+        return await command.ExecuteScalarAsync(ct) is Guid;
+    }
+
+    /// <summary>Commands the bot polls on every heartbeat.</summary>
+    public async Task<(bool Stop, bool Pause)> GetCommandsAsync(Guid jobId, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            SELECT stop_requested_at IS NOT NULL, pause_requested FROM meet_bot_jobs WHERE id = @id;
+            """, connection);
+        command.Parameters.AddWithValue("id", jobId);
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        return await reader.ReadAsync(ct) ? (reader.GetBoolean(0), reader.GetBoolean(1)) : (false, false);
+    }
+
+    /// <summary>Stores the participants count and audio health reported by the bot.</summary>
+    public async Task RecordTelemetryAsync(Guid jobId, int? participants, bool? audioOk, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            UPDATE meet_bot_jobs
+            SET participants = COALESCE(@participants, participants),
+                audio_ok = COALESCE(@audio, audio_ok),
+                updated_at = now()
+            WHERE id = @id;
+            UPDATE meet_sessions
+            SET participants = COALESCE(@participants, participants), updated_at = now()
+            WHERE job_id = @id AND status = 'live';
+            """, connection);
+        command.Parameters.AddWithValue("id", jobId);
+        command.Parameters.AddWithValue("participants", (object?)participants ?? DBNull.Value);
+        command.Parameters.AddWithValue("audio", (object?)audioOk ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync(ct);
+    }
+
+    /// <summary>
+    /// Fails jobs whose bot stopped heartbeating (service restart, crash) and closes their
+    /// sessions as partial, so the queue never stays blocked behind a dead recording.
+    /// </summary>
+    public async Task<int> ReapStalledAsync(int staleSeconds, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            WITH dead AS (
+                UPDATE meet_bot_jobs
+                SET status = 'failed',
+                    error_code = 'stalled',
+                    error_message = 'انقطع اتصال البوت أثناء التسجيل (إعادة تشغيل أو انهيار).',
+                    finished_at = now(),
+                    updated_at = now()
+                WHERE status IN ('joining', 'live', 'finalizing', 'uploading')
+                  AND (heartbeat_at IS NULL OR heartbeat_at < now() - make_interval(secs => @stale))
+                RETURNING id
+            )
+            UPDATE meet_sessions s
+            SET status = 'partial', ended_at = COALESCE(s.ended_at, now()), updated_at = now()
+            FROM dead
+            WHERE s.job_id = dead.id AND s.status = 'live';
+            """, connection);
+        command.Parameters.AddWithValue("stale", staleSeconds);
+        return await command.ExecuteNonQueryAsync(ct);
+    }
+
+    /// <summary>Current (or next) job for the control panel.</summary>
+    public async Task<ActiveJobRow?> GetActiveAsync(CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            SELECT j.id, j.status, COALESCE(j.summary, e.summary), COALESCE(j.meet_link, e.meet_link),
+                   j.started_at, j.scheduled_end, j.participants, j.pause_requested,
+                   j.stop_requested_at IS NOT NULL
+            FROM meet_bot_jobs j
+            LEFT JOIN meet_events e ON e.id = j.event_id
+            WHERE j.status IN ('scheduled', 'joining', 'live', 'finalizing', 'uploading')
+            ORDER BY CASE WHEN j.status = 'scheduled' THEN 1 ELSE 0 END, j.join_at DESC
+            LIMIT 1;
+            """, connection);
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        if (!await reader.ReadAsync(ct)) return null;
+        return new ActiveJobRow(
+            reader.GetGuid(0),
+            reader.GetString(1),
+            reader.IsDBNull(2) ? null : reader.GetString(2),
+            reader.IsDBNull(3) ? null : reader.GetString(3),
+            reader.IsDBNull(4) ? null : reader.GetFieldValue<DateTimeOffset>(4),
+            reader.GetFieldValue<DateTimeOffset>(5),
+            reader.IsDBNull(6) ? null : reader.GetInt32(6),
+            reader.GetBoolean(7),
+            reader.GetBoolean(8));
     }
 
     public async Task<BotQueueSnapshot> SnapshotAsync(int staleSeconds, CancellationToken ct)

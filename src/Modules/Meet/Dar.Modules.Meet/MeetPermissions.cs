@@ -12,6 +12,7 @@ public static class MeetPermissions
     public const string CalendarManage = "meet.calendar.manage";
     public const string MediaView = "meet.media.view";
     public const string MediaDelete = "meet.media.delete";
+    public const string BotControl = "meet.bot.control";
 
     public static readonly (string Code, string NameAr)[] All =
     [
@@ -19,6 +20,7 @@ public static class MeetPermissions
         (Manage, "إدارة التسجيل وربط الحلقات"),
         (CalendarManage, "ربط ومزامنة تقويم Google"),
         (MediaView, "مشاهدة تسجيلات الحلقات"),
-        (MediaDelete, "حذف ملفات التسجيل يدويًا")
+        (MediaDelete, "حذف ملفات التسجيل يدويًا"),
+        (BotControl, "التحكم في بوت التسجيل")
     ];
 }

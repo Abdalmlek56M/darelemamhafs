@@ -8,6 +8,7 @@ import CalendarStatusCard from './components/CalendarStatusCard'
 import CalendarEventsPanel from './components/CalendarEventsPanel'
 import RecordingScopePanel from './components/RecordingScopePanel'
 import RecordingsPanel from './components/RecordingsPanel'
+import BotControlCard from './components/BotControlCard'
 import LinkEventDialog from './components/LinkEventDialog'
 import CreateEventDialog, { type CreateEventInput } from './components/CreateEventDialog'
 import { addDays, cairoDayKey } from './format'
@@ -281,6 +282,8 @@ export default function MeetPage({ ctx }: Props) {
       onSync={(full) => void sync(full)}
       onDisconnect={() => void disconnect()}
     />
+
+    <BotControlCard canControl={ctx.has('meet.bot.control')} />
 
     <div className="meet-tabs" role="tablist" aria-label="أقسام التسجيل">
       <button

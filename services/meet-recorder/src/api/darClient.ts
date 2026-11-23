@@ -13,6 +13,8 @@ export type BotStatusExtras = {
   artifacts?: BotArtifactPayload[]
 }
 
+export type BotCommands = { stop: boolean; pause: boolean }
+
 export type BotJob = {
   id: string
   eventId: string
@@ -56,8 +58,13 @@ export class DarClient {
     return this.request<BotJob>('/internal/meet/jobs/claim', { method: 'POST', body: '{}' })
   }
 
-  async heartbeat(jobId: string): Promise<void> {
-    await this.request<unknown>(`/internal/meet/jobs/${jobId}/heartbeat`, { method: 'POST', body: '{}' })
+  /** Sends liveness + telemetry and returns the commands queued by the admin UI. */
+  async heartbeat(jobId: string, participants?: number | null, audioOk?: boolean | null): Promise<BotCommands> {
+    const response = await this.request<BotCommands>(`/internal/meet/jobs/${jobId}/heartbeat`, {
+      method: 'POST',
+      body: JSON.stringify({ participants: participants ?? null, audioOk: audioOk ?? null })
+    })
+    return { stop: response?.stop ?? false, pause: response?.pause ?? false }
   }
 
   async reportStatus(

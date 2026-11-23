@@ -102,6 +102,24 @@
 .meet-checkbox { display: flex; align-items: flex-start; gap: 9px; font-size: 12px; line-height: 1.8; color: var(--text); cursor: pointer; }
 .meet-checkbox input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); }
 
+/* Bot control ------------------------------------------------------------ */
+.meet-control-card { display: grid; gap: 10px; padding: 14px 16px; }
+.meet-control-head { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.meet-control-active { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.meet-control-actions { display: flex; gap: 8px; margin-inline-start: auto; flex-wrap: wrap; }
+.meet-control-start { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.meet-alerts { display: grid; gap: 6px; padding: 10px; border-radius: 10px; border: 1px dashed var(--line); }
+.meet-alerts-head { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+.meet-alert { display: grid; gap: 2px; padding: 8px 10px; border-radius: 8px; font-size: 11px; background: color-mix(in srgb, var(--surface) 60%, transparent); }
+.meet-alert.severity-critical { border-inline-start: 3px solid #dc2626; }
+.meet-alert.severity-warning { border-inline-start: 3px solid #d97706; }
+.meet-alert.severity-info { border-inline-start: 3px solid #2563eb; }
+
+@media (max-width: 900px) {
+  .meet-control-start { grid-template-columns: 1fr; }
+  .meet-control-actions { width: 100%; margin-inline-start: 0; }
+}
+
 /* Recordings ------------------------------------------------------------- */
 .meet-sessions { display: grid; gap: 10px; }
 .meet-session-card {
