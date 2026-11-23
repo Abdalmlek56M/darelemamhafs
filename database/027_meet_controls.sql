@@ -9,7 +9,8 @@
 -- Meet-only is enforced in the API: any non meet.google.com link is rejected.
 -- =============================================================================
 
-BEGIN;
+-- The migration runner wraps every file in one transaction, so this script must not
+-- contain BEGIN/COMMIT of its own.
 
 -- Manual jobs have no calendar event; scheduled_end is only an upper bound.
 ALTER TABLE meet_bot_jobs ALTER COLUMN event_id DROP NOT NULL;
@@ -68,5 +69,3 @@ ON CONFLICT DO NOTHING;
 COMMENT ON TABLE meet_alerts IS 'Operational alerts (bot join/stop failures, Google session problems, disk).';
 COMMENT ON COLUMN meet_bot_jobs.stop_requested_at IS 'Set by the admin UI; the bot stops and finalises on its next heartbeat.';
 COMMENT ON COLUMN meet_bot_jobs.pause_requested IS 'Set by the admin UI; the bot freezes/resumes the capture.';
-
-COMMIT;
