@@ -28,6 +28,8 @@ export async function launchBrowser(
       '--use-fake-ui-for-media-stream',
       '--use-fake-device-for-media-stream',
       '--autoplay-policy=no-user-gesture-required',
+      '--hide-crash-restore-bubble',
+      '--disable-session-crashed-bubble',
       '--lang=en-US',
       '--window-size=1280,720',
       '--start-maximized'

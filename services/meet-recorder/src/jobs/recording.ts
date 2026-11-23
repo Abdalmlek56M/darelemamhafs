@@ -7,7 +7,7 @@ import { NullAudioSink } from '../media/audio.js'
 import { ScreenCapture } from '../media/capture.js'
 import { VirtualDisplay } from '../media/display.js'
 import { launchBrowser, type LaunchedBrowser } from '../meet/browser.js'
-import { joinMeet } from '../meet/join.js'
+import { joinMeet, leaveCall } from '../meet/join.js'
 import { assertFreeSpace } from '../storage/disk.js'
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
@@ -71,6 +71,9 @@ export async function runRecordingJob(
     })
     while (Date.now() < stopAt) await sleep(2000)
 
+    // The state machine requires live -> finalizing -> ready; reporting ready directly is
+    // rejected with 409 (invalid_transition:live->ready).
+    await client.reportStatus(job.id, 'finalizing')
     const result = await capture.stop()
     capture = null
     const duration = Math.round(result.durationSeconds)
@@ -99,6 +102,8 @@ export async function runRecordingJob(
   } finally {
     if (heartbeat) clearInterval(heartbeat)
     await capture?.stop().catch(() => undefined)
+    // Leave cleanly so the account is not "already in the call" for the next job.
+    if (browser) await leaveCall(browser.page, logger).catch(() => undefined)
     await browser?.context.close().catch(() => undefined)
     await audio.stop().catch(() => undefined)
     await display.stop().catch(() => undefined)

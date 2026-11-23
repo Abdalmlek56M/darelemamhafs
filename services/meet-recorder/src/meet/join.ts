@@ -39,13 +39,31 @@ export async function joinMeet(
   await turnOff(page, ['microphone', 'mic'], logger)
   await turnOff(page, ['camera'], logger)
 
+  // The account may still be joined from a previous run: Meet then shows "Switch here".
+  const switchHere = page.getByRole('button', { name: /Switch here/i }).first()
+  if (await switchHere.count().catch(() => 0)) {
+    logger.warn('taking over an existing call from another device', { url: page.url() })
+    await switchHere.click({ timeout: 10_000 }).catch(() => undefined)
+    await page.waitForTimeout(4000)
+  }
+
   // The pre-join screen needs an explicit click; guests may get "Ask to join" instead.
   const joinButton = page.getByRole('button', { name: /^(Join now|Ask to join|Join)$/i }).first()
   const clicked = await joinButton.click({ timeout: 15_000 }).then(() => true).catch(() => false)
   logger.info('join button', { clicked })
 
-  const outcome = await waitForState(page, 45_000, logger)
+  const outcome = await waitForState(page, 60_000, logger)
   return await finish(page, screenshotPath, logger, outcome.state, outcome.detail)
+}
+
+/** Leaves the call so the account is not left "joined" for the next run. */
+export async function leaveCall(page: Page, logger: Logger): Promise<void> {
+  const leave = page.locator('[aria-label*="Leave call" i]').first()
+  if (await leave.count().catch(() => 0)) {
+    await leave.click({ timeout: 5000 }).catch(() => undefined)
+    await page.waitForTimeout(2500)
+    logger.info('left the meeting')
+  }
 }
 
 async function turnOff(page: Page, labels: string[], logger: Logger): Promise<void> {
@@ -62,33 +80,74 @@ async function turnOff(page: Page, labels: string[], logger: Logger): Promise<vo
   }
 }
 
+type PageState = {
+  hasLeave: boolean
+  hasJoinButton: boolean
+  bodyStart: string
+  url: string
+  error: string | null
+}
+
+/**
+ * Reads the page state in one round trip. Meet renders its call UI in the same document,
+ * but Playwright's CSS engine did not match the leave-call button while querySelectorAll
+ * does, so this probe stays inside document APIs.
+ */
+async function probePageState(page: Page): Promise<PageState> {
+  return page
+    .evaluate(() => {
+      const body = (document.body?.innerText ?? '').replace(/\s+/g, ' ').trim()
+      const buttons = Array.from(document.querySelectorAll('button'))
+      return {
+        hasLeave: buttons.some((button) => /leave call|leave the call/i.test(button.getAttribute('aria-label') ?? '')),
+        hasJoinButton: buttons.some((button) => /^(join now|ask to join|join)$/i.test((button.innerText ?? '').trim())),
+        bodyStart: body.slice(0, 120),
+        url: location.href,
+        error: null
+      }
+    })
+    .catch((error: unknown) => ({
+      hasLeave: false,
+      hasJoinButton: true,
+      bodyStart: '',
+      url: page.url(),
+      error: String(error).slice(0, 200)
+    }))
+}
+
 async function waitForState(
   page: Page,
   timeoutMs: number,
   logger: Logger
 ): Promise<{ state: JoinState; detail: string }> {
   const deadline = Date.now() + timeoutMs
+  let last: PageState | null = null
+
   while (Date.now() < deadline) {
-    const body = await page.locator('body').innerText().catch(() => '')
-    if (/You can't join this call|You can’t join this call|Invalid meeting|Check your meeting code/i.test(body)) {
-      return { state: 'denied', detail: firstLine(body) }
+    last = await probePageState(page)
+    if (last.hasLeave) {
+      return { state: 'joined', detail: 'in-call controls present' }
     }
-    // Guest pre-join screen: a name field plus "Ask to join" means the profile is not
-    // signed in, so the bot would need host admission instead of joining as the organizer.
-    if (/Your name/i.test(body) && /Ask to join/i.test(body)) {
+    if (/You're the only one here|You’re the only one here/i.test(last.bodyStart)) {
+      return { state: 'joined', detail: 'only participant banner' }
+    }
+    if (/You can't join this call|You can’t join this call|Invalid meeting|Check your meeting code/i.test(last.bodyStart)) {
+      return { state: 'denied', detail: last.bodyStart }
+    }
+    if (/Your name/i.test(last.bodyStart) && /Ask to join/i.test(last.bodyStart)) {
       return { state: 'guest', detail: 'signed-out guest join screen' }
     }
-    if (/You're the only one here|You’re the only one here|People|Chat|Leave call/i.test(body)) {
-      return { state: 'joined', detail: firstLine(body) }
+    if (/Waiting for the host|Waiting for someone to let you in|Asking to be let in/i.test(last.bodyStart)) {
+      return { state: 'waiting', detail: last.bodyStart }
     }
-    if (/Waiting for the host|Waiting for someone to let you in|Asking to be let in|Ask to join/i.test(body)) {
-      return { state: 'waiting', detail: firstLine(body) }
-    }
-    logger.debug('still joining', { url: page.url() })
     await page.waitForTimeout(2000)
   }
-  const body = await page.locator('body').innerText().catch(() => '')
-  return { state: 'unknown', detail: firstLine(body) || 'no meeting UI detected' }
+
+  const suffix = last?.error ? ` | probe error: ${last.error}` : ''
+  return {
+    state: 'unknown',
+    detail: `${last?.bodyStart.slice(0, 100) ?? 'no meeting UI'}${suffix}`
+  }
 }
 
 async function finish(

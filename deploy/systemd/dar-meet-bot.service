@@ -24,12 +24,16 @@ RuntimeDirectory=dar-meet
 RuntimeDirectoryMode=0700
 
 # Hardening (ADR-0007 §5). PrivateDevices is intentionally off: Chromium needs /dev/shm.
+# /var/lib/dar is writable because the service owns it: PulseAudio writes ~/.config/pulse
+# and Chromium keeps its persistent profile under /var/lib/dar/meet.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/dar/media/meet /var/lib/dar/meet /run/dar-meet
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/dar /run/dar-meet
+# AF_NETLINK is required: Chromium enumerates network interfaces through it, and without
+# it WebRTC loses its candidates and the Meet call dies with "Couldn't start the video call".
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 
 Nice=10
 IOSchedulingClass=best-effort
