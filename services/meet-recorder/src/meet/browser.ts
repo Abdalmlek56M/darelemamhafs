@@ -14,7 +14,8 @@ export async function launchBrowser(
   profileDir: string,
   display: string,
   logger: Logger,
-  extraEnv: NodeJS.ProcessEnv = {}
+  extraEnv: NodeJS.ProcessEnv = {},
+  extraArgs: string[] = []
 ): Promise<LaunchedBrowser> {
   const context = await chromium.launchPersistentContext(profileDir, {
     headless: false,
@@ -40,7 +41,8 @@ export async function launchBrowser(
       '--disable-session-crashed-bubble',
       '--lang=en-US',
       '--window-size=1280,720',
-      '--start-maximized'
+      '--start-maximized',
+      ...extraArgs
     ]
   })
 

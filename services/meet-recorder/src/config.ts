@@ -24,6 +24,8 @@ export type BotConfig = {
   audioTap: boolean
   /** PULSE_LATENCY_MSEC given to Chromium only (bigger buffer against playout underruns). 0 = unset. */
   chromePulseLatencyMs: number
+  /** Chromium --audio-buffer-size (samples per output buffer). 0 = Chromium default. */
+  chromeAudioBuffer: number
   diskBlockGb: number
   selftestSeconds: number
   pollIntervalMs: number
@@ -70,6 +72,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, mode: BotConfig['mode']): Bot
     audioBitrate: text(env, 'BOT_AUDIO_BITRATE', '128k'),
     audioTap: !['0', 'false', 'off', 'no'].includes(text(env, 'BOT_AUDIO_TAP', '1').toLowerCase()),
     chromePulseLatencyMs: integer(env, 'BOT_CHROME_PULSE_LATENCY_MS', 60, 0, 500),
+    chromeAudioBuffer: integer(env, 'BOT_CHROME_AUDIO_BUFFER', 16384, 0, 65536),
     diskBlockGb: integer(env, 'BOT_DISK_BLOCK_GB', 25, 1, 500),
     selftestSeconds: integer(env, 'BOT_SELFTEST_SECONDS', 30, 5, 300),
     pollIntervalMs: integer(env, 'BOT_POLL_MS', 5000, 1000, 60000),

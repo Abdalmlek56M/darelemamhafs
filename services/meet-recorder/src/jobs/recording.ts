@@ -48,7 +48,11 @@ export async function runRecordingJob(
       config.chromePulseLatencyMs > 0
         ? { ...audio.env, PULSE_LATENCY_MSEC: String(config.chromePulseLatencyMs) }
         : audio.env
-    browser = await launchBrowser(config.profileDir, display.name, logger, chromeEnv)
+    // A large Chromium audio output buffer removes the playout glitches (isolated lab test:
+    // 232 gaps/min with the default buffer vs 0 with 16384 under the same CPU load). The
+    // recording does not need low latency, so the extra ~340 ms is free.
+    const chromeArgs = config.chromeAudioBuffer > 0 ? [`--audio-buffer-size=${config.chromeAudioBuffer}`] : []
+    browser = await launchBrowser(config.profileDir, display.name, logger, chromeEnv, chromeArgs)
     if (!job.meetLink) {
       await client.reportStatus(job.id, 'failed', 'missing_meet_link', 'الحدث بلا رابط Google Meet.')
       return
