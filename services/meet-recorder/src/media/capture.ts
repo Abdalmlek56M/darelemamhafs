@@ -27,6 +27,7 @@ export type CaptureResult = {
  */
 export class ScreenCapture {
   private process: ManagedProcess | null = null
+  private audioTap: ManagedProcess | null = null
   private readonly startedAt = Date.now()
 
   constructor(
@@ -48,8 +49,14 @@ export class ScreenCapture {
     return join(this.sessionDir, 'hls')
   }
 
+  get audioTapPath(): string {
+    return join(this.sessionDir, 'audio.wav')
+  }
+
   async start(display: string, audioSource: string, env: NodeJS.ProcessEnv): Promise<void> {
     await mkdir(this.hlsDir, { recursive: true })
+    // The tap starts first so it is already draining the monitor when FFmpeg opens it.
+    if (this.config.audioTap) this.startAudioTap(audioSource, env)
     const args = this.buildArguments(display, audioSource)
     this.process = new ManagedProcess('ffmpeg', {
       command: 'ffmpeg',
@@ -75,12 +82,20 @@ export class ScreenCapture {
       this.logger.info('ffmpeg stopped', { exitCode: code })
       this.process = null
     }
+    if (this.audioTap) {
+      // SIGINT lets parecord write the final WAV header.
+      const code = await this.audioTap.stop(5_000)
+      this.logger.info('audio tap stopped', { exitCode: code, path: this.audioTapPath })
+      this.audioTap = null
+    }
     return await this.finalize()
   }
 
   /** Freezes the encoder (SIGSTOP): the recording keeps a single timeline. */
   pause(): boolean {
     const ok = this.process?.signal('SIGSTOP') ?? false
+    // The tap pauses with the encoder so audio.wav and the MP4 stay on the same timeline.
+    this.audioTap?.signal('SIGSTOP')
     if (ok) this.logger.info('capture paused')
     return ok
   }
@@ -88,8 +103,36 @@ export class ScreenCapture {
   /** Resumes a paused encoder. */
   resume(): boolean {
     const ok = this.process?.signal('SIGCONT') ?? false
+    this.audioTap?.signal('SIGCONT')
     if (ok) this.logger.info('capture resumed')
     return ok
+  }
+
+  /**
+   * Audio-only side recording of the sink monitor. parecord does no encoding, runs at a
+   * higher priority than FFmpeg and has its own 100 ms buffer, so if audio.wav is clean while
+   * recording.mp4 is choppy, FFmpeg was starving; if both are choppy, Chromium never played
+   * the audio smoothly into the sink. A failure here never stops the main recording.
+   */
+  private startAudioTap(audioSource: string, env: NodeJS.ProcessEnv): void {
+    try {
+      this.audioTap = new ManagedProcess('parecord', {
+        command: 'nice',
+        args: [
+          '-n', '-5',
+          'parecord', `--device=${audioSource}`,
+          '--rate=48000', '--channels=2', '--format=s16le',
+          '--latency-msec=100', '--file-format=wav', this.audioTapPath
+        ],
+        env,
+        onLine: (line, stream) => this.logger.debug('parecord', { stream, line })
+      })
+      this.audioTap.start()
+      this.logger.info('audio tap started', { path: this.audioTapPath })
+    } catch (error) {
+      this.audioTap = null
+      this.logger.warn('audio tap could not start', { error: String(error) })
+    }
   }
 
   get running(): boolean {

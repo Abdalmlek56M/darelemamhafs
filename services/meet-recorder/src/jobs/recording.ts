@@ -43,7 +43,12 @@ export async function runRecordingJob(
     await display.start()
     await audio.start()
 
-    browser = await launchBrowser(config.profileDir, display.name, logger, audio.env)
+    // Chromium alone gets a larger Pulse buffer; FFmpeg/parecord keep their own settings.
+    const chromeEnv: NodeJS.ProcessEnv =
+      config.chromePulseLatencyMs > 0
+        ? { ...audio.env, PULSE_LATENCY_MSEC: String(config.chromePulseLatencyMs) }
+        : audio.env
+    browser = await launchBrowser(config.profileDir, display.name, logger, chromeEnv)
     if (!job.meetLink) {
       await client.reportStatus(job.id, 'failed', 'missing_meet_link', 'الحدث بلا رابط Google Meet.')
       return
