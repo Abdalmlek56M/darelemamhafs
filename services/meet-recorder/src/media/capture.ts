@@ -111,6 +111,9 @@ export class ScreenCapture {
       '-video_size', `${width}x${height}`,
       '-i', display,
       '-thread_queue_size', '512',
+      // PulseAudio's null sink can run slightly slower than real time under load; wall
+      // clock timestamps keep the muxed timeline honest instead of compressing the file.
+      '-use_wallclock_as_timestamps', '1',
       '-f', 'pulse', '-fragment_size', '2048', '-i', audioSource,
       '-map', '0:v:0', '-map', '1:a:0',
       '-c:v', 'libx264', '-preset', this.config.videoPreset, '-tune', 'zerolatency',
