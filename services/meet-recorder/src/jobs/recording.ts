@@ -100,6 +100,7 @@ export async function runRecordingJob(
       scheduledEnd: job.scheduledEnd,
       accessType: job.accessType ?? 'open',
       idleStopSeconds: job.idleStopSeconds ?? 300,
+      captureMode: config.captureMode,
       stopAt: new Date(stopAt).toISOString()
     })
 
@@ -180,7 +181,10 @@ export async function runRecordingJob(
         ...(result.posterPath
           ? [{ kind: 'poster', localPath: result.posterPath, sizeBytes: 0, sha256: null as string | null, durationSeconds: 0 }]
           : []),
-        { kind: 'hls', localPath: result.hlsDir, sizeBytes: 0, sha256: null as string | null, durationSeconds: 0 }
+        // Audio-only mode produces no HLS playlist; the MP4 is the only artifact.
+        ...(result.hlsDir && result.segments > 0
+          ? [{ kind: 'hls', localPath: result.hlsDir, sizeBytes: 0, sha256: null as string | null, durationSeconds: 0 }]
+          : [])
       ]
     })
     logger.info('recording finished', { jobId: job.id, duration, sizeBytes: result.sizeBytes })

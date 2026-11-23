@@ -12,7 +12,8 @@ const run = promisify(execFile)
 
 export type CaptureResult = {
   mp4Path: string
-  hlsDir: string
+  /** null in audio-only mode (no HLS playlist is produced). */
+  hlsDir: string | null
   posterPath: string | null
   durationSeconds: number
   sizeBytes: number
@@ -29,13 +30,17 @@ export class ScreenCapture {
   private process: ManagedProcess | null = null
   private audioTap: ManagedProcess | null = null
   private readonly startedAt = Date.now()
+  /** BOT_RECORD_MODE=audio: record the PulseAudio monitor only (no x11grab/x264). */
+  private readonly audioOnly: boolean
 
   constructor(
     private readonly config: BotConfig,
     private readonly sessionDir: string,
     private readonly logger: Logger,
     private readonly durationSeconds?: number
-  ) {}
+  ) {
+    this.audioOnly = config.captureMode === 'audio'
+  }
 
   get rawPath(): string {
     return join(this.sessionDir, 'recording.raw.mp4')
@@ -54,6 +59,10 @@ export class ScreenCapture {
   }
 
   async start(display: string, audioSource: string, env: NodeJS.ProcessEnv): Promise<void> {
+    if (this.audioOnly) {
+      await this.startAudioOnly(audioSource, env)
+      return
+    }
     await mkdir(this.hlsDir, { recursive: true })
     // The tap starts first so it is already draining the monitor when FFmpeg opens it.
     if (this.config.audioTap) this.startAudioTap(audioSource, env)
@@ -77,7 +86,30 @@ export class ScreenCapture {
     this.logger.info('capture started', { display, audioSource, sessionDir: this.sessionDir })
   }
 
+  /**
+   * Lightweight capture for lessons that only need the teacher's voice: a single parecord
+   * drains the PulseAudio monitor into a WAV. No X11 grab, no libx264 and no HLS while the
+   * lesson runs, so the CPU stays free for Chromium and the rest of the site.
+   */
+  private async startAudioOnly(audioSource: string, env: NodeJS.ProcessEnv): Promise<void> {
+    await mkdir(this.sessionDir, { recursive: true })
+    this.startAudioTap(audioSource, env)
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+    if (!this.audioTap?.running) {
+      throw new Error(`parecord exited immediately: ${this.audioTap?.lastLines.join(' | ') ?? 'not started'}`)
+    }
+    this.logger.info('audio-only capture started', { audioSource, sessionDir: this.sessionDir, wav: this.audioTapPath })
+  }
+
   async stop(): Promise<CaptureResult> {
+    if (this.audioOnly) {
+      if (this.audioTap) {
+        const code = await this.audioTap.stop(10_000)
+        this.logger.info('audio capture stopped', { exitCode: code, path: this.audioTapPath })
+        this.audioTap = null
+      }
+      return await this.finalizeAudioOnly()
+    }
     if (this.process) {
       const code = await this.process.stop(20_000)
       this.logger.info('ffmpeg stopped', { exitCode: code })
@@ -94,17 +126,21 @@ export class ScreenCapture {
 
   /** Freezes the encoder (SIGSTOP): the recording keeps a single timeline. */
   pause(): boolean {
-    const ok = this.process?.signal('SIGSTOP') ?? false
+    const ok = this.audioOnly
+      ? (this.audioTap?.signal('SIGSTOP') ?? false)
+      : (this.process?.signal('SIGSTOP') ?? false)
     // The tap pauses with the encoder so audio.wav and the MP4 stay on the same timeline.
-    this.audioTap?.signal('SIGSTOP')
+    if (!this.audioOnly) this.audioTap?.signal('SIGSTOP')
     if (ok) this.logger.info('capture paused')
     return ok
   }
 
   /** Resumes a paused encoder. */
   resume(): boolean {
-    const ok = this.process?.signal('SIGCONT') ?? false
-    this.audioTap?.signal('SIGCONT')
+    const ok = this.audioOnly
+      ? (this.audioTap?.signal('SIGCONT') ?? false)
+      : (this.process?.signal('SIGCONT') ?? false)
+    if (!this.audioOnly) this.audioTap?.signal('SIGCONT')
     if (ok) this.logger.info('capture resumed')
     return ok
   }
@@ -137,6 +173,7 @@ export class ScreenCapture {
   }
 
   get running(): boolean {
+    if (this.audioOnly) return this.audioTap?.running ?? false
     return this.process?.running ?? false
   }
 
@@ -169,6 +206,7 @@ export class ScreenCapture {
 
   /** Waits for FFmpeg to finish on its own (used when a fixed duration was requested). */
   async waitForExit(timeoutMs: number): Promise<number | null> {
+    if (this.audioOnly) return null
     return this.process ? this.process.wait(timeoutMs) : null
   }
 
@@ -203,6 +241,39 @@ export class ScreenCapture {
       join(this.hlsDir, 'index.m3u8')
     )
     return args
+  }
+
+  /** Stops with a WAV on disk: encode it once to AAC/MP4 (fast, after the lesson) and drop the WAV. */
+  private async finalizeAudioOnly(): Promise<CaptureResult> {
+    const wav = await stat(this.audioTapPath).catch(() => null)
+    if (!wav || wav.size === 0) {
+      throw new Error('audio capture is missing or empty; parecord did not produce a WAV')
+    }
+    await run('ffmpeg', [
+      '-y', '-v', 'error', '-i', this.audioTapPath,
+      '-c:a', 'aac', '-b:a', this.config.audioBitrate, '-ar', '48000', '-ac', '2',
+      '-movflags', '+faststart', this.mp4Path
+    ])
+    await unlink(this.audioTapPath).catch(() => undefined)
+
+    const mp4 = await stat(this.mp4Path)
+    const durationSeconds = await this.probeDuration()
+    const sha256 = await this.hashFile(this.mp4Path)
+    const result: CaptureResult = {
+      mp4Path: this.mp4Path,
+      hlsDir: null,
+      posterPath: null,
+      durationSeconds,
+      sizeBytes: mp4.size,
+      sha256,
+      segments: 0
+    }
+    this.logger.info('audio capture finalized', {
+      durationSeconds,
+      sizeBytes: mp4.size,
+      elapsedMs: Date.now() - this.startedAt
+    })
+    return result
   }
 
   private async finalize(): Promise<CaptureResult> {

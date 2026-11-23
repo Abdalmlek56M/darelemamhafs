@@ -59,21 +59,30 @@ recording ${config.selftestSeconds}s at ${config.width}x${config.height}`
     })
     banner.start()
 
+    const audioOnly = config.captureMode === 'audio'
     capture = new ScreenCapture(config, sessionDir, logger, config.selftestSeconds)
     // FFmpeg must see the same display and the same private PulseAudio server as the
     // sink; a mismatched XDG_RUNTIME_DIR makes libpulse fail with ESRCH.
     const captureEnv: NodeJS.ProcessEnv = { ...audio.env, DISPLAY: display.name }
     await capture.start(display.name, audio.monitorSource, captureEnv)
-    await capture.waitForExit((config.selftestSeconds + 20) * 1000)
+    if (audioOnly) {
+      // parecord runs until it is stopped; record for the requested wall-clock window.
+      await new Promise((resolve) => setTimeout(resolve, (config.selftestSeconds + 1) * 1000))
+    } else {
+      await capture.waitForExit((config.selftestSeconds + 20) * 1000)
+    }
     const result = await capture.stop()
     capture = null
 
     if (result.durationSeconds < config.selftestSeconds - 2) {
       failures.push(`duration ${result.durationSeconds}s is shorter than ${config.selftestSeconds}s`)
     }
-    if (result.sizeBytes < 50_000) failures.push(`mp4 size ${result.sizeBytes} bytes is suspiciously small`)
-    if (result.segments < 1) failures.push('no HLS segments were produced')
-    if (!result.posterPath) failures.push('poster frame was not generated')
+    // Digital silence compresses to a few KB in AAC (ABR), so audio mode only needs a
+    // non-empty file; the duration assertion above is what proves the capture ran.
+    const minimumBytes = audioOnly ? 2_000 : 50_000
+    if (result.sizeBytes < minimumBytes) failures.push(`mp4 size ${result.sizeBytes} bytes is suspiciously small`)
+    if (!audioOnly && result.segments < 1) failures.push('no HLS segments were produced')
+    if (!audioOnly && !result.posterPath) failures.push('poster frame was not generated')
 
     const poster = result.posterPath ? await stat(result.posterPath).catch(() => null) : null
     if (result.posterPath && (!poster || poster.size === 0)) failures.push('poster frame is empty')

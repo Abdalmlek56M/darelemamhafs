@@ -2,6 +2,8 @@
 
 export type BotConfig = {
   mode: 'selftest' | 'poller'
+  /** 'video' records the virtual display + audio (default); 'audio' records only the meeting audio (lightweight). */
+  captureMode: 'video' | 'audio'
   apiBaseUrl: string
   serviceToken: string
   workerName: string
@@ -55,8 +57,13 @@ function integer(env: NodeJS.ProcessEnv, name: string, fallback: number, min: nu
 export function loadConfig(env: NodeJS.ProcessEnv, mode: BotConfig['mode']): BotConfig {
   const width = integer(env, 'BOT_WIDTH', 1280, 640, 1920)
   const height = integer(env, 'BOT_HEIGHT', 720, 360, 1080)
+  const captureModeRaw = text(env, 'BOT_RECORD_MODE', 'video').toLowerCase()
+  if (captureModeRaw !== 'video' && captureModeRaw !== 'audio') {
+    throw new Error(`BOT_RECORD_MODE must be video or audio (got "${captureModeRaw}")`)
+  }
   const config: BotConfig = {
     mode,
+    captureMode: captureModeRaw,
     apiBaseUrl: text(env, 'DAR_API_URL', 'http://127.0.0.1:5081').replace(/\/+$/, ''),
     serviceToken: text(env, 'DAR_SERVICE_TOKEN', ''),
     workerName: text(env, 'BOT_WORKER_NAME', 'dar-meet-bot-1'),
