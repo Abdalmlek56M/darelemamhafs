@@ -203,3 +203,40 @@
 - تحقق: صفحة 200، ومسار WebSocket وصل فعليًا إلى LiveKit (401 لدون توكن = المسار سليم)، الخدمة active، وضبطت UDP buffers (16MB) بعد تحذير LiveKit.
 - المطلوب الآن: تجربة بصوت حقيقي بين جهازين/شبكتين؛ لو نجح الصوت بلا تقطيع → نكمل M1/M2. لو فشل الاتصال على بيانات الموبايل → نضيف TURN.
 - ملاحظة: هذه صفحة اختبار مؤقتة وليست المنتج؛ لا تُربط بالمنتجات ولا تُنشر لغرفة الطلاب.
+
+---
+
+## 16. تصميم التسجيل والـEgress بعد مراجعة الوثائق الرسمية (24 Nov 2026)
+
+> مصدر: وثائق LiveKit الرسمية (Egress overview/API، Auto egress، Self-hosting egress، Webhooks) — v1.13.x.
+
+### 16.1 تصحيح مهم للـAPI
+- **StartTrackCompositeEgress / StartTrackEgress / StartRoomCompositeEgress أصيحت deprecated** في LiveKit ≥1.13.5؛ البديل الموحّد هو **`StartEgress`** بمصدر **`MediaSource`** (`video_track_id` + `audio.routes` عبر `AudioConfig`) — لا يحتاج Chrome.
+- `MediaSource` يعيد ترميز الصوت إلى Opus ستيريو (OGG) ويعيد ترميز الفيديو H264 افتراضيًا، **إلا** مع `preset=PASSTHROUGH` لمسار فيديو واحد (بدون إعادة ترميز) — قيود PASSTHROUGH: مسار واحد + ملف واحد.
+- سيرفرنا المثبّت **v1.13.11** يدعم الـAPI الجديد.
+
+### 16.2 القرار المعماري المقترح (أخف وأجود)
+بدل TrackComposite المُرمِّز أثناء الحصة:
+1. **Auto egress لكل المسارات:** عند `CreateRoom` نمرر `egress.tracks` لتسجيل **كل مسار يُنشر** تلقائيًا (صوت كل مشارك منفصلًا + فيديو مشاركة الشاشة كمسار PASSTHROUGH بلا إعادة ترميز). التوثيق: هذا المسار يستهلك موارد قليلة جدًا (TrackEgress) — عكس composite.
+2. **بعد انتهاء الحصة (offline):** ffmpeg يدمج مسارات الصوت (amix) + فيديو الشاشة إلى MP4 نهائي واحد؛ تكلفة CPU خارج وقت الحصة، والجودة أعلى لأن فيديو الشاشة لا يُعاد ترميزه.
+3. **بدائل:** MediaSource مع AudioConfig (routes) لتسجيل صوت المعلم فقط أو قنوات منفصلة؛ أو TemplateSource audio_only (لكنه Chrome — نتجنبه).
+4. **سبب اختيار Auto egress tracks:** يشمل **صوت الطالبات** (مهم للتلاوة) وليس صوت المعلم فقط، ويبدأ مع إنشاء الغرفة (لا يفوّت بداية الحصة كما لو بدأ عند Share Screen).
+
+### 16.3 متطلبات تشغيل Egress (مهمة للسيرفر)
+- **خدمة منفصلة** `livekit-egress` (Go) + **Redis** (نفس Redis للسيرفر/الإيجريس).
+- التوثيق يوصي بـ **4 vCPU / 4GB لكل instance** للحالات الثقيلة (composite). لكن **Audio-only / Track egress خفيف جدًا** (مئات المهام على instance واحد) — لذلك سنقيس الحمل، ونضع `MemoryMax/CPUQuota` ونبدأ بمهمة واحدة متزامنة.
+- **الإخراج إلى تخزين S3-compatible فقط** (S3/Azure/GCP) — **لا كتابة مباشرة على قرص السيرفر**. الخطة: **MinIO محلي** (bucket للـstaging/التشغيل) + rclone إلى Google Drive للأرشيف؛ والملفات الصغيرة تُخدم من MinIO/الـAPI بصلاحية.
+
+### 16.4 دورة حياة التسجيل (تخالف/تعدّل اقتراح «حذف فوري»)
+- Auto egress → MinIO (staging) → worker: تحقق + دمج offline → MP4 نهائي → رفع Drive (rclone --checksum) → حفظ رابط/IDs في DB وربط بالحلقة.
+- **الاحتفاظ محليًا للعب من المنصة** (مهم للتجربة) + Drive أرشيف. الحذف المحلي وفق سياسة: (أ) يدوي بزر (قرار المالك الأول)، أو (ب) تلقائي بعد X أيام/بعد تحقق Drive مع حد أدنى للمساحة — **قرار مالك مطلوب** (يخالف قاعدة «لا حذف تلقائي» السابقة).
+- مؤشرات: فشل egress/رفع → إشعار + زر إعادة؛ مراقبة المساحة توقف التسجيل قبل الامتلاء.
+
+### 16.5 .NET والـWebhooks
+- **لا يوجد LiveKit server SDK رسمي لـ.NET** (الرسمي: Go/JS/Python/Ruby/Kotlin/Java/Rust/PHP). الحل: **(أ)** عميل Twirp JSON داخلي عبر HttpClient (موصّف رسميًا: `POST /twirp/livekit.RoomService/...` و`/twirp/livekit.Egress/StartEgress`، JSON + JWT) — بلا تبعيات؛ أو **(ب)** حزمة مجتمعية (مثل LiveKit.AspNetCore.ServerSdk) مع تثبيت إصدار ومراجعة.
+- التوكن: HS256 يدوي (API key/secret)؛ grants: teacher (canPublish + screenshare/camera/mic + canPublishData)، student (canSubscribe + canPublish microphone فقط عند السماح)، و`roomRecord` لتوكن الـegress API.
+- Webhooks: تفعيل `webhook.api_key/urls` في `livekit.yaml`؛ استقبال `application/webhook+json` على `/api/v1/meet/webhooks`؛ التحقق من JWT (Authorization) + sha256 للجسم؛ idempotency (لا ترتيب مضمون + إعادة محاولات)؛ الأحداث: room_started/finished، participant_joined/left، track_published/unpublished، egress_started/updated/ended → حضور ودقائق المعلم/الطالبات + إدارة egress.
+- الطرد/كتم الجميع/تعديل صلاحيات: عبر RoomService Twirp (`RemoveParticipant`/`MutePublishedTrack`/`UpdateParticipant`) من الباك إند — **ليس من التوكن**؛ والواجهة تُخفي الأزرار للطلاب لكن الحماية على الخادم.
+
+### 16.6 الواجهة
+- `@livekit/components-react` للغرفة (عربي RTL + mock-up للهوية)؛ لكن الدردشة/الانتظار/الحضور/إدارة التسجيل في كودنا. أزرار المعلم: كتم الجميع/كتم فرد/طرد/قفل/تسجيل مؤشر — تستدعي باك إند.
