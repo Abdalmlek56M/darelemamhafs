@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Dar LiveKit — اختبار الصوت</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Cairo", Tahoma, sans-serif; background: #0b1220; color: #e6edf7; }
+  header { padding: 14px 16px; background: #121b2e; border-bottom: 1px solid #22304c; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  .pill { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: #1b2a45; border: 1px solid #2c3f63; }
+  main { padding: 16px; max-width: 1100px; margin: 0 auto; }
+  #participants { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .tile { background: #111c30; border: 1px solid #22304c; border-radius: 14px; overflow: hidden; min-height: 160px; position: relative; }
+  .tile video { width: 100%; height: 100%; min-height: 160px; object-fit: contain; background: #000; display: block; }
+  .tile .name { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,.6); padding: 4px 10px; border-radius: 8px; font-size: 13px; }
+  .tile .badges { position: absolute; top: 8px; left: 8px; display: flex; gap: 6px; }
+  .badge { font-size: 11px; padding: 3px 8px; border-radius: 8px; background: rgba(0,0,0,.6); }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+  button { font: inherit; padding: 10px 14px; border-radius: 10px; border: 1px solid #2c3f63; background: #16233a; color: #e6edf7; cursor: pointer; min-height: 44px; }
+  button:disabled { opacity: .5; }
+  button.on { background: #0f5132; border-color: #176b43; }
+  button.danger { background: #5a1a1a; border-color: #7a2424; }
+  #status { font-size: 13px; color: #9db0d0; white-space: pre-wrap; }
+  .hint { font-size: 13px; color: #9db0d0; line-height: 1.8; }
+  audio { display: none; }
+  .join { display: flex; flex-direction: column; gap: 10px; max-width: 420px; margin: 40px auto; background: #111c30; border: 1px solid #22304c; border-radius: 16px; padding: 20px; }
+  input { font: inherit; padding: 10px; border-radius: 10px; border: 1px solid #2c3f63; background: #0b1220; color: #e6edf7; }
+</style>
+</head>
+<body>
+<header>
+  <h1>دار الإمام حفص — اختبار الصوت المباشر</h1>
+  <span class="pill" id="roomPill">—</span>
+  <span class="pill" id="connPill">غير متصل</span>
+  <button id="audioBtn" disabled>🔊 تشغيل الصوت</button>
+</header>
+<main>
+  <div id="join" class="join">
+    <strong>ادخل للتجربة</strong>
+    <div class="hint">افتح الرابط الذي يحتوي على التوكن، أو الصق التوكن هنا. الرابط يبدأ بـ <code>/live-test/#t=...</code></div>
+    <input id="tokenInput" placeholder="الصق التوكن هنا (إن لم يكن في الرابط)" />
+    <button id="connectBtn">دخول الغرفة</button>
+    <div id="joinStatus" class="hint"></div>
+  </div>
+
+  <div id="app" hidden>
+    <div class="bar">
+      <button id="micBtn">🎤 المايك</button>
+      <button id="camBtn">📷 الكاميرا</button>
+      <button id="shareBtn">🖥️ مشاركة الشاشة</button>
+      <button id="speakerBtn">🔊 تشغيل الصوت</button>
+      <button id="leaveBtn" class="danger">🚪 خروج</button>
+    </div>
+    <div class="hint">جرّب: اتكلم من جهاز وجهاز آخر يسمع — التقطيع أو الفراغات تظهر في الحالة أدناه. هذه صفحة اختبار مؤقتة (M0).</div>
+    <div id="participants"></div>
+    <div id="status"></div>
+  </div>
+</main>
+<div id="audioRoot"></div>
+<script type="module">
+import { Room, RoomEvent, Track, ConnectionState, createLocalTracks } from 'https://cdn.jsdelivr.net/npm/livekit-client@2.25.0/+esm';
+
+const params = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+const roomName = params.get('room') || 'dar-test';
+const tokenParam = params.get('t') || '';
+const connectionName = params.get('name') || '';
+document.getElementById('roomPill').textContent = 'الغرفة: ' + roomName;
+const tokenInput = document.getElementById('tokenInput');
+if (tokenParam) tokenInput.value = tokenParam;
+if (connectionName) tokenInput.placeholder = 'الاسم: ' + connectionName;
+
+const statusEl = document.getElementById('status');
+const connPill = document.getElementById('connPill');
+const audioRoot = document.getElementById('audioRoot');
+let room = null;
+let micOn = false, camOn = false, shareOn = false;
+
+function log(line) {
+  statusEl.textContent += line + '\n';
+  statusEl.scrollTop = statusEl.scrollHeight;
+}
+
+function tileFor(identity, label) {
+  let tile = document.getElementById('tile-' + CSS.escape(identity));
+  if (tile) return tile;
+  tile = document.createElement('div');
+  tile.className = 'tile';
+  tile.id = 'tile-' + identity;
+  tile.innerHTML = '<div class="badges"></div><div class="name"></div>';
+  tile.querySelector('.name').textContent = label || identity;
+  document.getElementById('participants').appendChild(tile);
+  return tile;
+}
+
+function badge(identity, text) {
+  const tile = tileFor(identity);
+  tile.querySelector('.badges').textContent = text;
+}
+
+function attachTrack(track, identity) {
+  const tile = tileFor(identity);
+  if (track.kind === Track.Kind.Audio) {
+    const el = track.attach();
+    el.autoplay = true;
+    audioRoot.appendChild(el);
+    log('🔊 صوت من ' + identity);
+    return;
+  }
+  if (track.kind === Track.Kind.Video) {
+    const el = track.attach();
+    el.playsInline = true;
+    el.autoplay = true;
+    el.muted = true;
+    const old = tile.querySelector('video');
+    if (old) old.remove();
+    tile.prepend(el);
+    log('📺 فيديو/شاشة من ' + identity);
+  }
+}
+
+function updateParticipants() {
+  if (!room) return;
+  const people = [room.localParticipant, ...room.remoteParticipants.values()];
+  connPill.textContent = people.length + ' مشارك — ' + room.state;
+  for (const p of people) {
+    badge(p.identity, p.isSpeaking ? '🔈 يتكلم' : '');
+  }
+}
+
+async function connect() {
+  const token = tokenInput.value.trim();
+  if (!token) { document.getElementById('joinStatus').textContent = 'التوكن مطلوب.'; return; }
+  const wsUrl = location.origin.replace(/^http/, 'ws') + '/livekit';
+  room = new Room({ adaptiveStream: true, dynacast: true, videoCaptureDefaults: { resolution: { width: 1280, height: 720 } } });
+  room.on(RoomEvent.TrackSubscribed, (track, pub, participant) => attachTrack(track, participant.identity));
+  room.on(RoomEvent.TrackUnsubscribed, (track) => track.detach().forEach((el) => el.remove()));
+  room.on(RoomEvent.ParticipantConnected, (p) => { tileFor(p.identity); log('➕ ' + p.identity); updateParticipants(); });
+  room.on(RoomEvent.ParticipantDisconnected, (p) => { document.getElementById('tile-' + p.identity)?.remove(); updateParticipants(); });
+  room.on(RoomEvent.ActiveSpeakersChanged, () => updateParticipants());
+  room.on(RoomEvent.ConnectionStateChanged, (s) => { connPill.textContent = s; });
+  room.on(RoomEvent.MediaDevicesError, (e) => log('⚠️ جهاز: ' + e.message));
+  room.on(RoomEvent.Disconnected, () => { connPill.textContent = 'انقطع'; log('انقطع الاتصال'); });
+  try {
+    connPill.textContent = 'جارٍ الاتصال...';
+    await room.connect(wsUrl, token);
+    document.getElementById('join').hidden = true;
+    document.getElementById('app').hidden = false;
+    document.getElementById('audioBtn').disabled = false;
+    log('✅ متصل بالغرفة');
+    updateParticipants();
+  } catch (err) {
+    connPill.textContent = 'فشل الاتصال';
+    document.getElementById('joinStatus').textContent = 'فشل: ' + (err?.message || err);
+    console.error(err);
+  }
+}
+
+async function enableAudio() {
+  try { await room.startAudio(); log('🔊 الصوت شغّال'); document.getElementById('audioBtn').disabled = true; }
+  catch (err) { log('⚠️ الصوت: ' + (err?.message || err)); }
+}
+
+async function toggleMic() {
+  if (!room) return;
+  micOn = !micOn;
+  await room.localParticipant.setMicrophoneEnabled(micOn);
+  document.getElementById('micBtn').classList.toggle('on', micOn);
+  document.getElementById('micBtn').textContent = micOn ? '🎤 المايك (شغّال)' : '🎤 المايك';
+  log(micOn ? '🎤 المايك مفتوح' : '🔇 المايك مقفول');
+}
+
+async function toggleCam() {
+  if (!room) return;
+  camOn = !camOn;
+  await room.localParticipant.setCameraEnabled(camOn);
+  document.getElementById('camBtn').classList.toggle('on', camOn);
+  document.getElementById('camBtn').textContent = camOn ? '📷 الكاميرا (شغّالة)' : '📷 الكاميرا';
+}
+
+async function toggleShare() {
+  if (!room) return;
+  shareOn = !shareOn;
+  await room.localParticipant.setScreenShareEnabled(shareOn, { audio: true });
+  document.getElementById('shareBtn').classList.toggle('on', shareOn);
+  document.getElementById('shareBtn').textContent = shareOn ? '🖥️ الشاشة (شغّالة)' : '🖥️ مشاركة الشاشة';
+}
+
+document.getElementById('connectBtn').onclick = connect;
+document.getElementById('audioBtn').onclick = enableAudio;
+document.getElementById('speakerBtn').onclick = enableAudio;
+document.getElementById('micBtn').onclick = toggleMic;
+document.getElementById('camBtn').onclick = toggleCam;
+document.getElementById('shareBtn').onclick = toggleShare;
+document.getElementById('leaveBtn').onclick = async () => { await room?.disconnect(); location.reload(); };
+</script>
+</body>
+</html>
