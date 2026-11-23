@@ -45,9 +45,11 @@ export default function BotControlCard({ canControl, settings, onSettingsSaved }
 
   useEffect(() => {
     void refresh()
-    const timer = window.setInterval(() => { void refresh() }, 8000)
+    // Poll faster while a job runs so the buttons always mirror the server state.
+    const period = active?.active ? 4000 : 8000
+    const timer = window.setInterval(() => { void refresh() }, period)
     return () => window.clearInterval(timer)
-  }, [refresh])
+  }, [refresh, active?.active])
 
   const act = async (work: () => Promise<unknown>, success: string) => {
     setBusy(true)

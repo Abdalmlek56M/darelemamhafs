@@ -113,7 +113,8 @@ export class ScreenCapture {
       '-thread_queue_size', '512',
       '-f', 'pulse', '-fragment_size', '2048', '-i', audioSource,
       '-map', '0:v:0', '-map', '1:a:0',
-      '-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'zerolatency',
+      '-c:v', 'libx264', '-preset', this.config.videoPreset, '-tune', 'zerolatency',
+      '-threads', String(this.config.videoThreads),
       '-pix_fmt', 'yuv420p', '-b:v', videoBitrate, '-g', String(framerate * 2),
       '-c:a', 'aac', '-b:a', audioBitrate, '-ar', '48000', '-ac', '2'
     ]

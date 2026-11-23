@@ -12,6 +12,9 @@ export type BotConfig = {
   height: number
   framerate: number
   videoBitrate: string
+  /** x264 preset; ultrafast keeps the encoder well inside the slice CPU budget. */
+  videoPreset: string
+  videoThreads: number
   audioBitrate: string
   diskBlockGb: number
   selftestSeconds: number
@@ -54,6 +57,8 @@ export function loadConfig(env: NodeJS.ProcessEnv, mode: BotConfig['mode']): Bot
     height,
     framerate: integer(env, 'BOT_FRAMERATE', 30, 10, 60),
     videoBitrate: text(env, 'BOT_VIDEO_BITRATE', '2500k'),
+    videoPreset: text(env, 'BOT_VIDEO_PRESET', 'ultrafast'),
+    videoThreads: integer(env, 'BOT_VIDEO_THREADS', 3, 1, 8),
     audioBitrate: text(env, 'BOT_AUDIO_BITRATE', '128k'),
     diskBlockGb: integer(env, 'BOT_DISK_BLOCK_GB', 25, 1, 500),
     selftestSeconds: integer(env, 'BOT_SELFTEST_SECONDS', 30, 5, 300),

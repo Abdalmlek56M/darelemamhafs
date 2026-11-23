@@ -4,6 +4,9 @@ Documentation=file:/opt/dar/docs/adr/0007-meet-recording-architecture.md
 
 [Slice]
 # ADR-0007: the recorder may never starve the site or PostgreSQL.
+# 180% was too tight: x264 (720p30) + Chromium (software Meet) + Xvfb + PulseAudio hit the
+# cgroup throttle, which slowed the audio clock and produced short, choppy recordings.
+# 300% on 4 vCPU still leaves a full core for the site and PostgreSQL.
 MemoryMax=3G
-CPUQuota=180%
+CPUQuota=300%
 IOWeight=100
