@@ -43,7 +43,11 @@
 | `14-ui-audit-and-mobile-direction.md` | UI audit واتجاه الموبايل | 🟢 محدّث — التجارب مستمرة |
 | `15-legacy-reuse-audit.md` | تدقيق إعادة استخدام القديم | 🟢 محدّث ماليًا |
 | `16-supervision-workspace-plan.md` | خطة مساحة الإشراف والتواصل | 🟢 محدّث الحالة |
-| `18-meet-recording-plan.md` | خطة تسجيل وبث Google Meet + Calendar + Drive | 📝 مقترحة — بانتظار موافقة المالك |
+| `18-meet-recording-plan.md` | خطة تسجيل وبث Google Meet + Calendar + Drive | ✅ Phase 3.0–3.3 منفّذة — الباقي مؤجل |
+| `19-meet-operations.md` | تشغيل البوت وGoogle/Meet | 🟢 حيّ |
+| `20-meet-recorder-handoff.md` | تسليم تقني كامل للبوت | 🟢 حيّ |
+| `21-audio-only-mode-brief.md` | وضع تسجيل صوتي فقط (تخفيف الحمل) | 📋 brief للتنفيذ |
+| `22-inhouse-meetings-design.md` | تصميم منصة اجتماعات داخلية + قرار/خطة | 📝 مقترحة — بانتظار قرار المالك |
 | `adr/` | ADRs (0001–0005) | 🟢 حيّ |
 | `audits/` | تقارير تدقيق (تداخل المواعيد، تجاوب الموبايل) | 🟢 جديد |
 | `checkpoints/` | سجل Done/Remaining/Decisions لكل خطوة | 🟢 حيّ |
