@@ -17,13 +17,14 @@ ExecStart=/usr/bin/node /opt/dar-meet-bot/dist/index.js
 Restart=always
 RestartSec=10
 KillSignal=SIGTERM
-TimeoutStopSec=45
 
 # A private runtime dir keeps the bot's PulseAudio server away from every other process.
 RuntimeDirectory=dar-meet
 RuntimeDirectoryMode=0700
 
-# Hardening (ADR-0007 §5). PrivateDevices is intentionally off: Chromium needs /dev/shm.
+# A recording must finish its MP4 before the process dies: on SIGTERM the bot finalises
+# (ffmpeg SIGINT + faststart remux + hash) and reports the result, so give it time.
+TimeoutStopSec=300
 # /var/lib/dar is writable because the service owns it: PulseAudio writes ~/.config/pulse
 # and Chromium keeps its persistent profile under /var/lib/dar/meet.
 NoNewPrivileges=true

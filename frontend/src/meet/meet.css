@@ -106,13 +106,38 @@
 
 .meet-access-select { font-size: 11px; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: inherit; }
 
-.meet-settings-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.meet-settings-form label { display: grid; gap: 4px; font-size: 11px; color: var(--muted); }
-.meet-settings-form input, .meet-settings-form select { width: 100%; }
-.meet-settings-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+/* Settings dialog --------------------------------------------------------- */
+.meet-settings { display: grid; gap: 16px; }
+.meet-settings-section { display: grid; }
+.meet-settings-section h3 {
+  display: flex; align-items: center; gap: 6px; margin: 0 0 6px;
+  font-size: 12px; font-weight: 600; color: var(--muted);
+}
+.meet-settings-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 9px 0; font-size: 12px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--line) 55%, transparent);
+}
+.meet-settings-row:last-child { border-bottom: 0; }
+.meet-settings-row small { display: block; margin-top: 2px; font-size: 10px; color: var(--muted); }
+.meet-settings-control { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.meet-settings-control input, .meet-settings-control select { width: 156px; }
+.meet-settings-control em { font-style: normal; font-size: 10px; color: var(--muted); min-width: 30px; }
+.meet-settings-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 @media (max-width: 640px) {
-  .meet-settings-form { grid-template-columns: 1fr; }
+  .meet-settings-row { flex-wrap: wrap; }
+  .meet-settings-control { width: 100%; }
+  .meet-settings-control input, .meet-settings-control select { width: 100%; }
+  .meet-settings-actions > * { flex: 1 1 auto; justify-content: center; }
+}
+
+/* Filter bar: one tidy row per group, never overlapping at narrow widths. */
+.meet-filters { flex-wrap: wrap; align-items: center; gap: 10px; }
+.meet-filters .meet-search { flex: 1 1 220px; min-width: 170px; }
+@media (max-width: 900px) {
+  .meet-filters > * { width: 100%; }
+  .meet-filter-group { display: flex; overflow-x: auto; padding-bottom: 2px; }
 }
 
 /* Bot control ------------------------------------------------------------ */

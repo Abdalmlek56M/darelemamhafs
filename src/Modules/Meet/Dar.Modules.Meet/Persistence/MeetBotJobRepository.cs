@@ -343,18 +343,33 @@ public sealed class MeetBotJobRepository(NpgsqlDataSource dataSource)
         return (Guid)(await command.ExecuteScalarAsync(ct))!;
     }
 
-    /// <summary>Asks the running bot to stop; it finalises on its next heartbeat.</summary>
+    /// <summary>
+    /// Stops a running recording or cancels a queued one. A scheduled job never reaches
+    /// the bot, so it is cancelled here instead of waiting for a heartbeat.
+    /// </summary>
     public async Task<bool> RequestStopAsync(Guid jobId, CancellationToken ct)
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         await using var command = new NpgsqlCommand("""
-            UPDATE meet_bot_jobs
-            SET stop_requested_at = now(), updated_at = now()
-            WHERE id = @id AND status IN ('joining', 'live', 'finalizing', 'uploading')
-            RETURNING id;
+            WITH running AS (
+                UPDATE meet_bot_jobs
+                SET stop_requested_at = now(), updated_at = now()
+                WHERE id = @id AND status IN ('joining', 'live', 'finalizing', 'uploading')
+                RETURNING id
+            ), queued AS (
+                UPDATE meet_bot_jobs
+                SET status = 'cancelled',
+                    error_code = 'manual_cancel',
+                    error_message = 'أُلغي من لوحة التحكم قبل بدء التسجيل.',
+                    finished_at = now(),
+                    updated_at = now()
+                WHERE id = @id AND status IN ('scheduled', 'waiting')
+                RETURNING id
+            )
+            SELECT (SELECT count(*) FROM running) + (SELECT count(*) FROM queued);
             """, connection);
         command.Parameters.AddWithValue("id", jobId);
-        return await command.ExecuteScalarAsync(ct) is Guid;
+        return Convert.ToInt32(await command.ExecuteScalarAsync(ct) ?? 0) > 0;
     }
 
     /// <summary>Freezes or resumes the active capture.</summary>

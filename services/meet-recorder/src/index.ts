@@ -7,6 +7,7 @@ import { runManualLogin } from './meet/auth.js'
 import { launchBrowser } from './meet/browser.js'
 import { joinMeet } from './meet/join.js'
 import { VirtualDisplay } from './media/display.js'
+import { requestShutdown } from './lifecycle.js'
 
 type Mode = 'selftest' | 'poller' | 'login' | 'join'
 
@@ -64,6 +65,7 @@ async function main(): Promise<void> {
   const controller = new AbortController()
   const stop = (signal: string) => {
     logger.info('shutdown requested', { signal })
+    requestShutdown(signal)
     controller.abort()
   }
   process.once('SIGTERM', () => stop('SIGTERM'))

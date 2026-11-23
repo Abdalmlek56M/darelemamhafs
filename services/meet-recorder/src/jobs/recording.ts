@@ -9,6 +9,7 @@ import { VirtualDisplay } from '../media/display.js'
 import { launchBrowser, type LaunchedBrowser } from '../meet/browser.js'
 import { joinMeet, leaveCall } from '../meet/join.js'
 import { admitWaiting, countParticipants, openMeetingAccess } from '../meet/access.js'
+import { isStopping } from '../lifecycle.js'
 import { assertFreeSpace } from '../storage/disk.js'
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
@@ -113,6 +114,11 @@ export async function runRecordingJob(
 
       if (commands?.stop) {
         logger.info('stop requested from the admin panel', { jobId: job.id })
+        break
+      }
+      if (isStopping()) {
+        // A deploy is restarting the service: finalise instead of losing the recording.
+        logger.info('service is stopping: finalising the recording', { jobId: job.id })
         break
       }
       if (commands && commands.pause !== paused) {
