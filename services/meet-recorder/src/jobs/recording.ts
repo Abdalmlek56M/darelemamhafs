@@ -8,6 +8,7 @@ import { ScreenCapture } from '../media/capture.js'
 import { VirtualDisplay } from '../media/display.js'
 import { launchBrowser, type LaunchedBrowser } from '../meet/browser.js'
 import { joinMeet, leaveCall } from '../meet/join.js'
+import { admitWaiting, openMeetingAccess } from '../meet/access.js'
 import { assertFreeSpace } from '../storage/disk.js'
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
@@ -53,6 +54,8 @@ export async function runRecordingJob(
     }
 
     await client.reportStatus(job.id, 'live')
+    // Participants must not wait for a human: open the meeting and admit anyone who knocks.
+    await openMeetingAccess(browser.page, logger).catch(() => undefined)
     heartbeat = setInterval(() => {
       void client.heartbeat(job.id).catch((error: unknown) => {
         logger.warn('heartbeat failed', { jobId: job.id, error: String(error) })
@@ -69,7 +72,10 @@ export async function runRecordingJob(
       scheduledEnd: job.scheduledEnd,
       stopAt: new Date(stopAt).toISOString()
     })
-    while (Date.now() < stopAt) await sleep(2000)
+    while (Date.now() < stopAt) {
+      await sleep(4000)
+      await admitWaiting(browser.page, logger).catch(() => 0)
+    }
 
     // The state machine requires live -> finalizing -> ready; reporting ready directly is
     // rejected with 409 (invalid_transition:live->ready).
