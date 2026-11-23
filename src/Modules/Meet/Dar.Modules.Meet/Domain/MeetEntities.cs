@@ -64,4 +64,8 @@ public sealed class MeetSettingsRow
     public string DefaultAccessType { get; init; } = "open";
     /// <summary>Hard cap for one recording, independent of the calendar end.</summary>
     public int MaxSessionMinutes { get; init; } = 240;
+    /// <summary>Optional alert destinations; empty means in-app alerts only.</summary>
+    public string? AlertEmail { get; init; }
+    public string? TelegramBotToken { get; init; }
+    public string? TelegramChatId { get; init; }
 }

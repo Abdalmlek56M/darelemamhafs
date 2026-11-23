@@ -26,6 +26,8 @@ public static class MeetModule
         services.AddScoped<CalendarSyncService>();
         services.AddHostedService<Workers.CalendarSyncWorker>();
         services.AddHostedService<Workers.MeetSchedulerWorker>();
+        services.AddHostedService<Workers.MeetAlertNotifier>();
+        services.AddHttpClient("meet-telegram", client => client.Timeout = TimeSpan.FromSeconds(15));
 
         services.AddAuthorization(options =>
         {

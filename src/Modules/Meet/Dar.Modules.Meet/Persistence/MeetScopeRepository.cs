@@ -190,7 +190,8 @@ public sealed class MeetScopeRepository(NpgsqlDataSource dataSource)
         await using var command = new NpgsqlCommand("""
             SELECT recording_enabled, join_lead_seconds, stop_grace_seconds,
                    max_concurrent_sessions, disk_block_gb, disk_warn_gb,
-                   upload_bwlimit, hls_retention_hours, default_access_type, max_session_minutes
+                   upload_bwlimit, hls_retention_hours, default_access_type, max_session_minutes,
+                   alert_email, telegram_bot_token, telegram_chat_id
             FROM meet_settings WHERE id = TRUE;
             """, connection);
         await using var reader = await command.ExecuteReaderAsync(ct);
@@ -206,7 +207,10 @@ public sealed class MeetScopeRepository(NpgsqlDataSource dataSource)
             UploadBwLimit = reader.GetString(6),
             HlsRetentionHours = reader.GetInt32(7),
             DefaultAccessType = reader.GetString(8),
-            MaxSessionMinutes = reader.GetInt32(9)
+            MaxSessionMinutes = reader.GetInt32(9),
+            AlertEmail = reader.IsDBNull(10) ? null : reader.GetString(10),
+            TelegramBotToken = reader.IsDBNull(11) ? null : reader.GetString(11),
+            TelegramChatId = reader.IsDBNull(12) ? null : reader.GetString(12)
         };
     }
 
@@ -219,6 +223,9 @@ public sealed class MeetScopeRepository(NpgsqlDataSource dataSource)
         string defaultAccessType,
         int maxSessionMinutes,
         int hlsRetentionHours,
+        string? alertEmail,
+        string? telegramBotToken,
+        string? telegramChatId,
         CancellationToken ct)
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);
@@ -231,6 +238,9 @@ public sealed class MeetScopeRepository(NpgsqlDataSource dataSource)
                 default_access_type = @access,
                 max_session_minutes = @maxSession,
                 hls_retention_hours = @hls,
+                alert_email = @email,
+                telegram_bot_token = @botToken,
+                telegram_chat_id = @chatId,
                 updated_at = now()
             WHERE id = TRUE;
             """, connection);
@@ -241,6 +251,9 @@ public sealed class MeetScopeRepository(NpgsqlDataSource dataSource)
         command.Parameters.AddWithValue("access", defaultAccessType);
         command.Parameters.AddWithValue("maxSession", maxSessionMinutes);
         command.Parameters.AddWithValue("hls", hlsRetentionHours);
+        command.Parameters.AddWithValue("email", (object?)alertEmail ?? DBNull.Value);
+        command.Parameters.AddWithValue("botToken", (object?)telegramBotToken ?? DBNull.Value);
+        command.Parameters.AddWithValue("chatId", (object?)telegramChatId ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(ct);
         return await GetSettingsAsync(ct);
     }

@@ -15,7 +15,10 @@ public sealed record MeetSettingsRequest(
     int? DiskBlockGb,
     string? DefaultAccessType,
     int? MaxSessionMinutes,
-    int? HlsRetentionHours);
+    int? HlsRetentionHours,
+    string? AlertEmail,
+    string? TelegramBotToken,
+    string? TelegramChatId);
 public sealed record EventAccessRequest(string? AccessType);
 
 /// <summary>
@@ -150,7 +153,12 @@ public static class ControlEndpoints
             throw AppException.Validation("maxSessionMinutes", "أقصى مدة بين 5 و720 دقيقة.");
 
         var hls = request.HlsRetentionHours ?? current.HlsRetentionHours;
-        var updated = await repository.UpdateSettingsAsync(lead, grace, warn, block, access, maxSession, hls, ct);
+        var updated = await repository.UpdateSettingsAsync(
+            lead, grace, warn, block, access, maxSession, hls,
+            string.IsNullOrWhiteSpace(request.AlertEmail) ? null : request.AlertEmail.Trim(),
+            string.IsNullOrWhiteSpace(request.TelegramBotToken) ? null : request.TelegramBotToken.Trim(),
+            string.IsNullOrWhiteSpace(request.TelegramChatId) ? null : request.TelegramChatId.Trim(),
+            ct);
         return Results.Ok(updated);
     }
 

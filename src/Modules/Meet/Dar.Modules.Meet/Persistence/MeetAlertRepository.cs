@@ -69,8 +69,48 @@ public sealed class MeetAlertRepository(NpgsqlDataSource dataSource)
         return rows;
     }
 
-    public async Task<int> MarkReadAsync(Guid? id, CancellationToken ct)
+    /// <summary>Alerts that no channel delivered yet, oldest first.</summary>
+    public async Task<IReadOnlyList<MeetAlertRow>> ListPendingAsync(int limit, CancellationToken ct)
     {
+        var rows = new List<MeetAlertRow>();
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            SELECT id, severity, code, title, body, created_at, read_at IS NOT NULL
+            FROM meet_alerts
+            WHERE delivered_at IS NULL AND delivery_attempts < 5
+            ORDER BY created_at
+            LIMIT @limit;
+            """, connection);
+        command.Parameters.AddWithValue("limit", Math.Clamp(limit, 1, 100));
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            rows.Add(new MeetAlertRow(
+                reader.GetGuid(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
+                reader.IsDBNull(4) ? null : reader.GetString(4),
+                reader.GetFieldValue<DateTimeOffset>(5), reader.GetBoolean(6)));
+        }
+        return rows;
+    }
+
+    /// <summary>Records the delivery outcome; failures keep incrementing the attempt counter.</summary>
+    public async Task MarkDeliveryAsync(Guid id, bool delivered, string? error, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            UPDATE meet_alerts
+            SET delivery_attempts = delivery_attempts + 1,
+                delivered_at = CASE WHEN @delivered THEN now() ELSE delivered_at END,
+                delivery_error = @error
+            WHERE id = @id;
+            """, connection);
+        command.Parameters.AddWithValue("id", id);
+        command.Parameters.AddWithValue("delivered", delivered);
+        command.Parameters.AddWithValue("error", (object?)error ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task<int> MarkReadAsync(Guid? id, CancellationToken ct)    {
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         await using var command = new NpgsqlCommand("""
             UPDATE meet_alerts SET read_at = now()

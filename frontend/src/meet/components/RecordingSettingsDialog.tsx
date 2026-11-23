@@ -24,6 +24,9 @@ export default function RecordingSettingsDialog({ settings, close, saved }: Prop
     defaultAccessType: settings.defaultAccessType,
     maxSessionMinutes: String(settings.maxSessionMinutes),
     hlsRetentionHours: String(settings.hlsRetentionHours),
+    telegramBotToken: settings.telegramBotToken ?? '',
+    telegramChatId: settings.telegramChatId ?? '',
+    alertEmail: settings.alertEmail ?? '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -40,6 +43,9 @@ export default function RecordingSettingsDialog({ settings, close, saved }: Prop
         defaultAccessType: form.defaultAccessType as 'open' | 'trusted',
         maxSessionMinutes: numberField(form.maxSessionMinutes),
         hlsRetentionHours: numberField(form.hlsRetentionHours),
+        telegramBotToken: form.telegramBotToken.trim() || null,
+        telegramChatId: form.telegramChatId.trim() || null,
+        alertEmail: form.alertEmail.trim() || null,
       })
       saved(next)
       close()
@@ -82,6 +88,18 @@ export default function RecordingSettingsDialog({ settings, close, saved }: Prop
       <label>الاحتفاظ بـHLS (ساعة)
         <input type="number" min={1} max={720} value={form.hlsRetentionHours}
           onChange={(event) => setForm({ ...form, hlsRetentionHours: event.target.value })} />
+      </label>
+      <label>بريد التنبيهات (اختياري)
+        <input type="email" dir="ltr" placeholder="owner@example.com" value={form.alertEmail}
+          onChange={(event) => setForm({ ...form, alertEmail: event.target.value })} />
+      </label>
+      <label>Telegram Bot Token (اختياري)
+        <input type="password" dir="ltr" placeholder="123456:ABC…" value={form.telegramBotToken}
+          onChange={(event) => setForm({ ...form, telegramBotToken: event.target.value })} />
+      </label>
+      <label>Telegram Chat ID
+        <input dir="ltr" placeholder="-1001234567890" value={form.telegramChatId}
+          onChange={(event) => setForm({ ...form, telegramChatId: event.target.value })} />
       </label>
     </div>
 

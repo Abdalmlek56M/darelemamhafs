@@ -82,6 +82,9 @@ export type MeetSettings = {
   hlsRetentionHours: number
   defaultAccessType: 'open' | 'trusted'
   maxSessionMinutes: number
+  alertEmail?: string | null
+  telegramBotToken?: string | null
+  telegramChatId?: string | null
 }
 
 export type MeetConnectResponse = { authorizationUrl: string }

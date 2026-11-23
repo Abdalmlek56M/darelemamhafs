@@ -117,6 +117,9 @@ export const meetApi = {
     defaultAccessType: 'open' | 'trusted'
     maxSessionMinutes: number
     hlsRetentionHours: number
+    alertEmail?: string | null
+    telegramBotToken?: string | null
+    telegramChatId?: string | null
   }) => api<MeetSettings>('/api/v1/meet/settings', { method: 'PUT', body: JSON.stringify(body) }),
 
   setEventAccess: (eventId: string, accessType: 'open' | 'trusted' | null) =>
