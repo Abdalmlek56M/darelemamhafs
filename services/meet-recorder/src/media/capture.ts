@@ -110,16 +110,17 @@ export class ScreenCapture {
       '-framerate', String(framerate),
       '-video_size', `${width}x${height}`,
       '-i', display,
-      '-thread_queue_size', '512',
-      // PulseAudio's null sink can run slightly slower than real time under load; wall
-      // clock timestamps keep the muxed timeline honest instead of compressing the file.
-      '-use_wallclock_as_timestamps', '1',
-      '-f', 'pulse', '-fragment_size', '2048', '-i', audioSource,
+      '-thread_queue_size', '1024',
+      // Keep PulseAudio's own (sample-count) timestamps: they are smooth, while wall-clock
+      // timestamps exposed every burst as a 60-300ms hole. aresample=async compensates the
+      // sink's small clock drift by inserting/removing samples instead of leaving gaps.
+      '-f', 'pulse', '-fragment_size', '8192', '-i', audioSource,
       '-map', '0:v:0', '-map', '1:a:0',
       '-c:v', 'libx264', '-preset', this.config.videoPreset, '-tune', 'zerolatency',
       '-threads', String(this.config.videoThreads),
       '-pix_fmt', 'yuv420p', '-b:v', videoBitrate, '-g', String(framerate * 2),
-      '-c:a', 'aac', '-b:a', audioBitrate, '-ar', '48000', '-ac', '2'
+      '-c:a', 'aac', '-b:a', audioBitrate, '-ar', '48000', '-ac', '2',
+      '-af', 'aresample=async=1:min_hard_comp=0.01:first_pts=0'
     ]
     if (this.durationSeconds !== undefined) args.push('-t', String(this.durationSeconds))
     args.push(

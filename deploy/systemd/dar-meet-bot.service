@@ -40,5 +40,10 @@ Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7
 
+# PulseAudio must schedule in real time; without it the null sink drifts under host load
+# and the captured audio arrives in bursts (audible dropouts).
+LimitRTPRIO=95
+LimitNICE=-11
+
 [Install]
 WantedBy=multi-user.target
