@@ -63,6 +63,7 @@ export class ScreenCapture {
       args,
       env,
       onLine: (line, stream) => {
+        if (stream === 'stdout' && this.collectProgress(line)) return
         if (/error|invalid|failed/i.test(line)) this.logger.warn('ffmpeg', { stream, line })
         else this.logger.debug('ffmpeg', { stream, line })
       }
@@ -139,6 +140,33 @@ export class ScreenCapture {
     return this.process?.running ?? false
   }
 
+  /**
+   * FFmpeg `-progress pipe:1` prints key=value blocks that end with `progress=`. Logging
+   * `speed` shows whether the encoder keeps up with real time: below 1.0x it falls behind,
+   * and whatever is still queued when it is stopped never reaches the file.
+   */
+  private readonly progress: Record<string, string> = {}
+
+  private collectProgress(line: string): boolean {
+    const eq = line.indexOf('=')
+    if (eq <= 0) return false
+    const key = line.slice(0, eq)
+    const value = line.slice(eq + 1).trim()
+    if (key !== 'progress') {
+      if (['fps', 'speed', 'dup_frames', 'drop_frames', 'out_time'].includes(key)) this.progress[key] = value
+      return true
+    }
+    this.logger.info('ffmpeg progress', {
+      speed: this.progress.speed,
+      fps: this.progress.fps,
+      dup: this.progress.dup_frames,
+      drop: this.progress.drop_frames,
+      outTime: this.progress.out_time?.slice(0, 11),
+      wallSeconds: Math.round((Date.now() - this.startedAt) / 1000)
+    })
+    return true
+  }
+
   /** Waits for FFmpeg to finish on its own (used when a fixed duration was requested). */
   async waitForExit(timeoutMs: number): Promise<number | null> {
     return this.process ? this.process.wait(timeoutMs) : null
@@ -148,6 +176,7 @@ export class ScreenCapture {
     const { width, height, framerate, videoBitrate, audioBitrate } = this.config
     const args = [
       '-hide_banner', '-nostdin', '-loglevel', 'warning', '-y',
+      '-progress', 'pipe:1', '-stats_period', '10',
       '-thread_queue_size', '512',
       '-f', 'x11grab', '-draw_mouse', '0',
       '-framerate', String(framerate),

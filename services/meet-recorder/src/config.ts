@@ -63,7 +63,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, mode: BotConfig['mode']): Bot
     displayNumber: integer(env, 'BOT_DISPLAY', 99, 1, 999),
     width,
     height,
-    framerate: integer(env, 'BOT_FRAMERATE', 30, 10, 60),
+    framerate: integer(env, 'BOT_FRAMERATE', 15, 10, 60),
     videoBitrate: text(env, 'BOT_VIDEO_BITRATE', '2500k'),
     videoPreset: text(env, 'BOT_VIDEO_PRESET', 'ultrafast'),
     videoThreads: integer(env, 'BOT_VIDEO_THREADS', 3, 1, 8),
