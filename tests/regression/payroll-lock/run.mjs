@@ -17,6 +17,29 @@ if (!CONN || !LEGACY || !NEW_API || !SETUP_TOKEN) {
   process.exit(2);
 }
 
+const PROD_DB = 'dareltahfeez';
+const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+function isLoopbackHost(host) {
+  return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]';
+}
+function refuse(message, prefix) {
+  console.error(prefix + ' refusing production/live target: ' + message);
+  process.exit(2);
+}
+function guardTargets(db, urls, prefix) {
+  if (db && /database\s*=\s*dareltahfeez\b/i.test(db)) refuse('production database name', prefix);
+  const dbHost = /host\s*=\s*([^;]+)/i.exec(db || '');
+  if (dbHost && PROD_HOSTS.includes(dbHost[1].trim().toLowerCase())) refuse('production database host', prefix);
+  for (const raw of urls) {
+    let url;
+    try { url = new URL(raw); } catch { refuse('invalid URL', prefix); }
+    const host = url.hostname.toLowerCase();
+    if (PROD_HOSTS.includes(host)) refuse('production hostname ' + host, prefix);
+    if (!isLoopbackHost(host)) refuse('non-loopback test URL ' + host, prefix);
+  }
+}
+guardTargets(CONN, [LEGACY, NEW_API], 'Q2_FAIL');
+
 function pgEnv() {
   const env = { ...process.env };
   for (const part of CONN.split(';')) {

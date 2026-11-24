@@ -1,5 +1,26 @@
+const BASE = process.env.P17_BASE_URL || 'http://127.0.0.1:5099';
+const PROD_DB = 'dareltahfeez';
+const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+function isLoopbackHost(host) {
+  return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]';
+}
+function refuseTarget(message) {
+  console.error('P17_FAIL refusing production/live target: ' + message);
+  process.exit(2);
+}
+function guardTargets(base) {
+  let url;
+  try { url = new URL(base); } catch { refuseTarget('invalid URL'); }
+  const host = url.hostname.toLowerCase();
+  if (PROD_HOSTS.includes(host)) refuseTarget('production hostname ' + host);
+  if (!isLoopbackHost(host)) refuseTarget('non-loopback test URL ' + host);
+  const db = process.env.P17_DAR_TEST_DATABASE || process.env.DAR_TEST_DATABASE || '';
+  if (db && /database\s*=\s*dareltahfeez\b/i.test(db)) refuseTarget('production database name');
+  const dbHost = /host\s*=\s*([^;]+)/i.exec(db);
+  if (dbHost && PROD_HOSTS.includes(dbHost[1].trim().toLowerCase())) refuseTarget('production database host');
+}
+guardTargets(BASE);
 const { chromium } = require('playwright');
-const BASE = 'http://127.0.0.1:5099';
 const PASSWORD = 'P17-StrongPass!';
 const sentinel = /987654|987,654|987\D{0,3}654|123456|444222|55555|P17-SENTINEL/;
 
