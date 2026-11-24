@@ -38,3 +38,13 @@
 @media (max-width: 420px) {
   .t-calendar-toolbar .t-secondary { flex: 1; justify-content: center; }
 }
+
+/* Offline attendance outbox (P0-4): visible retry/error state without wiping queued marks. */
+.t-connectivity-banner .t-outbox-warn { color: #ffd29a; font-weight: 700; }
+.t-connectivity-banner .t-outbox-error { color: #ffb0b0; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-connectivity-banner .t-outbox-retry { border: 1px solid rgba(240, 213, 156, .45); background: rgba(240, 213, 156, .12); color: #f0d59c; border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 10px; cursor: pointer; min-height: 26px; }
+.t-connectivity-banner .t-outbox-retry:hover { background: rgba(240, 213, 156, .22); }
+@media (max-width: 560px) {
+  .t-connectivity-banner { flex-wrap: wrap; gap: 5px; }
+  .t-connectivity-banner .t-outbox-error { max-width: 100%; }
+}

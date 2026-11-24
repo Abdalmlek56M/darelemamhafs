@@ -407,6 +407,11 @@ export default function TeacherApp({ mode }: Props) {
         <div className={`t-connectivity-banner ${outbox.online ? 'is-pending' : 'is-offline'}`} role="status">
           {outbox.online ? <CloudUpload size={14} /> : <WifiOff size={14} />}
           <span>{outbox.online ? `${outbox.pending} تسجيل حضور بانتظار الإرسال.` : 'لا يوجد اتصال. الحضور الذي تسجله سيُحفظ على الجهاز ويُرسل تلقائيًا.'}</span>
+          {outbox.needsReview > 0 && <span className="t-outbox-warn">`${outbox.needsReview} تسجيل بحاجة لمراجعة يدوية.`</span>}
+          {outbox.lastError && <span className="t-outbox-error">{outbox.lastError}</span>}
+          {outbox.online && outbox.pending > 0 && (
+            <button type="button" className="t-outbox-retry" onClick={() => void outbox.retryAll()}>إعادة المحاولة</button>
+          )}
         </div>
       )}
       <main className="teacher-main">
