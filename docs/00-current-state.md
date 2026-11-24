@@ -256,3 +256,9 @@
 - **اختبار جديد:** `tests/Dar.IntegrationTests/Payroll/PayrollLockReviewTests.cs` (يتطلب `DAR_TEST_DATABASE` لقاعدة disposable). قبل الإصلاح: الحالة المقفولة **FAIL** (Expected 409، Actual 200) والمفتوحة PASS. بعد الإصلاح: **PASS 2/2**.
 - **تشغيل الاختبار:** قاعدة disposable `dar_p0_payroll_*` من schema-only dump للإنتاج + `dotnet test --filter PayrollLockReviewTests` على السيرفر (SQL حقيقي، لا Docker).
 - **النشر:** `dar-api` فقط (لا legacy، لا frontend، لا migrations) مع نسخة احتياطية `api.old.*` + smoke. التفاصيل في البند التالي.
+
+#### P0-1 شواهد التشغيل والنشر (24 Nov 05:04)
+- **قبل الإصلاح** (على الكود الأصلي من `/opt/dar` + الاختبار الجديد): `Review_Correction_OnLockedMonth...` **FAIL** — `Assert.Equal` Expected 409 Actual 200؛ والحالة المفتوحة PASS. أي إعادة إنتاج للثغرة: اعتماد طلب تصحيح في شهر مقفول كان ينجح 200 ويعدّل الأجر.
+- **بعد الإصلاح**: `dotnet test --filter PayrollLockReviewTests` → **Passed: 2 / Failed: 0**.
+- **بيئة الاختبار:** قاعدة disposable `dar_p0_payroll_20261124050107` أُنشئت من `pg_dump -s -O -x dareltahfeez` (schema الإنتاج)، والاختبارات استخدمت `DAR_TEST_DATABASE`؛ بعد النجاح تم **إسقاط القاعدة والدور**.
+- **النشر:** `dar-api` فقط: نسخة `/opt/dar/app/api.old.20261124-050456`، DB backup `/var/lib/dar/backups/db/predeploy-P0-20261124-050456.dump`، smoke: `health/ready`=200، `/api/v1/meet/sessions` غير مصرح=401، `/management`=200. لم تُنشر أي تغييرات legacy/frontend/migrations في هذا البند.
