@@ -322,6 +322,11 @@ public static class SupervisorRequestEndpoints
             await update.ExecuteNonQueryAsync(ct);
         }
 
+        // P1-5: close the supervisor request notification in the same transaction.
+        // If this fails, the exception rolls back the request review as well.
+        await TeachingNotifications.ResolveAsync(connection, transaction, $"request:{id}", reviewer,
+            request.Approve ? "تم اعتماد الطلب." : "تم رفض الطلب.", ct);
+
         await RequestHelpers.NotifyTeacherAsync(connection, transaction, teacherId,
             request.Approve ? "تم اعتماد طلبك" : "تم رفض طلبك",
             request.Approve ? "تمت مراجعة الطلب واعتماده." : $"تم رفض الطلب. {note ?? ""}".Trim(),

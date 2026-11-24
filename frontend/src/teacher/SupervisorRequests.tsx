@@ -5,10 +5,10 @@ import type { SupervisorAttendanceRequest } from './teacherTypes'
 import { dateLabel } from './supervisorFormat'
 import { demoRequests } from './supervisorDemo'
 
-type Props = { demo: boolean }
+type Props = { demo: boolean; onReviewed?: () => void }
 type Status = 'pending' | 'all'
 
-export default function SupervisorRequests({ demo }: Props) {
+export default function SupervisorRequests({ demo, onReviewed }: Props) {
   const [requests, setRequests] = useState<SupervisorAttendanceRequest[]>([])
   const [status, setStatus] = useState<Status>('pending')
   const [loading, setLoading] = useState(true)
@@ -42,6 +42,7 @@ export default function SupervisorRequests({ demo }: Props) {
     try {
       await teacherApi.reviewRequest(request.id, approve, approve ? 'تمت المراجعة والاعتماد.' : 'تم رفض الطلب.')
       await load(status)
+      onReviewed?.()
     } catch (err) {
       setError(err instanceof TeacherApiError ? err.message : 'تعذر مراجعة الطلب.')
     } finally {

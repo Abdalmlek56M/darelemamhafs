@@ -181,6 +181,10 @@ public static class TeacherRequestEndpoints
             await transaction.RollbackAsync(ct);
             return Results.NotFound(new { message = "الطلب غير موجود أو لا يمكن إلغاؤه." });
         }
+        // P1-5: a cancelled request must not leave an open supervisor notification.
+        await TeachingNotifications.ResolveAsync(connection, transaction, $"request:{id}", userId,
+            "تم إلغاء الطلب من المعلمة.", ct);
+
         await TeachingAudit.WriteAsync(connection, transaction, principal, "teacher.request.cancel", "attendance_request", id,
             new { id }, $"/api/v1/teacher/requests/{id}/cancel", "POST", ct);
         await transaction.CommitAsync(ct);

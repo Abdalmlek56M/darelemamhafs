@@ -38,6 +38,7 @@ type Props = {
   onBackToTeacher?: () => void
   onAccount: () => void
   onLogout: () => void
+  onNotificationsRefresh?: () => void
 }
 
 const sectionTitles: Record<Section, string> = {
@@ -65,7 +66,7 @@ export default function SupervisorWorkspace(props: Props) {
   const {
     session, unread, canTeacherPortal, canLive, canAbsences, canStudents, canAddStudents, canStudentsNotes,
     canCircles, canTeachers, canTeacherNotes, canRequests, canCommunicate, canUnpaid, canFinance, canCorrect,
-    onBackToTeacher, onAccount, onLogout,
+    onBackToTeacher, onAccount, onLogout, onNotificationsRefresh,
   } = props
   const [section, setSection] = useState<Section>('overview')
   const [moreOpen, setMoreOpen] = useState(false)
@@ -131,7 +132,7 @@ export default function SupervisorWorkspace(props: Props) {
     if (section === 'circles') return <SupervisorCircles demo={demo} onOpenTeacher={openTeacher} focusId={focus?.section === 'circles' ? focus.id : undefined} onFocusConsumed={() => setFocus(null)} canAddStudents={canAddStudents} />
     if (section === 'teachers') return <SupervisorTeachers demo={demo} canNote={canTeacherNotes} onOpenCircle={openCircle} focusId={focus?.section === 'teachers' ? focus.id : undefined} onFocusConsumed={() => setFocus(null)} canCommunicate={canCommunicate} />
     if (section === 'notes') return <SupervisorTeacherNotes demo={demo} />
-    if (section === 'requests') return <SupervisorRequests demo={demo} />
+    if (section === 'requests') return <SupervisorRequests demo={demo} onReviewed={onNotificationsRefresh} />
     if (section === 'attendance') return <SupervisorAttendance demo={demo} onOpenTeacher={openTeacher} onOpenCircle={openCircle} />
     if (section === 'absences') return <SupervisorAbsences demo={demo} onOpenTeacher={openTeacher} onOpenCircle={openCircle} canCommunicate={canCommunicate} />
     return <SupervisorUnpaid demo={demo} canFinance={canFinance} canCommunicate={canCommunicate} />

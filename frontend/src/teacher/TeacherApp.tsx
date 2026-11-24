@@ -397,6 +397,7 @@ export default function TeacherApp({ mode }: Props) {
         onBackToTeacher={canTeacher ? () => setPage('home') : undefined}
         onAccount={() => setPage('account')}
         onLogout={() => void logout()}
+        onNotificationsRefresh={() => void loadNotifications()}
       />
     )
   }

@@ -273,6 +273,19 @@ public static partial class SystemAdminEndpoints
                 await update.ExecuteNonQueryAsync(ct);
             }
 
+            // P1-5: resolve the supervisor request notification in the same transaction.
+            await using (var resolveNotification = new NpgsqlCommand("""
+                UPDATE notifications
+                SET status='resolved', resolved_at=now(), resolved_by=@actor, resolution_note=@note
+                WHERE dedupe_key='request:' || @id AND status='open';
+                """, connection, transaction))
+            {
+                resolveNotification.Parameters.AddWithValue("actor", DbGuid(ActorId(principal)));
+                resolveNotification.Parameters.AddWithValue("note", request.Approve ? "تم اعتماد الطلب." : "تم رفض الطلب.");
+                resolveNotification.Parameters.AddWithValue("id", id);
+                await resolveNotification.ExecuteNonQueryAsync(ct);
+            }
+
             await NotifyTeacherAsync(connection, transaction, teacherId, id,
                 request.Approve ? "تم اعتماد طلبك" : "تم رفض طلبك",
                 request.Approve ? "تمت مراجعة الطلب واعتماده." : $"تم رفض الطلب. {note ?? string.Empty}".Trim(), ct);
@@ -290,9 +303,9 @@ public static partial class SystemAdminEndpoints
             await using var transaction = await connection.BeginTransactionAsync(ct);
             string status;
             string? effectBefore, effectAfter;
-            Guid teacherId;
+            Guid teacherId, circleId;
             await using (var read = new NpgsqlCommand("""
-                SELECT status,COALESCE(effect_before::text,''),COALESCE(effect_after::text,''),teacher_id
+                SELECT status,COALESCE(effect_before::text,''),COALESCE(effect_after::text,''),teacher_id,circle_id
                 FROM attendance_requests WHERE id=@id AND is_trashed=FALSE FOR UPDATE;
                 """, connection, transaction))
             {
@@ -307,6 +320,7 @@ public static partial class SystemAdminEndpoints
                 effectBefore = string.IsNullOrWhiteSpace(reader.GetString(1)) ? null : reader.GetString(1);
                 effectAfter = string.IsNullOrWhiteSpace(reader.GetString(2)) ? null : reader.GetString(2);
                 teacherId = reader.GetGuid(3);
+                circleId = reader.GetGuid(4);
             }
             if (status != "approved")
             {
@@ -323,6 +337,18 @@ public static partial class SystemAdminEndpoints
             {
                 update.Parameters.AddWithValue("id", id);
                 await update.ExecuteNonQueryAsync(ct);
+            }
+            // P1-5: reopen the supervisor notification for the pending request.
+            await using (var reopenNotification = new NpgsqlCommand("""
+                INSERT INTO notifications(user_id,role_scope,category,status,severity,title,body,entity_type,entity_id,action_url,dedupe_key,scope_circle_id,scope_teacher_id)
+                VALUES(NULL,'supervisor','attendance','open','info','طلب معاد للمراجعة','تم إرجاع الطلب إلى قائمة المراجعة.','attendance_request',@id,'/supervisor/requests','request:' || @id,@circle,@teacher)
+                ON CONFLICT(dedupe_key) DO UPDATE SET status='open',resolved_at=NULL,resolved_by=NULL,resolution_note=NULL,title=EXCLUDED.title,body=EXCLUDED.body,action_url=EXCLUDED.action_url,scope_circle_id=EXCLUDED.scope_circle_id,scope_teacher_id=EXCLUDED.scope_teacher_id;
+                """, connection, transaction))
+            {
+                reopenNotification.Parameters.AddWithValue("id", id);
+                reopenNotification.Parameters.AddWithValue("circle", circleId);
+                reopenNotification.Parameters.AddWithValue("teacher", teacherId);
+                await reopenNotification.ExecuteNonQueryAsync(ct);
             }
             await NotifyTeacherAsync(connection, transaction, teacherId, id, "أُعيد طلبك للمراجعة",
                 "تم إرجاع الطلب إلى قائمة المراجعة بعد عكس أثره السابق.", ct);
@@ -396,6 +422,16 @@ public static partial class SystemAdminEndpoints
             {
                 update.Parameters.AddWithValue("id", id);
                 await update.ExecuteNonQueryAsync(ct);
+            }
+            // P1-5: a deleted request must not leave an open supervisor notification.
+            await using (var closeNotification = new NpgsqlCommand("""
+                UPDATE notifications SET status='resolved',resolved_at=now(),resolved_by=@actor,resolution_note='تم حذف الطلب.'
+                WHERE dedupe_key='request:' || @id AND status='open';
+                """, connection, transaction))
+            {
+                closeNotification.Parameters.AddWithValue("actor", DbGuid(ActorId(principal)));
+                closeNotification.Parameters.AddWithValue("id", id);
+                await closeNotification.ExecuteNonQueryAsync(ct);
             }
             await InsertRequestAuditAsync(connection, transaction, ActorId(principal), principal.FindFirstValue("display_name"),
                 "request.delete", "attendance_request", id, JsonSerializer.Serialize(new { previousStatus = status }), id, ct);
