@@ -138,6 +138,11 @@ public static class SupervisorRequestEndpoints
                     await transaction.RollbackAsync(ct);
                     return Results.ValidationProblem(new Dictionary<string, string[]> { ["request"] = ["بيانات الموعد ناقصة."] });
                 }
+                if (await PayrollLock.CheckAsync(connection, transaction, requestDate.Value, ct) is { } locked)
+                {
+                    await transaction.RollbackAsync(ct);
+                    return locked;
+                }
                 var attendanceStatus = type == "absence" ? "absent" : "cancelled";
                 await using var upsert = new NpgsqlCommand("""
                     INSERT INTO teacher_attendance(
@@ -203,8 +208,9 @@ public static class SupervisorRequestEndpoints
 
                 decimal rate;
                 int oldDuration;
+                DateOnly attendanceDate;
                 await using (var current = new NpgsqlCommand("""
-                    SELECT hourly_rate_snapshot, duration_minutes
+                    SELECT hourly_rate_snapshot, duration_minutes, session_date
                     FROM teacher_attendance
                     WHERE id=@id AND is_trashed=FALSE
                     FOR UPDATE;
@@ -219,6 +225,16 @@ public static class SupervisorRequestEndpoints
                     }
                     rate = reader.GetDecimal(0);
                     oldDuration = reader.GetInt32(1);
+                    attendanceDate = reader.GetFieldValue<DateOnly>(2);
+                }
+
+                // The payroll lock must be enforced on the review path too: approving a
+                // correction changes the teacher's payable amount in the same way a direct
+                // adjustment does.
+                if (await PayrollLock.CheckAsync(connection, transaction, attendanceDate, ct) is { } locked)
+                {
+                    await transaction.RollbackAsync(ct);
+                    return locked;
                 }
 
                 if (!Money.TryCalculateTeacherPayableAmount(rate, duration, out var amount))

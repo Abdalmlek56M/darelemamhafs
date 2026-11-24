@@ -54,10 +54,10 @@ public static class AdjustEndpoint
             sessionDate = reader.GetFieldValue<DateOnly>(7);
         }
 
-        if (await PayrollLock.IsLockedAsync(connection, transaction, sessionDate, ct))
+        if (await PayrollLock.CheckAsync(connection, transaction, sessionDate, ct) is { } locked)
         {
             await transaction.RollbackAsync(ct);
-            return Results.Conflict(new { message = "مسير رواتب هذا الشهر مقفل. افتح المسير قبل تعديل الحضور أو الأجر." });
+            return locked;
         }
 
         if (!scope.All && (!scope.AllowsCircle(circleId) || !scope.AllowsTeacher(teacherId)))

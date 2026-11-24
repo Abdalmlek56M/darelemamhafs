@@ -22,12 +22,24 @@ public static class CairoTime
 
 public static class PayrollLock
 {
+    public const string LockedMessage = "مسير رواتب هذا الشهر مقفل. افتح المسير قبل تعديل الحضور أو الأجر.";
+
     public static async Task<bool> IsLockedAsync(NpgsqlConnection connection, NpgsqlTransaction? transaction, DateOnly date, CancellationToken ct)
     {
         await using var command = new NpgsqlCommand("SELECT is_locked FROM payroll_locks WHERE billing_month=date_trunc('month',@date::date)::date;", connection, transaction);
         command.Parameters.AddWithValue("date", date);
         return await command.ExecuteScalarAsync(ct) is bool locked && locked;
     }
+
+    /// <summary>
+    /// Single guard used by every write path that changes teacher attendance or pay.
+    /// Returns the canonical 409 conflict result when the payroll month is locked,
+    /// or null when the caller may continue inside its transaction.
+    /// </summary>
+    public static async Task<IResult?> CheckAsync(NpgsqlConnection connection, NpgsqlTransaction? transaction, DateOnly date, CancellationToken ct)
+        => await IsLockedAsync(connection, transaction, date, ct)
+            ? Results.Conflict(new { message = LockedMessage })
+            : null;
 }
 
 public static class TeachingPrincipal

@@ -249,3 +249,10 @@
 - نُشر على الإنتاج نسخ واجهة فقط إلى `/opt/dar/app/legacy/wwwroot` (بدون إعادة تشغيل خدمة، بدون backend/DB): نسخة احتياطية `wwwroot.bak.20261124-043451`، smoke 200 للصفحات الثلاث، وmarker `be-layout` موجود في الأصول.
 - أوراق المراجعة (PDF) استُخرجت ونُقّشت: تؤكد تجاوز قفل المرتبات في مسار مراجعة الطلبات، ونطاق التسجيلات غير المقيّد، وخطأ `null` في ملاحظة التصحيح، وحذف outbox عند 4xx، وغياب security headers عن SPA، و`/api/students` بدون pagination. تصحيح واحد: يوجد rate limit 10/دقيقة لكل IP على auth (لكن بلا قفل حساب/2FA).
 - عطل النسخ الاحتياطي خارج الموقع (18→24 Nov) تم إصلاحه والتحقق منه اليوم (راجع البند أعلاه).
+
+### 24 Nov 2026 — P0-1: قفل المرتبات في مسار مراجعة الطلبات (إصلاح + اختبار قبل/بعد)
+- **الثغرة:** مسار اعتماد طلب تصحيح في `SupervisorRequestEndpoints.Review` يعدّل `teacher_attendance` و`teacher_sessions` (المدة/الأجر) بدون فحص `PayrollLock`، بينما `AdjustEndpoint` يفحصه. نفس الشيء لمسار إنهاء الحصة عند المعلمة (`SessionEndpoints`) الذي يُنشئ حضورًا وأجرًا.
+- **الإصلاح:** حرس مركزي واحد `PayrollLock.CheckAsync` في `TeachingHelpers.cs` برسالة موحدة، ويُستدعى من: اعتماد طلب تصحيح، اعتماد غياب/إلغاء، إنهاء الحصة، والتعديل المباشر (ت unification). شهر مقفول → 409 دون أي تعديل.
+- **اختبار جديد:** `tests/Dar.IntegrationTests/Payroll/PayrollLockReviewTests.cs` (يتطلب `DAR_TEST_DATABASE` لقاعدة disposable). قبل الإصلاح: الحالة المقفولة **FAIL** (Expected 409، Actual 200) والمفتوحة PASS. بعد الإصلاح: **PASS 2/2**.
+- **تشغيل الاختبار:** قاعدة disposable `dar_p0_payroll_*` من schema-only dump للإنتاج + `dotnet test --filter PayrollLockReviewTests` على السيرفر (SQL حقيقي، لا Docker).
+- **النشر:** `dar-api` فقط (لا legacy، لا frontend، لا migrations) مع نسخة احتياطية `api.old.*` + smoke. التفاصيل في البند التالي.

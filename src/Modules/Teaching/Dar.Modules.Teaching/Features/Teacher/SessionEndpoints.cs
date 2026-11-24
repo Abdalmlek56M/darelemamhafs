@@ -226,6 +226,9 @@ public static class SessionEndpoints
             });
         }
 
+        if (await PayrollLock.CheckAsync(connection, transaction, sessionDate, ct) is { } locked)
+            return locked;
+
         var end = DateTimeOffset.UtcNow;
         var actual = (int)Math.Floor((end - startedAt).TotalMinutes);
         actual = Math.Clamp(actual, 0, 1440);
