@@ -1,6 +1,6 @@
 const { chromium } = require('playwright');
-const BASE = process.env.P17_BASE_URL || 'http://127.0.0.1:5099';
-const PASSWORD = process.env.P17_TEST_PASSWORD || 'P17-StrongPass!';
+const BASE = 'http://127.0.0.1:5099';
+const PASSWORD = 'P17-StrongPass!';
 const sentinel = /987654|987,654|987\D{0,3}654|123456|444222|55555|P17-SENTINEL/;
 
 (async () => {
@@ -9,7 +9,8 @@ const sentinel = /987654|987,654|987\D{0,3}654|123456|444222|55555|P17-SENTINEL/
   const results = {};
   try {
     for (const [key, username] of Object.entries(users)) {
-      const context = await browser.newContext({ viewport: { width: 1400, height: 950 } });
+      const ip = '198.51.101.' + (10 + [...username].reduce((a, c) => a + c.charCodeAt(0), 0) % 200);
+      const context = await browser.newContext({ viewport: { width: 1400, height: 950 }, extraHTTPHeaders: { 'X-Forwarded-For': ip, 'X-Real-IP': ip } });
       const page = await context.newPage();
       const csp = [];
       page.on('console', msg => {
@@ -23,6 +24,8 @@ const sentinel = /987654|987,654|987\D{0,3}654|123456|444222|55555|P17-SENTINEL/
       await page.getByRole('button', { name: 'تسجيل الدخول' }).click();
       await page.waitForTimeout(4500);
       const dashboardText = await page.locator('body').innerText();
+      const loginOk = /لوحة التحكم|تسجيل الخروج/.test(dashboardText);
+      if (!loginOk) throw new Error('login did not reach dashboard for ' + username + ': ' + dashboardText.slice(0, 160));
       const paymentsNav = await page.getByText('الاشتراكات والتحصيل', { exact: true }).count();
       let paymentsText = '';
       if (paymentsNav) {

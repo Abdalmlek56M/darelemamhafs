@@ -1,5 +1,5 @@
-const BASE = process.env.P17_BASE_URL || 'http://127.0.0.1:5099';
-const PASSWORD = process.env.P17_TEST_PASSWORD || 'P17-StrongPass!';
+const BASE = 'http://127.0.0.1:5099';
+const PASSWORD = 'P17-StrongPass!';
 const CHARGE = '55555555-5555-4555-8555-555555555555';
 const PAYMENT = '66666666-6666-4666-8666-666666666666';
 const REPORT = '99999999-9999-4999-8999-999999999999';
@@ -12,8 +12,9 @@ async function login(username) {
   let response;
   let text = '';
   for (let attempt = 1; attempt <= 6; attempt++) {
+    const ip = '198.51.100.' + (10 + [...username].reduce((a, c) => a + c.charCodeAt(0), 0) % 200);
     response = await fetch(BASE + '/api/auth/login', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
+      method: 'POST', headers: { 'content-type': 'application/json', 'X-Forwarded-For': ip, 'X-Real-IP': ip },
       body: JSON.stringify({ username, password: PASSWORD })
     });
     text = await response.text();
@@ -58,11 +59,11 @@ function slim(result) { return { status: result.status, sentinel: result.sentine
     operating: '/api/operating-expenses?month=2026-11',
     reportList: '/api/collection-reports?month=2026-11',
     reportOne: '/api/collection-reports/' + REPORT,
-    payrollLock: '/api/payroll/lock?month=2026-11',
+    payrollLock: '/api/admin/payroll/lock?month=2026-11',
     financeOptions: '/api/finance-entry-options?month=2026-11',
     auditLog: '/api/admin/audit-log?month=2026-11&limit=20',
     student: '/api/students/' + STUDENT,
-    teacher: '/api/teachers/' + TEACHER,
+    teacherHistory: '/api/teachers/' + TEACHER + '/history',
     receipt: '/api/payments/' + PAYMENT + '/receipt'
   };
 

@@ -29,4 +29,14 @@ VALUES ('99999999-9999-4999-8999-999999999999', 'P17-SENTINEL-REPORT', '2026-11-
 
 INSERT INTO audit_log (actor_user_id, action_code, entity_type, entity_id, details, request_path, http_method, can_restore, actor_display_name)
 VALUES ((SELECT id FROM app_users WHERE username='p17_admin'), 'charge.create', 'monthly_charge', '55555555-5555-4555-8555-555555555555', '{"amountDue":987654.32,"note":"P17-SENTINEL-AUDIT"}'::jsonb, '/p17-fixture', 'POST', FALSE, 'P17 Fixture');
+-- Live-session fixture for the new supervisor API.
+INSERT INTO circle_schedule_slots (id, circle_id, day_of_week, starts_at, duration_minutes, is_active, created_at, is_trashed)
+VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '33333333-3333-4333-8333-333333333333', 2, '10:00', 60, TRUE, now(), FALSE);
+
+INSERT INTO teacher_sessions (id, teacher_id, circle_id, schedule_slot_id, session_date, started_at, ended_at, status, scheduled_duration_minutes, actual_duration_minutes, payable_duration_minutes, pay_basis, overtime_minutes, undertime_minutes, note, created_at, updated_at)
+VALUES ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '11111111-1111-4111-8111-111111111111', '33333333-3333-4333-8333-333333333333', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', (now() AT TIME ZONE 'Africa/Cairo')::date, now() - INTERVAL '10 minutes', NULL, 'in_progress', 60, 45, 45, 'actual', 0, 15, 'P17 live sentinel', now(), now());
+
+INSERT INTO teacher_attendance (id, schedule_slot_id, circle_id, teacher_id, session_date, scheduled_start, duration_minutes, status, hourly_rate_snapshot, payable_amount, note, marked_by, marked_at, is_trashed, teacher_session_id, actual_duration_minutes, pay_basis, overtime_minutes, undertime_minutes)
+VALUES ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '33333333-3333-4333-8333-333333333333', '11111111-1111-4111-8111-111111111111', (now() AT TIME ZONE 'Africa/Cairo')::date, '10:00', 60, 'present', 50, 37.50, 'P17 live amount sentinel', (SELECT id FROM app_users WHERE username='p17_admin'), now(), FALSE, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 45, 'actual', 0, 15);
+
 COMMIT;
