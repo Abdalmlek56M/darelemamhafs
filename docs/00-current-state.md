@@ -345,10 +345,18 @@
 
 
 
-### 24 Nov 2026 — Turnstile مفعّل على /management فقط (قرار المالك، /teacher مؤجل)
-- المالك فعّل Turnstile يدويًا على /management عبر إعدادات السيرفر (legacy)، واختبره بدخول حقيقي ونجح.
-- تحقق قراءة-فقط: GET /api/auth/config (legacy) يرجّع enabled=true؛ GET /api/v1/auth/config (new API) يرجّع enabled=false. الـSite key العام يُقدَّم وقت التشغيل من env ولا يُكتب في الريبو/التوثيق.
-- /teacher مؤجل بقرار المالك، ولم تُلمس /etc/dar/api.env. enabled=false هناك إلى حين قرار لاحق.
-- لم يتم أي نشر كود أو تغيير سيرفر في هذه الخطوة؛ تحديث توثيق فقط.
-- P1-1 ليس Done: /management مفعّل ومختبر خارجيًا، لكن /teacher مؤجل، وباقي بنود P1-1 على حالها.
+
+### 24 Nov 2026 — P1-2: عزل جلسة بوابة المعلمة عن جلسة الأدمن بنفس المتصفح (منشور، غير Done)
+- المشكلة: الـnew API كان يفحص كوكي الأدمن DarEltahfeez.Admin أولًا لكل /api/v1، فبوابة المعلمة ترى هوية الأدمن لما الكوكيان موجودين، وlogout المعلمة لا يمسح كوكي الأدمن.
+- الحل: header اختياري X-Dar-Portal: teacher من كل طلبات بوابة المعلمة. DarSessionHandler لو الـheader موجود يستخدم dar_session فقط ولا يرجع لكوكي الأدمن؛ بدون header السلوك القديم كما هو (admin أولًا ثم teacher fallback) لحماية مسارات الأدمن المقصودة مثل /api/v1/supervisor/scopes و/notifications.
+- تغطية الـheader: كل طلبات teacherApi تضيفه مركزيًا. لا يوجد fetch مباشر آخر في frontend/src/teacher (تم التحقق). outbox الحضور يستخدم teacherApi.submit (لا fetch مباشر). service worker يتخطى /api/ صراحة ولا يعترضها، فالطلبات تمر عبر teacherApi حاملة الـheader. الأصول المنشورة تحتوي X-Dar-Portal، وsw.js المنشور يحتوي تخطي /api/.
+- شرح النسخة القديمة: الواجهة القديمة (بدون header) تظل تعمل بنفس السلوك السابق؛ لا 401/500 جديد. مع جلسة معلمة فقط تعمل عبر fallback، ومع أدمن+معلمة تبقى المشكلة القديمة (رؤية الأدمن) حتى تحديث الصفحة/الأصول. الواجهة الجديدة قبل نشر الـAPI القديم: الـAPI يتجاهل header ويستخدم السلوك القديم، فلا كسر. النشر كان API ثم الواجهة مباشرة، والأصول محفوظة بـhashes وsw network-first.
+- اختبارات قبل/بعد على DB disposable وZZ-TEST، بمتصفح/كوكيز أدمن ومعلمة معًا:
+  - قبل (b388ebf): WITH_HEADER_ME=p12_admin، NO_HEADER_ME=p12_admin، scopes with header=200.
+  - بعد (b7b00e1): WITH_HEADER_ME=p12_teacher، NO_HEADER_ME=p12_admin، SCOPES_NO_HEADER=200، SCOPES_WITH_HEADER=403، teacher logout=200 ثم ME_HEADER=401 وLEGACY_ME=200، admin-only + header=401.
+  - نفس السيناريو أُعيد على الباينريات/الأصول المنشورة فعليًا: نفس النتائج (deployed asset header=yes، deployed sw bypass=yes).
+  - frontend tests: 4/4 Passed (teacherApi header + SW bypass + outbox coverage). ملاحظة: أول تشغيل فشل بسبب عيب في الـmock نفسه (Response معاد استخدامه: Body already read)؛ أُصلح في commit 34b4146 (test فقط، بدون تغيير كود إنتاج).
+- النشر: API فقط + واجهة. commit الكود b7b00e1 (بعد test fix 34b4146). Backup DB /var/lib/dar/backups/db/predeploy-P12-20261124-125145.dump (270K)، API backup /opt/dar/app/api.old.20261124-125145، frontend backup /opt/dar/app/legacy/wwwroot.bak.20261124-125145. بدأ 12:51:45 والخدمات Active 12:52:42. بصمات: Dar.Api.dll=e96a3057cec8fe7aab2b5928a271d91e00497066f7a261f39d75b3b7052582ef، legacy DLL بلا تغيير 75210b1541d6018a3ac9d8c2eb055b13ac12bf3fa8926aa05bea2c5714de0c0a، TeacherApp-BoIQkPNg.js=df0c4704ac92a19016ee3cdf885ec3a913df89f0fc48c0a6c977df3b22243aad. legacy DLL/DB/Nginx/legacy env لم تتغير. smoke: API health 200، legacy health 200، الصفحات العامة 200، MGMT Turnstile enabled=true، TEACHER Turnstile enabled=false.
+- الرجوع: استعادة /opt/dar/app/api.old.20261124-125145 إلى api، وwwwroot.bak.20261124-125145 إلى wwwroot، ثم restart dar-api/dar-legacy. لا آثار DB.
+- غير متحقق: اختبار المالك الخارجي على متصفح حقيقي بحساب ZZ-TEST؛ الاختبارات هنا على disposable DB وباينريات منشورة. P1-2 ليس Done.
 
