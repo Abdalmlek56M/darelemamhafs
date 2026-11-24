@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Dar.Common.Domain;
 using Dar.Modules.Meet.Application;
 using Dar.Modules.Meet.Infrastructure;
@@ -37,10 +38,17 @@ public static class MediaEndpoints
 
     private static async Task<IResult> ListAsync(
         int? limit,
+        ClaimsPrincipal principal,
+        NpgsqlDataSource dataSource,
         MeetMediaRepository repository,
         CancellationToken ct)
     {
-        var rows = await repository.ListSessionsAsync(limit ?? 50, ct);
+        // Recordings follow the same circle scope as the rest of the Meet module: an admin
+        // (users.manage) or a user with no scope rows sees everything, a restricted
+        // supervisor only sees recordings linked to their allowed circles. Manual
+        // recordings without a circle stay admin-only.
+        var scope = await MeetAccessScope.LoadAsync(dataSource, principal, ct);
+        var rows = await repository.ListSessionsAsync(limit ?? 50, scope, ct);
         return Results.Ok(new
         {
             count = rows.Count,
@@ -61,11 +69,16 @@ public static class MediaEndpoints
     private static async Task<IResult> StreamAsync(
         Guid id,
         bool? download,
+        ClaimsPrincipal principal,
+        NpgsqlDataSource dataSource,
         MeetMediaRepository repository,
         IOptions<MeetOptions> options,
         CancellationToken ct)
     {
-        var asset = await repository.GetAssetAsync(id, ct)
+        var scope = await MeetAccessScope.LoadAsync(dataSource, principal, ct);
+        // The asset lookup joins the session and applies the circle scope, so an out-of-scope
+        // asset id cannot be streamed or downloaded even when the caller knows it.
+        var asset = await repository.GetAssetAsync(id, scope, ct)
                     ?? throw AppException.NotFound("الملف غير موجود أو تم حذفه.");
 
         var root = Path.GetFullPath(options.Value.MediaRoot);

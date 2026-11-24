@@ -276,3 +276,11 @@
 - أضاف المالك مفتاح `github_dar_push` كـ**deploy key مع write access**؛ تم الدفع عبر السيرفر (نقل bundle + مفتاح مؤقت ثم حذفه بعد الدفع).
 - **`fix/chrome-audio-buffer`** و**`main`** تحركا fast-forward: `main = a59b217` (كان `2d9de50`). يشمل دفعة العمل كاملة: وضع الصوت فقط، LiveKit M0، إصلاح إلحاق الطلاب + UI، وتوثيق P0-1، و**إصلاح قفل المرتبات** `d43c89c`.
 - بعد الدفع أصبح `deploy/update.sh` آمنًا من ناحية فقدان الإصلاح؛ `/opt/dar` نفسه ما زال عند `e88503a` حتى يتم `git pull`/تحديث الإنتاج.
+
+### 24 Nov 2026 — P0-2: نطاق المشرفة على قائمة التسجيلات والتشغيل/التنزيل (إصلاح + اختبار قبل/بعد)
+- **الثغرة:** `GET /api/v1/meet/sessions` و`GET /api/v1/meet/media/{id}` كانا يفحصان `meet.media.view` فقط؛ `MeetMediaRepository` كان يجيب كل الجلسات/الملفات بدون فلتر `MeetAccessScope` → مشرفة نطاق أ تقدر تسمع/تنزّل تسجيل حلقة ب بالـid المباشر.
+- **الإصلاح:** `ListSessionsAsync`/`GetAssetAsync` يستقبلان `MeetAccessScope` ويطبقان `(@all OR s.circle_id = ANY(@circles))`؛ endpoints تحمّل النطاق من `MeetAccessScope.LoadAsync` (admin/بلا نطاق = All). **التسجيلات اليدوية بدون circle_id تبقى للأدمن فقط** (سياسة صريحة).
+- **اختبار:** `tests/Dar.IntegrationTests/Meet/MeetMediaScopeTests.cs` (WebApplicationFactory + `DAR_TEST_DATABASE`). قبل الإصلاح: **2 Failed** — قائمة المشرفة 3 بدل 1 (Expected 1, Actual 3) و`GET media/{out-of-scope}` **200 بدل 404**؛ وبعد الإصلاح: **4/4 Passed** (القائمة/التشغيل داخل النطاق/الخارجي 404/الأدمن يدخل التسجيل اليدوي).
+- **بيئة الاختبار:** قاعدة disposable `dar_p02_media_20261124054033` من schema-only dump للإنتاج؛ أُسقطت بعد الاختبار.
+- **النشر (dar-api فقط):** backup `/var/lib/dar/backups/db/predeploy-P02-20261124-054226.dump`، rollback `/opt/dar/app/api.old.20261124-054226`، smoke: `health/ready`=200، `/api/v1/meet/sessions` غير مصرح=401، `/management`=200. لا legacy/frontend/migrations.
+- **التالي:** P0-3 (الملاحظة الاختيارية الفاضية = 500) ثم P0-4 (outbox 4xx).

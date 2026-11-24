@@ -1,3 +1,4 @@
+using Dar.Modules.Meet.Application;
 using Npgsql;
 
 namespace Dar.Modules.Meet.Persistence;
@@ -25,7 +26,7 @@ public sealed record MeetMediaAssetRow(
 /// <summary>Read model for the recordings screen (list sessions and stream their assets).</summary>
 public sealed class MeetMediaRepository(NpgsqlDataSource dataSource)
 {
-    public async Task<IReadOnlyList<MeetSessionRow>> ListSessionsAsync(int limit, CancellationToken ct)
+    public async Task<IReadOnlyList<MeetSessionRow>> ListSessionsAsync(int limit, MeetAccessScope scope, CancellationToken ct)
     {
         var rows = new List<MeetSessionRow>();
         await using var connection = await dataSource.OpenConnectionAsync(ct);
@@ -40,10 +41,13 @@ public sealed class MeetMediaRepository(NpgsqlDataSource dataSource)
                    ON mp4.session_id = s.id AND mp4.kind = 'mp4' AND mp4.status <> 'deleted'
             LEFT JOIN meet_media_assets poster
                    ON poster.session_id = s.id AND poster.kind = 'poster' AND poster.status <> 'deleted'
+            WHERE (@all OR s.circle_id = ANY(@circles))
             ORDER BY s.started_at DESC
             LIMIT @limit;
             """, connection);
         command.Parameters.AddWithValue("limit", Math.Clamp(limit, 1, 200));
+        command.Parameters.AddWithValue("all", scope.All);
+        command.Parameters.AddWithValue("circles", scope.CircleIds);
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
@@ -62,15 +66,19 @@ public sealed class MeetMediaRepository(NpgsqlDataSource dataSource)
         return rows;
     }
 
-    public async Task<MeetMediaAssetRow?> GetAssetAsync(Guid assetId, CancellationToken ct)
+    public async Task<MeetMediaAssetRow?> GetAssetAsync(Guid assetId, MeetAccessScope scope, CancellationToken ct)
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         await using var command = new NpgsqlCommand("""
-            SELECT id, session_id, kind, COALESCE(local_path, ''), status, size_bytes
-            FROM meet_media_assets
-            WHERE id = @id AND status <> 'deleted' AND status <> 'purged';
+            SELECT a.id, a.session_id, a.kind, COALESCE(a.local_path, ''), a.status, a.size_bytes
+            FROM meet_media_assets a
+            JOIN meet_sessions s ON s.id = a.session_id
+            WHERE a.id = @id AND a.status <> 'deleted' AND a.status <> 'purged'
+              AND (@all OR s.circle_id = ANY(@circles));
             """, connection);
         command.Parameters.AddWithValue("id", assetId);
+        command.Parameters.AddWithValue("all", scope.All);
+        command.Parameters.AddWithValue("circles", scope.CircleIds);
         await using var reader = await command.ExecuteReaderAsync(ct);
         if (!await reader.ReadAsync(ct)) return null;
         return new MeetMediaAssetRow(
