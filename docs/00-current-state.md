@@ -262,3 +262,12 @@
 - **بعد الإصلاح**: `dotnet test --filter PayrollLockReviewTests` → **Passed: 2 / Failed: 0**.
 - **بيئة الاختبار:** قاعدة disposable `dar_p0_payroll_20261124050107` أُنشئت من `pg_dump -s -O -x dareltahfeez` (schema الإنتاج)، والاختبارات استخدمت `DAR_TEST_DATABASE`؛ بعد النجاح تم **إسقاط القاعدة والدور**.
 - **النشر:** `dar-api` فقط: نسخة `/opt/dar/app/api.old.20261124-050456`، DB backup `/var/lib/dar/backups/db/predeploy-P0-20261124-050456.dump`، smoke: `health/ready`=200، `/api/v1/meet/sessions` غير مصرح=401، `/management`=200. لم تُنشر أي تغييرات legacy/frontend/migrations في هذا البند.
+
+### 24 Nov 2026 — P0-1: تجهيز الاختبار الخارجي + عائق الـpush
+- **قفل أكتوبر:** أُدخل `payroll_locks('2026-10-01', is_locked=TRUE)` بملاحظة «قفل اختباري P0-1 — سيُفتح بعد اختبار المالك» مع سطر audit (`payroll.lock`). قابل للفتح من واجهة الأدمن (المسير) أو بإسقاط الصف/تحديثه.
+- **بيانات ZZ-TEST للاختبار:** معلمة/حلقة/موعد/حضور بتاريخ `2026-10-05` وطلب تصحيح معلّق (`attendance_requests.id = 23092146-42dd-41c4-a788-e21aa2f86d2c`, teacher code `ZZ-P0-T`). يتوقع عند اعتماده من صفحة الطلبات: **409** وعدم تغيّر المدة/الأجر. بعد الاختبار تُمسح هذه الصفوف (ZZ-P0-*).
+- **push:** لا يمكن من بيئة الوكيل (HTTPS بلا credentials) ولا من السيرفر (مفتاح GitHub deploy للقراءة فقط: «key ... marked as read only»). GitHub `main = 2d9de50`، بينما `/opt/dar` HEAD = `e88503a` (أقدم). الـcommit الجاهز للدمج محفوظ كـpatch: `/var/lib/dar/patches/0001-fix-teaching-enforce-payroll-lock-on-correction-revi.patch` (16K). **أي `update.sh` قبل دفع/دمج الإصلاح في main سيعيد الكود بلا الإصلاح.**
+
+### 24 Nov 2026 — باج جديد (backlog): تسريب جلسة الإدارة إلى بوابة المعلمة
+- **السبب من الكود:** بوابة المعلمة و/management على نفس الأصل، ولهم كوكيز منفصلة: `DarEltahfeez.Admin` (legacy) و`dar_session` (new API). `AdminSessionBridge` يختار **كوكي الأدمن أولًا** لكل `/api/v1`، و`LogoutEndpoint` يوقّع خروج `AuthSession.Scheme` فقط — لذا خروج بوابة المعلمة لا يمسح كوكي الأدمن، وتظل البوابة ترى هوية الأدمن بلا `teacher_id`.
+- **إصلاح مقترح (P1):** `logout` يوقّع خروج الكوكيز الاثنين، وبوابة المعلمة عند اكتشاف هوية إدارة تعرض «خروج جلسة الإدارة»؛ لاحقًا فصل scheme/سياسة للـteacher APIs عن admin bridge.
