@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Npgsql;
+using NpgsqlTypes;
 
 namespace DarEltahfeez.Api;
 
@@ -161,7 +162,9 @@ public static partial class SystemAdminEndpoints
                         """, connection, transaction);
                     session.Parameters.AddWithValue("slot", slotId);
                     session.Parameters.AddWithValue("date", requestDate.Value);
-                    session.Parameters.AddWithValue("note", (object?)note ?? DBNull.Value);
+                    // btrim(@note) needs an explicit text type; DBNull otherwise leaves the
+                    // parameter untyped and PostgreSQL rejects it (42P08 -> HTTP 500).
+                    session.Parameters.Add(new NpgsqlParameter("note", NpgsqlDbType.Text) { Value = (object?)note ?? DBNull.Value });
                     await session.ExecuteNonQueryAsync(ct);
                 }
                 else if (type == "correction")
@@ -211,7 +214,7 @@ public static partial class SystemAdminEndpoints
                         update.Parameters.AddWithValue("id", attendanceId);
                         update.Parameters.AddWithValue("duration", duration);
                         update.Parameters.AddWithValue("amount", amount);
-                        update.Parameters.AddWithValue("note", (object?)proposedNote ?? DBNull.Value);
+                        update.Parameters.Add(new NpgsqlParameter("note", NpgsqlDbType.Text) { Value = (object?)proposedNote ?? DBNull.Value });
                         update.Parameters.AddWithValue("reviewer", DbGuid(ActorId(principal)));
                         await update.ExecuteNonQueryAsync(ct);
                     }
@@ -225,7 +228,7 @@ public static partial class SystemAdminEndpoints
                     {
                         session.Parameters.AddWithValue("attendance", attendanceId);
                         session.Parameters.AddWithValue("duration", duration);
-                        session.Parameters.AddWithValue("note", (object?)proposedNote ?? DBNull.Value);
+                        session.Parameters.Add(new NpgsqlParameter("note", NpgsqlDbType.Text) { Value = (object?)proposedNote ?? DBNull.Value });
                         await session.ExecuteNonQueryAsync(ct);
                     }
                     await InsertRequestAuditAsync(connection, transaction, ActorId(principal), principal.FindFirstValue("display_name"),
@@ -246,7 +249,7 @@ public static partial class SystemAdminEndpoints
                 update.Parameters.AddWithValue("id", id);
                 update.Parameters.AddWithValue("status", nextStatus);
                 update.Parameters.AddWithValue("reviewer", DbGuid(ActorId(principal)));
-                update.Parameters.AddWithValue("note", (object?)note ?? DBNull.Value);
+                update.Parameters.Add(new NpgsqlParameter("note", NpgsqlDbType.Text) { Value = (object?)note ?? DBNull.Value });
                 update.Parameters.AddWithValue("effectBefore", (object?)effectBefore ?? DBNull.Value);
                 update.Parameters.AddWithValue("effectAfter", (object?)effectAfter ?? DBNull.Value);
                 await update.ExecuteNonQueryAsync(ct);

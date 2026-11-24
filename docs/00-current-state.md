@@ -292,3 +292,11 @@
 - **تأكيد عدم التراجع:** شغّلنا الثلاث مجموعات معًا بعد الإصلاح: `PayrollLockReviewTests` (2) + `MeetMediaScopeTests` (4) + `ReviewOptionalNoteTests` (1) = **7/7 Passed**.
 - **النشر (dar-api فقط):** backup `/var/lib/dar/backups/db/predeploy-P03-20261124-060910.dump`، rollback `/opt/dar/app/api.old.20261124-060910`، smoke: `health/ready`=200، `/api/v1/meet/sessions` غير مصرح=401، `/management`=200. القاعدة المؤقتة أُسقطت.
 - **التالي:** P0-4 — outbox الحضور الأوفلاين يمسح العملية على أي 4xx.
+
+### 24 Nov 2026 — P0-3b: اعتماد طلب الغياب بدون ملاحظة (المسار القديم) = 500
+- **السبب الجذري:** صفحة طلبات الأدمن في `/management` بتنادي **الـlegacy API** `/api/admin/requests/{id}/review`، مش الـAPI الجديد. إصلاح P0-3 (06:09) كان في `SupervisorRequestEndpoints` بالـAPI الجديد فقط، والـlegacy app المنشور كان مبنيًا منذ 02:05 فما كانش فيه أي إصلاح → 500 استمر.
+- **الإصلاح:** في `backend/DarEltahfeez.Api/SystemAdminEndpoints.Requests.cs` عُرّفت 4 ملاحظات اختيارية بـ`NpgsqlParameter("note", NpgsqlDbType.Text)` (غياب/إلغاء، تصحيح حضور، تصحيح جلسة، review_note).
+- **قبل/بعد E2E على قاعدة disposable:** النسخة الأصلية → `HTTP 500` مع `42P08: could not determine data type of parameter $1` في log؛ بعد الإصلاح → `HTTP 200` والطلب `approved` والحضور `absent`. واختبار شامل للنسخة **المنشورة فعليًا**: absence=200 (approved|absent)، correction=200 (30 دقيقة/30 ج.م).
+- **تأكيد أن المنشور هو آخر بناء:** `DEPLOYED_LEGACY_SHA=40e000a323825d08ccaf8ba42a2ae56fdbea4c548f6990240191526231eeff83` (نفس DLL المبني من أحدث مصادر legacy)، `DEPLOYED_API_SHA=c9214ff995042cec0386242c1b0684c3205983c8d8c39b9726ac9e03cc558fad` (06:09، يشمل P0-1/2/3). الواجهة الحالية محفوظة (marker `be-layout` موجود)، والموقع العام 200.
+- **النشر:** legacy فقط (preserve wwwroot): DB backup `predeploy-P03b-20261124-062941.dump`، backup `legacy.bak.20261124-062941`، smoke: `health/ready`/`/`/`/management`=200 ومسارات review/enrollment غير مصرحة=401.
+- **متبقي:** دفع الـcommit على GitHub ثم retest المالك لاعتماد غياب بدون ملاحظة.
