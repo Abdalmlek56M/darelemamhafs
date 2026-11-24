@@ -22,8 +22,7 @@ public sealed class ManagementSecurityHeadersMiddleware(RequestDelegate next)
         "object-src 'none';",
         "base-uri 'self';",
         "frame-ancestors 'none';",
-        "form-action 'self';",
-        "upgrade-insecure-requests;");
+        "form-action 'self';");
 
     public async Task InvokeAsync(HttpContext context)
     {
