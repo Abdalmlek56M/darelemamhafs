@@ -344,11 +344,11 @@
 
 
 
-### 24 Nov 2026 — إصلاح Turnstile: رد siteverify غير صالح (JSON تالف) لا يسبب 500
-- **المشكلة:** في TurnstileVerifier (new API وlegacy) كان JsonDocument.ParseAsync يرمي JsonException عند 200 بجسم غير JSON، فيخرج 500 بدل سياسة الانقطاع.
-- **الإصلاح:** إضافة catch (JsonException) يعتبره فشل اتصال ويطبق سياسة FailOpen (افتراضيًا يسمح بالمتابعة، أو 503 عند FailOpen=false)، مع log warning "Turnstile siteverify returned an invalid JSON payload." بدون طباعة الرد (قد يكون محتوى مهاجم).
-- **الاختبارات:** backend 15/15 Passed (اختبار جديد malformed: fail-open → 401 مع تسجيل محاولة واحدة، fail-closed → 503 بدون تسجيل). legacy E2E mock: malformed + FailOpen=true → 401 والعدّاد 1؛ malformed + FailOpen=false → 503 برسالة عربية واضحة والعدّاد بقي 1؛ والـlog يحوي تحذير invalid JSON payload فقط.
-- **النشر:** commit d274cd2 — backup DB قبل النشر /var/lib/dar/backups/db/predeploy-TurnstileBadJson-20261124-110800.dump (270K)؛ بدأ 11:08:00، الخدمات Active 11:08:35. بصمات: Dar.Api.dll = 3cd9a32eb5d5cf71d773ddf9728f85a9f48d491b50b817c659511b6ea5e28430، DarEltahfeez.Api.dll = 75210b1541d6018a3ac9d8c2eb055b13ac12bf3fa8926aa05bea2c5714de0c0a. بدون migration/DB/Nginx/واجهة. Backups: api.old.20261124-110800، legacy.bak.20261124-110800. smoke = 200، وconfig endpoints = enabled=false/siteKey=null.
-- **غير متحقق:** كما في Turnstile — التحقق الفعلي مع Cloudflare الحقيقي ومفاتيح حقيقية يبقى unverified حتى التفعيل والاختبار الخارجي.
-- **الحالة:** P1-1 ليس Done.
+
+### 24 Nov 2026 — Turnstile مفعّل على /management فقط (قرار المالك، /teacher مؤجل)
+- المالك فعّل Turnstile يدويًا على /management عبر إعدادات السيرفر (legacy)، واختبره بدخول حقيقي ونجح.
+- تحقق قراءة-فقط: GET /api/auth/config (legacy) يرجّع enabled=true؛ GET /api/v1/auth/config (new API) يرجّع enabled=false. الـSite key العام يُقدَّم وقت التشغيل من env ولا يُكتب في الريبو/التوثيق.
+- /teacher مؤجل بقرار المالك، ولم تُلمس /etc/dar/api.env. enabled=false هناك إلى حين قرار لاحق.
+- لم يتم أي نشر كود أو تغيير سيرفر في هذه الخطوة؛ تحديث توثيق فقط.
+- P1-1 ليس Done: /management مفعّل ومختبر خارجيًا، لكن /teacher مؤجل، وباقي بنود P1-1 على حالها.
 
