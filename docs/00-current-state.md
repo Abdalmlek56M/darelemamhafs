@@ -233,3 +233,13 @@
 - تم بناء نسخة الإنتاج يدويًا: clone من `/opt/dar` + تطبيق الملفات الثلاثة المعدّلة، ثم `npm run build` + `dotnet publish -c Release`، ثم نسخ DB backup إلى `/var/lib/dar/backups/db/predeploy-20261124-020527.dump`، وتبديل `/opt/dar/app/legacy` مع الاحتفاظ بـ`legacy.old.20261124-020527` للرجوع.
 - الدليل: smoke محلي `/health/ready` و`/` و`/management` = 200، `POST /api/circle-enrollments/bulk` عبر أصل مطابق = 401 (route موجودة)، marker `bulk-fee-toolbar` في bundle، والموقع العام (https) = 200 للصفحات الثلاث. الخدمة active.
 - ملاحظة مهمة: نسخة git في `/opt/dar` لم تتغير؛ الـcommit `3b11e46` يجب دفعه إلى origin ثم `deploy/update.sh` حتى لا تفقد التغيير في أول نشر قادم.
+
+### 24 Nov 2026 02:09 — إصلاح عطل النسخ الاحتياطي خارج الموقع (offsite backup)
+- **العطل:** `/var/lib/dar/rclone/rclone.conf` كان مملوكًا `root:dar 600` بينما خدمة النسخ تعمل بمستخدم `dar` → فشل قراءة الإعدادات، وفشل رفع النسخ إلى Google Drive منذ **18 Nov** (آخر نسخة خارجية ناجحة 2026-11-18 23:43). النسخ المحلية كانت تُنشأ لكن بلا offsite.
+- **الإصلاح:** `chown dar:dar` + `chmod 600` للملف. تشغيل `dar-backup.service` يدويًا الآن انتهى **Result=success**، والنسخة `dar-20261124-020909.dump` ظهرت على Drive (`gdrive:dar-backups/dar/db/`). تايمر النسخ اليومي 02:30 يعمل.
+- **Drive quota:** حوالي **5 TiB** إجمالي، المستخدم 1.5 GiB (Other 22 GiB) → مساحة الأرشفة السحابية المجانية وفيرة حاليًا.
+
+### 24 Nov 2026 — نشر حوار إلحاق الطلاب الجماعي (يدوي SSH)
+- نُشر على الإنتاج 02:05 عبر بناء clone من `/opt/dar` + الملفات المعدّلة، مع DB backup `/var/lib/dar/backups/db/predeploy-20261124-020527.dump` واحتفاظ `/opt/dar/app/legacy.old.20261124-020527`.
+- Smoke: `/health/ready`, `/`, `/management` = 200، `POST /api/circle-enrollments/bulk` (Origin مطابق) = 401، marker الواجهة في bundle، والموقع العام https = 200.
+- **تنبيه:** git في `/opt/dar` ما زال على `e88503a`؛ الـcommit `3b11e46` لازم يُدفع من عندك قبل أي `deploy/update.sh` قادم وإلا ضاع التغيير.
