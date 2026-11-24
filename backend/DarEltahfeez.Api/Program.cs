@@ -194,6 +194,7 @@ app.Use(async (context, next) =>
     }
     await next();
 });
+app.UseMiddleware<ManagementSecurityHeadersMiddleware>();
 // UI assets are static; all data still comes from permission-protected API endpoints.
 app.UseDefaultFiles();
 app.UseStaticFiles();
