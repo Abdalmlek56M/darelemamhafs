@@ -30,6 +30,8 @@ builder.Services.AddOpenApi("v1");
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // P1-1: trust only the header Nginx overwrites from its real_ip value; ignore client X-Forwarded-For.
+    options.ForwardedForHeaderName = "X-Real-IP";
     options.KnownProxies.Add(IPAddress.Loopback);
     options.KnownProxies.Add(IPAddress.IPv6Loopback);
     foreach (var value in builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])

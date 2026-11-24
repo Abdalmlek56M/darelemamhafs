@@ -10,6 +10,9 @@ namespace DarEltahfeez.Api;
 
 public static partial class AuthEndpoints
 {
+    // Verified for unknown usernames so the response time does not reveal whether the account exists.
+    private static readonly string DummyPasswordHash = Passwords.Hash("p11-dummy-password-not-a-real-account");
+
     public static async Task ValidatePrincipalAsync(CookieValidatePrincipalContext context)
     {
         if (!Guid.TryParse(context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
@@ -154,43 +157,50 @@ public static partial class AuthEndpoints
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrEmpty(request.Password))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["credentials"] = ["اكتب اسم المستخدم وكلمة المرور."] });
 
-            Guid id;
-            string username;
-            string displayName;
-            string passwordHash;
-            bool active;
-            bool locked;
-            int sessionVersion;
-            int failedAttempts;
-            DateTimeOffset? loginLockedUntil;
-            await using (var cmd = db.CreateCommand("SELECT id, username, display_name, password_hash, is_active, is_locked, session_version, failed_login_attempts::int, login_locked_until FROM app_users WHERE username = @username;"))
+            var normalizedUsername = request.Username.Trim().ToLowerInvariant();
+            Guid? id = null;
+            string? username = null;
+            string? displayName = null;
+            string? passwordHash = null;
+            var active = false;
+            var locked = false;
+            var sessionVersion = 0;
+            await using (var cmd = db.CreateCommand("SELECT id, username, display_name, password_hash, is_active, is_locked, session_version FROM app_users WHERE lower(username) = @username;"))
             {
-                cmd.Parameters.AddWithValue("username", request.Username.Trim().ToLowerInvariant());
+                cmd.Parameters.AddWithValue("username", normalizedUsername);
                 await using var reader = await cmd.ExecuteReaderAsync(ct);
-                if (!await reader.ReadAsync(ct))
+                if (await reader.ReadAsync(ct))
                 {
-                    await TryAuditLoginAsync(db, null, null, "auth.login.failed", request.Username, ct);
-                    return Results.Unauthorized();
+                    id = reader.GetGuid(0);
+                    username = reader.GetString(1);
+                    displayName = reader.GetString(2);
+                    passwordHash = reader.GetString(3);
+                    active = reader.GetBoolean(4);
+                    locked = reader.GetBoolean(5);
+                    sessionVersion = reader.GetInt32(6);
                 }
-                id = reader.GetGuid(0);
-                username = reader.GetString(1);
-                displayName = reader.GetString(2);
-                passwordHash = reader.GetString(3);
-                active = reader.GetBoolean(4);
-                locked = reader.GetBoolean(5);
-                sessionVersion = reader.GetInt32(6);
-                failedAttempts = reader.GetInt32(7);
-                loginLockedUntil = reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8);
             }
 
             // Manual admin lock stays a permanent 401; the progressive lock returns 429.
-            if (!active || locked)
+            if (id is not null && (!active || locked))
             {
                 await TryAuditLoginAsync(db, id, displayName, "auth.login.failed", request.Username, ct);
                 return Results.Unauthorized();
             }
 
             var now = DateTimeOffset.UtcNow;
+            DateTimeOffset? loginLockedUntil;
+            await using (var lockRead = db.CreateCommand("SELECT locked_until FROM login_attempts WHERE username=@username;"))
+            {
+                lockRead.Parameters.AddWithValue("username", normalizedUsername);
+                var value = await lockRead.ExecuteScalarAsync(ct);
+                loginLockedUntil = value switch
+                {
+                    DateTimeOffset dto => dto,
+                    DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc)),
+                    _ => null
+                };
+            }
             if (loginLockedUntil is { } lockedUntil && lockedUntil > now)
             {
                 var retryAfter = (int)Math.Ceiling((lockedUntil - now).TotalSeconds);
@@ -199,40 +209,66 @@ public static partial class AuthEndpoints
                 return Results.Json(new { message = LoginLockoutPolicy.LockedMessage(retryAfter) }, statusCode: StatusCodes.Status429TooManyRequests);
             }
 
-            if (!Passwords.Verify(request.Password, passwordHash))
+            // Unknown usernames still run a real PBKDF2 verification against a dummy hash.
+            var passwordOk = id is not null
+                ? Passwords.Verify(request.Password, passwordHash!)
+                : Passwords.Verify(request.Password, DummyPasswordHash);
+            if (!passwordOk)
             {
                 int attemptsAfterFailure;
-                await using (var fail = db.CreateCommand("UPDATE app_users SET failed_login_attempts = failed_login_attempts + 1, last_failed_login_at = now() WHERE id=@id RETURNING failed_login_attempts::int;"))
+                DateTimeOffset? lockedAfterFailure;
+                await using (var fail = db.CreateCommand("""
+                    INSERT INTO login_attempts(username, failed_attempts, last_failed_at, updated_at)
+                    VALUES (@username, 1, now(), now())
+                    ON CONFLICT (username) DO UPDATE
+                    SET failed_attempts = LEAST(login_attempts.failed_attempts + 1, 20),
+                        last_failed_at = now(),
+                        updated_at = now(),
+                        locked_until = CASE
+                            WHEN login_attempts.failed_attempts + 1 >= 5
+                            THEN now() + make_interval(secs => LEAST(900, 30 * (1 << LEAST(login_attempts.failed_attempts + 1 - 5, 5))))
+                            ELSE login_attempts.locked_until
+                        END
+                    RETURNING failed_attempts::int, locked_until;
+                    """))
                 {
-                    fail.Parameters.AddWithValue("id", id);
-                    attemptsAfterFailure = (int)(await fail.ExecuteScalarAsync(ct) ?? 1);
+                    fail.Parameters.AddWithValue("username", normalizedUsername);
+                    await using var reader = await fail.ExecuteReaderAsync(ct);
+                    await reader.ReadAsync(ct);
+                    attemptsAfterFailure = reader.GetInt32(0);
+                    lockedAfterFailure = reader.IsDBNull(1) ? null : reader.GetFieldValue<DateTimeOffset>(1);
                 }
-                var delay = LoginLockoutPolicy.DelaySecondsFor(attemptsAfterFailure);
-                if (delay > 0)
+                try
                 {
-                    await using (var lockCmd = db.CreateCommand("UPDATE app_users SET login_locked_until = now() + (@delay * INTERVAL '1 second') WHERE id=@id;"))
-                    {
-                        lockCmd.Parameters.AddWithValue("delay", delay);
-                        lockCmd.Parameters.AddWithValue("id", id);
-                        await lockCmd.ExecuteNonQueryAsync(ct);
-                    }
-                    context.Response.Headers.RetryAfter = delay.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    await using var cleanup = db.CreateCommand("SELECT cleanup_login_attempts(50000);");
+                    await cleanup.ExecuteScalarAsync(ct);
+                }
+                catch { /* cleanup must never break sign-in */ }
+
+                if (lockedAfterFailure is { } lockUntil && lockUntil > DateTimeOffset.UtcNow)
+                {
+                    var retryAfter = (int)Math.Ceiling((lockUntil - DateTimeOffset.UtcNow).TotalSeconds);
+                    context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     await TryAuditLoginAsync(db, id, displayName, "auth.login.locked", request.Username, ct);
-                    return Results.Json(new { message = LoginLockoutPolicy.LockedMessage(delay) }, statusCode: StatusCodes.Status429TooManyRequests);
+                    return Results.Json(new { message = LoginLockoutPolicy.LockedMessage(retryAfter) }, statusCode: StatusCodes.Status429TooManyRequests);
                 }
                 await TryAuditLoginAsync(db, id, displayName, "auth.login.failed", request.Username, ct);
+                _ = attemptsAfterFailure;
                 return Results.Unauthorized();
             }
 
-            await using (var reset = db.CreateCommand("UPDATE app_users SET failed_login_attempts=0, login_locked_until=NULL, last_failed_login_at=NULL WHERE id=@id;"))
+            if (id is null || username is null || displayName is null)
+                return Results.Unauthorized();
+
+            await using (var reset = db.CreateCommand("DELETE FROM login_attempts WHERE username=@username;"))
             {
-                reset.Parameters.AddWithValue("id", id);
+                reset.Parameters.AddWithValue("username", normalizedUsername);
                 await reset.ExecuteNonQueryAsync(ct);
             }
-            var permissions = await LoadPermissions(db, id, ct);
-            await SignInAsync(context, id, username, displayName, permissions, sessionVersion, request.RememberMe);
+            var permissions = await LoadPermissions(db, id.Value, ct);
+            await SignInAsync(context, id.Value, username, displayName, permissions, sessionVersion, request.RememberMe);
             await TryAuditLoginAsync(db, id, displayName, "auth.login", username, ct);
-            return Results.Ok(new UserSessionResponse(id, username, displayName, permissions));
+            return Results.Ok(new UserSessionResponse(id.Value, username, displayName, permissions));
         }).RequireRateLimiting("auth");
 
         app.MapPost("/api/auth/change-password", async Task<IResult> (ChangePasswordRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>

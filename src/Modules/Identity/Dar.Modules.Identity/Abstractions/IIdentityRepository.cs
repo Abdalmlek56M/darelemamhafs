@@ -7,8 +7,10 @@ public interface IIdentityRepository
     Task<AuthUser?> FindByEmailAsync(string email, CancellationToken ct);
     Task<AuthUser?> FindByUsernameAsync(string username, CancellationToken ct);
     Task<AuthUser?> FindByUsernameForLoginAsync(string username, CancellationToken ct);
-    Task<(int FailedAttempts, DateTimeOffset? LoginLockedUntil)> RegisterLoginFailureAsync(Guid userId, CancellationToken ct);
-    Task ClearLoginFailuresAsync(Guid userId, CancellationToken ct);
+    Task<DateTimeOffset?> GetLoginLockedUntilAsync(string username, CancellationToken ct);
+    Task<(int FailedAttempts, DateTimeOffset? LoginLockedUntil)> RegisterLoginFailureAsync(string username, CancellationToken ct);
+    Task ClearLoginFailuresAsync(string username, CancellationToken ct);
+    Task CleanupLoginAttemptsAsync(CancellationToken ct);
     Task<AuthUser?> FindByGoogleSubjectAsync(string subject, CancellationToken ct);
     Task<AuthUser?> FindByIdAsync(Guid id, CancellationToken ct);
 
