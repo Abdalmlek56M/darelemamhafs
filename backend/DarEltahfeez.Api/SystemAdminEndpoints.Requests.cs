@@ -182,10 +182,17 @@ public static partial class SystemAdminEndpoints
                         return Results.ValidationProblem(new Dictionary<string, string[]> { ["durationMinutes"] = ["المدة المقترحة غير صحيحة."] });
                     }
                     var proposedNote = payload.TryGetProperty("note", out var noteValue) ? noteValue.GetString() : null;
+                    var proposedStatus = payload.TryGetProperty("status", out var statusValue) ? statusValue.GetString() : null;
+                    if (proposedStatus is not null && proposedStatus is not ("present" or "absent" or "cancelled"))
+                    {
+                        await transaction.RollbackAsync(ct);
+                        return Results.ValidationProblem(new Dictionary<string, string[]> { ["status"] = ["حالة الحضور المقترحة غير صحيحة."] });
+                    }
 
                     decimal rate;
                     int oldDuration;
-                    await using (var current = new NpgsqlCommand("SELECT hourly_rate_snapshot,duration_minutes FROM teacher_attendance WHERE id=@id AND is_trashed=FALSE FOR UPDATE;", connection, transaction))
+                    string oldStatus;
+                    await using (var current = new NpgsqlCommand("SELECT hourly_rate_snapshot,duration_minutes,status FROM teacher_attendance WHERE id=@id AND is_trashed=FALSE FOR UPDATE;", connection, transaction))
                     {
                         current.Parameters.AddWithValue("id", attendanceId);
                         await using var reader = await current.ExecuteReaderAsync(ct);
@@ -196,14 +203,21 @@ public static partial class SystemAdminEndpoints
                         }
                         rate = reader.GetDecimal(0);
                         oldDuration = reader.GetInt32(1);
+                        oldStatus = reader.GetString(2);
                     }
-                    if (!MoneyRules.TryCalculateTeacherPayableAmount(rate, duration, out var amount))
+                    if (!MoneyRules.TryCalculateTeacherPayableAmount(rate, duration, out var computedAmount))
                     {
                         await transaction.RollbackAsync(ct);
                         return Results.ValidationProblem(new Dictionary<string, string[]> { ["amount"] = ["تعذر حساب الأجر."] });
                     }
+                    // P0-5: apply the proposed attendance status together with duration/pay in this
+                    // transaction. Only a present record is paid; old requests without a status keep it.
+                    var newStatus = proposedStatus ?? oldStatus;
+                    var amount = newStatus == "present" ? computedAmount : 0m;
+                    // teacher_sessions.payable_duration_minutes allows NULL or 1..360 only.
+                    var payableDuration = newStatus == "present" ? (int?)duration : null;
                     await using (var update = new NpgsqlCommand("""
-                        UPDATE teacher_attendance SET duration_minutes=@duration,payable_amount=@amount,actual_duration_minutes=@duration,
+                        UPDATE teacher_attendance SET status=@status,duration_minutes=@duration,payable_amount=@amount,actual_duration_minutes=@duration,
                             pay_basis='manual',
                             note=CASE WHEN @note IS NULL OR btrim(@note)='' THEN note WHEN note IS NULL OR btrim(note)='' THEN @note ELSE note || E'\n' || @note END,
                             marked_by=@reviewer,marked_at=now(),
@@ -212,6 +226,7 @@ public static partial class SystemAdminEndpoints
                         """, connection, transaction))
                     {
                         update.Parameters.AddWithValue("id", attendanceId);
+                        update.Parameters.AddWithValue("status", newStatus);
                         update.Parameters.AddWithValue("duration", duration);
                         update.Parameters.AddWithValue("amount", amount);
                         update.Parameters.Add(new NpgsqlParameter("note", NpgsqlDbType.Text) { Value = (object?)proposedNote ?? DBNull.Value });
@@ -219,8 +234,9 @@ public static partial class SystemAdminEndpoints
                         await update.ExecuteNonQueryAsync(ct);
                     }
                     await using (var session = new NpgsqlCommand("""
-                        UPDATE teacher_sessions SET actual_duration_minutes=@duration,payable_duration_minutes=@duration,
+                        UPDATE teacher_sessions SET actual_duration_minutes=@duration,payable_duration_minutes=@payableDuration,
                             pay_basis='manual',overtime_minutes=0,undertime_minutes=0,
+                            status=CASE WHEN @status='present' AND status='cancelled' THEN 'completed' ELSE status END,
                             note=CASE WHEN @note IS NULL OR btrim(@note)='' THEN note WHEN note IS NULL OR btrim(note)='' THEN @note ELSE note || E'\n' || @note END,
                             updated_at=now()
                         WHERE id=(SELECT teacher_session_id FROM teacher_attendance WHERE id=@attendance);
@@ -228,12 +244,14 @@ public static partial class SystemAdminEndpoints
                     {
                         session.Parameters.AddWithValue("attendance", attendanceId);
                         session.Parameters.AddWithValue("duration", duration);
+                        session.Parameters.AddWithValue("payableDuration", (object?)payableDuration ?? DBNull.Value);
+                        session.Parameters.AddWithValue("status", newStatus);
                         session.Parameters.Add(new NpgsqlParameter("note", NpgsqlDbType.Text) { Value = (object?)proposedNote ?? DBNull.Value });
                         await session.ExecuteNonQueryAsync(ct);
                     }
                     await InsertRequestAuditAsync(connection, transaction, ActorId(principal), principal.FindFirstValue("display_name"),
                         "request.correction.apply", "teacher_attendance", attendanceId,
-                        JsonSerializer.Serialize(new { oldDuration, newDuration = duration, amount }), id, ct);
+                        JsonSerializer.Serialize(new { oldDuration, oldStatus, newDuration = duration, newStatus, amount }), id, ct);
                 }
             }
 
