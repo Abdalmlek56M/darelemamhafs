@@ -8,7 +8,7 @@ namespace DarEltahfeez.Api;
 /// </summary>
 public sealed class ManagementSecurityHeadersMiddleware(RequestDelegate next)
 {
-    public static readonly string ContentSecurityPolicyReportOnly = string.Join(' ',
+    public static readonly string ContentSecurityPolicy = string.Join(' ',
         "default-src 'self';",
         "script-src 'self' https://challenges.cloudflare.com https://static.cloudflareinsights.com;",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
@@ -33,8 +33,9 @@ public sealed class ManagementSecurityHeadersMiddleware(RequestDelegate next)
             headers["X-Frame-Options"] = "DENY";
             headers["Referrer-Policy"] = "no-referrer";
             headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
-            // Report-Only on purpose for P1-3 phase 1; enforce in a later, separately approved step.
-            headers["Content-Security-Policy-Report-Only"] = ContentSecurityPolicyReportOnly;
+            // Enforce now; keep Report-Only alongside so violations remain visible in the console.
+            headers["Content-Security-Policy"] = ContentSecurityPolicy;
+            headers["Content-Security-Policy-Report-Only"] = ContentSecurityPolicy;
             if (context.Request.IsHttps)
                 headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
         }
