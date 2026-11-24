@@ -325,3 +325,23 @@
 - **تحقق إضافي على متصفح حقيقي (headless Chromium ضد الموقع الحي):** زرع سجل v1 ثم فتح `/teacher` → ترقية القاعدة إلى **v3**، ونُسخ السجل إلى `attendance-queue` كـ`userId=__legacy__`/`needsReview=true` مع بقاء v1 (1 صف). واختبار `claim` في متصفح حقيقي (harness على نفس الوحدة): `legacyBefore=1, claimed=1, legacyAfter=0, queueMine(user-real, needsReview=false)=1, queueOther=0, v1Rows=1`.
 - **ما زال غير متحقق:** نقر زر «نقل إلى حسابي» من واجهة React بعد تسجيل دخول معلمة (UI wiring) — هذا الجزء فقط.
 - **التأكيد الخارجي:** المالك أكد نجاح الاختبار الخارجي لـP0-6 في 24 Nov 2026 → **P0-6 Done**.
+
+### 24 Nov 2026 — P1-1 المرحلة 1: قفل دخول تدريجي + IP حقيقي ورا Cloudflare (منشور، **غير مكتمل: Turnstile مؤجل**)
+- **المشكلة:** مساري الدخول `/api/auth/login` و`/api/v1/auth/password` كانا محميين بحد IP فقط (10/دقيقة)، بدون تتبّع محاولات لكل حساب. `is_locked` اليدوي فقط. ولا قفل تدريجي.
+- **الإصلاح:** migration `029_login_lockout.sql` (أعمدة إضافية على `app_users`: `failed_login_attempts`, `login_locked_until`, `last_failed_login_at`)؛ قفل تدريجي لكل حساب بعد **5 محاولات**: 30ث ثم تصاعد حتى 15د، مع `429 + Retry-After` ورسالة عربية؛ تصفير عند النجاح؛ `is_locked` اليدوي منفصل. حد IP صار 5/دقيقة (قابل للضبط `Auth__RateLimit__PermitLimit`) في الاثنين. لا frontend في هذه المرحلة.
+- **الملفات:** migration 029؛ `backend/DarEltahfeez.Api/{AuthEndpoints,Program,LoginLockoutPolicy}.cs`؛ `src/Common/Dar.Common/Domain/AppException.cs` + `AppExceptionHandler.cs`؛ `src/Host/Dar.Api/Program.cs`؛ Identity (`AuthUser`, `IIdentityRepository`, `IdentityRepository`, `PasswordSignIn`, `LoginLockoutPolicy`)؛ اختبار `tests/Dar.IntegrationTests/Identity/LoginLockoutTests.cs`؛ Nginx `/etc/nginx/conf.d/00-dar-cloudflare-realip.conf`.
+- **اختبار قبل/بعد (new API، قاعدة disposable):** قبل: **Failed 2 / Passed 1** (المحاولة الخامسة 401). بعد إصلاح تحويل timestamptz: **3/3 Passed**. (بدون `DAR_TEST_DATABASE` الاختبارات تُرجِع early-return — انظر الباك لوج).
+- **اختبار E2E للـlegacy (disposable DB):** قبل: 5 محاولات خاطئة → كلها 401 والحالة `0|NULL` (لا قفل). بعد: الخامسة **429 / Retry-After: 30**؛ كلمة المرور الصحيحة أثناء القفل **429**؛ الحساب B سليم ويسجّل 200 (`0|NULL`)؛ بعد انتهاء القفل دخول 200 وتصفير `0|NULL`. **تأكيد عدم قفل حساب آخر:** B بقي 0/NULL وسجّل بنجاح أثناء قفل A.
+- **تحقق IP الحقيقي ورا proxy:** (1) فعّلت `real_ip_header CF-Connecting-IP` مع كل نطاقات Cloudflare في Nginx (لا يثق إلا بأقران Cloudflare). (2) طلب عبر الويب الحي من harness egress `156.194.255.193` ظهر **بنفسه** كأول حقل في `/var/log/nginx/access.log` وليس IP حافة Cloudflare. (3) اختبار التطبيق: 6 طلبات دخول بـ`X-Forwarded-For: 203.0.113.21` → السادس **429**، وطلب بـ`203.0.113.22` → **401** (تقسيم الحد حسب الـIP الحقيقي من proxy الموثوق loopback).
+- **النشر:** بدأ 2026-11-24 **08:39:39** (EET)، الخدمات Active من **08:39:56**. Backup كامل قبل الهجرة: `/var/lib/dar/backups/db/predeploy-P11-20261124-083939.dump` (265K). migration ledger=29 والأعمدة الثلاثة موجودة. بصمات المنشور: `Dar.Api.dll = d6b7140f51e56829995b60f0dcf51ea9f4dfb63611c0ec464102806d14a7420a`، `DarEltahfeez.Api.dll = 798cffa22f4dbfb12fe5e5efa7e5810c5e963b85a57bff1975a1c31def2d57c6`. Smoke: API health 200/meet 401، legacy `/`و`/management`و`/teacher`=200، review=401؛ الموقع العام 200. Backups: `api.old.20261124-083939` و`legacy.bak.20261124-083939`.
+- **الرجوع:** استعادة مجلدات API/legacy من backups؛ الأعمدة الإضافية يمكن تركها (الكود القديم يتجاهلها)؛ Nginx: حذف ملف real-ip وإعادة التحميل. **قابل للرجوع نعم.**
+- **Turnstile (المرحلة 2):** مؤجل حتى تتوفر مفاتيح Cloudflare Site/Secret Keys. **P1-1 ليس Done** — يلزم Turnstile + تأكيد خارجي.
+
+### باك لوج صغير بعد P1-1 (من مراجعة P0 المستقلة)
+1. **قفل مرتبات شهر:** سباق ضيق بين قفل الشهر وتعديل/اعتماد في نفس اللحظة — إضافة advisory lock/صف معاملة عند القفل والاعتماد.
+2. **صلاحية «التسجيلات» بدون نطاق:** حساب عنده الصلاحية بدون scope يرى كل التسجيلات — تقرير: منع/تحديد نطاق افتراضي.
+3. **P0-6 سجل مكرر:** لو نفس الحلقة لها سجل legacy مكرر، البانر قد يظل ظاهرًا بلا طريقة لإغلاقه — dedupe حسب sessionId.
+4. **اختبارات C#:** صامتة (early return) لو `DAR_TEST_DATABASE` غير موصول — تحويلها لـskip/fail واضح + توثيق التشغيل.
+5. **P0-4 UI:** رسالة `${...}` كانت تظهر نصًا؛ أُصلحت في P0-6. إضافة اختبار UI يمنع الرجوع.
+6. **أمان أسرار:** `docs/11` يذكر أن Cloudflare API token أُرسل في شات سابقًا — **المالك يجب أن يغيّره من Cloudflare** (لا أسرار في الريبو/تاريخه).
+7. **Turnstile:** استكمال P1-1 المرحلة 2 عند توفر المفاتيح.

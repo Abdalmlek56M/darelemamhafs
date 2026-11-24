@@ -1,6 +1,7 @@
 using Dapper;
 using Dar.Modules.Identity.Abstractions;
 using Dar.Modules.Identity.Domain;
+using Dar.Modules.Identity.Infrastructure;
 using Npgsql;
 
 namespace Dar.Modules.Identity.Persistence;
@@ -16,6 +17,8 @@ public sealed class IdentityRepository(NpgsqlDataSource dataSource) : IIdentityR
                u.teacher_id AS TeacherId,
                u.is_active AS IsActive,
                u.is_locked AS IsLocked,
+               u.failed_login_attempts AS FailedLoginAttempts,
+               u.login_locked_until AS LoginLockedUntil,
                u.session_version AS SessionVersion,
                COALESCE(
                    (SELECT array_agg(up.permission_code ORDER BY up.permission_code)
@@ -39,6 +42,47 @@ public sealed class IdentityRepository(NpgsqlDataSource dataSource) : IIdentityR
         return await connection.QuerySingleOrDefaultAsync<AuthUser>(
             UserSelect + " WHERE lower(u.username)=lower(@username) AND u.is_active=TRUE AND u.is_locked=FALSE LIMIT 1;",
             new { username });
+    }
+
+    public async Task<AuthUser?> FindByUsernameForLoginAsync(string username, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        return await connection.QuerySingleOrDefaultAsync<AuthUser>(
+            UserSelect + " WHERE lower(u.username)=lower(@username) AND u.is_active=TRUE LIMIT 1;",
+            new { username });
+    }
+
+    public async Task<(int FailedAttempts, DateTimeOffset? LoginLockedUntil)> RegisterLoginFailureAsync(Guid userId, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        int attempts;
+        await using (var fail = new NpgsqlCommand("UPDATE app_users SET failed_login_attempts = failed_login_attempts + 1, last_failed_login_at = now() WHERE id=@id RETURNING failed_login_attempts::int;", connection))
+        {
+            fail.Parameters.AddWithValue("id", userId);
+            attempts = (int)(await fail.ExecuteScalarAsync(ct) ?? 1);
+        }
+        var delay = LoginLockoutPolicy.DelaySecondsFor(attempts);
+        if (delay <= 0) return (attempts, null);
+        await using var lockCmd = new NpgsqlCommand("UPDATE app_users SET login_locked_until = now() + (@delay * INTERVAL '1 second') WHERE id=@id RETURNING login_locked_until;", connection);
+        lockCmd.Parameters.AddWithValue("delay", delay);
+        lockCmd.Parameters.AddWithValue("id", userId);
+        var lockedUntil = await lockCmd.ExecuteScalarAsync(ct);
+        // Npgsql returns timestamptz scalars as DateTime; normalize to DateTimeOffset (UTC).
+        DateTimeOffset? normalized = lockedUntil switch
+        {
+            DateTimeOffset dto => dto,
+            DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc)),
+            _ => null
+        };
+        return (attempts, normalized);
+    }
+
+    public async Task ClearLoginFailuresAsync(Guid userId, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var cmd = new NpgsqlCommand("UPDATE app_users SET failed_login_attempts=0, login_locked_until=NULL, last_failed_login_at=NULL WHERE id=@id;", connection);
+        cmd.Parameters.AddWithValue("id", userId);
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 
     public async Task<AuthUser?> FindByGoogleSubjectAsync(string subject, CancellationToken ct)

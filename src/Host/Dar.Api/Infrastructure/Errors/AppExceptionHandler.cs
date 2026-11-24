@@ -34,6 +34,7 @@ public sealed class AppExceptionHandler(ILogger<AppExceptionHandler> logger) : I
                 404 => "غير موجود",
                 409 => "تعارض",
                 422 => "بيانات غير صالحة",
+                429 => "محاولات كثيرة",
                 _ => "طلب غير صالح"
             },
             Detail = appException.Message,
@@ -44,6 +45,8 @@ public sealed class AppExceptionHandler(ILogger<AppExceptionHandler> logger) : I
             problem.Extensions["errors"] = appException.Errors;
 
         httpContext.Response.StatusCode = appException.StatusCode;
+        if (appException.RetryAfterSeconds is { } retryAfterSeconds)
+            httpContext.Response.Headers.RetryAfter = retryAfterSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
         await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken);
         return true;
     }

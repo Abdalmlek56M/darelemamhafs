@@ -13,6 +13,8 @@ public sealed class AuthUser
     public Guid? TeacherId { get; set; }
     public bool IsActive { get; set; }
     public bool IsLocked { get; set; }
+    public int FailedLoginAttempts { get; set; }
+    public DateTimeOffset? LoginLockedUntil { get; set; }
     public int SessionVersion { get; set; }
     public string[] Permissions { get; set; } = [];
 

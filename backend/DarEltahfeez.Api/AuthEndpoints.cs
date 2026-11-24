@@ -161,7 +161,9 @@ public static partial class AuthEndpoints
             bool active;
             bool locked;
             int sessionVersion;
-            await using (var cmd = db.CreateCommand("SELECT id, username, display_name, password_hash, is_active, is_locked, session_version FROM app_users WHERE username = @username;"))
+            int failedAttempts;
+            DateTimeOffset? loginLockedUntil;
+            await using (var cmd = db.CreateCommand("SELECT id, username, display_name, password_hash, is_active, is_locked, session_version, failed_login_attempts::int, login_locked_until FROM app_users WHERE username = @username;"))
             {
                 cmd.Parameters.AddWithValue("username", request.Username.Trim().ToLowerInvariant());
                 await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -177,11 +179,55 @@ public static partial class AuthEndpoints
                 active = reader.GetBoolean(4);
                 locked = reader.GetBoolean(5);
                 sessionVersion = reader.GetInt32(6);
+                failedAttempts = reader.GetInt32(7);
+                loginLockedUntil = reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8);
             }
-            if (!active || locked || !Passwords.Verify(request.Password, passwordHash))
+
+            // Manual admin lock stays a permanent 401; the progressive lock returns 429.
+            if (!active || locked)
             {
                 await TryAuditLoginAsync(db, id, displayName, "auth.login.failed", request.Username, ct);
                 return Results.Unauthorized();
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            if (loginLockedUntil is { } lockedUntil && lockedUntil > now)
+            {
+                var retryAfter = (int)Math.Ceiling((lockedUntil - now).TotalSeconds);
+                context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                await TryAuditLoginAsync(db, id, displayName, "auth.login.locked", request.Username, ct);
+                return Results.Json(new { message = LoginLockoutPolicy.LockedMessage(retryAfter) }, statusCode: StatusCodes.Status429TooManyRequests);
+            }
+
+            if (!Passwords.Verify(request.Password, passwordHash))
+            {
+                int attemptsAfterFailure;
+                await using (var fail = db.CreateCommand("UPDATE app_users SET failed_login_attempts = failed_login_attempts + 1, last_failed_login_at = now() WHERE id=@id RETURNING failed_login_attempts::int;"))
+                {
+                    fail.Parameters.AddWithValue("id", id);
+                    attemptsAfterFailure = (int)(await fail.ExecuteScalarAsync(ct) ?? 1);
+                }
+                var delay = LoginLockoutPolicy.DelaySecondsFor(attemptsAfterFailure);
+                if (delay > 0)
+                {
+                    await using (var lockCmd = db.CreateCommand("UPDATE app_users SET login_locked_until = now() + (@delay * INTERVAL '1 second') WHERE id=@id;"))
+                    {
+                        lockCmd.Parameters.AddWithValue("delay", delay);
+                        lockCmd.Parameters.AddWithValue("id", id);
+                        await lockCmd.ExecuteNonQueryAsync(ct);
+                    }
+                    context.Response.Headers.RetryAfter = delay.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    await TryAuditLoginAsync(db, id, displayName, "auth.login.locked", request.Username, ct);
+                    return Results.Json(new { message = LoginLockoutPolicy.LockedMessage(delay) }, statusCode: StatusCodes.Status429TooManyRequests);
+                }
+                await TryAuditLoginAsync(db, id, displayName, "auth.login.failed", request.Username, ct);
+                return Results.Unauthorized();
+            }
+
+            await using (var reset = db.CreateCommand("UPDATE app_users SET failed_login_attempts=0, login_locked_until=NULL, last_failed_login_at=NULL WHERE id=@id;"))
+            {
+                reset.Parameters.AddWithValue("id", id);
+                await reset.ExecuteNonQueryAsync(ct);
             }
             var permissions = await LoadPermissions(db, id, ct);
             await SignInAsync(context, id, username, displayName, permissions, sessionVersion, request.RememberMe);

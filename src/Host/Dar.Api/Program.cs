@@ -38,6 +38,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     }
 });
 
+var authRateLimitPermit = builder.Configuration.GetValue<int?>("Auth:RateLimit:PermitLimit") ?? 5;
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -46,10 +47,17 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 10,
+                PermitLimit = authRateLimitPermit,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
+    options.OnRejected = async (context, token) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+            context.HttpContext.Response.Headers.RetryAfter = Math.Ceiling(retryAfter.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsJsonAsync(new { message = "محاولات كثيرة جدًا. انتظر قليلاً ثم أعد المحاولة." }, cancellationToken: token);
+    };
 });
 
 // The data source is created lazily so build/test does not require a database.

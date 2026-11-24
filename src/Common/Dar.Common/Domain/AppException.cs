@@ -8,16 +8,22 @@ public class AppException : Exception
 {
     public int StatusCode { get; }
     public IReadOnlyDictionary<string, string[]>? Errors { get; }
+    public int? RetryAfterSeconds { get; }
 
     public AppException(
         string message,
         int statusCode = StatusCodes.BadRequest,
-        IReadOnlyDictionary<string, string[]>? errors = null)
+        IReadOnlyDictionary<string, string[]>? errors = null,
+        int? retryAfterSeconds = null)
         : base(message)
     {
         StatusCode = statusCode;
         Errors = errors;
+        RetryAfterSeconds = retryAfterSeconds;
     }
+
+    public static AppException TooManyRequests(string message, int retryAfterSeconds) =>
+        new(message, StatusCodes.TooManyRequests, retryAfterSeconds: retryAfterSeconds);
 
     public static AppException Validation(string field, string message) =>
         new(message, StatusCodes.UnprocessableEntity,
@@ -44,4 +50,5 @@ internal static class StatusCodes
     public const int NotFound = 404;
     public const int Conflict = 409;
     public const int UnprocessableEntity = 422;
+    public const int TooManyRequests = 429;
 }

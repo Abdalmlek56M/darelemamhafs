@@ -141,8 +141,8 @@ builder.Services.AddAuthorization(options =>
         context.User.HasClaim("permission", "attendance.read") || context.User.HasClaim("permission", "attendance.edit")));
 });
 
-// Minimal, low-risk auth throttling for the legacy API. The new Identity module will
-// replace this with per-account lockout + OTP/Google rate limits.
+// P1-1: per-IP throttling for password endpoints (5/min by default, configurable for tests).
+var authRateLimitPermit = builder.Configuration.GetValue<int?>("Auth:RateLimit:PermitLimit") ?? 5;
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -151,10 +151,17 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 10,
+                PermitLimit = authRateLimitPermit,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
+    options.OnRejected = async (context, token) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+            context.HttpContext.Response.Headers.RetryAfter = Math.Ceiling(retryAfter.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsJsonAsync(new { message = "محاولات كثيرة جدًا. انتظر قليلاً ثم أعد المحاولة." }, cancellationToken: token);
+    };
 });
 
 var app = builder.Build();
