@@ -30,6 +30,9 @@ public static class AdminSessionBridge
 
     /// <summary>Cookie name of the teacher/supervisor session (see IdentityModule).</summary>
     public const string SessionCookieName = "dar_session";
+    /// <summary>Sent by the teacher portal on every request so it never falls back to the admin cookie.</summary>
+    public const string TeacherPortalHeader = "X-Dar-Portal";
+    public const string TeacherPortalHeaderValue = "teacher";
 
     public static IServiceCollection AddAdminSessionBridge(
         this IServiceCollection services,
@@ -171,6 +174,17 @@ internal sealed class DarSessionHandler(
 {
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        // The teacher portal explicitly marks its requests. It must use only its own session,
+        // never the admin bridge cookie, even when both exist in the same browser.
+        if (string.Equals(
+                Request.Headers[AdminSessionBridge.TeacherPortalHeader].ToString(),
+                AdminSessionBridge.TeacherPortalHeaderValue,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            var teacherSession = await Context.AuthenticateAsync(AuthSession.Scheme);
+            return teacherSession.Succeeded ? teacherSession : AuthenticateResult.NoResult();
+        }
+
         if (Request.Cookies.ContainsKey(AdminSessionBridge.CookieName))
         {
             var admin = await Context.AuthenticateAsync(AdminSessionBridge.Scheme);

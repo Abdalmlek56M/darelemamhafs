@@ -31,6 +31,8 @@ async function readError(response: Response) {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
+  // P1-2: the teacher portal must never fall back to the admin bridge cookie.
+  headers.set('X-Dar-Portal', 'teacher')
   if (init?.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
   const response = await fetch(path, { ...init, headers, credentials: 'include', cache: 'no-store' })
   if (!response.ok) throw new TeacherApiError(await readError(response), response.status)
