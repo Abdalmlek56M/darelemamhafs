@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Dar.Common.Domain;
 using Dar.Modules.Identity.Abstractions;
 using Dar.Modules.Identity.Infrastructure;
@@ -12,8 +13,9 @@ public sealed record PasswordSignInRequest(string Username, string Password, boo
 /// </summary>
 public sealed class PasswordSignInHandler(IIdentityRepository repository)
 {
-    // Verified for unknown usernames so the response time does not reveal whether the account exists.
-    private static readonly string DummyPasswordHash = PasswordHasher.Hash("p11-dummy-password-not-a-real-account");
+    // Random per process: no one can submit a known plaintext that verifies against it.
+    private static readonly string DummyPasswordHash = PasswordHasher.Hash(
+        $"{Guid.NewGuid():N}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(32))}");
 
     public async Task<UserSessionResponse> HandleAsync(
         PasswordSignInRequest request,
@@ -35,14 +37,14 @@ public sealed class PasswordSignInHandler(IIdentityRepository repository)
             throw AppException.TooManyRequests(LoginLockoutPolicy.LockedMessage(retryAfter), retryAfter);
         }
 
-        // Manual admin lock remains a generic 401 and is not managed by the progressive table.
-        if (user is { IsLocked: true })
-            throw AppException.Unauthorized("بيانات الدخول غير صحيحة.");
-
-        var passwordOk = user is not null && user.HasPassword
-            ? PasswordHasher.Verify(request.Password, user.PasswordHash)
+        // A real password may only be used by an active, unlocked account that has a real hash.
+        // Unknown, OTP-only, disabled and manually locked accounts always fail, even if the
+        // request happens to equal the (random) dummy plaintext.
+        var canUseRealPassword = user is { IsActive: true, IsLocked: false, HasPassword: true };
+        var verification = canUseRealPassword
+            ? PasswordHasher.Verify(request.Password, user!.PasswordHash)
             : PasswordHasher.Verify(request.Password, DummyPasswordHash);
-        if (!passwordOk)
+        if (!canUseRealPassword || !verification)
         {
             var (_, lockedAfterFailure) = await repository.RegisterLoginFailureAsync(normalizedUsername, cancellationToken);
             try { await repository.CleanupLoginAttemptsAsync(cancellationToken); } catch { /* cleanup must not break sign-in */ }
@@ -55,7 +57,14 @@ public sealed class PasswordSignInHandler(IIdentityRepository repository)
         }
 
         if (user is null) throw AppException.Unauthorized("بيانات الدخول غير صحيحة.");
-        await repository.ClearLoginFailuresAsync(normalizedUsername, cancellationToken);
+        var (allowed, lockedAtSuccess) = await repository.TryCompleteLoginAsync(normalizedUsername, cancellationToken);
+        if (!allowed)
+        {
+            var retryAfter = lockedAtSuccess is { } lockUntil
+                ? Math.Max(1, (int)Math.Ceiling((lockUntil - DateTimeOffset.UtcNow).TotalSeconds))
+                : 30;
+            throw AppException.TooManyRequests(LoginLockoutPolicy.LockedMessage(retryAfter), retryAfter);
+        }
         await AuthSession.SignInAsync(httpContext, user, request.RememberMe, cancellationToken);
         return AuthSession.FromUser(user);
     }

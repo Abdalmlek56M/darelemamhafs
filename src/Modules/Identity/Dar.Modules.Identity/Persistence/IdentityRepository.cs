@@ -70,36 +70,84 @@ public sealed class IdentityRepository(NpgsqlDataSource dataSource) : IIdentityR
     public async Task<(int FailedAttempts, DateTimeOffset? LoginLockedUntil)> RegisterLoginFailureAsync(string username, CancellationToken ct)
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);
-        // One atomic upsert: the counter increment and the lock write cannot interleave between requests.
-        const string sql = """
-            INSERT INTO login_attempts(username, failed_attempts, last_failed_at, updated_at)
-            VALUES (@username, 1, now(), now())
-            ON CONFLICT (username) DO UPDATE
-            SET failed_attempts = LEAST(login_attempts.failed_attempts + 1, 20),
-                last_failed_at = now(),
-                updated_at = now(),
-                locked_until = CASE
-                    WHEN login_attempts.failed_attempts + 1 >= 5
-                    THEN now() + make_interval(secs => LEAST(900, 30 * (1 << LEAST(login_attempts.failed_attempts + 1 - 5, 5))))
-                    ELSE login_attempts.locked_until
-                END
-            RETURNING failed_attempts::int, locked_until;
-            """;
-        await using var cmd = new NpgsqlCommand(sql, connection);
-        cmd.Parameters.AddWithValue("username", username);
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        if (!await reader.ReadAsync(ct)) return (0, null);
-        var attempts = reader.GetInt32(0);
-        DateTimeOffset? lockedUntil = reader.IsDBNull(1) ? null : reader.GetFieldValue<DateTimeOffset>(1);
-        return (attempts, lockedUntil);
+        await using var transaction = await connection.BeginTransactionAsync(ct);
+
+        // Ensure the row exists, then serialize all failure decisions on it.
+        await using (var ensure = new NpgsqlCommand("INSERT INTO login_attempts(username, updated_at) VALUES(@username, now()) ON CONFLICT (username) DO NOTHING;", connection, transaction))
+        {
+            ensure.Parameters.AddWithValue("username", username);
+            await ensure.ExecuteNonQueryAsync(ct);
+        }
+
+        int attempts;
+        DateTimeOffset? lockedUntil;
+        await using (var read = new NpgsqlCommand("SELECT failed_attempts::int, locked_until FROM login_attempts WHERE username=@username FOR UPDATE;", connection, transaction))
+        {
+            read.Parameters.AddWithValue("username", username);
+            await using var reader = await read.ExecuteReaderAsync(ct);
+            if (!await reader.ReadAsync(ct))
+            {
+                await transaction.CommitAsync(ct);
+                return (0, null);
+            }
+            attempts = reader.GetInt32(0);
+            lockedUntil = reader.IsDBNull(1) ? null : reader.GetFieldValue<DateTimeOffset>(1);
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        // A live lock is final: concurrent failures must not increment it or extend its duration.
+        if (lockedUntil is { } activeLock && activeLock > now)
+        {
+            await transaction.CommitAsync(ct);
+            return (attempts, activeLock);
+        }
+
+        var nextAttempts = Math.Min(attempts + 1, 20);
+        var delay = LoginLockoutPolicy.DelaySecondsFor(nextAttempts);
+        DateTimeOffset? newLock = delay > 0 ? now.AddSeconds(delay) : null;
+        await using (var update = new NpgsqlCommand("""
+            UPDATE login_attempts
+            SET failed_attempts=@attempts, locked_until=@lockedUntil, last_failed_at=now(), updated_at=now()
+            WHERE username=@username;
+            """, connection, transaction))
+        {
+            update.Parameters.AddWithValue("attempts", nextAttempts);
+            update.Parameters.AddWithValue("lockedUntil", (object?)newLock ?? DBNull.Value);
+            update.Parameters.AddWithValue("username", username);
+            await update.ExecuteNonQueryAsync(ct);
+        }
+        await transaction.CommitAsync(ct);
+        return (nextAttempts, newLock);
     }
 
-    public async Task ClearLoginFailuresAsync(string username, CancellationToken ct)
+    public async Task<(bool Allowed, DateTimeOffset? LoginLockedUntil)> TryCompleteLoginAsync(string username, CancellationToken ct)
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);
-        await using var cmd = new NpgsqlCommand("DELETE FROM login_attempts WHERE username=@username;", connection);
-        cmd.Parameters.AddWithValue("username", username);
-        await cmd.ExecuteNonQueryAsync(ct);
+        await using var transaction = await connection.BeginTransactionAsync(ct);
+        DateTimeOffset? lockedUntil = null;
+        await using (var read = new NpgsqlCommand("SELECT locked_until FROM login_attempts WHERE username=@username FOR UPDATE;", connection, transaction))
+        {
+            read.Parameters.AddWithValue("username", username);
+            var value = await read.ExecuteScalarAsync(ct);
+            lockedUntil = value switch
+            {
+                DateTimeOffset dto => dto,
+                DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc)),
+                _ => null
+            };
+        }
+        if (lockedUntil is { } activeLock && activeLock > DateTimeOffset.UtcNow)
+        {
+            await transaction.CommitAsync(ct);
+            return (false, activeLock);
+        }
+        await using (var delete = new NpgsqlCommand("DELETE FROM login_attempts WHERE username=@username;", connection, transaction))
+        {
+            delete.Parameters.AddWithValue("username", username);
+            await delete.ExecuteNonQueryAsync(ct);
+        }
+        await transaction.CommitAsync(ct);
+        return (true, null);
     }
 
     public async Task CleanupLoginAttemptsAsync(CancellationToken ct)

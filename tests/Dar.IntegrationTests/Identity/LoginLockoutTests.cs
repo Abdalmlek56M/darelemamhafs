@@ -22,6 +22,7 @@ public sealed class LoginLockoutTests
 {
     private const string EnvName = "DAR_TEST_DATABASE";
     private const string Password = "TestPass123!";
+    private const string OldDummyPassword = "p11-dummy-password-not-a-real-account";
 
     private static string? ConnectionString => Environment.GetEnvironmentVariable(EnvName);
 
@@ -61,6 +62,96 @@ public sealed class LoginLockoutTests
         Assert.NotNull(unknownRow!.LockedUntil);
     }
 
+    [Fact]
+    public async Task DisabledLockedAndUnknown_WithOldDummy_ReturnIdenticalResponses()
+    {
+        if (string.IsNullOrWhiteSpace(ConnectionString)) return;
+        var unknown = "p11_od_unknown_" + Guid.NewGuid().ToString("N")[..8];
+        var disabled = await SeedUserAsync(ConnectionString!, "p11_od_disabled");
+        var locked = await SeedUserAsync(ConnectionString!, "p11_od_locked");
+        await using (var connection = new NpgsqlConnection(ConnectionString))
+        {
+            await connection.OpenAsync();
+            await using (var cmd = new NpgsqlCommand("UPDATE app_users SET is_active=FALSE WHERE id=@id;", connection))
+            {
+                cmd.Parameters.AddWithValue("id", disabled.Id);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            await using (var cmd = new NpgsqlCommand("UPDATE app_users SET is_locked=TRUE WHERE id=@id;", connection))
+            {
+                cmd.Parameters.AddWithValue("id", locked.Id);
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+        await using var dataSource = NpgsqlDataSource.Create(ConnectionString!);
+        var handler = new PasswordSignInHandler(new IdentityRepository(dataSource));
+
+        for (var attempt = 1; attempt <= 4; attempt++)
+        {
+            var first = await LoginFailureAsync(handler, unknown, OldDummyPassword);
+            var second = await LoginFailureAsync(handler, disabled.Username, OldDummyPassword);
+            var third = await LoginFailureAsync(handler, locked.Username, OldDummyPassword);
+            Assert.NotNull(first); Assert.NotNull(second); Assert.NotNull(third);
+            Assert.Equal(401, first!.StatusCode);
+            Assert.Equal(first.StatusCode, second!.StatusCode);
+            Assert.Equal(first.StatusCode, third!.StatusCode);
+            Assert.Equal(first.Message, second.Message);
+            Assert.Equal(first.Message, third.Message);
+        }
+        var u5 = await LoginFailureAsync(handler, unknown, OldDummyPassword);
+        var d5 = await LoginFailureAsync(handler, disabled.Username, OldDummyPassword);
+        var l5 = await LoginFailureAsync(handler, locked.Username, OldDummyPassword);
+        Assert.NotNull(u5); Assert.NotNull(d5); Assert.NotNull(l5);
+        Assert.Equal(429, u5!.StatusCode);
+        Assert.Equal(u5.StatusCode, d5!.StatusCode);
+        Assert.Equal(u5.StatusCode, l5!.StatusCode);
+        Assert.Equal(u5.Message, d5.Message);
+        Assert.Equal(u5.Message, l5.Message);
+        Assert.Equal(u5.RetryAfterSeconds, d5.RetryAfterSeconds);
+        Assert.Equal(u5.RetryAfterSeconds, l5.RetryAfterSeconds);
+        Assert.NotNull(await ReadAttemptAsync(ConnectionString!, unknown));
+        Assert.NotNull(await ReadAttemptAsync(ConnectionString!, disabled.Username));
+        Assert.NotNull(await ReadAttemptAsync(ConnectionString!, locked.Username));
+    }
+
+    [Fact]
+    public async Task OTPOnlyAndEmptyPassword_NeverAuthenticate()
+    {
+        if (string.IsNullOrWhiteSpace(ConnectionString)) return;
+        var otpOnly = await SeedUserAsync(ConnectionString!, "p11_otp_only");
+        var emptyHash = await SeedUserAsync(ConnectionString!, "p11_empty_hash");
+        await using (var connection = new NpgsqlConnection(ConnectionString))
+        {
+            await connection.OpenAsync();
+            await using (var cmd = new NpgsqlCommand("UPDATE app_users SET password_hash='otp-only' WHERE id=@id;", connection))
+            {
+                cmd.Parameters.AddWithValue("id", otpOnly.Id);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            await using (var cmd = new NpgsqlCommand("UPDATE app_users SET password_hash='' WHERE id=@id;", connection))
+            {
+                cmd.Parameters.AddWithValue("id", emptyHash.Id);
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+        await using var dataSource = NpgsqlDataSource.Create(ConnectionString!);
+        var handler = new PasswordSignInHandler(new IdentityRepository(dataSource));
+
+        foreach (var username in new[] { otpOnly.Username, emptyHash.Username })
+        {
+            var withOldDummy = await LoginFailureAsync(handler, username, OldDummyPassword);
+            Assert.NotNull(withOldDummy);
+            Assert.Equal(401, withOldDummy!.StatusCode);
+            var withAnyPassword = await LoginFailureAsync(handler, username, Password);
+            Assert.NotNull(withAnyPassword);
+            Assert.Equal(401, withAnyPassword!.StatusCode);
+            for (var i = 0; i < 3; i++) await LoginFailureAsync(handler, username, "wrong");
+            var locked = await LoginFailureAsync(handler, username, "wrong");
+            Assert.NotNull(locked);
+            Assert.Equal(429, locked!.StatusCode);
+            Assert.NotNull(await ReadAttemptAsync(ConnectionString!, username));
+        }
+    }
     [Fact]
     public async Task UnknownUsername_StillPaysThePasswordHashCost()
     {
@@ -112,8 +203,14 @@ public sealed class LoginLockoutTests
         Assert.Contains(failures, failure => failure!.StatusCode == 429);
         var row = await ReadAttemptAsync(ConnectionString!, user.Username);
         Assert.NotNull(row);
-        Assert.True(row!.Attempts >= 5);
-        Assert.True(row!.LockedUntil > DateTimeOffset.UtcNow);
+        // Five requests cross the threshold; the rest see the live lock and must not increment it.
+        Assert.Equal(5, row!.Attempts);
+        Assert.NotNull(row.LockedUntil);
+        var remaining = row.LockedUntil.Value - DateTimeOffset.UtcNow;
+        Assert.InRange(remaining.TotalSeconds, 25, 35);
+        // A correct password cannot clear the lock written by the concurrent failures.
+        Assert.Equal(429, (await LoginFailureAsync(handler, user.Username, Password))!.StatusCode);
+        Assert.NotNull(await ReadAttemptAsync(ConnectionString!, user.Username));
     }
 
     [Fact]
@@ -127,6 +224,8 @@ public sealed class LoginLockoutTests
         await using (var connection = new NpgsqlConnection(ConnectionString))
         {
             await connection.OpenAsync();
+            // Keep this test isolated from locks created by earlier tests in the same database.
+            await using (var clear = new NpgsqlCommand("DELETE FROM login_attempts;", connection)) await clear.ExecuteNonQueryAsync();
             await using (var cmd = new NpgsqlCommand("""
                 INSERT INTO login_attempts(username, failed_attempts, locked_until, last_failed_at, updated_at) VALUES
                   (@active, 5, now() + INTERVAL '10 minutes', now(), now()),
@@ -141,7 +240,7 @@ public sealed class LoginLockoutTests
             }
             foreach (var filler in fillers)
             {
-                await using var cmd = new NpgsqlCommand("INSERT INTO login_attempts(username, failed_attempts, last_failed_at, updated_at) VALUES(@u, 1, now() - INTERVAL '31 days', now() - INTERVAL '31 days');", connection);
+                await using var cmd = new NpgsqlCommand("INSERT INTO login_attempts(username, failed_attempts, last_failed_at, updated_at) VALUES(@u, 1, now() - INTERVAL '1 hour', now() - INTERVAL '1 hour');", connection);
                 cmd.Parameters.AddWithValue("u", filler);
                 await cmd.ExecuteNonQueryAsync();
             }

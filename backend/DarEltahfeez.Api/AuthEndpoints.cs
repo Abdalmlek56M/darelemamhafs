@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -10,8 +11,9 @@ namespace DarEltahfeez.Api;
 
 public static partial class AuthEndpoints
 {
-    // Verified for unknown usernames so the response time does not reveal whether the account exists.
-    private static readonly string DummyPasswordHash = Passwords.Hash("p11-dummy-password-not-a-real-account");
+    // Random per process: no attacker can submit a plaintext that verifies against this hash.
+    private static readonly string DummyPasswordHash = Passwords.Hash(
+        $"{Guid.NewGuid():N}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(32))}");
 
     public static async Task ValidatePrincipalAsync(CookieValidatePrincipalContext context)
     {
@@ -181,13 +183,6 @@ public static partial class AuthEndpoints
                 }
             }
 
-            // Manual admin lock stays a permanent 401; the progressive lock returns 429.
-            if (id is not null && (!active || locked))
-            {
-                await TryAuditLoginAsync(db, id, displayName, "auth.login.failed", request.Username, ct);
-                return Results.Unauthorized();
-            }
-
             var now = DateTimeOffset.UtcNow;
             DateTimeOffset? loginLockedUntil;
             await using (var lockRead = db.CreateCommand("SELECT locked_until FROM login_attempts WHERE username=@username;"))
@@ -209,34 +204,55 @@ public static partial class AuthEndpoints
                 return Results.Json(new { message = LoginLockoutPolicy.LockedMessage(retryAfter) }, statusCode: StatusCodes.Status429TooManyRequests);
             }
 
-            // Unknown usernames still run a real PBKDF2 verification against a dummy hash.
-            var passwordOk = id is not null
+            // Only an active, unlocked account with a real password may authenticate.
+            // Unknown, OTP-only, disabled and manually locked accounts always take the failure path
+            // (after paying the same dummy PBKDF2 cost) and share the same response.
+            var canUseRealPassword = id is not null && active && !locked
+                && !string.IsNullOrWhiteSpace(passwordHash)
+                && !string.Equals(passwordHash, "otp-only", StringComparison.OrdinalIgnoreCase);
+            var passwordOk = canUseRealPassword
                 ? Passwords.Verify(request.Password, passwordHash!)
                 : Passwords.Verify(request.Password, DummyPasswordHash);
-            if (!passwordOk)
+            if (!canUseRealPassword || !passwordOk)
             {
-                int attemptsAfterFailure;
-                DateTimeOffset? lockedAfterFailure;
-                await using (var fail = db.CreateCommand("""
-                    INSERT INTO login_attempts(username, failed_attempts, last_failed_at, updated_at)
-                    VALUES (@username, 1, now(), now())
-                    ON CONFLICT (username) DO UPDATE
-                    SET failed_attempts = LEAST(login_attempts.failed_attempts + 1, 20),
-                        last_failed_at = now(),
-                        updated_at = now(),
-                        locked_until = CASE
-                            WHEN login_attempts.failed_attempts + 1 >= 5
-                            THEN now() + make_interval(secs => LEAST(900, 30 * (1 << LEAST(login_attempts.failed_attempts + 1 - 5, 5))))
-                            ELSE login_attempts.locked_until
-                        END
-                    RETURNING failed_attempts::int, locked_until;
-                    """))
+                int attempts = 0;
+                DateTimeOffset? lockedAfterFailure = null;
+                await using (var connection = await db.OpenConnectionAsync(ct))
+                await using (var transaction = await connection.BeginTransactionAsync(ct))
                 {
-                    fail.Parameters.AddWithValue("username", normalizedUsername);
-                    await using var reader = await fail.ExecuteReaderAsync(ct);
-                    await reader.ReadAsync(ct);
-                    attemptsAfterFailure = reader.GetInt32(0);
-                    lockedAfterFailure = reader.IsDBNull(1) ? null : reader.GetFieldValue<DateTimeOffset>(1);
+                    await using (var ensure = new NpgsqlCommand("INSERT INTO login_attempts(username, updated_at) VALUES(@username, now()) ON CONFLICT (username) DO NOTHING;", connection, transaction))
+                    {
+                        ensure.Parameters.AddWithValue("username", normalizedUsername);
+                        await ensure.ExecuteNonQueryAsync(ct);
+                    }
+                    await using (var lockRow = new NpgsqlCommand("SELECT failed_attempts::int, locked_until FROM login_attempts WHERE username=@username FOR UPDATE;", connection, transaction))
+                    {
+                        lockRow.Parameters.AddWithValue("username", normalizedUsername);
+                        await using var reader = await lockRow.ExecuteReaderAsync(ct);
+                        if (await reader.ReadAsync(ct))
+                        {
+                            attempts = reader.GetInt32(0);
+                            lockedAfterFailure = reader.IsDBNull(1) ? null : reader.GetFieldValue<DateTimeOffset>(1);
+                        }
+                    }
+
+                    var nowInTx = DateTimeOffset.UtcNow;
+                    if (lockedAfterFailure is { } existingLock && existingLock > nowInTx)
+                    {
+                        await transaction.CommitAsync(ct);
+                    }
+                    else
+                    {
+                        attempts = Math.Min(attempts + 1, 20);
+                        var delay = LoginLockoutPolicy.DelaySecondsFor(attempts);
+                        lockedAfterFailure = delay > 0 ? nowInTx.AddSeconds(delay) : null;
+                        await using var update = new NpgsqlCommand("UPDATE login_attempts SET failed_attempts=@attempts, locked_until=@lockedUntil, last_failed_at=now(), updated_at=now() WHERE username=@username;", connection, transaction);
+                        update.Parameters.AddWithValue("attempts", attempts);
+                        update.Parameters.AddWithValue("lockedUntil", (object?)lockedAfterFailure ?? DBNull.Value);
+                        update.Parameters.AddWithValue("username", normalizedUsername);
+                        await update.ExecuteNonQueryAsync(ct);
+                        await transaction.CommitAsync(ct);
+                    }
                 }
                 try
                 {
@@ -247,23 +263,49 @@ public static partial class AuthEndpoints
 
                 if (lockedAfterFailure is { } lockUntil && lockUntil > DateTimeOffset.UtcNow)
                 {
-                    var retryAfter = (int)Math.Ceiling((lockUntil - DateTimeOffset.UtcNow).TotalSeconds);
+                    var retryAfter = Math.Max(1, (int)Math.Ceiling((lockUntil - DateTimeOffset.UtcNow).TotalSeconds));
                     context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     await TryAuditLoginAsync(db, id, displayName, "auth.login.locked", request.Username, ct);
                     return Results.Json(new { message = LoginLockoutPolicy.LockedMessage(retryAfter) }, statusCode: StatusCodes.Status429TooManyRequests);
                 }
                 await TryAuditLoginAsync(db, id, displayName, "auth.login.failed", request.Username, ct);
-                _ = attemptsAfterFailure;
                 return Results.Unauthorized();
             }
 
             if (id is null || username is null || displayName is null)
                 return Results.Unauthorized();
 
-            await using (var reset = db.CreateCommand("DELETE FROM login_attempts WHERE username=@username;"))
+            // The final delete is serialized with the lock row: a lock written by a concurrent
+            // failure between password verification and this point must not be cleared by success.
+            await using (var connection = await db.OpenConnectionAsync(ct))
+            await using (var transaction = await connection.BeginTransactionAsync(ct))
             {
-                reset.Parameters.AddWithValue("username", normalizedUsername);
-                await reset.ExecuteNonQueryAsync(ct);
+                DateTimeOffset? lockAtSuccess = null;
+                await using (var lockRow = new NpgsqlCommand("SELECT locked_until FROM login_attempts WHERE username=@username FOR UPDATE;", connection, transaction))
+                {
+                    lockRow.Parameters.AddWithValue("username", normalizedUsername);
+                    var value = await lockRow.ExecuteScalarAsync(ct);
+                    lockAtSuccess = value switch
+                    {
+                        DateTimeOffset dto => dto,
+                        DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc)),
+                        _ => null
+                    };
+                }
+                if (lockAtSuccess is { } activeLockAtSuccess && activeLockAtSuccess > DateTimeOffset.UtcNow)
+                {
+                    await transaction.CommitAsync(ct);
+                    var retryAfter = Math.Max(1, (int)Math.Ceiling((activeLockAtSuccess - DateTimeOffset.UtcNow).TotalSeconds));
+                    context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    await TryAuditLoginAsync(db, id, displayName, "auth.login.locked", request.Username, ct);
+                    return Results.Json(new { message = LoginLockoutPolicy.LockedMessage(retryAfter) }, statusCode: StatusCodes.Status429TooManyRequests);
+                }
+                await using (var delete = new NpgsqlCommand("DELETE FROM login_attempts WHERE username=@username;", connection, transaction))
+                {
+                    delete.Parameters.AddWithValue("username", normalizedUsername);
+                    await delete.ExecuteNonQueryAsync(ct);
+                }
+                await transaction.CommitAsync(ct);
             }
             var permissions = await LoadPermissions(db, id.Value, ct);
             await SignInAsync(context, id.Value, username, displayName, permissions, sessionVersion, request.RememberMe);
