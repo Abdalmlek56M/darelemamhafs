@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { BookOpen, Copy, Database, LockKeyhole, Pencil, Plus, Search, Trash2, UserRound, Users } from 'lucide-react'
 import { formatDate, money } from '../lib/formatters'
@@ -10,8 +11,20 @@ import type { DarApplicationContext } from '../application/useDarApplication'
 
 type Props = { ctx: DarApplicationContext }
 
+const PAGE_SIZE = 25
+
 export default function StudentsPage({ ctx }: Props) {
+  const [page, setPage] = useState(1)
   const rows = ctx.has('students.read') ? ctx.filteredStudents : []
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
+  const safePage = Math.min(page, pageCount)
+  const pageRows = useMemo(
+    () => rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [rows, safePage],
+  )
+
+  useEffect(() => { setPage(1) }, [ctx.query, ctx.statusFilter])
+  useEffect(() => { setPage((current) => Math.min(current, pageCount)) }, [pageCount])
 
   const columns: ResponsiveColumn<(typeof rows)[number]>[] = [
     {
@@ -67,13 +80,13 @@ export default function StudentsPage({ ctx }: Props) {
       <div className="table-heading">
         <div>
           <h3>الطلاب المسجلون</h3>
-          <span>{ctx.has('students.read') ? ctx.filteredStudents.length + ' سجل · حالة تحصيل الشهر الحالي' : 'لا تملك صلاحية عرض قائمة الطلاب'}</span>
+          <span>{ctx.has('students.read') ? rows.length + ' سجل · حالة تحصيل الشهر الحالي' : 'لا تملك صلاحية عرض قائمة الطلاب'}</span>
         </div>
         <span className="table-heading-note"><Database size={14}/> حفظ مباشر</span>
       </div>
       <ResponsiveTable
         caption="قائمة الطلاب"
-        rows={rows}
+        rows={pageRows}
         columns={columns}
         rowKey={(student) => student.id}
         empty={ctx.has('students.read')
@@ -89,6 +102,13 @@ export default function StudentsPage({ ctx }: Props) {
           </select>
         </>}
       />
+      {rows.length > PAGE_SIZE && (
+        <div className="student-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', padding: '12px 14px', borderTop: '1px solid var(--line)' }}>
+          <button type="button" className="secondary-button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={safePage <= 1} aria-label="الصفحة السابقة">السابق</button>
+          <span style={{ color: 'var(--muted)', fontSize: 12 }} aria-live="polite">صفحة {safePage} من {pageCount} · {rows.length} سجل</span>
+          <button type="button" className="secondary-button" onClick={() => setPage((current) => Math.min(pageCount, current + 1))} disabled={safePage >= pageCount} aria-label="الصفحة التالية">التالي</button>
+        </div>
+      )}
     </div>
   </motion.section>
 }
