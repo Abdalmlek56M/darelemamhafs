@@ -113,6 +113,27 @@ public sealed class TurnstileLoginTests
     }
 
     [Fact]
+    public async Task MalformedJsonResponse_IsTreatedAsUnavailable()
+    {
+        if (string.IsNullOrWhiteSpace(ConnectionString)) return;
+        var openUser = await SeedUserAsync(ConnectionString!, "ts_badjson_open");
+        await using var stub = await SiteverifyStub.StartAsync();
+
+        var openHandler = Handler(ConnectionString!, stub, failOpen: true);
+        var openFailure = await FailureAsync(openHandler, openUser.Username, "wrong-password", "malformed-open-" + Guid.NewGuid());
+        Assert.NotNull(openFailure);
+        Assert.Equal(401, openFailure!.StatusCode);
+        Assert.NotNull(await ReadAttemptAsync(ConnectionString!, openUser.Username));
+
+        var closedUser = await SeedUserAsync(ConnectionString!, "ts_badjson_closed");
+        var closedHandler = Handler(ConnectionString!, stub, failOpen: false);
+        var closedFailure = await FailureAsync(closedHandler, closedUser.Username, "wrong-password", "malformed-closed-" + Guid.NewGuid());
+        Assert.NotNull(closedFailure);
+        Assert.Equal(503, closedFailure!.StatusCode);
+        Assert.Null(await ReadAttemptAsync(ConnectionString!, closedUser.Username));
+    }
+
+    [Fact]
     public async Task LockedAccount_Returns429_BeforeTurnstileCheck()
     {
         if (string.IsNullOrWhiteSpace(ConnectionString)) return;
@@ -241,6 +262,8 @@ public sealed class TurnstileLoginTests
                 if (self?.ForceStatusCode is { } forced) return Results.StatusCode(forced);
                 var form = await context.Request.ReadFormAsync();
                 var token = form["response"].ToString();
+                if (token.StartsWith("malformed", StringComparison.Ordinal))
+                    return Results.Text("this-is-not-json", "application/json");
                 if (token.StartsWith("reject", StringComparison.Ordinal))
                     return Results.Json(new { success = false });
                 var hostname = token.StartsWith("bad-host", StringComparison.Ordinal) ? "evil.example" : ExpectedHostname;

@@ -111,6 +111,13 @@ public sealed class TurnstileVerifier(
             logger.LogWarning(exception, "Turnstile siteverify is unreachable.");
             return failOpen ? TurnstileCheck.UnavailableAllowed : TurnstileCheck.UnavailableRejected;
         }
+        catch (System.Text.Json.JsonException)
+        {
+            // A 200 response with a malformed body is an upstream failure, not a valid rejection.
+            // Never log the raw response: it may contain attacker-controlled content.
+            logger.LogWarning("Turnstile siteverify returned an invalid JSON payload.");
+            return failOpen ? TurnstileCheck.UnavailableAllowed : TurnstileCheck.UnavailableRejected;
+        }
     }
 
     private static void CleanupExpiredTokens()
