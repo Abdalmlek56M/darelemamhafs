@@ -284,3 +284,11 @@
 - **بيئة الاختبار:** قاعدة disposable `dar_p02_media_20261124054033` من schema-only dump للإنتاج؛ أُسقطت بعد الاختبار.
 - **النشر (dar-api فقط):** backup `/var/lib/dar/backups/db/predeploy-P02-20261124-054226.dump`، rollback `/opt/dar/app/api.old.20261124-054226`، smoke: `health/ready`=200، `/api/v1/meet/sessions` غير مصرح=401، `/management`=200. لا legacy/frontend/migrations.
 - **التالي:** P0-3 (الملاحظة الاختيارية الفاضية = 500) ثم P0-4 (outbox 4xx).
+
+### 24 Nov 2026 — P0-3: الملاحظة الاختيارية الفاضية في اعتماد الطلب = 500 (إصلاح + اختبار قبل/بعد)
+- **الثغرة:** في مسار اعتماد طلب التصحيح، `AddWithValue("note", (object?)proposedNote ?? DBNull.Value)` بدون نوع → `btrim(@note)` يفشل بـ**42P08: could not determine data type of parameter $3** → HTTP 500. نفس النمط في ملاحظة جلسة الغياب/الإلغاء و`review_note`.
+- **الإصلاح:** تعريف كل ملاحظة اختيارية صراحةً بـ`NpgsqlParameter("note", NpgsqlDbType.Text)` في 4 مواضع (`SupervisorRequestEndpoints.cs`) — بدون تغيير سلوك القيم غير الفارغة.
+- **اختبار:** `tests/Dar.IntegrationTests/Payroll/ReviewOptionalNoteTests.cs` — ثلاث حالات: note غائبة/null/فاضية، والشهر مفتوح. **قبل:** FAIL بـ`Npgsql.PostgresException 42P08` (Stack: SupervisorRequestEndpoints.cs:245). **بعد:** الثلاث حالات تنجح والاعتماد يطبق المدة/الأجر.
+- **تأكيد عدم التراجع:** شغّلنا الثلاث مجموعات معًا بعد الإصلاح: `PayrollLockReviewTests` (2) + `MeetMediaScopeTests` (4) + `ReviewOptionalNoteTests` (1) = **7/7 Passed**.
+- **النشر (dar-api فقط):** backup `/var/lib/dar/backups/db/predeploy-P03-20261124-060910.dump`، rollback `/opt/dar/app/api.old.20261124-060910`، smoke: `health/ready`=200، `/api/v1/meet/sessions` غير مصرح=401، `/management`=200. القاعدة المؤقتة أُسقطت.
+- **التالي:** P0-4 — outbox الحضور الأوفلاين يمسح العملية على أي 4xx.

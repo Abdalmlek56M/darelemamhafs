@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Dar.Common.Domain;
 using Npgsql;
+using NpgsqlTypes;
 using Dar.Modules.Teaching.Features.Supervisor;
 
 namespace Dar.Modules.Teaching.Features.Requests;
@@ -185,7 +186,9 @@ public static class SupervisorRequestEndpoints
                     """, connection, transaction);
                 session.Parameters.AddWithValue("slot", slotId);
                 session.Parameters.AddWithValue("date", requestDate.Value);
-                session.Parameters.AddWithValue("note", (object?)note ?? DBNull.Value);
+                // btrim(@note) needs an explicit text type; a DBNull value otherwise leaves the
+                // parameter untyped and PostgreSQL rejects the statement (42P08 -> HTTP 500).
+                session.Parameters.Add(new NpgsqlParameter("note", NpgsqlDbType.Text) { Value = (object?)note ?? DBNull.Value });
                 await session.ExecuteNonQueryAsync(ct);
             }
             else if (type == "correction")
@@ -256,7 +259,7 @@ public static class SupervisorRequestEndpoints
                     update.Parameters.AddWithValue("id", attendanceId);
                     update.Parameters.AddWithValue("duration", duration);
                     update.Parameters.AddWithValue("amount", amount);
-                    update.Parameters.AddWithValue("note", (object?)proposedNote ?? DBNull.Value);
+                    update.Parameters.Add(new NpgsqlParameter("note", NpgsqlDbType.Text) { Value = (object?)proposedNote ?? DBNull.Value });
                     update.Parameters.AddWithValue("reviewer", reviewer);
                     await update.ExecuteNonQueryAsync(ct);
                 }
@@ -272,7 +275,7 @@ public static class SupervisorRequestEndpoints
                 {
                     session.Parameters.AddWithValue("attendance", attendanceId);
                     session.Parameters.AddWithValue("duration", duration);
-                    session.Parameters.AddWithValue("note", (object?)proposedNote ?? DBNull.Value);
+                    session.Parameters.Add(new NpgsqlParameter("note", NpgsqlDbType.Text) { Value = (object?)proposedNote ?? DBNull.Value });
                     await session.ExecuteNonQueryAsync(ct);
                 }
 
@@ -294,7 +297,7 @@ public static class SupervisorRequestEndpoints
             update.Parameters.AddWithValue("id", id);
             update.Parameters.AddWithValue("status", nextStatus);
             update.Parameters.AddWithValue("reviewer", reviewer);
-            update.Parameters.AddWithValue("note", (object?)note ?? DBNull.Value);
+            update.Parameters.Add(new NpgsqlParameter("note", NpgsqlDbType.Text) { Value = (object?)note ?? DBNull.Value });
             update.Parameters.AddWithValue("effectBefore", (object?)effectBefore ?? DBNull.Value);
             update.Parameters.AddWithValue("effectAfter", (object?)effectAfter ?? DBNull.Value);
             await update.ExecuteNonQueryAsync(ct);
