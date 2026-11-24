@@ -1,0 +1,78 @@
+const { chromium } = require('playwright');
+const BASE = process.env.P17_BASE_URL || 'http://127.0.0.1:5099';
+const PASSWORD = process.env.P17_TEST_PASSWORD || 'P17-StrongPass!';
+const sentinel = /987654|987,654|987\D{0,3}654|123456|444222|55555|P17-SENTINEL/;
+
+(async () => {
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  const users = { none: 'p17_none', create: 'p17_create', read: 'p17_read', reports: 'p17_reports', control: 'p17_control' };
+  const results = {};
+  try {
+    for (const [key, username] of Object.entries(users)) {
+      const context = await browser.newContext({ viewport: { width: 1400, height: 950 } });
+      const page = await context.newPage();
+      const csp = [];
+      page.on('console', msg => {
+        const text = msg.text();
+        if (/Content Security Policy|Refused to|violates the following/i.test(text)) csp.push(text);
+      });
+      await page.goto(BASE + '/management', { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await page.waitForTimeout(1500);
+      await page.fill('input[autocomplete="username"]', username);
+      await page.fill('input[autocomplete="current-password"]', PASSWORD);
+      await page.getByRole('button', { name: 'تسجيل الدخول' }).click();
+      await page.waitForTimeout(4500);
+      const dashboardText = await page.locator('body').innerText();
+      const paymentsNav = await page.getByText('الاشتراكات والتحصيل', { exact: true }).count();
+      let paymentsText = '';
+      if (paymentsNav) {
+        await page.getByText('الاشتراكات والتحصيل', { exact: true }).first().click();
+        await page.waitForTimeout(1800);
+        paymentsText = await page.locator('body').innerText();
+      }
+
+      // Reproduce the report gate: system -> export -> generate school report.
+      let reportHasSentinel = false;
+      let reportError = null;
+      try {
+        await page.getByRole('button', { name: 'النظام والنسخ الاحتياطي' }).first().click();
+        await page.waitForTimeout(1200);
+        await page.getByRole('button', { name: 'تصدير البيانات' }).click();
+        await page.waitForTimeout(1200);
+        const popupPromise = page.waitForEvent('popup', { timeout: 20000 });
+        await page.getByRole('button', { name: /عرض التقرير/ }).click();
+        const popup = await popupPromise;
+        await popup.waitForLoadState('domcontentloaded');
+        await popup.waitForTimeout(1200);
+        const reportText = await popup.locator('body').innerText();
+        reportHasSentinel = sentinel.test(reportText);
+        await popup.close();
+      } catch (error) {
+        reportError = String(error && error.message || error);
+      }
+
+      results[key] = {
+        dashboardSentinel: sentinel.test(dashboardText),
+        paymentsNav,
+        paymentsSentinel: sentinel.test(paymentsText),
+        reportHasSentinel,
+        reportError,
+        cspViolations: csp
+      };
+      await context.close();
+    }
+    console.log(JSON.stringify({ n: users, results, checks: {
+      controlSeesAmountsInUi: results.control.dashboardSentinel || results.control.paymentsSentinel,
+      controlSeesAmountsInReport: results.control.reportHasSentinel,
+      noneSeesNoAmounts: !results.none.dashboardSentinel && !results.none.paymentsSentinel && !results.none.reportHasSentinel,
+      createSeesNoAmounts: !results.create.dashboardSentinel && !results.create.paymentsSentinel && !results.create.reportHasSentinel,
+      readHasPaymentsButReportHidesFinance: results.read.paymentsNav > 0 && results.read.paymentsSentinel && !results.read.reportHasSentinel,
+      reportsHidesFinance: !results.reports.dashboardSentinel && !results.reports.paymentsSentinel && !results.reports.reportHasSentinel
+    } }, null, 2));
+  } catch (error) {
+    console.log(JSON.stringify({ fatal: String(error && error.stack || error), results }, null, 2));
+    process.exitCode = 2;
+  } finally {
+    await browser.close();
+  }
+})();
