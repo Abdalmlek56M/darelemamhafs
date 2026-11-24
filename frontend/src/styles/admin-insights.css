@@ -146,3 +146,69 @@
   .bulk-fee-field { width: 100%; align-items: flex-start; margin-right: 0; padding-right: 26px; }
   .bulk-fee-field input { width: 100%; }
 }
+
+/* Bulk enrollment UX polish (24 Nov 2026, owner request). */
+.bulk-enroll-dialog .be-form, .be-form { display: flex; flex-direction: column; gap: 0; }
+.be-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(268px, 330px); gap: 16px; align-items: start; }
+.be-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.be-search { position: relative; display: flex; align-items: center; }
+.be-search input { width: 100%; min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 70%, var(--bg)); color: var(--text); font: inherit; font-size: 12.5px; padding: 0 38px; }
+.be-search input:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 1px; }
+.be-search-icon { position: absolute; right: 12px; color: var(--muted); pointer-events: none; }
+.be-search-clear { position: absolute; left: 6px; display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.be-search-clear:hover { background: color-mix(in srgb, var(--surface) 80%, var(--bg)); color: var(--text); }
+.be-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.be-select-all { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); cursor: pointer; min-height: 32px; }
+.be-select-all input { width: 18px; height: 18px; accent-color: var(--accent); }
+.be-selected-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
+.be-selected-badge.is-active { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.be-list { display: flex; flex-direction: column; gap: 8px; max-height: min(48vh, 440px); overflow: auto; padding: 2px; margin: 0 -2px; }
+.be-row { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--surface) 55%, var(--bg)); min-height: 54px; cursor: pointer; }
+.be-row:hover { border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); }
+.be-row.is-selected { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.be-row > input[type="checkbox"] { width: 20px; height: 20px; flex: 0 0 auto; accent-color: var(--accent); }
+.be-avatar { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent); font-weight: 800; font-size: 13px; }
+.be-student { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.be-student strong { font-size: 12.5px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.be-student small { font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.be-fee { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; flex: 0 0 auto; }
+.be-fee > small { font-size: 9px; color: var(--muted); }
+.be-fee-box { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--surface) 75%, var(--bg)); padding: 0 8px; min-height: 36px; }
+.be-fee-box:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.be-fee-box.is-invalid { border-color: var(--danger, #e05a5a); }
+.be-fee-box input { width: 74px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 12px; padding: 6px 0; -moz-appearance: textfield; }
+.be-fee-box input::-webkit-outer-spin-button, .be-fee-box input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.be-fee-box input:focus { outline: none; }
+.be-fee-box em { font-style: normal; font-size: 10px; color: var(--muted); }
+.be-fee-error { color: var(--danger, #e05a5a); font-size: 9px; }
+.be-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 26px 12px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); }
+.be-empty p { margin: 0; font-size: 11px; }
+.be-side { display: flex; flex-direction: column; gap: 10px; position: sticky; top: 6px; }
+.be-card { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--line); border-radius: 14px; padding: 13px; background: color-mix(in srgb, var(--surface) 45%, var(--bg)); }
+.be-card h4 { margin: 0; font-size: 13px; }
+.be-card .form-field span { font-size: 10.5px; }
+.be-label { font-size: 10.5px; color: var(--muted); }
+.be-bulk-row { display: flex; align-items: center; gap: 6px; }
+.be-bulk-row .secondary-button { min-height: 36px; padding: 0 10px; font-size: 11px; }
+.be-bulk-fee { display: flex; flex-direction: column; gap: 5px; padding: 9px; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--accent) 4%, transparent); }
+.be-hint { color: var(--muted); font-size: 9.5px; line-height: 1.7; }
+.be-summary { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 0; }
+.be-summary div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.be-summary dt { color: var(--muted); font-size: 11px; }
+.be-summary dd { margin: 0; font-size: 12px; font-weight: 700; color: var(--text); }
+.be-summary-total dd { color: var(--accent); font-size: 15px; }
+.be-error { margin: 0; padding: 8px 10px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--danger, #e05a5a) 35%, var(--line)); background: color-mix(in srgb, var(--danger, #e05a5a) 8%, transparent); color: var(--danger, #e05a5a); font-size: 10.5px; line-height: 1.6; }
+.be-actions { display: flex; flex-direction: column; gap: 7px; }
+.be-actions .primary-button, .be-actions .secondary-button { min-height: 44px; }
+@media (max-width: 860px) {
+  .be-layout { grid-template-columns: 1fr; }
+  .be-side { position: static; }
+  .be-list { max-height: none; }
+}
+@media (max-width: 560px) {
+  .be-row { flex-wrap: wrap; align-items: flex-start; }
+  .be-fee { width: 100%; padding-right: 44px; }
+  .be-fee-box { width: 100%; }
+  .be-fee-box input { width: 100%; }
+  .be-actions { position: sticky; bottom: 0; padding-top: 4px; }
+}
