@@ -4,8 +4,8 @@ import { teacherApi } from './teacherApi'
 const realFetch = globalThis.fetch
 
 beforeEach(() => {
-  globalThis.fetch = vi.fn().mockResolvedValue(
-    new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+  globalThis.fetch = vi.fn().mockImplementation(() =>
+    Promise.resolve(new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } })),
   ) as typeof fetch
 })
 
