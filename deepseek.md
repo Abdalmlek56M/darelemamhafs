@@ -181,6 +181,7 @@
 15. **No blind rewrite.** Audit first, then Strangler.
 16. **Every step = docs + checkpoint.**
 17. **If a business decision is missing: stop and ask.** Do not invent.
+18. **PROCESS SAFETY — ممنوع قتل العمليات بالاسم أو النمط.** يُمنع منعًا باتًا pkill وkillall وkill -f وأي أمر يقتل عمليات بالاسم/النمط/المسار. لإيقاف خدمة إنتاج استخدم systemctl stop <service> فقط. لإيقاف عملية اختبار: اعرض PID وتأكد منه أولًا، ثم kill <PID> فقط. لا تستخدم نمطًا عامًا قد يطابق عمليات الإنتاج أبدًا.
 
 ---
 
