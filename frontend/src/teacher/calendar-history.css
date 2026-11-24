@@ -48,3 +48,7 @@
   .t-connectivity-banner { flex-wrap: wrap; gap: 5px; }
   .t-connectivity-banner .t-outbox-error { max-width: 100%; }
 }
+
+.t-connectivity-banner .t-outbox-legacy { color: #f0d59c; font-weight: 700; }
+.t-connectivity-banner .t-outbox-claim { border: 1px solid rgba(240, 213, 156, .55); background: rgba(240, 213, 156, .2); color: #f0d59c; border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 10px; cursor: pointer; min-height: 26px; }
+.t-connectivity-banner .t-outbox-claim:hover { background: rgba(240, 213, 156, .3); }

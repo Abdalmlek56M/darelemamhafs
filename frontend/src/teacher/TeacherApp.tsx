@@ -402,13 +402,17 @@ export default function TeacherApp({ mode }: Props) {
   }
 
   return (
-    <div className={`teacher-app teacher-shell ${page === 'supervisor' ? 'is-supervisor' : ''} ${(!outbox.online || outbox.pending > 0) ? 'has-connectivity' : ''}`}>
-      {(!outbox.online || outbox.pending > 0) && (
+    <div className={`teacher-app teacher-shell ${page === 'supervisor' ? 'is-supervisor' : ''} ${(!outbox.online || outbox.pending > 0 || outbox.legacy > 0) ? 'has-connectivity' : ''}`}>
+      {(!outbox.online || outbox.pending > 0 || outbox.legacy > 0) && (
         <div className={`t-connectivity-banner ${outbox.online ? 'is-pending' : 'is-offline'}`} role="status">
           {outbox.online ? <CloudUpload size={14} /> : <WifiOff size={14} />}
           <span>{outbox.online ? `${outbox.pending} تسجيل حضور بانتظار الإرسال.` : 'لا يوجد اتصال. الحضور الذي تسجله سيُحفظ على الجهاز ويُرسل تلقائيًا.'}</span>
-          {outbox.needsReview > 0 && <span className="t-outbox-warn">`${outbox.needsReview} تسجيل بحاجة لمراجعة يدوية.`</span>}
+          {outbox.legacy > 0 && <span className="t-outbox-legacy">{outbox.legacy} تسجيل حضور قديم بحاجة للنقل إلى حسابك.</span>}
+          {outbox.needsReview > 0 && <span className="t-outbox-warn">{outbox.needsReview} تسجيل بحاجة لمراجعة يدوية.</span>}
           {outbox.lastError && <span className="t-outbox-error">{outbox.lastError}</span>}
+          {outbox.online && outbox.legacy > 0 && (
+            <button type="button" className="t-outbox-claim" onClick={() => void outbox.claimLegacy()}>نقل إلى حسابي</button>
+          )}
           {outbox.online && outbox.pending > 0 && (
             <button type="button" className="t-outbox-retry" onClick={() => void outbox.retryAll()}>إعادة المحاولة</button>
           )}

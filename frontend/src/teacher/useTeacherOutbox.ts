@@ -5,7 +5,9 @@ import {
   classifyOutboxFailure,
 } from './outboxPolicy'
 import {
+  claimLegacyAttendance,
   clearNeedsReview,
+  listLegacyAttendance,
   listQueuedAttendance,
   queueAttendance,
   recordQueuedFailure,
@@ -24,6 +26,7 @@ export function useTeacherOutbox(session: TeacherSession | null) {
   const [online, setOnline] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine)
   const [pending, setPending] = useState(0)
   const [needsReview, setNeedsReview] = useState(0)
+  const [legacy, setLegacy] = useState(0)
   const [lastError, setLastError] = useState<string | null>(null)
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const flushRef = useRef<(force?: boolean) => Promise<void>>(async () => {})
@@ -33,6 +36,8 @@ export function useTeacherOutbox(session: TeacherSession | null) {
   }, [])
 
   const refresh = useCallback(async () => {
+    // Legacy v1 rows are shown even before a user is selected; they are never auto-sent.
+    try { setLegacy((await listLegacyAttendance()).length) } catch { setLegacy(0) }
     if (!userId) { setPending(0); setNeedsReview(0); setLastError(null); return }
     try {
       const items = await listQueuedAttendance(userId)
@@ -109,5 +114,12 @@ export function useTeacherOutbox(session: TeacherSession | null) {
     await flush(true)
   }, [userId, flush])
 
-  return { online, pending, needsReview, lastError, enqueue, flush, retryAll }
+  const claimLegacy = useCallback(async () => {
+    if (!userId) return
+    const claimed = await claimLegacyAttendance(userId).catch(() => 0)
+    await refresh()
+    if (claimed > 0) await flush(true)
+  }, [userId, refresh, flush])
+
+  return { online, pending, needsReview, legacy, lastError, enqueue, flush, retryAll, claimLegacy }
 }
