@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { BookOpen, KeyRound, Trash2, UserRound } from 'lucide-react'
+import TurnstileWidget, { type TurnstileStatus } from '../security/TurnstileWidget'
 
 type Props = {
   busy: boolean
   error: string | null
-  onLogin: (username: string, password: string, rememberMe: boolean) => Promise<void>
+  onLogin: (username: string, password: string, rememberMe: boolean, turnstileToken?: string) => Promise<void>
 }
 
 type SavedProfile = {
@@ -37,6 +38,10 @@ export default function TeacherLogin({ busy, error, onLogin }: Props) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const [turnstile, setTurnstile] = useState<TurnstileStatus>({ enabled: false, ready: false, error: null })
+  const [turnstileNotice, setTurnstileNotice] = useState<string | null>(null)
+  const [turnstileReset, setTurnstileReset] = useState(0)
 
   useEffect(() => {
     const saved = readProfiles()
@@ -48,9 +53,21 @@ export default function TeacherLogin({ busy, error, onLogin }: Props) {
     } catch { /* ignoring storage errors */ }
   }, [])
 
+  useEffect(() => {
+    if (!error) return
+    setTurnstileReset(value => value + 1)
+    setTurnstileToken(null)
+    setTurnstileNotice(null)
+  }, [error])
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    await onLogin(username.trim(), password, rememberMe)
+    if (turnstile.enabled && (!turnstile.ready || !turnstileToken)) {
+      setTurnstileNotice('أكمل التحقق الأمني أولًا ثم أعد المحاولة.')
+      return
+    }
+    setTurnstileNotice(null)
+    await onLogin(username.trim(), password, rememberMe, turnstileToken ?? undefined)
   }
 
   const chooseProfile = (profile: SavedProfile) => {
@@ -143,6 +160,8 @@ export default function TeacherLogin({ busy, error, onLogin }: Props) {
             <input type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} />
             تذكّرني على هذا الجهاز
           </label>
+          <TurnstileWidget configUrl="/api/v1/auth/config" resetSignal={turnstileReset} onToken={setTurnstileToken} onStatus={status=>{ setTurnstile(status); if (!status.enabled) setTurnstileNotice(null) }} />
+          {(turnstileNotice || turnstile.error) && <p className="t-error" role="alert">{turnstileNotice ?? turnstile.error}</p>}
           {error && <p className="t-error">{error}</p>}
           <button className="t-primary" type="submit" disabled={busy}>
             <KeyRound size={18} />

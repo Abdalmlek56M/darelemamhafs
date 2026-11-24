@@ -15,6 +15,12 @@ using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// P1-1 Turnstile: fail fast if the feature is enabled without its server-side configuration.
+var turnstileSection = builder.Configuration.GetSection("Auth:Turnstile");
+if (turnstileSection.GetValue<bool>("Enabled")
+    && (string.IsNullOrWhiteSpace(turnstileSection["SiteKey"]) || string.IsNullOrWhiteSpace(turnstileSection["SecretKey"])))
+    throw new InvalidOperationException("Auth:Turnstile is enabled but SiteKey/SecretKey is missing. Set them in the server environment.");
+
 if (args.Contains("--migrate", StringComparer.OrdinalIgnoreCase))
 {
     Environment.ExitCode = await MigrationRunner.RunAsync(builder.Configuration);

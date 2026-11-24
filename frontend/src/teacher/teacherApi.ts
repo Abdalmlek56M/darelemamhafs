@@ -40,10 +40,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const teacherApi = {
   me: () => request<TeacherSession>('/api/v1/auth/me'),
-  login: (username: string, password: string, rememberMe: boolean) =>
+  login: (username: string, password: string, rememberMe: boolean, turnstileToken?: string) =>
     request<TeacherSession>('/api/v1/auth/password', {
       method: 'POST',
-      body: JSON.stringify({ username, password, rememberMe }),
+      body: JSON.stringify({ username, password, rememberMe, turnstileToken }),
     }),
   logout: () => request<{ success: boolean }>('/api/v1/auth/logout', { method: 'POST' }),
   changePassword: (currentPassword: string, newPassword: string) =>

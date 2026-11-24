@@ -5,13 +5,13 @@ using Dar.Modules.Identity.Infrastructure;
 
 namespace Dar.Modules.Identity.Features.PasswordSignIn;
 
-public sealed record PasswordSignInRequest(string Username, string Password, bool RememberMe = false);
+public sealed record PasswordSignInRequest(string Username, string Password, bool RememberMe = false, string? TurnstileToken = null);
 
 /// <summary>
 /// Temporary migration fallback for accounts that do not have an email yet.
 /// Remove this endpoint after every active user is on OTP/Google.
 /// </summary>
-public sealed class PasswordSignInHandler(IIdentityRepository repository)
+public sealed class PasswordSignInHandler(IIdentityRepository repository, TurnstileVerifier? turnstile = null)
 {
     // Random per process: no one can submit a known plaintext that verifies against it.
     private static readonly string DummyPasswordHash = PasswordHasher.Hash(
@@ -35,6 +35,17 @@ public sealed class PasswordSignInHandler(IIdentityRepository repository)
         {
             var retryAfter = (int)Math.Ceiling((lockedUntil - now).TotalSeconds);
             throw AppException.TooManyRequests(LoginLockoutPolicy.LockedMessage(retryAfter), retryAfter);
+        }
+
+        // Turnstile (when enabled) is checked before password verification. A rejected CAPTCHA
+        // never increments the lockout counter, so it cannot be used to lock other accounts.
+        if (turnstile is not null)
+        {
+            var check = await turnstile.VerifyAsync(request.TurnstileToken, httpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+            if (check == TurnstileCheck.Rejected)
+                throw new AppException("تعذّر التحقق الأمني. أعد تحميل الصفحة وحاول مرة أخرى.", 400);
+            if (check == TurnstileCheck.UnavailableRejected)
+                throw new AppException("خدمة التحقق الأمني غير متاحة حاليًا. حاول بعد قليل.", 503);
         }
 
         // A real password may only be used by an active, unlocked account that has a real hash.

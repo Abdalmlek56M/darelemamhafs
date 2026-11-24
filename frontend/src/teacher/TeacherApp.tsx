@@ -177,11 +177,11 @@ export default function TeacherApp({ mode }: Props) {
     if (page === 'subscriptions' && canSubscriptions) void loadSubscriptions()
   }, [page, session, canSubscriptions, loadNotifications, loadSubscriptions])
 
-  const login = async (username: string, password: string, rememberMe: boolean) => {
+  const login = async (username: string, password: string, rememberMe: boolean, turnstileToken?: string) => {
     setLoginBusy(true)
     setLoginError(null)
     try {
-      const signedIn = await teacherApi.login(username, password, rememberMe)
+      const signedIn = await teacherApi.login(username, password, rememberMe, turnstileToken)
       todayRequested.current = false
       notificationsRequested.current = false
       setSession(signedIn)

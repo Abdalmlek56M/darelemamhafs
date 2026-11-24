@@ -55,4 +55,4 @@ export type OperatingExpenseForm = { expenseDate: string; category: string; desc
 export type CircleProfitSummary = { circleId: string; circleName: string; billed: number; collected: number; advertising: number; teacherPay: number; linkedExpenses: number; uncharged: number; net: number }
 export type TeacherPaySummary = { teacherId: string; teacherName: string; sessions: number; hours: number; payable: number; avgHourlyRate: number }
 export type SetupCredentials = { username: string; displayName: string; password: string; confirmPassword: string }
-export type LoginCredentials = { username: string; password: string; rememberMe: boolean }
+export type LoginCredentials = { username: string; password: string; rememberMe: boolean; turnstileToken?: string }

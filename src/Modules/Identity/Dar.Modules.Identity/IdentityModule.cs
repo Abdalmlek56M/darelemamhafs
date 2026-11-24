@@ -44,6 +44,9 @@ public static class IdentityModule
                 : ActivatorUtilities.CreateInstance<SmtpEmailSender>(sp);
         });
 
+        services.AddHttpClient();
+        services.AddMemoryCache();
+        services.AddSingleton<TurnstileVerifier>();
         services.AddScoped<RequestEmailOtpHandler>();
         services.AddScoped<VerifyEmailOtpHandler>();
         services.AddScoped<PasswordSignInHandler>();
@@ -178,6 +181,7 @@ public static class IdentityModule
     {
         var group = app.MapGroup("/api/v1/auth").WithTags("identity");
 
+        group.MapTurnstileConfig();
         group.MapRequestEmailOtp();
         group.MapVerifyEmailOtp();
         group.MapPasswordSignIn();

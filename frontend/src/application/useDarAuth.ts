@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import type { Branding, Gate, HistoryData, Notice, Page, Session, Student } from '../domain/types'
+import type { Branding, Gate, HistoryData, LoginCredentials, Notice, Page, Session, Student } from '../domain/types'
 import { saveDesktopCredential } from '../services/desktopCredentialBridge'
 import { request } from '../services/apiClient'
 
@@ -38,7 +38,7 @@ export default function useDarAuth({
   onSessionCleared,
 }: DarAuthOptions) {
   const [setup, setSetup] = useState({ username: 'admin', displayName: 'مدير الدار', password: '', confirmPassword: '' })
-  const [login, setLogin] = useState({ username: '', password: '', rememberMe: false })
+  const [login, setLogin] = useState<LoginCredentials>({ username: '', password: '', rememberMe: false })
 
   useEffect(() => {
     let mounted = true
@@ -91,7 +91,7 @@ export default function useDarAuth({
     } finally { setSaving(false) }
   }
 
-  const loginWithCredentials = async (credentials: { username: string; password: string; rememberMe: boolean }) => {
+  const loginWithCredentials = async (credentials: LoginCredentials) => {
     setSaving(true)
     try {
       const signedIn = await request<Session>('/api/auth/login', { method: 'POST', body: JSON.stringify(credentials) })
@@ -122,7 +122,7 @@ export default function useDarAuth({
   }
 
   const doLogin = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); await loginWithCredentials(login) }
-  const quickLogin = async (credentials: { username: string; password: string; rememberMe: boolean }) => loginWithCredentials({ ...credentials, rememberMe: true })
+  const quickLogin = async (credentials: LoginCredentials) => loginWithCredentials({ ...credentials, rememberMe: true })
   const logout = async () => {
     try { await request('/api/auth/logout', { method: 'POST' }) } catch { /* local state is still cleared */ }
     setSession(null)

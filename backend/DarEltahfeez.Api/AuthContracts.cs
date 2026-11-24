@@ -1,7 +1,7 @@
 namespace DarEltahfeez.Api;
 
 public sealed record InitialAdminRequest(string Username, string DisplayName, string Password);
-public sealed record LoginRequest(string Username, string Password, bool RememberMe = false);
+public sealed record LoginRequest(string Username, string Password, bool RememberMe = false, string? TurnstileToken = null);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record UserSessionResponse(Guid Id, string Username, string DisplayName, string[] PermissionCodes);
 public sealed record PermissionResponse(string Code, string NameAr);

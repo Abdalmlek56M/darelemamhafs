@@ -154,7 +154,10 @@ public static partial class AuthEndpoints
             }
         }).RequireRateLimiting("auth");
 
-        app.MapPost("/api/auth/login", async Task<IResult> (LoginRequest request, HttpContext context, NpgsqlDataSource db, CancellationToken ct) =>
+        app.MapGet("/api/auth/config", (TurnstileVerifier turnstile) =>
+            Results.Ok(new { enabled = turnstile.Enabled, siteKey = turnstile.Enabled ? turnstile.SiteKey : null }));
+
+        app.MapPost("/api/auth/login", async Task<IResult> (LoginRequest request, HttpContext context, NpgsqlDataSource db, TurnstileVerifier turnstile, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrEmpty(request.Password))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["credentials"] = ["اكتب اسم المستخدم وكلمة المرور."] });
@@ -203,6 +206,14 @@ public static partial class AuthEndpoints
                 await TryAuditLoginAsync(db, id, displayName, "auth.login.locked", request.Username, ct);
                 return Results.Json(new { message = LoginLockoutPolicy.LockedMessage(retryAfter) }, statusCode: StatusCodes.Status429TooManyRequests);
             }
+
+            // Turnstile (when enabled) is checked before password verification and never
+            // increments the lockout counter, so a CAPTCHA failure cannot lock an account.
+            var turnstileCheck = await turnstile.VerifyAsync(request.TurnstileToken, context.Connection.RemoteIpAddress?.ToString(), ct);
+            if (turnstileCheck == TurnstileCheck.Rejected)
+                return Results.Json(new { message = "تعذّر التحقق الأمني. أعد تحميل الصفحة وحاول مرة أخرى." }, statusCode: StatusCodes.Status400BadRequest);
+            if (turnstileCheck == TurnstileCheck.UnavailableRejected)
+                return Results.Json(new { message = "خدمة التحقق الأمني غير متاحة حاليًا. حاول بعد قليل." }, statusCode: StatusCodes.Status503ServiceUnavailable);
 
             // Only an active, unlocked account with a real password may authenticate.
             // Unknown, OTP-only, disabled and manually locked accounts always take the failure path
