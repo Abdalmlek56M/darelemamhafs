@@ -228,3 +228,8 @@
 - حوار إلحاق الطلاب بالحلقة أصبح يدعم: بحث، تحديد الكل/إلغاء، **رسوم متفق عليها لكل طالب** (افتراضي = سعر الحلقة)، سعر موحّد يُطبّق على المحددين، وإجمالي شهري.
 - الـAPI: `POST /api/circle-enrollments/bulk` يقبل `students: [{studentId, agreedMonthlyFee}]` (مع توافق خلفي مع `studentIds`)، يتحقق من صلاحية `finance.edit` عند تمرير رسوم، يطبّق المعاملة ذريًا (jsonb_to_recordset + partial unique index)، ويسجل `feesSet` في الـaudit.
 - build: legacy 0W/0E + tsc 0 errors. يحتاج نشر عبر `deploy/update.sh` (بدون migration).
+
+### 24 Nov 2026 02:05 — نشر إلحاق الطلاب الجماعي على الإنتاج (يدوي عبر SSH)
+- تم بناء نسخة الإنتاج يدويًا: clone من `/opt/dar` + تطبيق الملفات الثلاثة المعدّلة، ثم `npm run build` + `dotnet publish -c Release`، ثم نسخ DB backup إلى `/var/lib/dar/backups/db/predeploy-20261124-020527.dump`، وتبديل `/opt/dar/app/legacy` مع الاحتفاظ بـ`legacy.old.20261124-020527` للرجوع.
+- الدليل: smoke محلي `/health/ready` و`/` و`/management` = 200، `POST /api/circle-enrollments/bulk` عبر أصل مطابق = 401 (route موجودة)، marker `bulk-fee-toolbar` في bundle، والموقع العام (https) = 200 للصفحات الثلاث. الخدمة active.
+- ملاحظة مهمة: نسخة git في `/opt/dar` لم تتغير؛ الـcommit `3b11e46` يجب دفعه إلى origin ثم `deploy/update.sh` حتى لا تفقد التغيير في أول نشر قادم.
