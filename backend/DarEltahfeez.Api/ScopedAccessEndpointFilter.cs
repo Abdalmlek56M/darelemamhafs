@@ -130,8 +130,8 @@ public sealed class ScopedAccessEndpointFilter : IEndpointFilter
             "teacher-note" => "SELECT teacher_id,NULL::uuid FROM teacher_notes WHERE id=@id;",
             "advertising-expense" => "SELECT c.teacher_id,c.id FROM advertising_expenses a JOIN circles c ON c.id=a.circle_id WHERE a.id=@id;",
             "operating-expense" => "SELECT c.teacher_id,c.id FROM operating_expenses e JOIN circles c ON c.id=e.circle_id WHERE e.id=@id;",
-            "circle" => "SELECT teacher_id,id FROM circles WHERE id=@id;",
-            "teacher" => "SELECT id,NULL::uuid FROM teachers WHERE id=@id;",
+            "circle" or "circles" => "SELECT teacher_id,id FROM circles WHERE id=@id;",
+            "teacher" or "teachers" => "SELECT id,NULL::uuid FROM teachers WHERE id=@id;",
             _ => null
         };
         if (sql is null) return ScopeTarget.UnlinkedTarget;
