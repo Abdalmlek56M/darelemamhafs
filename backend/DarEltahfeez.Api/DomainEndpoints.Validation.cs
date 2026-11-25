@@ -12,7 +12,8 @@ public static partial class DomainEndpoints
         var e=new Dictionary<string,string[]>();if(string.IsNullOrWhiteSpace(r.FullName)||r.FullName.Trim().Length>180)e["fullName"]=["اسم الطالب مطلوب وبحد أقصى 180 حرفًا."];
         if(r.StudentCode?.Trim().Length>40)e["studentCode"]=["كود الطالب يجب ألا يتجاوز 40 حرفًا."];
         if(r.AgeYears is <0 or >120)e["ageYears"]=["العمر يجب أن يكون بين صفر و120 سنة."];
-        if(r.Phone?.Trim().Length>40||r.GuardianPhone?.Trim().Length>40)e["phone"]=["رقم الهاتف يجب ألا يتجاوز 40 حرفًا."];
+        if(HasInvalidPhoneChars(r.Phone))e["phone"]=["رقم الهاتف يجب أن يحتوي أرقامًا فقط مع الرموز + - ( ) والمسافات، بحد أقصى 40 حرفًا."];
+        if(HasInvalidPhoneChars(r.GuardianPhone))e["guardianPhone"]=["هاتف ولي الأمر يجب أن يحتوي أرقامًا فقط مع الرموز + - ( ) والمسافات، بحد أقصى 40 حرفًا."];
         if(r.GuardianName?.Trim().Length>180)e["guardianName"]=["اسم ولي الأمر طويل جدًا."];
         if(r.Notes?.Length>10000)e["notes"]=["الملاحظات طويلة جدًا."];
         string[] statuses=["active","paused","withdrawn","archived"];if(!statuses.Contains(r.Status,StringComparer.Ordinal))e["status"]=["اختر حالة صحيحة للطالب."];
@@ -24,7 +25,7 @@ public static partial class DomainEndpoints
         var e=new Dictionary<string,string[]>();if(string.IsNullOrWhiteSpace(r.FullName)||r.FullName.Trim().Length>180)e["fullName"]=["اسم المعلمة مطلوب وبحد أقصى 180 حرفًا."];
         if(r.TeacherCode?.Trim().Length>40)e["teacherCode"]=["كود المعلمة طويل جدًا."];
         if(r.HourlyRate is < 0)e["hourlyRate"]=["أجر الساعة لا يمكن أن يكون سالبًا."];
-        if(r.Phone?.Trim().Length>40)e["phone"]=["رقم الهاتف طويل جدًا."];
+        if(HasInvalidPhoneChars(r.Phone))e["phone"]=["رقم الهاتف يجب أن يحتوي أرقامًا فقط مع الرموز + - ( ) والمسافات، بحد أقصى 40 حرفًا."];
         if(!new[]{"active","inactive","archived"}.Contains(r.Status,StringComparer.Ordinal))e["status"]=["حالة المعلمة غير صحيحة."];
         return e.Count==0?null:e;
     }
@@ -36,6 +37,12 @@ public static partial class DomainEndpoints
         if(r.ScheduleText?.Length>300)e["scheduleText"]=["وصف المواعيد يجب ألا يتجاوز 300 حرف."];
         if(r.StartsOn==default)e["startsOn"]=["حدد تاريخ بدء الحلقة الفعلي."];
         return e.Count==0?null:e;
+    }
+
+    private static bool HasInvalidPhoneChars(string? value)
+    {
+        var trimmed = value?.Trim() ?? string.Empty;
+        return trimmed.Length > 40 || trimmed.Any(ch => !(char.IsAsciiDigit(ch) || ch is '+' or ' ' or '-' or '(' or ')'));
     }
 
     private static void AddStudentParams(NpgsqlCommand cmd,StudentWriteRequest r,string code)

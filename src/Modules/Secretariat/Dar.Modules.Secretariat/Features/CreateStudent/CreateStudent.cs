@@ -65,14 +65,14 @@ public sealed class CreateStudentHandler(IStudentRepository repository)
         if (request.AgeYears is < 0 or > 120)
             errors["ageYears"] = ["العمر يجب أن يكون بين صفر و120 سنة."];
 
-        if (request.Phone?.Trim().Length > 40)
-            errors["phone"] = ["رقم الهاتف يجب ألا يتجاوز 40 حرفًا."];
+        if (HasInvalidPhoneChars(request.Phone))
+            errors["phone"] = ["رقم الهاتف يجب أن يحتوي أرقامًا فقط مع الرموز + - ( ) والمسافات، بحد أقصى 40 حرفًا."];
 
         if (request.GuardianName?.Trim().Length > 180)
             errors["guardianName"] = ["اسم ولي الأمر يجب ألا يتجاوز 180 حرفًا."];
 
-        if (request.GuardianPhone?.Trim().Length > 40)
-            errors["guardianPhone"] = ["هاتف ولي الأمر يجب ألا يتجاوز 40 حرفًا."];
+        if (HasInvalidPhoneChars(request.GuardianPhone))
+            errors["guardianPhone"] = ["هاتف ولي الأمر يجب أن يحتوي أرقامًا فقط مع الرموز + - ( ) والمسافات، بحد أقصى 40 حرفًا."];
 
         if (!StudentStatuses.IsValid(request.Status))
             errors["status"] = ["حالة الطالبة غير صحيحة."];
@@ -81,6 +81,12 @@ public sealed class CreateStudentHandler(IStudentRepository repository)
             errors["notes"] = ["الملاحظات يجب ألا تتجاوز 10,000 حرف."];
 
         return errors.Count == 0 ? null : errors;
+    }
+
+    private static bool HasInvalidPhoneChars(string? value)
+    {
+        var trimmed = value?.Trim() ?? string.Empty;
+        return trimmed.Length > 40 || trimmed.Any(ch => !(char.IsAsciiDigit(ch) || ch is '+' or ' ' or '-' or '(' or ')'));
     }
 
     private static string? Normalize(string? value) =>
