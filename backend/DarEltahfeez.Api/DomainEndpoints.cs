@@ -92,7 +92,7 @@ public sealed record CollectionRow(Guid EnrollmentId,Guid? ChargeId,Guid Student
 {
     public decimal Balance=>Math.Max(0,AmountDue-PaidAmount);
 }
-public sealed record PaymentHistory(Guid Id,decimal Amount,DateTimeOffset PaidAt,string? Method,string? Reference,string? Note,bool HasReceipt,DateTimeOffset? VoidedAt=null,string? VoidReason=null);
+public sealed record PaymentHistory(Guid Id,decimal Amount,DateTimeOffset PaidAt,string? Method,string? Reference,string? Note,bool HasReceipt,DateTimeOffset? VoidedAt=null,string? VoidReason=null,string? VoidBlockedReason=null);
 public sealed class ChargeHistoryBuilder(Guid id,DateOnly billingMonth,decimal amountDue,string? note,string circleName,DateTimeOffset? voidedAt=null,string? voidReason=null)
 {
     public Guid Id {get;}=id; public DateOnly BillingMonth {get;}=billingMonth; public decimal AmountDue {get;}=amountDue; public string? Note {get;}=note; public string CircleName {get;}=circleName;

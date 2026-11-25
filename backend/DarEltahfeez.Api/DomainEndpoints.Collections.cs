@@ -283,6 +283,7 @@ public static partial class DomainEndpoints
                 {
                     1 => Results.NotFound(new { message = "حركة التحصيل غير موجودة أو موجودة في سلة المهملات." }),
                     2 => Results.Conflict(new { message = "حركة التحصيل ملغاة بالفعل." }),
+                    5 => Results.Conflict(new { message = "لا يمكن إلغاء الدفعة لأن فترة اشتراك الطالب انتهت أو الاشتراك غير نشط. لن يتغير أي سجل مالي." }),
                     _ => Results.ValidationProblem(new Dictionary<string, string[]> { ["reason"] = ["سبب الإلغاء مطلوب وبين 3 و500 حرف."] })
                 };
             }
