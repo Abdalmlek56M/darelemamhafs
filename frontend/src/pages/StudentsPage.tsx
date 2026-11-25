@@ -69,11 +69,11 @@ export default function StudentsPage({ ctx }: Props) {
     <div className="student-filters glass">
       <label className="search-field">
         <Search size={17}/>
-        <input value={ctx.query} onChange={(event) => ctx.setQuery(event.target.value)} placeholder="ابحث بالاسم أو الكود أو الهاتف أو الحلقة…"/>
+        <input value={ctx.query} onChange={(event) => { ctx.setQuery(event.target.value); setPage(1) }} placeholder="ابحث بالاسم أو الكود أو الهاتف أو الحلقة…"/>
       </label>
       <div className="status-filters">
         {([{ value: 'all', label: 'الكل' }, { value: 'active', label: 'نشط' }, { value: 'paused', label: 'متوقف' }, { value: 'withdrawn', label: 'منسحب' }, { value: 'archived', label: 'مؤرشف' }] as const).map((filter) =>
-          <button key={filter.value} className={ctx.statusFilter === filter.value ? 'filter-chip selected' : 'filter-chip'} onClick={() => ctx.setStatusFilter(filter.value)}>{filter.label}</button>)}
+          <button key={filter.value} className={ctx.statusFilter === filter.value ? 'filter-chip selected' : 'filter-chip'} onClick={() => { ctx.setStatusFilter(filter.value); setPage(1) }}>{filter.label}</button>)}
       </div>
     </div>
     <div className="table-card glass">

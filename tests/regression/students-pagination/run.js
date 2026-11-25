@@ -97,6 +97,22 @@ function psql(sqlText) {
     }
     text = await pageText();
     if (!text.includes('صفحة 12 من 12')) throw new Error('last page expected 12');
+
+    // P2-2: searching from a late page must search the whole filtered list and reset to page 1.
+    await search.fill('ZZ-P16-S-0001');
+    await page.waitForTimeout(500);
+    if (await rowCount() !== 1 || !(await pageText()).includes('1 سجل')) throw new Error('late-page search did not reset/find the first-page record');
+    await search.fill('');
+    await page.waitForTimeout(500);
+    for (let i = 0; i < 11; i++) {
+      const next = page.getByRole('button', { name: 'الصفحة التالية' });
+      if (await next.isDisabled()) break;
+      await next.click();
+      await page.waitForTimeout(180);
+    }
+    text = await pageText();
+    if (!text.includes('صفحة 12 من 12')) throw new Error('last page not restored after late-page search');
+
     const deleteCount = 26;
     psql('DELETE FROM students WHERE id IN (SELECT id FROM students ORDER BY id LIMIT ' + deleteCount + ');');
     await page.getByRole('button', { name: 'تحديث كل القوائم' }).click();
@@ -105,7 +121,7 @@ function psql(sqlText) {
     if (!text.includes('صفحة 11 من 11 · 274 سجل')) throw new Error('page was not clamped after deletion: ' + text.includes('صفحة'));
     if (errors.length) throw new Error('console/page errors: ' + errors.join(' | ').slice(0, 500) + ' failed=' + failedResponses.join(','));
 
-    console.log(JSON.stringify({ ok: true, checks: 9, errors }, null, 2));
+    console.log(JSON.stringify({ ok: true, checks: 10, errors }, null, 2));
     console.log('P16_PASS');
   } catch (error) {
     let body = '';
