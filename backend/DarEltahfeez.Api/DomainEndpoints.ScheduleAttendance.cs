@@ -424,15 +424,14 @@ public static partial class DomainEndpoints
             }
             var isSubstitute = assignedTeacherId.HasValue && teacherId.Value != assignedTeacherId.Value;
             var note = isSubstitute ? $"بديلة عن {assignedTeacherName}" + (string.IsNullOrWhiteSpace(request.Note) ? string.Empty : $" · {request.Note.Trim()}") : request.Note?.Trim();
-            var effectiveHourlyRate = hourlyRate;
-            await using (var existing = new NpgsqlCommand("SELECT teacher_id,hourly_rate_snapshot FROM teacher_attendance WHERE schedule_slot_id=@slot AND session_date=@date FOR UPDATE;", conn, tx))
+            var effectiveHourlyRate = hourlyRate; Guid? existingTeacher = null; int existingDuration = 0; decimal existingRate = 0m; decimal conflictPayable = 0m;
+            await using (var existing = new NpgsqlCommand("SELECT teacher_id,hourly_rate_snapshot,duration_minutes FROM teacher_attendance WHERE schedule_slot_id=@slot AND session_date=@date FOR UPDATE;", conn, tx))
             {
                 existing.Parameters.AddWithValue("slot", request.ScheduleSlotId); existing.Parameters.AddWithValue("date", request.SessionDate);
                 await using var reader = await existing.ExecuteReaderAsync(ct);
-                if (await reader.ReadAsync(ct) && reader.GetGuid(0) == teacherId.Value)
-                    effectiveHourlyRate = reader.GetDecimal(1);
+                if (await reader.ReadAsync(ct)) { existingTeacher = reader.GetGuid(0); existingRate = reader.GetDecimal(1); existingDuration = reader.GetInt32(2); if (existingTeacher == teacherId.Value) effectiveHourlyRate = existingRate; }
             }
-            decimal payable = 0m;
+            decimal payable = 0m; if (existingDuration > 0) MoneyRules.TryCalculateTeacherPayableAmount(existingTeacher == teacherId.Value ? existingRate : hourlyRate, existingDuration, out conflictPayable);
             if (request.Status == "present" && !MoneyRules.TryCalculateTeacherPayableAmount(effectiveHourlyRate, duration, out payable))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["teacherId"] = ["المستحق المحسوب من Snapshot أجر الساعة لهذه الحصة يتجاوز الحد المالي المسموح."] });
             await using var cmd = new NpgsqlCommand("""
@@ -449,17 +448,12 @@ public static partial class DomainEndpoints
                     -- must not silently reset payroll to the scheduled slot length.
                     duration_minutes=teacher_attendance.duration_minutes,status=EXCLUDED.status,note=EXCLUDED.note,
                     marked_by=EXCLUDED.marked_by,marked_at=now(),
-                    payable_amount=CASE WHEN EXCLUDED.status='present' THEN
-                        teacher_attendance.duration_minutes * CASE
-                            WHEN teacher_attendance.teacher_id IS DISTINCT FROM EXCLUDED.teacher_id THEN EXCLUDED.hourly_rate_snapshot
-                            ELSE teacher_attendance.hourly_rate_snapshot
-                        END / 60.0
-                    ELSE 0 END
+                    payable_amount=CASE WHEN EXCLUDED.status='present' THEN @conflictPayable ELSE 0 END
                 RETURNING id,payable_amount,hourly_rate_snapshot;
                 """, conn, tx);
             cmd.Parameters.AddWithValue("slot", request.ScheduleSlotId); cmd.Parameters.AddWithValue("circle", circleId); cmd.Parameters.AddWithValue("teacher", teacherId.Value);
             cmd.Parameters.AddWithValue("date", request.SessionDate); cmd.Parameters.AddWithValue("start", startsAt); cmd.Parameters.AddWithValue("duration", duration);
-            cmd.Parameters.AddWithValue("status", request.Status); cmd.Parameters.AddWithValue("rate", hourlyRate); cmd.Parameters.AddWithValue("payable", payable); AddNullable(cmd, "note", note); cmd.Parameters.AddWithValue("actor", ActorId(principal));
+            cmd.Parameters.AddWithValue("status", request.Status); cmd.Parameters.AddWithValue("rate", hourlyRate); cmd.Parameters.AddWithValue("payable", payable); cmd.Parameters.AddWithValue("conflictPayable", conflictPayable); AddNullable(cmd, "note", note); cmd.Parameters.AddWithValue("actor", ActorId(principal));
             Guid savedId; decimal savedPayable; decimal savedRate;
             await using (var saved = await cmd.ExecuteReaderAsync(ct))
             {
