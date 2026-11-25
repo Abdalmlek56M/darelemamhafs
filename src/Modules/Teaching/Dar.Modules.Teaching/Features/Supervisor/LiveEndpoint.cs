@@ -31,6 +31,7 @@ public static class LiveEndpoint
         var now = DateTimeOffset.UtcNow;
         var rows = new List<LiveRow>();
         await using var connection = await dataSource.OpenConnectionAsync(ct);
+        var scope = await SupervisionScope.LoadAsync(connection, principal, ct);
         await using var command = new NpgsqlCommand("""
             SELECT ts.id, c.name, t.full_name, ts.session_date, ss.starts_at, ts.scheduled_duration_minutes,
                    ts.started_at, ts.ended_at, ts.status, ts.actual_duration_minutes,
@@ -44,9 +45,10 @@ public static class LiveEndpoint
             JOIN circle_schedule_slots ss ON ss.id = ts.schedule_slot_id
             LEFT JOIN teacher_attendance ta ON ta.teacher_session_id = ts.id AND ta.is_trashed = FALSE
             WHERE ts.session_date = @date AND ts.status IN ('in_progress', 'awaiting_attendance')
+              AND (@all OR c.id = ANY(@circles))
             ORDER BY ts.started_at;
             """, connection);
-        command.Parameters.AddWithValue("date", date);
+        command.Parameters.AddWithValue("date", date); command.Parameters.AddWithValue("all", scope.All); command.Parameters.AddWithValue("circles", scope.CircleIds);
         await using (var reader = await command.ExecuteReaderAsync(ct))
         {
             while (await reader.ReadAsync(ct))

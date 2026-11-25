@@ -54,7 +54,7 @@ public static partial class SystemAdminEndpoints
                 }
             }
             return Results.Ok(new { count = rows.Count, requests = rows });
-        }).RequireAuthorization("attendance.edit");
+        }).RequireAuthorization("attendance.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPost("/api/admin/requests/{id:guid}/review", async Task<IResult> (Guid id, AdminReviewRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -295,7 +295,7 @@ public static partial class SystemAdminEndpoints
                 JsonSerializer.Serialize(new { approved = request.Approve, note, type }), id, ct);
             await transaction.CommitAsync(ct);
             return Results.Ok(new { id, status = nextStatus });
-        }).RequireAuthorization("attendance.edit");
+        }).RequireAuthorization("attendance.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPost("/api/admin/requests/{id:guid}/reopen", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -356,7 +356,7 @@ public static partial class SystemAdminEndpoints
                 "request.reopen", "attendance_request", id, JsonSerializer.Serialize(new { status }), id, ct);
             await transaction.CommitAsync(ct);
             return Results.Ok(new { id, status = "pending" });
-        }).RequireAuthorization("users.manage");
+        }).RequireAuthorization("users.manage").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPut("/api/admin/requests/{id:guid}", async Task<IResult> (Guid id, AdminRequestEditRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -396,7 +396,7 @@ public static partial class SystemAdminEndpoints
                 "request.update", "attendance_request", id, JsonSerializer.Serialize(new { reason = request.Reason.Trim(), date = request.Date }), id, ct);
             await transaction.CommitAsync(ct);
             return Results.Ok(new { id, status = "pending" });
-        }).RequireAuthorization("attendance.edit");
+        }).RequireAuthorization("attendance.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPost("/api/admin/requests/{id:guid}/delete", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -437,7 +437,7 @@ public static partial class SystemAdminEndpoints
                 "request.delete", "attendance_request", id, JsonSerializer.Serialize(new { previousStatus = status }), id, ct);
             await transaction.CommitAsync(ct);
             return Results.Ok(new { id, deleted = true });
-        }).RequireAuthorization("users.manage");
+        }).RequireAuthorization("users.manage").AddEndpointFilter<ScopedAccessEndpointFilter>();
     }
 
     private static async Task<string?> ReadAttendanceEffectAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,

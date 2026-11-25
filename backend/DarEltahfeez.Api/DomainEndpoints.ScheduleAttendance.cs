@@ -209,7 +209,7 @@ public static partial class DomainEndpoints
               audit.Parameters.AddWithValue("actor", ActorId(principal)); audit.Parameters.AddWithValue("name", principal.FindFirstValue("display_name") ?? "حساب غير معروف"); audit.Parameters.AddWithValue("id", id); audit.Parameters.AddWithValue("duration", duration); audit.Parameters.AddWithValue("payable", payable); audit.Parameters.AddWithValue("before", before); audit.Parameters.AddWithValue("after", (object?)after ?? DBNull.Value); await audit.ExecuteNonQueryAsync(ct); }
             await tx.CommitAsync(ct);
             return Results.Ok(new { id=savedId, durationMinutes=duration, payableAmount=CanReadFinance(principal) ? payable : (decimal?)null, hourlyRateSnapshot=CanReadFinance(principal) ? rate : (decimal?)null, status });
-        }).RequireAuthorization("attendance.edit");
+        }).RequireAuthorization("attendance.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapGet("/api/student-attendance/roster", async Task<IResult> (Guid scheduleSlotId, DateOnly date, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -386,7 +386,7 @@ public static partial class DomainEndpoints
             await using(var audit=new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,actor_display_name,action_code,entity_type,entity_id,details,before_data,after_data,request_path,http_method,can_restore) VALUES(@actor,@name,@action,'student_attendance',@id,jsonb_build_object('status',@status,'sessionDate',@date,'historicalOverride',@allowHistorical),@before::jsonb,@after::jsonb,'/api/student-attendance','POST',FALSE);",conn,tx))
             {audit.Parameters.AddWithValue("actor",ActorId(principal));audit.Parameters.AddWithValue("name",principal.FindFirstValue("display_name")??"حساب غير معروف");audit.Parameters.AddWithValue("action",before is null?"student.attendance.create":"student.attendance.update");audit.Parameters.AddWithValue("id",id);audit.Parameters.AddWithValue("status",request.Status);audit.Parameters.AddWithValue("date",request.SessionDate);audit.Parameters.AddWithValue("allowHistorical",request.AllowHistoricalEntry);audit.Parameters.AddWithValue("before",(object?)before??DBNull.Value);audit.Parameters.AddWithValue("after",(object?)after??DBNull.Value);await audit.ExecuteNonQueryAsync(ct);}
             await tx.CommitAsync(ct);return Results.Ok(new{id,status=request.Status,sessionDate=request.SessionDate,enrollmentId=request.EnrollmentId,scheduleSlotId=request.ScheduleSlotId});
-        }).RequireAuthorization("attendance.edit");
+        }).RequireAuthorization("attendance.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPost("/api/teacher-attendance", async Task<IResult> (TeacherAttendanceMarkRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -431,7 +431,7 @@ public static partial class DomainEndpoints
                 await using var reader = await existing.ExecuteReaderAsync(ct);
                 if (await reader.ReadAsync(ct)) { existingTeacher = reader.GetGuid(0); existingRate = reader.GetDecimal(1); existingDuration = reader.GetInt32(2); if (existingTeacher == teacherId.Value) effectiveHourlyRate = existingRate; }
             }
-            decimal payable = 0m; if (existingDuration > 0) MoneyRules.TryCalculateTeacherPayableAmount(existingTeacher == teacherId.Value ? existingRate : hourlyRate, existingDuration, out conflictPayable);
+            decimal payable = 0m; if (existingDuration > 0 && !MoneyRules.TryCalculateTeacherPayableAmount(existingTeacher == teacherId.Value ? existingRate : hourlyRate, existingDuration, out conflictPayable)) return Results.ValidationProblem(new Dictionary<string, string[]> { ["teacherId"] = ["المستحق المحسوب من Snapshot أجر الساعة لهذه الحصة يتجاوز الحد المالي المسموح."] });
             if (request.Status == "present" && !MoneyRules.TryCalculateTeacherPayableAmount(effectiveHourlyRate, duration, out payable))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["teacherId"] = ["المستحق المحسوب من Snapshot أجر الساعة لهذه الحصة يتجاوز الحد المالي المسموح."] });
             await using var cmd = new NpgsqlCommand("""
@@ -462,6 +462,6 @@ public static partial class DomainEndpoints
             }
             await tx.CommitAsync(ct);
             return Results.Ok(new { id = savedId, payableAmount = CanReadFinance(principal) ? savedPayable : (decimal?)null, hourlyRateSnapshot = CanReadFinance(principal) ? savedRate : (decimal?)null, teacherId = teacherId.Value, teacherName = selectedTeacherName, isSubstitute, request.Status, request.SessionDate, request.ScheduleSlotId });
-        }).RequireAuthorization("attendance.edit");
+        }).RequireAuthorization("attendance.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
     }
 }

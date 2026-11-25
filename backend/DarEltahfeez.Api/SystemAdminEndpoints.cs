@@ -263,7 +263,7 @@ public static partial class SystemAdminEndpoints
             { log.Parameters.AddWithValue("actor", DbGuid(ActorId(principal))); log.Parameters.AddWithValue("name", principal.FindFirstValue("display_name") ?? ""); log.Parameters.AddWithValue("type", entity!); log.Parameters.AddWithValue("entityId", entityId.Value); log.Parameters.AddWithValue("source", id); log.Parameters.AddWithValue("before", NpgsqlDbType.Jsonb, beforeNow); log.Parameters.AddWithValue("after", NpgsqlDbType.Jsonb, snapshot); await log.ExecuteNonQueryAsync(ct); }
             await tx.CommitAsync(ct);
             return Results.Ok(new { restored = true, message = "تمت استعادة القيم السابقة. راجع السجل الجديد للتأكد." });
-        }).RequireAuthorization("audit.restore");
+        }).RequireAuthorization("audit.restore").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapGet("/api/admin/trash", async Task<IResult> (ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -274,9 +274,9 @@ public static partial class SystemAdminEndpoints
             return Results.Ok(rows);
         }).RequireAuthorization("trash.manage");
 
-        app.MapPost("/api/admin/trash", async Task<IResult> (TrashCreateRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await MoveToTrashAsync(request, principal, db, ct)).RequireAuthorization("trash.manage");
-        app.MapPost("/api/admin/trash/{id:guid}/restore", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await RestoreTrashAsync(id, principal, db, ct)).RequireAuthorization("trash.manage");
-        app.MapDelete("/api/admin/trash/{id:guid}", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await PurgeTrashAsync(id, principal, db, ct)).RequireAuthorization("trash.manage");
+        app.MapPost("/api/admin/trash", async Task<IResult> (TrashCreateRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await MoveToTrashAsync(request, principal, db, ct)).RequireAuthorization("trash.manage").AddEndpointFilter<ScopedAccessEndpointFilter>();
+        app.MapPost("/api/admin/trash/{id:guid}/restore", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await RestoreTrashAsync(id, principal, db, ct)).RequireAuthorization("trash.manage").AddEndpointFilter<ScopedAccessEndpointFilter>();
+        app.MapDelete("/api/admin/trash/{id:guid}", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await PurgeTrashAsync(id, principal, db, ct)).RequireAuthorization("trash.manage").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapGet("/api/admin/backups", async Task<IResult> (NpgsqlDataSource db, CancellationToken ct) =>
         {
