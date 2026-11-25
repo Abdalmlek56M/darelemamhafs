@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import type { Branding, Gate, HistoryData, LoginCredentials, Notice, Page, Session, Student } from '../domain/types'
 import { saveDesktopCredential } from '../services/desktopCredentialBridge'
 import { request } from '../services/apiClient'
+import { ApiError, loginErrorMessage } from '../lib/userMessages'
 
 type SelectedStudentPreview = { id: string; fullName: string; studentCode: string }
 
@@ -116,7 +117,10 @@ export default function useDarAuth({
       setToast({ tone: 'success', text: `أهلًا ${signedIn.displayName}. تم تسجيل الدخول.` })
       return true
     } catch (error) {
-      setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر تسجيل الدخول. راجع البيانات.' })
+      const message = error instanceof ApiError && error.status === 401
+        ? loginErrorMessage(401)
+        : error instanceof Error ? error.message : 'تعذر تسجيل الدخول. راجع البيانات.'
+      setToast({ tone: 'error', text: message })
       return false
     } finally { setSaving(false) }
   }

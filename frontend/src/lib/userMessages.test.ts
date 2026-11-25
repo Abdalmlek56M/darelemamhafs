@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ApiError, USER_MESSAGES, isArabicUserMessage, normalizeUserMessage } from './userMessages'
+import { ApiError, USER_MESSAGES, isArabicUserMessage, loginErrorMessage, normalizeUserMessage } from './userMessages'
 
 const technical = /HTTP\s*\d|Failed to fetch|Internal Server Error|Exception|stack trace|Npgsql|PostgreSQL|SQLSTATE/i
 
@@ -24,6 +24,11 @@ describe('central user messages', () => {
       expect(value).not.toMatch(technical)
       expect(value).toMatch(/[\u0600-\u06FF]/)
     }
+  })
+
+  it('uses invalid-credentials for login 401, while session 401 uses the session message', () => {
+    expect(loginErrorMessage(401)).toBe(USER_MESSAGES.invalid_credentials)
+    expect(USER_MESSAGES.unauthorized).not.toBe(USER_MESSAGES.invalid_credentials)
   })
 
   it('preserves the HTTP status on ApiError for retry/logout decisions', () => {

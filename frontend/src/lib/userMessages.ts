@@ -9,6 +9,7 @@ export type UserErrorCode =
   | 'rate_limited'
   | 'server'
   | 'unknown'
+  | 'invalid_credentials'
 
 export const USER_MESSAGES: Record<UserErrorCode, string> = {
   network: 'تعذر الاتصال بالخادم. تأكد من الإنترنت وحاول مرة أخرى.',
@@ -21,6 +22,7 @@ export const USER_MESSAGES: Record<UserErrorCode, string> = {
   rate_limited: 'محاولات كثيرة. انتظر دقيقة ثم حاول مرة أخرى.',
   server: 'حدث خطأ مؤقت في الخادم. لم يتم حفظ التغييرات، حاول بعد قليل.',
   unknown: 'تعذر إتمام العملية. حاول مرة أخرى.',
+  invalid_credentials: 'اسم المستخدم أو كلمة السر غير صحيحة.',
 }
 
 /** Errors that carry both the original HTTP status and a safe Arabic display message. */
@@ -67,4 +69,9 @@ export function userErrorCode(status?: number, message?: unknown): UserErrorCode
 export function normalizeUserMessage(message: unknown, status?: number): string {
   if (isArabicUserMessage(message)) return message.trim()
   return USER_MESSAGES[userErrorCode(status, message)]
+}
+
+/** Login 401 means bad credentials, not an expired session. */
+export function loginErrorMessage(status?: number): string {
+  return status === 401 ? USER_MESSAGES.invalid_credentials : USER_MESSAGES.unknown
 }

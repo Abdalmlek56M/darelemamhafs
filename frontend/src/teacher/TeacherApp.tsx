@@ -17,6 +17,7 @@ import TeacherAccount from './TeacherAccount'
 import TeacherRequests from './TeacherRequests'
 import SupervisorWorkspace from './SupervisorWorkspace'
 import TeacherNav from './TeacherNav'
+import { loginErrorMessage } from '../lib/userMessages'
 import { useTeacherOutbox } from './useTeacherOutbox'
 import './teacher.css'
 import './calendar-history.css'
@@ -201,7 +202,7 @@ export default function TeacherApp({ mode }: Props) {
       const supervisor = signedIn.permissionCodes.includes('supervisor.portal')
       setPage(mode === 'supervisor' && supervisor ? 'supervisor' : teacher ? 'home' : supervisor ? 'supervisor' : 'home')
     } catch (err) {
-      setLoginError(err instanceof TeacherApiError ? err.message : 'تعذر تسجيل الدخول.')
+      setLoginError(err instanceof TeacherApiError && err.status === 401 ? loginErrorMessage(401) : err instanceof TeacherApiError ? err.message : 'تعذر تسجيل الدخول.')
     } finally {
       setLoginBusy(false)
     }
