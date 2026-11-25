@@ -1,5 +1,5 @@
 /* Shell-only cache. API responses and authentication/data endpoints are never cached. */
-const CACHE = 'dar-shell-v0.8';
+const CACHE = 'dar-shell-__BUILD_ID__';
 const SHELL = ['/', '/teacher', '/manifest.webmanifest', '/manifest-teacher.webmanifest'];
 
 self.addEventListener('install', (event) => {

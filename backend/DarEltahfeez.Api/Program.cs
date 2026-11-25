@@ -192,6 +192,12 @@ app.Use(async (context, next) =>
         if (context.Request.IsHttps)
             context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
     }
+    else if (context.Request.Path.Equals("/sw.js", StringComparison.OrdinalIgnoreCase))
+    {
+        // The service worker must be revalidated on every navigation so a deploy can update it immediately.
+        context.Response.Headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate";
+        context.Response.Headers["Pragma"] = "no-cache";
+    }
     await next();
 });
 app.UseMiddleware<ManagementSecurityHeadersMiddleware>();
