@@ -201,6 +201,26 @@ app.Use(async (context, next) =>
     await next();
 });
 app.UseMiddleware<ManagementSecurityHeadersMiddleware>();
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (OperationCanceledException)
+    {
+        // Never turn client disconnects/cancellations into a generic server error.
+        throw;
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Unhandled exception for {Method} {Path}", context.Request.Method, context.Request.Path);
+        if (context.Response.HasStarted) throw;
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json; charset=utf-8";
+        await context.Response.WriteAsJsonAsync(new { message = "حدث خطأ مؤقت في الخادم. لم يتم حفظ التغييرات، حاول بعد قليل." });
+    }
+});
 // UI assets are static; all data still comes from permission-protected API endpoints.
 app.UseDefaultFiles();
 app.UseStaticFiles();

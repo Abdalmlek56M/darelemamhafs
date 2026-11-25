@@ -295,8 +295,16 @@ public static partial class SystemAdminEndpoints
                     null, JsonSerializer.Serialize(new { result.FileName, result.ScopeCodes, result.SizeBytes, result.CreatedAt }), "/api/admin/backups", "POST", false, ct);
                 return Results.Ok(result);
             }
-            catch (ArgumentException ex) { return Results.ValidationProblem(new Dictionary<string, string[]> { ["scopes"] = [ex.Message] }); }
-            catch (Exception ex) { return Results.Problem(title: "فشل إنشاء النسخة الاحتياطية", detail: ex.Message, statusCode: 500); }
+            catch (ArgumentException ex)
+            {
+                app.Logger.LogWarning(ex, "Invalid backup scopes request.");
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["scopes"] = ["نطاق النسخة الاحتياطية غير صالح. راجع الخيارات المحددة وحاول مرة أخرى."] });
+            }
+            catch (Exception ex)
+            {
+                app.Logger.LogError(ex, "Backup creation failed.");
+                return Results.Problem(title: "تعذر إنشاء النسخة الاحتياطية", detail: "حدث خطأ مؤقت في الخادم. حاول مرة أخرى.", statusCode: 500);
+            }
         }).RequireAuthorization("backup.manage");
 
         app.MapGet("/api/admin/backups/{id:guid}/download", async Task<IResult> (Guid id, NpgsqlDataSource db, CancellationToken ct) =>
@@ -313,7 +321,11 @@ public static partial class SystemAdminEndpoints
         {
             var financeVisible = CanReadFinance(principal);
             string[] tables; try { tables = SystemAdminService.TablesForExport((scopes ?? "all").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)); }
-            catch (ArgumentException ex) { return Results.BadRequest(new { message = ex.Message }); }
+            catch (ArgumentException ex)
+            {
+                app.Logger.LogWarning(ex, "Invalid export scopes request.");
+                return Results.BadRequest(new { message = "نطاق التصدير غير صالح. راجع الخيارات المحددة وحاول مرة أخرى." });
+            }
             if (entityId.HasValue && entityType is null) return Results.BadRequest(new { message = "حدد نوع السجل عند تصدير سجل بعينه." });
             if (entityType is not null && !new[] { "student", "teacher", "circle" }.Contains(entityType, StringComparer.Ordinal)) return Results.BadRequest(new { message = "نوع التصدير التفصيلي غير مدعوم." });
             if (entityType is not null) tables = SystemAdminService.TablesForEntityExport(entityType);

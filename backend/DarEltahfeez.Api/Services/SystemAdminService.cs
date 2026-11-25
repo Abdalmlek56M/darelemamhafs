@@ -296,7 +296,7 @@ public sealed class SystemAdminService(NpgsqlDataSource dataSource, ILogger<Syst
             try { if (manifestCreatedByThisRequest && File.Exists(filePath + ".json")) File.Delete(filePath + ".json"); } catch { /* best effort cleanup */ }
             try { if (archiveCreatedByThisRequest && File.Exists(filePath)) File.Delete(filePath); } catch { /* best effort cleanup */ }
             await using var fail = dataSource.CreateCommand("UPDATE system_backups SET status='failed',completed_at=now(),error_message=@error WHERE id=@id;");
-            fail.Parameters.AddWithValue("error", ex.Message.Length > 1500 ? ex.Message[..1500] : ex.Message); fail.Parameters.AddWithValue("id", id);
+            fail.Parameters.AddWithValue("error", "تعذر إكمال النسخة الاحتياطية. راجع لوج السيرفر للتفاصيل."); fail.Parameters.AddWithValue("id", id);
             await fail.ExecuteNonQueryAsync(CancellationToken.None);
             throw;
         }
