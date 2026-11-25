@@ -129,12 +129,12 @@ export default function PaymentsPage({ ctx }: Props) {
       <div className="panel-heading">
         <div>
           <span className="eyebrow">مصروفات تسويقية</span>
-          <h3>إعلانات كل حلقة</h3>
+          <h3>{ctx.editingAdExpenseId ? 'تعديل مصروف إعلان' : 'إعلانات كل حلقة'}</h3>
           <p className="muted-text">سجّل المنصة وعدد الأيام والتكلفة اليومية؛ يحسب النظام الإجمالي تلقائيًا ويربط الحملة بالحلقة.</p>
         </div>
         <span className="step-number"><Megaphone size={17}/></span>
       </div>
-      {ctx.has('finance.create') && <form onSubmit={ctx.saveAdExpense} className="form-grid ad-expense-form">
+      {(ctx.has('finance.create') || ctx.editingAdExpenseId) && <form onSubmit={ctx.saveAdExpense} className="form-grid ad-expense-form">
         <Field label="الحلقة *" wide><select required value={ctx.adExpenseForm.circleId} onChange={(event) => ctx.setAdExpenseForm((form) => ({ ...form, circleId: event.target.value }))}><option value="">اختَر الحلقة المستهدفة</option>{ctx.circles.map((circle) => <option key={circle.id} value={circle.id}>{circle.name}</option>)}</select></Field>
         <Field label="المنصة الإعلانية"><input maxLength={120} placeholder="Facebook / Instagram…" value={ctx.adExpenseForm.platform} onChange={(event) => ctx.setAdExpenseForm((form) => ({ ...form, platform: event.target.value }))}/></Field>
         <Field label="تاريخ بداية الإعلان *"><input type="date" required value={ctx.adExpenseForm.startDate} onChange={(event) => ctx.setAdExpenseForm((form) => ({ ...form, startDate: event.target.value }))}/></Field>
@@ -142,7 +142,7 @@ export default function PaymentsPage({ ctx }: Props) {
         <Field label="التكلفة في اليوم (ج.م) *"><input type="number" min="0" step="0.01" required value={ctx.adExpenseForm.dailyCost} onChange={(event) => ctx.setAdExpenseForm((form) => ({ ...form, dailyCost: event.target.value }))}/></Field>
         <Field label="الإجمالي التلقائي"><output className="calculated-amount">{money((Number(ctx.adExpenseForm.daysCount) || 0) * (Number(ctx.adExpenseForm.dailyCost) || 0))}</output></Field>
         <Field label="ملاحظات" wide><textarea rows={2} maxLength={5000} value={ctx.adExpenseForm.note} onChange={(event) => ctx.setAdExpenseForm((form) => ({ ...form, note: event.target.value }))}/></Field>
-        <div className="schedule-save-row"><button className="primary-button" type="submit" disabled={ctx.saving || !ctx.adExpenseForm.circleId}><Plus size={15}/> حفظ مصروف الإعلان</button></div>
+        <div className="schedule-save-row"><button className="primary-button" type="submit" disabled={ctx.saving || !ctx.adExpenseForm.circleId}><Plus size={15}/> {ctx.editingAdExpenseId ? 'حفظ التعديل' : 'حفظ مصروف الإعلان'}</button>{ctx.editingAdExpenseId && <button type="button" className="secondary-button" onClick={ctx.resetAdExpenseForm} disabled={ctx.saving}>إلغاء التعديل</button>}</div>
       </form>}
       {canReadFinance && <ResponsiveTable
         caption="إعلانات كل حلقة"
@@ -151,9 +151,10 @@ export default function PaymentsPage({ ctx }: Props) {
         columns={adColumns}
         rowKey={(ad) => ad.id}
         empty={<Empty icon={<Megaphone size={20}/>} title="لا توجد حملات إعلانية مسجلة" text="سجّل إعلانًا واربطه بالحلقة لمعرفة تكلفة التسويق لكل حلقة."/>}
-        actions={(ad) => ctx.has('finance.delete') && ctx.has('trash.manage')
-          ? <button className="small-icon-button danger-action" title="نقل إعلان إلى سلة المهملات" onClick={() => void ctx.deleteAdExpense(ad)}><Trash2 size={14}/></button>
-          : null}
+        actions={(ad) => <>
+          {ctx.has('finance.edit') && ctx.has('finance.read') && <button className="small-icon-button" title="تعديل الإعلان" aria-label={"تعديل إعلان " + ad.circleName} onClick={() => ctx.openAdExpenseEdit(ad)}><Pencil size={14}/></button>}
+          {ctx.has('finance.delete') && ctx.has('trash.manage') && <button className="small-icon-button danger-action" title="نقل إعلان إلى سلة المهملات" onClick={() => void ctx.deleteAdExpense(ad)}><Trash2 size={14}/></button>}
+        </>}
       />}
     </div>
 
