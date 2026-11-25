@@ -1,11 +1,14 @@
 import React, { lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import LazyBoundary from './components/common/LazyBoundary'
+import RootErrorBoundary from './components/common/RootErrorBoundary'
+import { reportUiError } from './lib/errorReporting'
 import './styles/index.css'
 
 const AdminApp = lazy(() => import('./App'))
 const HomePage = lazy(() => import('./home/HomePage'))
 const TeacherApp = lazy(() => import('./teacher/TeacherApp'))
+const ZZErrorBomb = import.meta.env.VITE_ZZ_TEST_ERRORS === '1' ? lazy(() => import('./test/ErrorBomb')) : null
 const path = window.location.pathname
 const isHome = path === '/' || path === '/home'
 const isSupervisor = path === '/supervisor' || path.startsWith('/supervisor/')
@@ -13,23 +16,41 @@ const isTeacher = path === '/teacher' || path.startsWith('/teacher/')
 
 if (isHome) {
   createRoot(document.getElementById('root')!).render(
-    <React.StrictMode><LazyBoundary label="جارٍ تحميل الصفحة…"><HomePage /></LazyBoundary></React.StrictMode>,
+    <React.StrictMode><RootErrorBoundary page="الرئيسية" homeHref="/">
+      {ZZErrorBomb && <ZZErrorBomb scope="app" />}
+      <LazyBoundary page="الرئيسية" label="جارٍ تحميل الصفحة…"><HomePage /></LazyBoundary>
+    </RootErrorBoundary></React.StrictMode>,
   )
 } else if (isTeacher || isSupervisor) {
   document.querySelector('link[rel="manifest"]')?.setAttribute('href', '/manifest-teacher.webmanifest')
   document.title = 'بوابة المعلمة — دار الإمام حفص'
   createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-      <LazyBoundary label="جارٍ تحميل البوابة…">
-        <TeacherApp mode={isSupervisor ? 'supervisor' : 'teacher'} />
-      </LazyBoundary>
+      <RootErrorBoundary page={isSupervisor ? 'بوابة المشرفة' : 'بوابة المعلمة'} homeHref={isSupervisor ? '/supervisor' : '/teacher'}>
+        {ZZErrorBomb && <ZZErrorBomb scope="app" />}
+        <LazyBoundary page={isSupervisor ? 'بوابة المشرفة' : 'بوابة المعلمة'} label="جارٍ تحميل البوابة…">
+          <TeacherApp mode={isSupervisor ? 'supervisor' : 'teacher'} />
+        </LazyBoundary>
+      </RootErrorBoundary>
     </React.StrictMode>,
   )
 } else {
   createRoot(document.getElementById('root')!).render(
-    <React.StrictMode><LazyBoundary label="جارٍ تحميل لوحة الإدارة…"><AdminApp /></LazyBoundary></React.StrictMode>,
+    <React.StrictMode><RootErrorBoundary page="لوحة الإدارة" homeHref="/management">
+      {ZZErrorBomb && <ZZErrorBomb scope="app" />}
+      <LazyBoundary page="لوحة الإدارة" label="جارٍ تحميل لوحة الإدارة…"><AdminApp /></LazyBoundary>
+    </RootErrorBoundary></React.StrictMode>,
   )
 }
+
+function currentPageName() {
+  if (isHome) return 'الرئيسية'
+  if (isSupervisor) return 'بوابة المشرفة'
+  if (isTeacher) return 'بوابة المعلمة'
+  return 'لوحة الإدارة'
+}
+window.addEventListener('error', () => reportUiError({ scope: 'global', page: currentPageName(), componentStack: '' }))
+window.addEventListener('unhandledrejection', () => reportUiError({ scope: 'global', page: currentPageName(), componentStack: '' }))
 
 // PWA baseline: cache only the shell, never API responses or sensitive administrative data.
 if (import.meta.env.PROD && import.meta.env.MODE !== 'desktop' && 'serviceWorker' in navigator) {

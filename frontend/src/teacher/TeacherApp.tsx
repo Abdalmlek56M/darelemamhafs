@@ -19,6 +19,9 @@ const TeacherSubscriptions = lazy(() => import('./TeacherSubscriptions'))
 const TeacherAccount = lazy(() => import('./TeacherAccount'))
 const TeacherRequests = lazy(() => import('./TeacherRequests'))
 const SupervisorWorkspace = lazy(() => import('./SupervisorWorkspace'))
+const ZZErrorBomb = import.meta.env.VITE_ZZ_TEST_ERRORS === '1' ? lazy(() => import('../test/ErrorBomb')) : null
+
+const PAGE_TITLES: Record<string, string> = { home: 'اليوم', live: 'الحلقة', roster: 'الحضور', notifications: 'التنبيهات', subscriptions: 'الاشتراكات', account: 'حسابي', requests: 'الطلبات', calendar: 'التقويم', history: 'السجل' }
 import { loginErrorMessage } from '../lib/userMessages'
 import { useTeacherOutbox } from './useTeacherOutbox'
 import './teacher.css'
@@ -380,7 +383,7 @@ export default function TeacherApp({ mode }: Props) {
 
   if (page === 'supervisor' && canSupervisor) {
     return (
-      <LazyBoundary label="جارٍ تحميل مساحة الإشراف…">
+      <LazyBoundary key="supervisor" label="جارٍ تحميل مساحة الإشراف…" page="مساحة الإشراف" onHome={() => setPage(canTeacher ? 'home' : 'supervisor')}>
       <SupervisorWorkspace
         session={session}
         unread={unread}
@@ -425,7 +428,8 @@ export default function TeacherApp({ mode }: Props) {
         </div>
       )}
       <main className="teacher-main">
-        <LazyBoundary label="جارٍ تحميل الصفحة…">
+        <LazyBoundary key={page} label="جارٍ تحميل الصفحة…" page={PAGE_TITLES[page] || 'بوابة المعلمة'} onHome={() => setPage('home')}>
+        {ZZErrorBomb && <ZZErrorBomb scope="page" />}
         {page === 'home' && canTeacher && (
           <TeacherHome
             today={today}

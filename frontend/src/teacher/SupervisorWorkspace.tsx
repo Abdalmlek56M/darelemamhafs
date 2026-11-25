@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle, Bell, BookOpen, CalendarDays, ClipboardCheck, GraduationCap, LayoutDashboard, LogOut, Menu, MessageSquareText, Sparkles,
   UserRound, Users, Wallet, X,
@@ -14,7 +14,10 @@ import SupervisorTeacherNotes from './SupervisorTeacherNotes'
 import SupervisorRequests from './SupervisorRequests'
 import SupervisorNotificationsDrawer from './SupervisorNotificationsDrawer'
 import type { TeacherSession } from './teacherTypes'
+import LazyBoundary from '../components/common/LazyBoundary'
 import './supervisor.css'
+
+const ZZErrorBomb = import.meta.env.VITE_ZZ_TEST_ERRORS === '1' ? lazy(() => import('../test/ErrorBomb')) : null
 
 type Section = 'overview' | 'students' | 'circles' | 'teachers' | 'notes' | 'requests' | 'attendance' | 'absences' | 'unpaid'
 
@@ -188,7 +191,12 @@ export default function SupervisorWorkspace(props: Props) {
           </div>
         )}
 
-        <main className="sup-content">{renderSection()}</main>
+        <main className="sup-content">
+          <LazyBoundary key={section} page={sectionTitles[section]} onHome={() => go('overview')}>
+            {ZZErrorBomb && <ZZErrorBomb scope="page" />}
+            {renderSection()}
+          </LazyBoundary>
+        </main>
       </div>
 
       <nav className="sup-mobile-nav" aria-label="تنقل الإشراف">

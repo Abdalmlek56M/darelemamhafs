@@ -11,6 +11,7 @@ import Field from './components/common/Field'
 import ModalActions from './components/common/ModalActions'
 import PersonalReminderCenter from './components/common/PersonalReminderCenter'
 import LazyBoundary from './components/common/LazyBoundary'
+import DialogErrorBoundary from './components/common/DialogErrorBoundary'
 import { request } from './services/apiClient'
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
@@ -25,6 +26,7 @@ const PaymentsPage = lazy(() => import('./pages/PaymentsPage'))
 const MeetPage = lazy(() => import('./meet/MeetPage'))
 const UsersPage = lazy(() => import('./pages/UsersPage'))
 const SystemPage = lazy(() => import('./pages/SystemPage'))
+const ZZErrorBomb = import.meta.env.VITE_ZZ_TEST_ERRORS === '1' ? lazy(() => import('./test/ErrorBomb')) : null
 
 // Short labels for the fixed mobile bottom navigation (the drawer keeps the full labels).
 const mobileNavLabels: Record<string, string> = {
@@ -160,7 +162,8 @@ export default function App() {
           <button className="icon-button desktop-shell-action" title="تسجيل الخروج" aria-label="تسجيل الخروج" onClick={() => void logout()}><LogOut size={18} /></button>
         </div>
       </header>
-      <LazyBoundary label="جارٍ تحميل الصفحة…">
+      <LazyBoundary key={page} label="جارٍ تحميل الصفحة…" page={currentTitle || 'لوحة الإدارة'} onHome={() => navigate('dashboard')}>
+      {ZZErrorBomb && <ZZErrorBomb scope="page" />}
       <AnimatePresence mode="wait">
         {page === 'dashboard' && has('dashboard.read') && <DashboardPage ctx={ctx} />}
         {page === 'notifications' && has('dashboard.read') && <NotificationsPage ctx={ctx} />}
@@ -229,7 +232,10 @@ export default function App() {
       </div>
     </div>}
 
+    <DialogErrorBoundary page={currentTitle || 'لوحة الإدارة'} onHome={() => navigate('dashboard')}>
+    {ZZErrorBomb && <ZZErrorBomb scope="dialog" />}
     <ApplicationDialogs ctx={ctx} />
     <AnimatePresence>{passwordDialogOpen && <Modal title="تغيير كلمة المرور" subtitle="اكتب كلمة المرور الحالية ثم اختر كلمة مرور جديدة لا تقل عن 6 أحرف." close={closePasswordDialog}><form onSubmit={submitPasswordChange} className="form-grid"><Field label="كلمة المرور الحالية *" wide><input type="password" autoComplete="current-password" required value={passwordForm.currentPassword} onChange={e => setPasswordForm(f => ({ ...f, currentPassword: e.target.value }))} /></Field><Field label="كلمة المرور الجديدة *" wide><input type="password" autoComplete="new-password" required minLength={6} maxLength={200} value={passwordForm.newPassword} onChange={e => setPasswordForm(f => ({ ...f, newPassword: e.target.value }))} /></Field><Field label="تأكيد كلمة المرور الجديدة *" wide><input type="password" autoComplete="new-password" required minLength={6} maxLength={200} value={passwordForm.confirmPassword} onChange={e => setPasswordForm(f => ({ ...f, confirmPassword: e.target.value }))} /></Field><div className="wide"><ModalActions saving={passwordChanging} onCancel={closePasswordDialog} saveLabel="حفظ كلمة المرور" /></div></form></Modal>}</AnimatePresence>
+    </DialogErrorBoundary>
   </div>
 }

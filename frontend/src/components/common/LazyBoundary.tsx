@@ -1,7 +1,9 @@
-import { Component, Suspense, useEffect, type ReactNode } from 'react'
+import { Component, Suspense, useEffect, type ErrorInfo, type ReactNode } from 'react'
+import ErrorFallback from './ErrorFallback'
+import { reportUiError } from '../../lib/errorReporting'
 
-type Props = { children: ReactNode; label?: string }
-type State = { error: unknown }
+type Props = { children: ReactNode; label?: string; page?: string; onHome?: () => void }
+type State = { error: unknown; chunk: boolean }
 
 const RELOAD_KEY = 'dar:lazy-chunk-reload'
 const CHUNK_ERROR = /failed to fetch dynamically imported module|error loading dynamically imported module|loading chunk .* failed|importing a module script failed|chunkloaderror/i
@@ -17,16 +19,17 @@ function ClearReloadGuardAfterLoad({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
-/** Arabic loading/error shell for route-level lazy imports. */
+/** Arabic route boundary: lazy loading + unexpected render errors. */
 export default class LazyBoundary extends Component<Props, State> {
-  state: State = { error: null }
+  state: State = { error: null, chunk: false }
 
   static getDerivedStateFromError(error: unknown): State {
-    return { error }
+    return { error, chunk: isChunkError(error) }
   }
 
-  componentDidCatch(error: unknown) {
-    if (!isChunkError(error)) return
+  componentDidCatch(_error: unknown, info: ErrorInfo) {
+    reportUiError({ scope: 'page', page: this.props.page || 'unknown', componentStack: info.componentStack })
+    if (!this.state.chunk) return
     try {
       // An already-open tab may reference chunks removed by a deploy. Reload once; never loop.
       if (sessionStorage.getItem(RELOAD_KEY) === '1') return
@@ -35,17 +38,15 @@ export default class LazyBoundary extends Component<Props, State> {
     } catch { /* private mode / storage unavailable: show the Arabic fallback */ }
   }
 
+  private retry = () => {
+    if (this.state.chunk) { window.location.reload(); return }
+    this.setState({ error: null, chunk: false })
+  }
+  private home = () => { if (this.props.onHome) this.props.onHome(); else window.location.assign('/') }
+
   render() {
     if (this.state.error) {
-      return (
-        <div role="alert" style={{ minHeight: '60vh', display: 'grid', placeItems: 'center', padding: 24, textAlign: 'center' }}>
-          <div style={{ maxWidth: 420, padding: 24, borderRadius: 18, border: '1px solid var(--line, #2b3a50)', background: 'var(--surface, #111b2c)', color: 'var(--text, #e9eef6)', fontFamily: 'inherit' }}>
-            <h2 style={{ margin: '0 0 8px', fontSize: 20 }}>تعذر تحميل الصفحة</h2>
-            <p style={{ margin: '0 0 16px', color: 'var(--muted, #95a4ba)', lineHeight: 1.8 }}>تأكد من الاتصال بالإنترنت ثم أعد المحاولة.</p>
-            <button type="button" className="primary-button" onClick={() => window.location.reload()}>إعادة المحاولة</button>
-          </div>
-        </div>
-      )
+      return <ErrorFallback onRetry={this.retry} onHome={this.home} />
     }
     return (
       <Suspense fallback={this.props.label ? <div style={{ minHeight: '50vh', display: 'grid', placeItems: 'center', color: 'var(--muted, #95a4ba)' }}>{this.props.label}</div> : null}>
