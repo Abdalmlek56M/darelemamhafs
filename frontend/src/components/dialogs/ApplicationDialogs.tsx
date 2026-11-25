@@ -28,7 +28,7 @@ export default function ApplicationDialogs({ ctx }: Props) {
       {ctx.endingEnrollment && <EndEnrollmentDialog ctx={ctx} />}
       {ctx.chargeModal && <ChargeDialog ctx={ctx} />}
       {ctx.paymentModal && <PaymentDialog ctx={ctx} />}
-      {ctx.voidTarget && <VoidDialog ctx={ctx} />}
+      {ctx.voidTarget && <VoidDialog ctx={ctx} level={ctx.history ? 1 : 0} />}
       {ctx.userModal && <UserDialog ctx={ctx} />}
       {(ctx.history !== null || (ctx.historyLoading && ctx.selectedStudentPreview !== null)) && <StudentHistoryDialog ctx={ctx} />}
       {ctx.selectedTeacherDetails !== null && <TeacherHistoryDialog ctx={ctx} />}
