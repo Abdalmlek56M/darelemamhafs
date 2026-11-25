@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Npgsql;
+using Dar.Common.Domain;
 
 namespace Dar.Modules.Teaching.Features.Teacher;
 
@@ -123,7 +124,7 @@ public static class MoneyEndpoints
                     joinedOn = reader.GetFieldValue<DateOnly>(4),
                     amountDue = due,
                     paidAmount = paid,
-                    balance = due is null ? (decimal?)null : Math.Max(0, due.Value - paid),
+                    balance = due is null ? (decimal?)null : Money.NonNegativeBalance(due.Value, paid),
                     status = reader.GetString(7)
                 });
             }

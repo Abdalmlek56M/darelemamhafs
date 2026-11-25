@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Npgsql;
+using Dar.Common.Domain;
 
 namespace Dar.Modules.Teaching.Features.Supervisor;
 
@@ -245,7 +246,7 @@ public static class StudentsEndpoint
             {
                 var due = reader.GetDecimal(1);
                 var paid = reader.GetDecimal(2);
-                var balance = due - paid;
+                var balance = Money.Balance(due, paid);
                 subscription.Add(new
                 {
                     circleName = reader.GetString(0),

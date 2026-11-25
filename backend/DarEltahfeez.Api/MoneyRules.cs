@@ -36,6 +36,12 @@ public static class MoneyRules
         out decimal payableAmount) =>
         Money.TryCalculateTeacherPayableAmount(hourlyRateSnapshot, durationMinutes, out payableAmount);
 
+    public static decimal Balance(decimal amountDue, decimal amountPaid) =>
+        Money.Balance(amountDue, amountPaid);
+
+    public static decimal NonNegativeBalance(decimal amountDue, decimal amountPaid) =>
+        Money.NonNegativeBalance(amountDue, amountPaid);
+
     public static bool ExceedsOutstanding(decimal paymentAmount, decimal amountDue, decimal amountPaid) =>
         Money.ExceedsOutstanding(paymentAmount, amountDue, amountPaid);
 }

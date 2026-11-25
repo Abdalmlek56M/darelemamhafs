@@ -87,6 +87,20 @@ public sealed class MoneyTests
     }
 
     [Fact]
+    public void Balance_PreservesNegativeOverpaymentAndRounds()
+    {
+        Assert.Equal(-20.00m, Money.Balance(100.00m, 120.00m));
+        Assert.Equal(0.01m, Money.Balance(0.005m, 0m));
+    }
+
+    [Fact]
+    public void NonNegativeBalance_ClampsOnlyWhereRequested()
+    {
+        Assert.Equal(0m, Money.NonNegativeBalance(100.00m, 120.00m));
+        Assert.Equal(20.00m, Money.NonNegativeBalance(120.00m, 100.00m));
+    }
+
+    [Fact]
     public void ExceedsOutstanding_RejectsOnePiasterOver()
     {
         Assert.True(Money.ExceedsOutstanding(100.01m, 100m, 0m));

@@ -195,7 +195,7 @@ public static partial class SystemAdminEndpoints
                         agreedFee,
                         paid,
                         difference = agreedFee - amountDue,
-                        balanceAfterCorrection = agreedFee - paid
+                        balanceAfterCorrection = MoneyRules.Balance(agreedFee, paid)
                     });
                 }
             }

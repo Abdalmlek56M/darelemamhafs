@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Npgsql;
+using Dar.Common.Domain;
 
 namespace Dar.Modules.Teaching.Features.Supervisor;
 
@@ -21,8 +22,7 @@ public static class UnpaidEndpoint
         var scope = await SupervisionScope.LoadAsync(connection, principal, ct);
         await using (var command = new NpgsqlCommand("""
             SELECT mc.id, s.id, mc.billing_month, s.full_name, s.student_code, s.guardian_phone, s.joined_on,
-                   c.name, COALESCE(t.full_name, ''), mc.amount_due, COALESCE(p.paid, 0),
-                   mc.amount_due - COALESCE(p.paid, 0) AS balance
+                   c.name, COALESCE(t.full_name, ''), mc.amount_due, COALESCE(p.paid, 0)
             FROM monthly_charges mc
             JOIN circle_enrollments ce ON ce.id = mc.enrollment_id AND ce.is_trashed = FALSE
             JOIN students s ON s.id = ce.student_id AND s.is_trashed = FALSE
@@ -55,7 +55,7 @@ public static class UnpaidEndpoint
                     reader.GetGuid(0), reader.GetGuid(1), reader.GetFieldValue<DateOnly>(2), reader.GetString(3), reader.GetString(4),
                     reader.IsDBNull(5) ? null : reader.GetString(5),
                     reader.GetFieldValue<DateOnly>(6), reader.GetString(7), reader.GetString(8),
-                    reader.GetDecimal(9), reader.GetDecimal(10), reader.GetDecimal(11)));
+                    reader.GetDecimal(9), reader.GetDecimal(10), Money.Balance(reader.GetDecimal(9), reader.GetDecimal(10))));
             }
         }
 

@@ -90,7 +90,7 @@ public sealed record PaymentWriteRequest(Guid MonthlyChargeId,decimal Amount,Dat
 public sealed record CollectionReportCreateRequest(string BillingMonth,string? Title);
 public sealed record CollectionRow(Guid EnrollmentId,Guid? ChargeId,Guid StudentId,string StudentCode,string StudentName,Guid CircleId,string CircleName,string TeacherName,decimal AgreedMonthlyFee,decimal AmountDue,decimal PaidAmount,string? Note,string PaymentStatus,DateOnly BillingMonth,DateOnly EnrollmentStartsOn,DateOnly? EnrollmentEndsOn,DateOnly CircleStartsOn)
 {
-    public decimal Balance=>Math.Max(0,AmountDue-PaidAmount);
+    public decimal Balance=>MoneyRules.NonNegativeBalance(AmountDue,PaidAmount);
 }
 public sealed record PaymentHistory(Guid Id,decimal Amount,DateTimeOffset PaidAt,string? Method,string? Reference,string? Note,bool HasReceipt,DateTimeOffset? VoidedAt=null,string? VoidReason=null,string? VoidBlockedReason=null);
 public sealed class ChargeHistoryBuilder(Guid id,DateOnly billingMonth,decimal amountDue,string? note,string circleName,DateTimeOffset? voidedAt=null,string? voidReason=null)
@@ -99,6 +99,6 @@ public sealed class ChargeHistoryBuilder(Guid id,DateOnly billingMonth,decimal a
     public DateTimeOffset? VoidedAt {get;}=voidedAt; public string? VoidReason {get;}=voidReason;
     public List<PaymentHistory> Payments {get;}=[];
     public decimal PaidAmount=>Payments.Where(p=>p.VoidedAt is null).Sum(p=>p.Amount);
-    public object ToResponse()=>new{id=Id,billingMonth=BillingMonth,amountDue=AmountDue,paidAmount=PaidAmount,balance=Math.Max(0,AmountDue-PaidAmount),note=Note,circleName=CircleName,voidedAt=VoidedAt,voidReason=VoidReason,payments=Payments};
+    public object ToResponse()=>new{id=Id,billingMonth=BillingMonth,amountDue=AmountDue,paidAmount=PaidAmount,balance=MoneyRules.NonNegativeBalance(AmountDue,PaidAmount),note=Note,circleName=CircleName,voidedAt=VoidedAt,voidReason=VoidReason,payments=Payments};
 }
 public sealed record VoidRequest(string? Reason,string? Note=null);
