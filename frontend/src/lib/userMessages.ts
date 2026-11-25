@@ -30,11 +30,14 @@ export class ApiError extends Error {
   status: number
   code: UserErrorCode
 
-  constructor(message: string, status: number, code: UserErrorCode) {
+  serverMessage?: string
+
+  constructor(message: string, status: number, code: UserErrorCode, serverMessage?: string) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
+    this.serverMessage = serverMessage
   }
 }
 
@@ -72,6 +75,11 @@ export function normalizeUserMessage(message: unknown, status?: number): string 
 }
 
 /** Login 401 means bad credentials, not an expired session. */
-export function loginErrorMessage(status?: number): string {
-  return status === 401 ? USER_MESSAGES.invalid_credentials : USER_MESSAGES.unknown
+export function loginErrorMessage(status?: number, message?: unknown, serverMessage?: string | null): string {
+  if (status === 401) {
+    // A real Arabic server message (suspended/locked account, etc.) wins.
+    // Empty/English/technical 401 falls back to the generic credentials message.
+    return isArabicUserMessage(serverMessage) ? serverMessage.trim() : USER_MESSAGES.invalid_credentials
+  }
+  return normalizeUserMessage(message, status)
 }

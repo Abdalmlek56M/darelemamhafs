@@ -10,13 +10,17 @@ import { isArabicUserMessage, normalizeUserMessage } from '../lib/userMessages'
 
 export class TeacherApiError extends Error {
   status: number
-  constructor(message: string, status: number) {
+  serverMessage?: string
+  constructor(message: string, status: number, serverMessage?: string) {
     super(message)
     this.status = status
+    this.serverMessage = serverMessage
   }
 }
 
-async function readError(response: Response) {
+type ParsedError = { message: string; serverMessage: string | null }
+
+async function readError(response: Response): Promise<ParsedError> {
   let body: any = null
   try { body = await response.json() } catch { /* non-JSON error */ }
   const messages: string[] = []
@@ -29,8 +33,11 @@ async function readError(response: Response) {
     }
   }
   const arabic = messages.filter(isArabicUserMessage)
-  if (arabic.length > 0) return arabic.join(' ')
-  return normalizeUserMessage(messages.join(' '), response.status)
+  if (arabic.length > 0) {
+    const message = arabic.join(' ')
+    return { message, serverMessage: message }
+  }
+  return { message: normalizeUserMessage(messages.join(' '), response.status), serverMessage: null }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -45,7 +52,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const message = normalizeUserMessage(error instanceof Error ? error.message : null, 0)
     throw new TeacherApiError(message, 0)
   }
-  if (!response.ok) throw new TeacherApiError(await readError(response), response.status)
+  if (!response.ok) {
+    const parsed = await readError(response)
+    throw new TeacherApiError(parsed.message, response.status, parsed.serverMessage ?? undefined)
+  }
   if (response.status === 204) return undefined as T
   return await response.json() as T
 }

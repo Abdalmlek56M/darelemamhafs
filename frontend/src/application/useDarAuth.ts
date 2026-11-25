@@ -118,7 +118,7 @@ export default function useDarAuth({
       return true
     } catch (error) {
       const message = error instanceof ApiError && error.status === 401
-        ? loginErrorMessage(401)
+        ? loginErrorMessage(401, error.message, error.serverMessage)
         : error instanceof Error ? error.message : 'تعذر تسجيل الدخول. راجع البيانات.'
       setToast({ tone: 'error', text: message })
       return false

@@ -16,15 +16,20 @@ function serverMessages(body: unknown): string[] {
   return values
 }
 
-async function readError(response: Response) {
+type ParsedError = { message: string; serverMessage: string | null }
+
+async function readError(response: Response): Promise<ParsedError> {
   let body: unknown = null
   try { body = await response.json() } catch { /* non-JSON error */ }
   const messages = serverMessages(body)
   // Keep the server's Arabic validation/business messages verbatim as required.
   const arabic = messages.filter(isArabicUserMessage)
-  if (arabic.length > 0) return arabic.join(' ')
+  if (arabic.length > 0) {
+    const message = arabic.join(' ')
+    return { message, serverMessage: message }
+  }
   const raw = messages.join(' ')
-  return normalizeUserMessage(raw, response.status)
+  return { message: normalizeUserMessage(raw, response.status), serverMessage: null }
 }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -37,8 +42,8 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(normalizeUserMessage(error instanceof Error ? error.message : null, 0), 0, 'network')
   }
   if (!response.ok) {
-    const message = await readError(response)
-    throw new ApiError(message, response.status, userErrorCode(response.status, message))
+    const parsed = await readError(response)
+    throw new ApiError(parsed.message, response.status, userErrorCode(response.status, parsed.message), parsed.serverMessage ?? undefined)
   }
   if (response.status === 204) return undefined as T
   return await response.json() as T
@@ -52,8 +57,8 @@ export async function requestForm<T>(path: string, form: FormData): Promise<T> {
     throw new ApiError(normalizeUserMessage(error instanceof Error ? error.message : null, 0), 0, 'network')
   }
   if (!response.ok) {
-    const message = await readError(response)
-    throw new ApiError(message, response.status, 'unknown')
+    const parsed = await readError(response)
+    throw new ApiError(parsed.message, response.status, userErrorCode(response.status, parsed.message), parsed.serverMessage ?? undefined)
   }
   return await response.json() as T
 }

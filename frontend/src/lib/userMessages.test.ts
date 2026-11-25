@@ -26,8 +26,11 @@ describe('central user messages', () => {
     }
   })
 
-  it('uses invalid-credentials for login 401, while session 401 uses the session message', () => {
-    expect(loginErrorMessage(401)).toBe(USER_MESSAGES.invalid_credentials)
+  it('uses invalid-credentials for empty/English login 401, but keeps Arabic server 401', () => {
+    expect(loginErrorMessage(401, USER_MESSAGES.unauthorized)).toBe(USER_MESSAGES.invalid_credentials)
+    expect(loginErrorMessage(401, null, 'Unauthorized')).toBe(USER_MESSAGES.invalid_credentials)
+    expect(loginErrorMessage(401, 'حسابك موقوف. تواصل مع الإدارة.', 'حسابك موقوف. تواصل مع الإدارة.')).toBe('حسابك موقوف. تواصل مع الإدارة.')
+    expect(loginErrorMessage(401, null, 'اسم المستخدم مقفل مؤقتًا. حاول بعد قليل.')).toBe('اسم المستخدم مقفل مؤقتًا. حاول بعد قليل.')
     expect(USER_MESSAGES.unauthorized).not.toBe(USER_MESSAGES.invalid_credentials)
   })
 
