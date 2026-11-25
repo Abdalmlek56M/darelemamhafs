@@ -369,3 +369,13 @@
 .turnstile-error { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; border: 1px solid rgba(239, 138, 138, .45); background: rgba(239, 138, 138, .1); color: #f2b8b5; font-size: 12px; line-height: 1.7; margin: 4px 0 8px; }
 .turnstile-error button { border: 1px solid rgba(239, 138, 138, .55); background: transparent; color: #f2b8b5; border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 11px; cursor: pointer; }
 .turnstile-notice { color: #f0d59c; font-size: 12px; line-height: 1.7; margin: 2px 0 8px; }
+
+@media (max-width: 600px) {
+  .teacher-app.teacher-shell .t-header { align-items: flex-start; }
+  .teacher-app.teacher-shell .t-header > div:not(.t-header-actions) { min-width: 0; }
+  .teacher-app.teacher-shell .t-header h1 {
+    font-size: clamp(20px, 6.2vw, 26px);
+    line-height: 1.9;
+    overflow-wrap: anywhere;
+  }
+}

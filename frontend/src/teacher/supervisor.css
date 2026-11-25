@@ -251,7 +251,7 @@
 
 @media (max-width: 1023px) {
   .sup-sidebar { display: none; }
-  .sup-topbar { height: 60px; padding: 0 14px; }
+  .sup-topbar { height: auto; min-height: 60px; padding: 6px 14px; }
   .sup-mobile-brand { display: flex; }
   .sup-mobile-brand > div { display: none; }
   .sup-top-title { display: block; flex: 1; text-align: center; }
@@ -301,4 +301,8 @@
   .supervisor-app .sup-mobile-brand small,
   .supervisor-app .sup-eyebrow { font-size: 10px; }
   .sup-mobile-nav button { font-size: 9.5px; }
+}
+
+@media (max-width: 600px) {
+  .sup-top-title h1 { font-size: 16px; line-height: 1.7; overflow: visible; }
 }

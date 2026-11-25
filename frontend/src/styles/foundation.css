@@ -96,7 +96,10 @@ html body.modal-open, html body.admin-overlay-open { overflow: hidden !important
   .app-shell .welcome h1 { margin: 0; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .app-shell .welcome .eyebrow { font-size: 10px; }
   .app-shell .welcome p { display: none; }
-  .app-shell .top-actions { flex: 0 0 auto; gap: 6px; }
+  .app-shell .top-actions { flex: 0 0 auto; width: auto; flex-wrap: nowrap; gap: 6px; }
+  .app-shell .topbar .welcome { min-width: 0; }
+  /* Keep the password/lock action available on the phone header. */
+  .app-shell .topbar .top-actions .desktop-shell-action[aria-label="تغيير كلمة المرور"] { display: grid !important; }
   .app-shell .desktop-shell-action { display: none !important; }
   .app-shell .mobile-menu-button { display: grid; flex: 0 0 auto; }
   .app-shell .icon-button { width: 44px; height: 44px; border-radius: 12px; }
