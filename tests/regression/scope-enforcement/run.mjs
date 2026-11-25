@@ -1,0 +1,49 @@
+import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+
+const CONN=process.env.DAR_TEST_DATABASE||'', LEGACY=process.env.Q5_LEGACY_URL||'', NEW=process.env.Q5_NEW_URL||'', SETUP=process.env.Q5_SETUP_TOKEN||'', PASSWORD=process.env.Q5_PASSWORD||'Q5-StrongPass!';
+if(!CONN||!LEGACY||!NEW||!SETUP){console.error('Q5_FAIL missing env');process.exit(2)}
+if(/database\s*=\s*dareltahfeez/i.test(CONN)){console.error('Q5_FAIL production database');process.exit(2)}
+for(const raw of [LEGACY,NEW]){const u=new URL(raw);if(['dar-elemam-hafs.rigxhardware.com','31.220.76.171'].includes(u.hostname.toLowerCase())||!['127.0.0.1','localhost','::1','[::1]'].includes(u.hostname.toLowerCase())){console.error('Q5_FAIL non-loopback URL');process.exit(2)}}
+function pgEnv(){const e={...process.env};for(const p of CONN.split(';')){const i=p.indexOf('=');if(i<0)continue;const k=p.slice(0,i).trim().toLowerCase(),v=p.slice(i+1).trim();if(k==='host')e.PGHOST=v;if(k==='port')e.PGPORT=v;if(k==='database')e.PGDATABASE=v;if(k==='username')e.PGUSER=v;if(k==='password')e.PGPASSWORD=v;}return e;}
+const PGE=pgEnv();function psql(s){const r=spawnSync('psql',['-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-c',s],{env:PGE,encoding:'utf8'});if(r.status!==0)throw new Error('psql '+(r.stderr||'').trim());return (r.stdout||'').trim()}
+const q=v=>"'" + String(v).replaceAll("'","''") + "'";
+const one=s=>psql(s);
+async function login(base,path,user){const r=await fetch(base+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:user,password:PASSWORD})});if(!r.ok)throw new Error('login '+user+' '+r.status);const c=r.headers.getSetCookie?r.headers.getSetCookie():[r.headers.get('set-cookie')];return c.filter(Boolean).map(x=>x.split(';')[0]).join('; ')}
+async function req(base,cookie,method,path,body){const r=await fetch(base+path,{method,headers:{...(body?{'content-type':'application/json'}:{}),cookie},body:body?JSON.stringify(body):undefined});return{status:r.status,text:await r.text()}}
+function seedAttendance(target,date,duration=60,rate=60){const s=randomUUID(),a=randomUUID();one("INSERT INTO teacher_sessions(id,teacher_id,circle_id,schedule_slot_id,session_date,started_at,ended_at,status,scheduled_duration_minutes,actual_duration_minutes,payable_duration_minutes,pay_basis) VALUES ("+q(s)+','+q(target.teacher)+','+q(target.circle)+','+q(target.slot)+","+q(date)+",now() - INTERVAL '10 minutes',now() + INTERVAL '60 minutes','completed',60,"+duration+','+duration+",'actual');");one("INSERT INTO teacher_attendance(id,schedule_slot_id,circle_id,teacher_id,session_date,scheduled_start,duration_minutes,status,hourly_rate_snapshot,payable_amount,marked_by,teacher_session_id,actual_duration_minutes,pay_basis) VALUES ("+q(a)+','+q(target.slot)+','+q(target.circle)+','+q(target.teacher)+','+q(date)+",'10:00',"+duration+",'present',"+rate+','+ (Math.round(duration*rate/60)) +
+','+q(process.env.Q5_ADMIN_ID||'00000000-0000-4000-8000-000000000001')+','+q(s)+","+duration+",'manual');");return a}
+async function createUser(admin,user,perms){const r=await req(LEGACY,admin,'POST','/api/admin/users',{username:user,displayName:user,password:PASSWORD,permissionCodes:perms});if(![201,409].includes(r.status))throw new Error('create '+user+' '+r.status+' '+r.text.slice(0,160));return one("SELECT id FROM app_users WHERE username="+q(user)+';')}
+(async()=>{
+ const setup=await fetch(LEGACY+'/api/setup/admin',{method:'POST',headers:{'content-type':'application/json','X-Setup-Token':SETUP},body:JSON.stringify({username:'q5_admin',displayName:'Q5 Admin',password:PASSWORD})});if(![200,409].includes(setup.status))throw new Error('setup '+setup.status);
+ const adminCookie=await login(LEGACY,'/api/auth/login','q5_admin');const adminId=one("SELECT id FROM app_users WHERE username='q5_admin';");process.env.Q5_ADMIN_ID=adminId;
+ const perms=['attendance.read','attendance.edit','supervisor.portal','supervisor.live','supervisor.attendance.correct','supervisor.attendance.requests','audit.restore','trash.manage','account.password.self'];
+ function seedBrokenReMark(target,date){const a=randomUUID();one("INSERT INTO teacher_attendance(id,schedule_slot_id,circle_id,teacher_id,session_date,scheduled_start,duration_minutes,status,hourly_rate_snapshot,payable_amount,marked_by,actual_duration_minutes,pay_basis) VALUES ("+q(a)+","+q(target.slot)+","+q(target.circle)+","+q(target.teacher)+","+q(date)+",'10:00',360,'present',9999999999.99,0,"+q(adminId)+",360,'manual');");return a}
+ const scopedId=await createUser(adminCookie,'q5_scoped',perms);const unscopedId=await createUser(adminCookie,'q5_unscoped',perms);
+ const ta=randomUUID(),tb=randomUUID();one("INSERT INTO teachers(id,teacher_code,full_name,status,hourly_rate) VALUES ("+q(ta)+",'Q5-TA','Q5 Teacher A','active',60),("+q(tb)+",'Q5-TB','Q5 Teacher B','active',60);");
+ const circA=randomUUID(),circB=randomUUID();one("INSERT INTO circles(id,circle_code,name,teacher_id,monthly_fee,is_active,starts_on) VALUES ("+q(circA)+",'Q5-CA','Q5 A',"+q(ta)+",0,TRUE,DATE '2026-01-01'),("+q(circB)+",'Q5-CB','Q5 B',"+q(tb)+",0,TRUE,DATE '2026-01-01');");
+ const slotA=randomUUID(),slotB=randomUUID();one("INSERT INTO circle_schedule_slots(id,circle_id,day_of_week,starts_at,duration_minutes,is_active) VALUES ("+q(slotA)+","+q(circA)+",1,'10:00',60,TRUE),("+q(slotB)+","+q(circB)+",1,'11:00',60,TRUE);");
+ const A={teacher:ta,circle:circA,slot:slotA},B={teacher:tb,circle:circB,slot:slotB};
+ one('INSERT INTO app_user_scopes(user_id,scope_type,scope_id) VALUES ('+q(scopedId)+",'circle',"+q(circA)+') ON CONFLICT DO NOTHING;');
+ const aAtt=seedAttendance(A,'2026-11-02');const bAtt=seedAttendance(B,'2026-11-02');
+ one("INSERT INTO audit_log(actor_user_id,actor_display_name,action_code,entity_type,entity_id,details,before_data,after_data,request_path,http_method,can_restore) VALUES ("+q(adminId)+",'Q5','test','school_settings',NULL,'{}','{}','{}','/x','POST',TRUE);");
+ one("INSERT INTO teacher_sessions(id,teacher_id,circle_id,schedule_slot_id,session_date,started_at,status,scheduled_duration_minutes) VALUES ("+q(randomUUID())+","+q(ta)+","+q(circA)+","+q(slotA)+",CURRENT_DATE,now(),'in_progress',60),("+q(randomUUID())+","+q(tb)+","+q(circB)+","+q(slotB)+",CURRENT_DATE,now(),'in_progress',60);");
+ const unlinkedAudit=one("SELECT id FROM audit_log WHERE entity_type='school_settings' ORDER BY id DESC LIMIT 1;");
+ const scopedLegacy=await login(LEGACY,'/api/auth/login','q5_scoped');const unscopedLegacy=await login(LEGACY,'/api/auth/login','q5_unscoped');const scopedNew=await login(NEW,'/api/v1/auth/password','q5_scoped');
+ const results=[];
+ async function check(name,actual,expected){results.push({name,actual,expected,ok:actual===expected});if(actual!==expected)throw new Error(name+' got '+actual+' expected '+expected)}
+ await check('duration_outside_403',(await req(LEGACY,scopedLegacy,'PUT','/api/teacher-attendance/'+bAtt+'/duration',{durationMinutes:30})).status,403);
+ await check('duration_unscoped_allowed',(await req(LEGACY,unscopedLegacy,'PUT','/api/teacher-attendance/'+bAtt+'/duration',{durationMinutes:30})).status,200);
+ await check('mark_outside_403',(await req(LEGACY,scopedLegacy,'POST','/api/teacher-attendance',{scheduleSlotId:slotB,sessionDate:'2026-11-02',status:'present'})).status,403);
+ await check('mark_unscoped_allowed',(await req(LEGACY,unscopedLegacy,'POST','/api/teacher-attendance',{scheduleSlotId:slotB,sessionDate:'2026-11-02',status:'present'})).status,200);
+ one("INSERT INTO audit_log(actor_user_id,actor_display_name,action_code,entity_type,entity_id,details,before_data,after_data,request_path,http_method,can_restore) VALUES ("+q(adminId)+",'Q5','test','teacher_attendance',"+q(bAtt)+",'{}','{}','{}','/x','POST',TRUE);");
+ // audit id is generated by DB, not our local auditId; fetch latest
+ const linkedAudit=one("SELECT id FROM audit_log WHERE entity_type='teacher_attendance' AND entity_id="+q(bAtt)+' ORDER BY id DESC LIMIT 1;');
+ await check('audit_linked_outside_403',(await req(LEGACY,scopedLegacy,'POST','/api/admin/audit-log/'+linkedAudit+'/restore-before')).status,403);
+ await check('audit_unlinked_403',(await req(LEGACY,scopedLegacy,'POST','/api/admin/audit-log/'+unlinkedAudit+'/restore-before')).status,403);
+ await check('trash_linked_outside_403',(await req(LEGACY,scopedLegacy,'POST','/api/admin/trash',{entityType:'teacher-attendance',entityId:bAtt})).status,403);
+ await check('trash_unlinked_403',(await req(LEGACY,scopedLegacy,'POST','/api/admin/trash',{entityType:'school_settings',entityId:randomUUID()})).status,403);
+ const brokenDate='2026-11-09'; seedBrokenReMark(B,brokenDate); const broken=await req(LEGACY,unscopedLegacy,'POST','/api/teacher-attendance',{scheduleSlotId:slotB,sessionDate:brokenDate,status:'present'}); await check('remark_pay_failure_is_rejected',broken.status,400); if(!broken.text.includes('المستحق المحسوب')) throw new Error('remark failure message changed: '+broken.text.slice(0,300));
+ const live=await req(NEW,scopedNew,'GET','/api/v1/supervisor/live');if(live.status!==200)throw new Error('live '+live.status);const liveBody=JSON.parse(live.text);const names=liveBody.sessions.map(s=>s.circleName);await check('live_only_scope',names.length===1&&names[0]==='Q5 A',true);
+ console.log(JSON.stringify({ok:true,scenarioCount:results.length,results},null,2));console.log('Q5_SCOPE_PASS');
+})().catch(e=>{console.error('Q5_SCOPE_FAIL '+String(e&&e.stack||e));process.exit(1)});
