@@ -54,7 +54,7 @@ public static partial class DomainEndpoints
             }
             catch (PostgresException ex) when (ex.SqlState == "23503") { return Results.ValidationProblem(new Dictionary<string, string[]> { ["studentOrCircle"] = ["الطالب أو الحلقة غير موجودة."] }); }
             catch (PostgresException ex) when (ex.SqlState == "23505") { return Results.Conflict(new { message = "الطالب ملتحق بالفعل بهذه الحلقة. أنهِ الالتحاق السابق أولًا إذا كان المقصود تسجيل التحاق جديد." }); }
-        }).RequireAuthorization("students.edit");
+        }).RequireAuthorization("students.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPost("/api/circle-enrollments/bulk", async Task<IResult> (BulkEnrollmentWriteRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -142,7 +142,7 @@ public static partial class DomainEndpoints
             }
             await tx.CommitAsync(ct);
             return Results.Ok(new { added = added.Count, skipped = studentIds.Length - added.Count, feesApplied });
-        }).RequireAuthorization("students.edit");
+        }).RequireAuthorization("students.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPatch("/api/enrollments/{id:guid}/pause", async Task<IResult> (Guid id, EnrollmentStatusChangeRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -169,7 +169,7 @@ public static partial class DomainEndpoints
             await InsertEnrollmentStatusEventAsync(conn, tx, id, "enrollment.pause", "paused", effectiveOn, request.Reason, ActorId(principal), ct);
             await tx.CommitAsync(ct);
             return Results.Ok(new { id, status = "paused", effectiveOn });
-        }).RequireAuthorization("students.edit");
+        }).RequireAuthorization("students.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPatch("/api/enrollments/{id:guid}/resume", async Task<IResult> (Guid id, EnrollmentStatusChangeRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -216,7 +216,7 @@ public static partial class DomainEndpoints
             await InsertEnrollmentStatusEventAsync(conn, tx, id, "enrollment.resume", "active", effectiveOn, request.Reason, ActorId(principal), ct);
             await tx.CommitAsync(ct);
             return Results.Ok(new { id, status = "active", effectiveOn });
-        }).RequireAuthorization("students.edit");
+        }).RequireAuthorization("students.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPatch("/api/enrollments/{id:guid}/end", async Task<IResult> (Guid id, EnrollmentEndRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -243,7 +243,7 @@ public static partial class DomainEndpoints
             await InsertEnrollmentStatusEventAsync(conn, tx, id, "enrollment.end", "ended", endsOn, "إنهاء الالتحاق من تفاصيل الحلقة.", ActorId(principal), ct);
             await tx.CommitAsync(ct);
             return Results.Ok(new { id, studentId, circleId, startsOn, endsOn, agreedMonthlyFee = CanReadFinance(principal) ? agreedFee : (decimal?)null, status = "ended" });
-        }).RequireAuthorization("students.edit");
+        }).RequireAuthorization("students.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
     }
 }
 

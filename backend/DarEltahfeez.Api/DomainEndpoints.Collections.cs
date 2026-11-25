@@ -3,6 +3,8 @@ using System.Text.Json;
 using Npgsql;
 using NpgsqlTypes;
 
+using DarEltahfeez.Api.Scoping;
+
 namespace DarEltahfeez.Api;
 
 public static partial class DomainEndpoints
@@ -90,7 +92,7 @@ public static partial class DomainEndpoints
             }
             catch(PostgresException ex) when(ex.SqlState=="23505"){return Results.Conflict(new{message="تم تحديد الاستحقاق لهذا الطالب والحلقة في الشهر نفسه بالفعل."});}
             catch(PostgresException ex) when(ex.SqlState=="23503"){return Results.NotFound(new{message="سجل الالتحاق غير موجود."});}
-        }).RequireAuthorization("finance.create");
+        }).RequireAuthorization("finance.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
 
         app.MapPut("/api/charges/{id:guid}", async Task<IResult> (Guid id, ChargeUpdateRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
@@ -125,7 +127,7 @@ public static partial class DomainEndpoints
                 await tx.CommitAsync(ct);
                 return Results.Ok(response);
             }
-        }).RequireAuthorization("finance.edit", "finance.read");
+        }).RequireAuthorization("finance.edit", "finance.read").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPost("/api/payments",async Task<IResult> (PaymentWriteRequest request,ClaimsPrincipal principal,NpgsqlDataSource db,CancellationToken ct)=>
         {
@@ -152,7 +154,7 @@ public static partial class DomainEndpoints
             }
             await tx.CommitAsync(ct);
             return Results.Created($"/api/payments/{paymentId}",new{id=paymentId,monthlyChargeId=request.MonthlyChargeId,amount=CanReadFinance(principal) ? paymentAmount : (decimal?)null,paidAt=request.PaidAt??DateTimeOffset.UtcNow,method=request.Method,reference=request.Reference,note=request.Note});
-        }).RequireAuthorization("finance.create");
+        }).RequireAuthorization("finance.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPost("/api/payments/with-receipt", async Task<IResult> (HttpRequest httpRequest, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -160,6 +162,8 @@ public static partial class DomainEndpoints
             var form = await httpRequest.ReadFormAsync(ct);
             if (!Guid.TryParse(form["monthlyChargeId"], out var chargeId) || chargeId == Guid.Empty)
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["payment"] = ["حدد الاستحقاق ومبلغًا صحيحًا أكبر من صفر وبحد أقصى 9,999,999,999.99 ج.م."] });
+            var denied = await ScopedWriteGuard.RequireEntityAsync(db, principal, "monthly-charge", chargeId, ct);
+            if (denied is not null) return denied;
             if (!decimal.TryParse(form["amount"], System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var parsedAmount))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["payment"] = ["حدد الاستحقاق ومبلغًا صحيحًا أكبر من صفر وبحد أقصى 9,999,999,999.99 ج.م."] });
             if (!MoneyRules.TryNormalizePaymentAmount(parsedAmount, out var amount))
@@ -200,7 +204,7 @@ public static partial class DomainEndpoints
             {audit.Parameters.AddWithValue("actor",ActorId(principal));audit.Parameters.AddWithValue("id",paymentId);audit.Parameters.AddWithValue("charge",chargeId);audit.Parameters.AddWithValue("amount",amount);audit.Parameters.AddWithValue("filename",Path.GetFileName(receipt.FileName));await audit.ExecuteNonQueryAsync(ct);}
             await tx.CommitAsync(ct);
             return Results.Created($"/api/payments/{paymentId}", new { id=paymentId, monthlyChargeId=chargeId, amount=CanReadFinance(principal) ? amount : (decimal?)null, paidAt, method, reference, note, hasReceipt=true });
-        }).RequireAuthorization("finance.create");
+        }).RequireAuthorization("finance.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapGet("/api/payments/{id:guid}/receipt", async Task<IResult> (Guid id, bool? download, NpgsqlDataSource db, HttpContext context, CancellationToken ct) =>
         {
@@ -260,7 +264,7 @@ public static partial class DomainEndpoints
             }
             await tx.CommitAsync(ct);
             return Results.Ok(new { id, voidedAt, voidReason });
-        }).RequireAuthorization("finance.void");
+        }).RequireAuthorization("finance.void").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPost("/api/payments/{id:guid}/void", async Task<IResult> (Guid id, VoidRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -310,7 +314,7 @@ public static partial class DomainEndpoints
             }
             await tx.CommitAsync(ct);
             return Results.Ok(new { id, monthlyChargeId = chargeId, voidedAt, voidReason });
-        }).RequireAuthorization("finance.void");
+        }).RequireAuthorization("finance.void").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
     }
     private static async Task<CollectionRow[]> LoadCollections(NpgsqlDataSource db,DateOnly month,CancellationToken ct)

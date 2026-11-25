@@ -72,7 +72,7 @@ public static partial class DomainEndpoints
             { return Results.Conflict(new { message = "لا يمكن إسناد هذه المعلمة للحلقة؛ لديها حصة أخرى تتداخل مع أحد مواعيد الحلقة. عدّل المواعيد أولًا." }); }
             catch(PostgresException ex) when(ex.SqlState=="0A000")
             { return Results.Conflict(new { message = "تعديل جدول المواعيد يتطلب مستوى العزل READ COMMITTED لضمان فحص التداخل بعد القفل." }); }
-        }).RequireAuthorization("circles.create");
+        }).RequireAuthorization("circles.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         route.MapPut("/{id:guid}",async Task<IResult> (Guid id,CircleWriteRequest request,ClaimsPrincipal principal,NpgsqlDataSource db,CancellationToken ct)=>
         {
@@ -96,7 +96,7 @@ public static partial class DomainEndpoints
             { return Results.Conflict(new { message = "لا يمكن إسناد هذه المعلمة للحلقة أو تفعيلها؛ لديها حصة أخرى تتداخل مع أحد مواعيد الحلقة. عدّل المواعيد أولًا." }); }
             catch(PostgresException ex) when(ex.SqlState=="0A000")
             { return Results.Conflict(new { message = "تعديل جدول المواعيد يتطلب مستوى العزل READ COMMITTED لضمان فحص التداخل بعد القفل." }); }
-        }).RequireAuthorization("circles.edit");
+        }).RequireAuthorization("circles.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
         route.MapPost("/with-schedule", async Task<IResult> (CircleWithScheduleRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
             var circleRequest = new CircleWriteRequest(request.CircleCode, request.Name, request.TeacherId, request.MonthlyFee, request.ScheduleText, request.IsActive, request.StartsOn);
@@ -158,7 +158,7 @@ public static partial class DomainEndpoints
                 await tx.RollbackAsync(ct);
                 return Results.Conflict(new { message = "تعديل جدول المواعيد يتطلب مستوى العزل READ COMMITTED لضمان فحص التداخل بعد القفل." });
             }
-        }).RequireAuthorization("circles.create");
+        }).RequireAuthorization("circles.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         route.MapPut("/{id:guid}/with-schedule", async Task<IResult> (Guid id, CircleWithScheduleRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -233,7 +233,7 @@ public static partial class DomainEndpoints
                 await tx.RollbackAsync(ct);
                 return Results.Conflict(new { message = "تعديل جدول المواعيد يتطلب مستوى العزل READ COMMITTED لضمان فحص التداخل بعد القفل." });
             }
-        }).RequireAuthorization("circles.edit");
+        }).RequireAuthorization("circles.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
     }
 

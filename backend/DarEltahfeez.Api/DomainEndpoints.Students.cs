@@ -50,7 +50,7 @@ public static partial class DomainEndpoints
             {
                 return Results.Conflict(new { message = "كود الطالب مستخدم بالفعل. اختَر كودًا مختلفًا." });
             }
-        }).RequireAuthorization("students.create");
+        }).RequireAuthorization("students.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         route.MapPut("/{id:guid}", async Task<IResult> (Guid id, StudentWriteRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -79,7 +79,7 @@ public static partial class DomainEndpoints
             {
                 return Results.Conflict(new { message = "كود الطالب مستخدم بالفعل. اختَر كودًا مختلفًا." });
             }
-        }).RequireAuthorization("students.edit");
+        }).RequireAuthorization("students.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         route.MapPatch("/{id:guid}/status", async Task<IResult> (Guid id, StudentStatusRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -164,7 +164,7 @@ public static partial class DomainEndpoints
                 await tx.RollbackAsync(ct);
                 throw;
             }
-        }).RequireAuthorization("students.edit");
+        }).RequireAuthorization("students.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
 
         route.MapGet("/{id:guid}/history", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await StudentHistory(db, id, principal, ct))
@@ -185,7 +185,7 @@ public static partial class DomainEndpoints
                 return Results.Created($"/api/students/{id}/history", new StudentNoteResponse(reader.GetGuid(0), reader.GetString(1), reader.GetFieldValue<DateTimeOffset>(2), principal.FindFirstValue("display_name") ?? principal.Identity?.Name ?? ""));
             }
             catch (PostgresException ex) when (ex.SqlState == "23503") { return Results.NotFound(); }
-        }).RequireAuthorization("students.edit");
+        }).RequireAuthorization("students.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
     }
 }

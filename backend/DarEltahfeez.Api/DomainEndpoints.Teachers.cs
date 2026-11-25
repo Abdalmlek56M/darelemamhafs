@@ -37,7 +37,7 @@ public static partial class DomainEndpoints
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             if (!await reader.ReadAsync(ct)) return Results.NotFound();
             return Results.Created($"/api/teachers/{id}/history", new StudentNoteResponse(reader.GetGuid(0), reader.GetString(1), reader.GetFieldValue<DateTimeOffset>(2), principal.FindFirstValue("display_name") ?? principal.Identity?.Name ?? ""));
-        }).RequireAuthorization("teachers.edit");
+        }).RequireAuthorization("teachers.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         route.MapPost("", async Task<IResult> (TeacherWriteRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -58,7 +58,7 @@ public static partial class DomainEndpoints
                 return Results.Created($"/api/teachers/{id}", await LoadTeacher(db,id,CanReadFinance(principal),ct));
             }
             catch (PostgresException ex) when (ex.SqlState == "23505") { return Results.Conflict(new { message = "كود المعلمة مستخدم بالفعل." }); }
-        }).RequireAuthorization("teachers.create");
+        }).RequireAuthorization("teachers.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         route.MapPut("/{id:guid}", async Task<IResult> (Guid id, TeacherWriteRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -77,7 +77,7 @@ public static partial class DomainEndpoints
                 return Results.Ok(await LoadTeacher(db,id,CanReadFinance(principal),ct));
             }
             catch(PostgresException ex) when(ex.SqlState=="23505"){return Results.Conflict(new {message="كود المعلمة مستخدم بالفعل."});}
-        }).RequireAuthorization("teachers.edit");
+        }).RequireAuthorization("teachers.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
     }
 }

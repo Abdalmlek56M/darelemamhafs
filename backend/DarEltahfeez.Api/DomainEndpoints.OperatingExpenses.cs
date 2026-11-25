@@ -68,7 +68,7 @@ public static partial class DomainEndpoints
                 await tx.RollbackAsync(ct);
                 return Results.Conflict(new { message = "الحلقة المرتبطة بالمصروف غير موجودة؛ حدّث القائمة ثم أعد المحاولة." });
             }
-        }).RequireAuthorization("finance.create");
+        }).RequireAuthorization("finance.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPut("/api/operating-expenses/{id:guid}", async Task<IResult> (Guid id, OperatingExpenseWriteRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -102,7 +102,7 @@ public static partial class DomainEndpoints
             {
                 await tx.RollbackAsync(ct); return Results.Conflict(new { message = "الحلقة المرتبطة بالمصروف غير موجودة؛ حدّث القائمة ثم أعد المحاولة." });
             }
-        }).RequireAuthorization("finance.edit", "finance.read");
+        }).RequireAuthorization("finance.edit", "finance.read").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
     }
 

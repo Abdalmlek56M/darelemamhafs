@@ -43,6 +43,7 @@ internal static class AuditTrashScopeResolver
         var type = (rawType ?? string.Empty).Replace('_', '-').ToLowerInvariant();
         var sql = type switch
         {
+            "student" or "students" => "SELECT c.teacher_id,ce.circle_id FROM circle_enrollments ce JOIN circles c ON c.id=ce.circle_id WHERE ce.student_id=@id AND ce.is_trashed=FALSE GROUP BY c.teacher_id,ce.circle_id HAVING COUNT(*)=(SELECT COUNT(*) FROM circle_enrollments x WHERE x.student_id=@id AND x.is_trashed=FALSE) LIMIT 1;",
             "teacher-attendance" => "SELECT teacher_id,circle_id FROM teacher_attendance WHERE id=@id;",
             "student-attendance" => "SELECT c.teacher_id,ce.circle_id FROM student_attendance sa JOIN circle_enrollments ce ON ce.id=sa.enrollment_id JOIN circles c ON c.id=ce.circle_id WHERE sa.id=@id;",
             "payment" or "payments" => "SELECT c.teacher_id,ce.circle_id FROM payments p JOIN monthly_charges mc ON mc.id=p.monthly_charge_id JOIN circle_enrollments ce ON ce.id=mc.enrollment_id JOIN circles c ON c.id=ce.circle_id WHERE p.id=@id;",

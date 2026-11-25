@@ -50,7 +50,7 @@ public static partial class DomainEndpoints
                 return Results.Created("/api/advertising-expenses",new{id=reader.GetGuid(0),totalAmount=CanReadFinance(principal) ? reader.GetDecimal(1) : (decimal?)null});
             }
             catch(PostgresException ex) when(ex.SqlState=="23503"){return Results.Conflict(new{message="تعذر ربط المصروف بالحلقة المحددة."});}
-        }).RequireAuthorization("finance.create");
+        }).RequireAuthorization("finance.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPut("/api/advertising-expenses/{id:guid}", async (Guid id, AdvertisingExpenseWriteRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -145,7 +145,7 @@ public static partial class DomainEndpoints
 
             await tx.CommitAsync(ct);
             return Results.Ok(new { id, circleId = newCircleId, platform, startDate = request.StartDate, daysCount = request.DaysCount, dailyCost, totalAmount = newTotalAmount, note });
-        }).RequireAuthorization("finance.edit", "finance.read");
+        }).RequireAuthorization("finance.edit", "finance.read").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
     }
 }

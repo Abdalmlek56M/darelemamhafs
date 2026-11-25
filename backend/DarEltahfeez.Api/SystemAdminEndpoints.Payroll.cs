@@ -43,7 +43,7 @@ public static partial class SystemAdminEndpoints
                 JsonSerializer.Serialize(new { note = request.Note.Trim() }), ct);
             await transaction.CommitAsync(ct);
             return Results.Ok(await LoadPayrollLockAsync(db, billingMonth, ct));
-        }).RequireAuthorization("finance.edit");
+        }).RequireAuthorization("finance.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPost("/api/admin/payroll/unlock", async Task<IResult> (PayrollLockRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -72,7 +72,7 @@ public static partial class SystemAdminEndpoints
                 JsonSerializer.Serialize(new { note = request.Note.Trim() }), ct);
             await transaction.CommitAsync(ct);
             return Results.Ok(await LoadPayrollLockAsync(db, billingMonth, ct));
-        }).RequireAuthorization("users.manage");
+        }).RequireAuthorization("users.manage").AddEndpointFilter<ScopedAccessEndpointFilter>();
     }
 
     internal static Task<bool> IsPayrollLockedAsync(NpgsqlDataSource db, DateOnly sessionDate, CancellationToken ct) =>

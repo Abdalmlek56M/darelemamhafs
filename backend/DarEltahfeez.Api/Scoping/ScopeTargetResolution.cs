@@ -26,6 +26,41 @@ internal static class ScopeTargetResolution
             return await TeacherAttendanceScopeResolver.ResolveMarkAsync(connection, context.Arguments.FirstOrDefault(arg => arg is TeacherAttendanceMarkRequest) as TeacherAttendanceMarkRequest);
         if (path == "/api/student-attendance" && http.Request.Method == "POST")
             return await StudentAttendanceScopeResolver.ResolveAsync(connection, context.Arguments.FirstOrDefault(arg => arg is StudentAttendanceMarkRequest) as StudentAttendanceMarkRequest);
+        if (path == "/api/charges" && http.Request.Method == "POST")
+            return await FinanceScopeResolver.ResolveChargeWriteAsync(connection, context);
+        if (path.Contains("/api/charges/") && id is not null && (http.Request.Method == "PUT" || path.EndsWith("/void")))
+            return await AuditTrashScopeResolver.EntityTargetAsync(connection, "monthly-charge", id.Value);
+        if (path == "/api/payments" && http.Request.Method == "POST")
+            return await FinanceScopeResolver.ResolvePaymentWriteAsync(connection, context);
+        if (path.StartsWith("/api/payments/") && path.EndsWith("/void") && id is not null)
+            return await AuditTrashScopeResolver.EntityTargetAsync(connection, "payment", id.Value);
+        if (path == "/api/advertising-expenses" && http.Request.Method == "POST")
+            return await FinanceScopeResolver.ResolveAdvertisingWriteAsync(connection, context);
+        if (path.StartsWith("/api/advertising-expenses/") && http.Request.Method == "PUT" && id is not null)
+            return await AuditTrashScopeResolver.EntityTargetAsync(connection, "advertising-expense", id.Value);
+        if (path == "/api/operating-expenses" && http.Request.Method == "POST")
+            return await FinanceScopeResolver.ResolveOperatingWriteAsync(connection, context);
+        if (path.StartsWith("/api/operating-expenses/") && http.Request.Method == "PUT" && id is not null)
+            return await AuditTrashScopeResolver.EntityTargetAsync(connection, "operating-expense", id.Value);
+        if (path == "/api/students" && http.Request.Method == "POST") return ScopeTarget.UnlinkedTarget;
+        if (path.StartsWith("/api/students/") && http.Request.Method is "PUT" or "PATCH" or "POST" && id is not null)
+            return await AuditTrashScopeResolver.EntityTargetAsync(connection, "student", id.Value);
+        if (path == "/api/teachers" && http.Request.Method == "POST") return ScopeTarget.UnlinkedTarget;
+        if (path.StartsWith("/api/teachers/") && http.Request.Method is "PUT" or "POST" or "PATCH" && id is not null)
+            return await AuditTrashScopeResolver.EntityTargetAsync(connection, "teacher", id.Value);
+        if (path == "/api/circles" && http.Request.Method == "POST")
+            return await AcademicScopeResolver.ResolveCircleWriteAsync(connection, context, false);
+        if (path == "/api/circles/with-schedule" && http.Request.Method == "POST")
+            return await AcademicScopeResolver.ResolveCircleWriteAsync(connection, context, true);
+        if (path.StartsWith("/api/circles/") && http.Request.Method == "PUT" && id is not null)
+            return await AuditTrashScopeResolver.EntityTargetAsync(connection, "circle", id.Value);
+        if (path == "/api/enrollments" && http.Request.Method == "POST")
+            return await AcademicScopeResolver.ResolveEnrollmentWriteAsync(connection, context, "EnrollmentWriteRequest");
+        if (path == "/api/circle-enrollments/bulk" && http.Request.Method == "POST")
+            return await AcademicScopeResolver.ResolveEnrollmentWriteAsync(connection, context, "BulkEnrollmentWriteRequest");
+        if (path.StartsWith("/api/enrollments/") && http.Request.Method == "PATCH" && id is not null)
+            return await AuditTrashScopeResolver.EntityTargetAsync(connection, "enrollment", id.Value);
+        if (path is "/api/admin/payroll/lock" or "/api/admin/payroll/unlock") return ScopeTarget.UnlinkedTarget;
         return null;
     }
 
