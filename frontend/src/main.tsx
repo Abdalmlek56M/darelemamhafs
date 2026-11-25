@@ -1,9 +1,10 @@
-import React, { lazy, Suspense } from 'react'
+import React, { lazy } from 'react'
 import { createRoot } from 'react-dom/client'
-import App from './App'
-import HomePage from './home/HomePage'
+import LazyBoundary from './components/common/LazyBoundary'
 import './styles/index.css'
 
+const AdminApp = lazy(() => import('./App'))
+const HomePage = lazy(() => import('./home/HomePage'))
 const TeacherApp = lazy(() => import('./teacher/TeacherApp'))
 const path = window.location.pathname
 const isHome = path === '/' || path === '/home'
@@ -12,21 +13,21 @@ const isTeacher = path === '/teacher' || path.startsWith('/teacher/')
 
 if (isHome) {
   createRoot(document.getElementById('root')!).render(
-    <React.StrictMode><HomePage /></React.StrictMode>,
+    <React.StrictMode><LazyBoundary label="جارٍ تحميل الصفحة…"><HomePage /></LazyBoundary></React.StrictMode>,
   )
 } else if (isTeacher || isSupervisor) {
   document.querySelector('link[rel="manifest"]')?.setAttribute('href', '/manifest-teacher.webmanifest')
   document.title = 'بوابة المعلمة — دار الإمام حفص'
   createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-      <Suspense fallback={<div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#080e19', color: '#95a4ba', fontFamily: 'Cairo, Tahoma, sans-serif' }}>جارٍ التحميل…</div>}>
+      <LazyBoundary label="جارٍ تحميل البوابة…">
         <TeacherApp mode={isSupervisor ? 'supervisor' : 'teacher'} />
-      </Suspense>
+      </LazyBoundary>
     </React.StrictMode>,
   )
 } else {
   createRoot(document.getElementById('root')!).render(
-    <React.StrictMode><App /></React.StrictMode>,
+    <React.StrictMode><LazyBoundary label="جارٍ تحميل لوحة الإدارة…"><AdminApp /></LazyBoundary></React.StrictMode>,
   )
 }
 
