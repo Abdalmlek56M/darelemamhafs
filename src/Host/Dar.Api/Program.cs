@@ -29,6 +29,7 @@ if (args.Contains("--migrate", StringComparer.OrdinalIgnoreCase))
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<AppExceptionHandler>();
+builder.Services.AddExceptionHandler<UnexpectedExceptionHandler>();
 builder.Services.AddOpenApi("v1");
 
 // Caddy terminates TLS on the same host. Trust only loopback by default; Docker
