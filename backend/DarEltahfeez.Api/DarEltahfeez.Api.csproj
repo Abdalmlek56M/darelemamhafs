@@ -15,6 +15,9 @@
     <PackageReference Include="Npgsql" Version="10.0.3" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Common\Dar.Common\Dar.Common.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <Content Include="../../database/*.sql" Link="database/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
