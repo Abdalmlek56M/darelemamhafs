@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Dar.Common.Requests;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -95,7 +96,7 @@ public static partial class SystemAdminEndpoints
                 attendanceDate = reader.IsDBNull(9) ? null : reader.GetFieldValue<DateOnly>(9);
             }
 
-            if (status != "pending")
+            if (!RequestWorkflow.CanReview(status))
             {
                 await transaction.RollbackAsync(ct);
                 return Results.Conflict(new { message = "تمت مراجعة هذا الطلب بالفعل." });
@@ -116,12 +117,12 @@ public static partial class SystemAdminEndpoints
                 }
             }
 
-            var nextStatus = request.Approve ? "approved" : "rejected";
+            var nextStatus = RequestWorkflow.ReviewStatus(request.Approve);
             string? effectBefore = null;
             string? effectAfter = null;
             if (request.Approve)
             {
-                effectBefore = await ReadAttendanceEffectAsync(connection, transaction, slotId, requestDate, attendanceId, ct);
+                effectBefore = await RequestEffectReader.ReadAsync(connection, transaction, slotId, requestDate, attendanceId, ct);
                 if (type is "absence" or "cancellation")
                 {
                     if (slotId == Guid.Empty || requestDate is null)
@@ -256,7 +257,7 @@ public static partial class SystemAdminEndpoints
             }
 
             if (request.Approve)
-                effectAfter = await ReadAttendanceEffectAsync(connection, transaction, slotId, requestDate, attendanceId, ct);
+                effectAfter = await RequestEffectReader.ReadAsync(connection, transaction, slotId, requestDate, attendanceId, ct);
 
             await using (var update = new NpgsqlCommand("""
                 UPDATE attendance_requests SET status=@status,reviewed_by=@reviewer,reviewed_at=now(),review_note=@note,
@@ -322,7 +323,7 @@ public static partial class SystemAdminEndpoints
                 teacherId = reader.GetGuid(3);
                 circleId = reader.GetGuid(4);
             }
-            if (status != "approved")
+            if (!RequestWorkflow.CanReopen(status))
             {
                 await transaction.RollbackAsync(ct);
                 return Results.Conflict(new { message = "لا يمكن إعادة هذا الطلب للمراجعة إلا بعد اعتماده." });
@@ -376,7 +377,7 @@ public static partial class SystemAdminEndpoints
                 }
                 status = (string)value;
             }
-            if (status != "pending")
+            if (!RequestWorkflow.CanEdit(status))
             {
                 await transaction.RollbackAsync(ct);
                 return Results.Conflict(new { message = "لا يمكن تعديل الطلب بعد مراجعته. أعده للمراجعة أولًا إذا كان معتمدًا." });
@@ -413,7 +414,7 @@ public static partial class SystemAdminEndpoints
                 await transaction.RollbackAsync(ct);
                 return Results.NotFound(new { message = "الطلب غير موجود." });
             }
-            if (status == "approved")
+            if (!RequestWorkflow.CanDelete(status))
             {
                 await transaction.RollbackAsync(ct);
                 return Results.Conflict(new { message = "أعد الطلب المعتمد للمراجعة أولًا قبل حذفه." });
@@ -438,34 +439,6 @@ public static partial class SystemAdminEndpoints
             await transaction.CommitAsync(ct);
             return Results.Ok(new { id, deleted = true });
         }).RequireAuthorization("users.manage").AddEndpointFilter<ScopedAccessEndpointFilter>();
-    }
-
-    private static async Task<string?> ReadAttendanceEffectAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
-        Guid slotId, DateOnly? date, Guid attendanceId, CancellationToken ct)
-    {
-        string sql;
-        if (attendanceId != Guid.Empty)
-            sql = """
-                SELECT jsonb_build_object('attendance', to_jsonb(ta), 'session', to_jsonb(ts))::text
-                FROM (SELECT 1) anchor
-                LEFT JOIN teacher_attendance ta ON ta.id=@attendance
-                LEFT JOIN teacher_sessions ts ON ts.id=ta.teacher_session_id;
-                """;
-        else if (slotId != Guid.Empty && date is not null)
-            sql = """
-                SELECT jsonb_build_object('attendance', to_jsonb(ta), 'session', to_jsonb(ts))::text
-                FROM (SELECT 1) anchor
-                LEFT JOIN teacher_attendance ta ON ta.schedule_slot_id=@slot AND ta.session_date=@date AND ta.is_trashed=FALSE
-                LEFT JOIN teacher_sessions ts ON ts.schedule_slot_id=@slot AND ts.session_date=@date;
-                """;
-        else
-            return null;
-
-        await using var command = new NpgsqlCommand(sql, connection, transaction);
-        command.Parameters.AddWithValue("attendance", attendanceId == Guid.Empty ? DBNull.Value : attendanceId);
-        command.Parameters.AddWithValue("slot", slotId);
-        command.Parameters.AddWithValue("date", (object?)date ?? DBNull.Value);
-        return await command.ExecuteScalarAsync(ct) as string;
     }
 
     private static async Task RestoreEffectAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,

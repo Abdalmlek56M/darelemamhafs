@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Dar.Common.Requests;
 using Dar.Common.Domain;
 using Npgsql;
 using NpgsqlTypes;
@@ -119,19 +120,19 @@ public static class SupervisorRequestEndpoints
             }
         }
 
-        if (status != "pending")
+        if (!RequestWorkflow.CanReview(status))
         {
             await transaction.RollbackAsync(ct);
             return Results.Conflict(new { message = "تمت مراجعة هذا الطلب بالفعل." });
         }
 
-        var nextStatus = request.Approve ? "approved" : "rejected";
+        var nextStatus = RequestWorkflow.ReviewStatus(request.Approve);
         string? effectBefore = null;
         string? effectAfter = null;
 
         if (request.Approve)
         {
-            effectBefore = await ReadEffectAsync(connection, transaction, slotId, requestDate, attendanceId, ct);
+            effectBefore = await RequestEffectReader.ReadAsync(connection, transaction, slotId, requestDate, attendanceId, ct);
             if (type is "absence" or "cancellation")
             {
                 if (slotId == Guid.Empty || requestDate is null)
@@ -304,7 +305,7 @@ public static class SupervisorRequestEndpoints
         }
 
         if (request.Approve)
-            effectAfter = await ReadEffectAsync(connection, transaction, slotId, requestDate, attendanceId, ct);
+            effectAfter = await RequestEffectReader.ReadAsync(connection, transaction, slotId, requestDate, attendanceId, ct);
 
         await using (var update = new NpgsqlCommand("""
             UPDATE attendance_requests
@@ -339,31 +340,4 @@ public static class SupervisorRequestEndpoints
         return Results.Ok(new { id, status = nextStatus });
     }
 
-    private static async Task<string?> ReadEffectAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
-        Guid slotId, DateOnly? date, Guid attendanceId, CancellationToken ct)
-    {
-        string sql;
-        if (attendanceId != Guid.Empty)
-            sql = """
-                SELECT jsonb_build_object('attendance', to_jsonb(ta), 'session', to_jsonb(ts))::text
-                FROM (SELECT 1) anchor
-                LEFT JOIN teacher_attendance ta ON ta.id=@attendance
-                LEFT JOIN teacher_sessions ts ON ts.id=ta.teacher_session_id;
-                """;
-        else if (slotId != Guid.Empty && date is not null)
-            sql = """
-                SELECT jsonb_build_object('attendance', to_jsonb(ta), 'session', to_jsonb(ts))::text
-                FROM (SELECT 1) anchor
-                LEFT JOIN teacher_attendance ta ON ta.schedule_slot_id=@slot AND ta.session_date=@date AND ta.is_trashed=FALSE
-                LEFT JOIN teacher_sessions ts ON ts.schedule_slot_id=@slot AND ts.session_date=@date;
-                """;
-        else
-            return null;
-
-        await using var command = new NpgsqlCommand(sql, connection, transaction);
-        command.Parameters.AddWithValue("attendance", attendanceId == Guid.Empty ? DBNull.Value : attendanceId);
-        command.Parameters.AddWithValue("slot", slotId);
-        command.Parameters.AddWithValue("date", (object?)date ?? DBNull.Value);
-        return await command.ExecuteScalarAsync(ct) as string;
-    }
 }
