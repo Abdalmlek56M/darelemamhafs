@@ -22,7 +22,7 @@ public static partial class DomainEndpoints
             await using var reader=await cmd.ExecuteReaderAsync(ct);
             while(await reader.ReadAsync(ct)) rows.Add(ReadCircle(reader, financeVisible));
             return Results.Ok(rows);
-        }).RequireAuthorization("circles.read").AddEndpointFilter<ScopedListEndpointFilter>();
+        }).RequireAuthorization("circles.read");
 
         route.MapGet("/{id:guid}/students", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {

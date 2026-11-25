@@ -54,7 +54,7 @@ public static partial class SystemAdminEndpoints
                 }
             }
             return Results.Ok(new { count = rows.Count, requests = rows });
-        }).RequireAuthorization("attendance.edit").AddEndpointFilter<ScopedAccessEndpointFilter>().AddEndpointFilter<ScopedListEndpointFilter>();
+        }).RequireAuthorization("attendance.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPost("/api/admin/requests/{id:guid}/review", async Task<IResult> (Guid id, AdminReviewRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
