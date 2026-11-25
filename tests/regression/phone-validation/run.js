@@ -33,6 +33,8 @@ for (const raw of [BASE, NEW_API]) {
     if (await phoneInputs.count() !== 2) throw new Error('expected 2 phone inputs, got ' + await phoneInputs.count());
     await phoneInputs.nth(0).fill('010ABC123');
     if (await phoneInputs.nth(0).inputValue() !== '010123') throw new Error('student phone letters were not blocked: ' + await phoneInputs.nth(0).inputValue());
+    await phoneInputs.nth(0).fill('٠١٠١٢٣٤٥٦٧٨');
+    if (await phoneInputs.nth(0).inputValue() !== '01012345678') throw new Error('Arabic-Indic digits were not normalized: ' + await phoneInputs.nth(0).inputValue());
     await phoneInputs.nth(1).fill('011XYZ456');
     if (await phoneInputs.nth(1).inputValue() !== '011456') throw new Error('guardian phone letters were not blocked: ' + await phoneInputs.nth(1).inputValue());
     await dialog.locator('input[required]').first().fill('P23 UI Student');
