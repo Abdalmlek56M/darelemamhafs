@@ -32,7 +32,8 @@ public sealed record RequestReviewResult(
     Guid TeacherId = default,
     Guid CircleId = default,
     bool IsCorrection = false,
-    RequestCorrectionAudit? Correction = null);
+    RequestCorrectionAudit? Correction = null,
+    Guid AttendanceId = default);
 
 public static class RequestReviewService
 {
