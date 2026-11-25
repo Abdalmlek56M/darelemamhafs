@@ -114,16 +114,7 @@
   .admin-notes-teacher-filter select { flex: 1; }
 }
 
-/* Mobile admin navigation: all sections remain reachable in a horizontal strip. */
-@media (max-width: 760px) {
-  .app-shell .sidebar { display: block; padding: 12px; }
-  .app-shell .sidebar .brand-button { margin-bottom: 9px; }
-  .app-shell .sidebar .nav-list { display: flex; flex-direction: row; flex: none; overflow-x: auto; overflow-y: hidden; padding: 0 0 4px; gap: 5px; }
-  .app-shell .sidebar .nav-item { display: flex; flex: 0 0 auto; width: auto; min-width: max-content; margin: 0; padding: 9px 11px; font-size: 11px; gap: 7px; }
-  .app-shell .sidebar .nav-item.active { margin-top: 0; }
-  .app-shell .sidebar .sidebar-account { display: none; }
-  .app-shell .sidebar .sidebar-bottom { display: none !important; }
-}
+/* Mobile navigation lives in foundation.css (bottom nav + drawer + more sheet). */
 
 /* Bulk enrollment with per-student agreed fee (owner request 24 Nov 2026). */
 .bulk-list-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 8px; }
