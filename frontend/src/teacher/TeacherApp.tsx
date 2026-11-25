@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CloudUpload, LogOut, WifiOff } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type {
@@ -6,17 +6,19 @@ import type {
   SubscriptionsResponse, TeacherSession, TodayResponse,
 } from './teacherTypes'
 import TeacherLogin from './TeacherLogin'
-import TeacherHome from './TeacherHome'
-import TeacherCalendar from './TeacherCalendar'
-import TeacherHistory from './TeacherHistory'
-import TeacherLive from './TeacherLive'
-import TeacherRoster from './TeacherRoster'
-import TeacherNotifications from './TeacherNotifications'
-import TeacherSubscriptions from './TeacherSubscriptions'
-import TeacherAccount from './TeacherAccount'
-import TeacherRequests from './TeacherRequests'
-import SupervisorWorkspace from './SupervisorWorkspace'
 import TeacherNav from './TeacherNav'
+import LazyBoundary from '../components/common/LazyBoundary'
+
+const TeacherHome = lazy(() => import('./TeacherHome'))
+const TeacherCalendar = lazy(() => import('./TeacherCalendar'))
+const TeacherHistory = lazy(() => import('./TeacherHistory'))
+const TeacherLive = lazy(() => import('./TeacherLive'))
+const TeacherRoster = lazy(() => import('./TeacherRoster'))
+const TeacherNotifications = lazy(() => import('./TeacherNotifications'))
+const TeacherSubscriptions = lazy(() => import('./TeacherSubscriptions'))
+const TeacherAccount = lazy(() => import('./TeacherAccount'))
+const TeacherRequests = lazy(() => import('./TeacherRequests'))
+const SupervisorWorkspace = lazy(() => import('./SupervisorWorkspace'))
 import { loginErrorMessage } from '../lib/userMessages'
 import { useTeacherOutbox } from './useTeacherOutbox'
 import './teacher.css'
@@ -378,6 +380,7 @@ export default function TeacherApp({ mode }: Props) {
 
   if (page === 'supervisor' && canSupervisor) {
     return (
+      <LazyBoundary label="جارٍ تحميل مساحة الإشراف…">
       <SupervisorWorkspace
         session={session}
         unread={unread}
@@ -400,6 +403,7 @@ export default function TeacherApp({ mode }: Props) {
         onLogout={() => void logout()}
         onNotificationsRefresh={() => void loadNotifications()}
       />
+      </LazyBoundary>
     )
   }
 
@@ -421,6 +425,7 @@ export default function TeacherApp({ mode }: Props) {
         </div>
       )}
       <main className="teacher-main">
+        <LazyBoundary label="جارٍ تحميل الصفحة…">
         {page === 'home' && canTeacher && (
           <TeacherHome
             today={today}
@@ -506,6 +511,7 @@ export default function TeacherApp({ mode }: Props) {
         {page === 'requests' && canTeacherRequests && <TeacherRequests today={today} />}
         {page === 'calendar' && <TeacherCalendar onBack={() => setPage('home')} onOpenLive={(id) => void openLive(id)} onOpenRoster={(id) => void openRoster(id)} />}
         {page === 'history' && <TeacherHistory onBack={() => setPage('home')} />}
+        </LazyBoundary>
       </main>
 
       <TeacherNav

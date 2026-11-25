@@ -1,4 +1,4 @@
-import { Component, Suspense, type ReactNode } from 'react'
+import { Component, Suspense, useEffect, type ReactNode } from 'react'
 
 type Props = { children: ReactNode; label?: string }
 type State = { error: unknown }
@@ -8,6 +8,13 @@ const CHUNK_ERROR = /failed to fetch dynamically imported module|error loading d
 
 function isChunkError(error: unknown) {
   return CHUNK_ERROR.test(String((error as Error | undefined)?.message ?? error ?? ''))
+}
+
+function ClearReloadGuardAfterLoad({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    try { sessionStorage.removeItem(RELOAD_KEY) } catch { /* storage unavailable */ }
+  }, [])
+  return <>{children}</>
 }
 
 /** Arabic loading/error shell for route-level lazy imports. */
@@ -40,6 +47,10 @@ export default class LazyBoundary extends Component<Props, State> {
         </div>
       )
     }
-    return <Suspense fallback={this.props.label ? <div style={{ minHeight: '50vh', display: 'grid', placeItems: 'center', color: 'var(--muted, #95a4ba)' }}>{this.props.label}</div> : null}>{this.props.children}</Suspense>
+    return (
+      <Suspense fallback={this.props.label ? <div style={{ minHeight: '50vh', display: 'grid', placeItems: 'center', color: 'var(--muted, #95a4ba)' }}>{this.props.label}</div> : null}>
+        <ClearReloadGuardAfterLoad>{this.props.children}</ClearReloadGuardAfterLoad>
+      </Suspense>
+    )
   }
 }

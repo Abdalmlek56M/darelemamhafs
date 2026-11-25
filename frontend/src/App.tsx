@@ -1,28 +1,30 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { lazy, useEffect, useRef, useState, type FormEvent } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { BookOpen, KeyRound, LockKeyhole, LogOut, Menu, Moon, MoreHorizontal, RefreshCw, Sun, X } from 'lucide-react'
 import SocialLinks from './components/common/SocialLinks'
 import AuthPage from './pages/AuthPage'
 import ConnectionCheckingView from './pages/ConnectionCheckingView'
 import useDarApplication from './application/useDarApplication'
-import DashboardPage from './pages/DashboardPage'
-import NotificationsPage from './pages/NotificationsPage'
-import AdminRequestsPage from './pages/AdminRequestsPage'
-import StudentsPage from './pages/StudentsPage'
-import TeachersPage from './pages/TeachersPage'
-import TeacherNotesPage from './pages/TeacherNotesPage'
-import CirclesPage from './pages/CirclesPage'
-import SchedulePage from './pages/SchedulePage'
-import PaymentsPage from './pages/PaymentsPage'
-import MeetPage from './meet/MeetPage'
-import UsersPage from './pages/UsersPage'
-import SystemPage from './pages/SystemPage'
 import ApplicationDialogs from './components/dialogs/ApplicationDialogs'
 import Modal from './components/common/Modal'
 import Field from './components/common/Field'
 import ModalActions from './components/common/ModalActions'
 import PersonalReminderCenter from './components/common/PersonalReminderCenter'
+import LazyBoundary from './components/common/LazyBoundary'
 import { request } from './services/apiClient'
+
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
+const AdminRequestsPage = lazy(() => import('./pages/AdminRequestsPage'))
+const StudentsPage = lazy(() => import('./pages/StudentsPage'))
+const TeachersPage = lazy(() => import('./pages/TeachersPage'))
+const TeacherNotesPage = lazy(() => import('./pages/TeacherNotesPage'))
+const CirclesPage = lazy(() => import('./pages/CirclesPage'))
+const SchedulePage = lazy(() => import('./pages/SchedulePage'))
+const PaymentsPage = lazy(() => import('./pages/PaymentsPage'))
+const MeetPage = lazy(() => import('./meet/MeetPage'))
+const UsersPage = lazy(() => import('./pages/UsersPage'))
+const SystemPage = lazy(() => import('./pages/SystemPage'))
 
 // Short labels for the fixed mobile bottom navigation (the drawer keeps the full labels).
 const mobileNavLabels: Record<string, string> = {
@@ -158,6 +160,7 @@ export default function App() {
           <button className="icon-button desktop-shell-action" title="تسجيل الخروج" aria-label="تسجيل الخروج" onClick={() => void logout()}><LogOut size={18} /></button>
         </div>
       </header>
+      <LazyBoundary label="جارٍ تحميل الصفحة…">
       <AnimatePresence mode="wait">
         {page === 'dashboard' && has('dashboard.read') && <DashboardPage ctx={ctx} />}
         {page === 'notifications' && has('dashboard.read') && <NotificationsPage ctx={ctx} />}
@@ -172,6 +175,7 @@ export default function App() {
         {page === 'users' && <UsersPage ctx={ctx} />}
         {page === 'system' && <SystemPage ctx={ctx} />}
       </AnimatePresence>
+      </LazyBoundary>
       {gate === 'ready' && visiblePages.length === 0 && <motion.section className="system-panel glass access-denied-panel" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}><span className="system-heading-icon"><LockKeyhole size={22} /></span><h2>لا توجد صلاحيات مخصصة لهذا الحساب</h2><p>حسابك لا يملك صلاحية عرض أي قسم في لوحة الإدارة. اطلب من مدير الدار منح الصلاحيات المطلوبة، ثم سجّل الخروج وادخل مرة أخرى.</p><button type="button" className="primary-button" onClick={() => void logout()}>تسجيل الخروج</button></motion.section>}
       <footer className="app-footer"><div>© 2026 جميع الحقوق محفوظة <span>•</span> {branding.brandName} <span>•</span> لوحة الإدارة الداخلية</div><SocialLinks branding={branding} /></footer>
     </main>
