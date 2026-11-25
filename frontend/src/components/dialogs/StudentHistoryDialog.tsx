@@ -1,6 +1,7 @@
 import Modal from '../common/Modal'
 import { useEffect, useState } from 'react'
 import { formatDate, formatDateTime, money } from '../../lib/formatters'
+import { normalizeUserMessage } from '../../lib/userMessages'
 import { formatTime12 } from '../../lib/dates'
 import { statusLabels } from '../../domain/labels'
 import { Archive, Ban, Download, Eye, LoaderCircle, Pause, Pencil, Play, Plus, Trash2 } from 'lucide-react'
@@ -19,12 +20,12 @@ export default function StudentHistoryDialog({ ctx }: Props) {
     setReceiptLoading(true); setReceiptError('')
     try {
       const response = await fetch(`/api/payments/${paymentId}/receipt`, { credentials: 'include', cache: 'no-store' })
-      if (!response.ok) { let message = 'تعذر عرض الإيصال.'; try { const body = await response.json(); message = body.message ?? message } catch { /* not JSON */ }; throw new Error(message) }
+      if (!response.ok) { let message: unknown = null; try { const body = await response.json(); message = body?.message ?? null } catch { /* not JSON */ }; throw new Error(normalizeUserMessage(message, response.status)) }
       const blob = await response.blob()
       if (!blob.type.startsWith('image/')) throw new Error('صيغة الإيصال المحفوظ غير مناسبة للعرض كصورة.')
       const url = URL.createObjectURL(blob)
       setReceiptPreview({ url, paymentId })
-    } catch (error) { setReceiptError(error instanceof Error ? error.message : 'تعذر عرض الإيصال.'); ctx.notifySystem('error', error instanceof Error ? error.message : 'تعذر عرض الإيصال.') }
+    } catch (error) { const message = normalizeUserMessage(error instanceof Error ? error.message : null); setReceiptError(message); ctx.notifySystem('error', message) }
     finally { setReceiptLoading(false) }
   }
   if (!history) {

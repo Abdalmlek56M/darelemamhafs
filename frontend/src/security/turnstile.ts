@@ -1,4 +1,5 @@
 /** Runtime Cloudflare Turnstile helpers. No site/secret key is ever bundled in the app. */
+import { normalizeUserMessage } from '../lib/userMessages'
 export type TurnstileConfig = { enabled: boolean; siteKey: string | null }
 
 type TurnstileApi = {
@@ -16,8 +17,13 @@ declare global {
 let scriptPromise: Promise<void> | null = null
 
 export async function fetchTurnstileConfig(configUrl: string): Promise<TurnstileConfig> {
-  const response = await fetch(configUrl, { credentials: 'include', cache: 'no-store' })
-  if (!response.ok) throw new Error(`تعذّر تحميل إعدادات التحقق الأمني (HTTP ${response.status}).`)
+  let response: Response
+  try {
+    response = await fetch(configUrl, { credentials: 'include', cache: 'no-store' })
+  } catch (error) {
+    throw new Error(normalizeUserMessage(error instanceof Error ? error.message : null, 0))
+  }
+  if (!response.ok) throw new Error(normalizeUserMessage(null, response.status))
   const body = await response.json() as { enabled?: unknown; siteKey?: unknown }
   const enabled = body.enabled === true && typeof body.siteKey === 'string' && body.siteKey.length > 0
   return { enabled, siteKey: enabled ? body.siteKey as string : null }

@@ -6,6 +6,7 @@ import type {
   SupervisorUnpaidResponse, SupervisorStudentAttendanceRow, TeacherSession, TodayResponse,
 } from './teacherTypes'
 import type { TeacherCalendarResponse, TeacherHistoryResponse } from './teacherCalendarTypes'
+import { isArabicUserMessage, normalizeUserMessage } from '../lib/userMessages'
 
 export class TeacherApiError extends Error {
   status: number
@@ -16,17 +17,20 @@ export class TeacherApiError extends Error {
 }
 
 async function readError(response: Response) {
-  try {
-    const body = await response.json()
-    if (typeof body.message === 'string') return body.message
-    if (typeof body.detail === 'string') return body.detail
-    if (body.errors && typeof body.errors === 'object') {
-      return Object.values(body.errors).flat().join(' ')
+  let body: any = null
+  try { body = await response.json() } catch { /* non-JSON error */ }
+  const messages: string[] = []
+  if (typeof body?.message === 'string') messages.push(body.message)
+  if (typeof body?.detail === 'string') messages.push(body.detail)
+  if (body?.errors && typeof body.errors === 'object') {
+    for (const value of Object.values(body.errors) as unknown[]) {
+      if (Array.isArray(value)) messages.push(...value.filter((item): item is string => typeof item === 'string'))
+      else if (typeof value === 'string') messages.push(value)
     }
-  } catch { /* use the status fallback */ }
-  if (response.status === 401) return 'انتهت الجلسة. سجّلي الدخول مرة أخرى.'
-  if (response.status === 403) return 'لا تملك صلاحية لهذا الإجراء.'
-  return `تعذر تنفيذ الطلب (HTTP ${response.status}).`
+  }
+  const arabic = messages.filter(isArabicUserMessage)
+  if (arabic.length > 0) return arabic.join(' ')
+  return normalizeUserMessage(messages.join(' '), response.status)
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -34,7 +38,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // P1-2: the teacher portal must never fall back to the admin bridge cookie.
   headers.set('X-Dar-Portal', 'teacher')
   if (init?.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
-  const response = await fetch(path, { ...init, headers, credentials: 'include', cache: 'no-store' })
+  let response: Response
+  try {
+    response = await fetch(path, { ...init, headers, credentials: 'include', cache: 'no-store' })
+  } catch (error) {
+    const message = normalizeUserMessage(error instanceof Error ? error.message : null, 0)
+    throw new TeacherApiError(message, 0)
+  }
   if (!response.ok) throw new TeacherApiError(await readError(response), response.status)
   if (response.status === 204) return undefined as T
   return await response.json() as T
