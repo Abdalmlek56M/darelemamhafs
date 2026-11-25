@@ -28,7 +28,7 @@ public static partial class DomainEndpoints
         audit.Parameters.AddWithValue("id", enrollmentId);
         audit.Parameters.AddWithValue("status", status);
         audit.Parameters.AddWithValue("effectiveOn", effectiveOn);
-        audit.Parameters.AddWithValue("reason", (object?)reason?.Trim() ?? DBNull.Value);
+        audit.Parameters.Add(new NpgsqlParameter("reason", NpgsqlDbType.Text) { Value = (object?)reason?.Trim() ?? DBNull.Value });
         await audit.ExecuteNonQueryAsync(ct);
     }
 
