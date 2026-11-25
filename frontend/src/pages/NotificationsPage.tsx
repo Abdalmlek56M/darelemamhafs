@@ -23,7 +23,7 @@ function categoryLabel(category: string) {
 
 function dateLabel(value: string) {
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' }).format(date)
 }
 
 function severityLabel(severity: string) {

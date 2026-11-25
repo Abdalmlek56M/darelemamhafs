@@ -105,7 +105,7 @@ export default function SchedulePage({ ctx }: Props) {
   const payColumns: ResponsiveColumn<(typeof visibleTeacherPay)[number]>[] = [
     { key: 'teacher', header: 'المعلمة', primary: true, render: (row) => row.teacherName },
     { key: 'sessions', header: 'عدد الحصص', render: (row) => row.present },
-    { key: 'hours', header: 'ساعات الحضور', render: (row) => row.hours.toLocaleString('ar-EG', { maximumFractionDigits: 2 }) },
+    { key: 'hours', header: 'ساعات الحضور', render: (row) => row.hours.toLocaleString('ar-EG-u-nu-latn', { maximumFractionDigits: 2 }) },
     { key: 'payable', header: 'المستحق', render: (row) => <strong className="good-text">{money(row.payable)}</strong> },
   ]
   const slotColumns: ResponsiveColumn<(typeof visibleSlots)[number]>[] = [
@@ -174,7 +174,7 @@ export default function SchedulePage({ ctx }: Props) {
 </div>
 <section className="stats-grid compact-stats attendance-pay-stats">
 <Stat icon={<UserCheck size={18}/>} label="الحصص التي تم تسجيل حضورها" value={String(visibleAttendanceRows.filter(a=>a.status==='present').length)} note="في الشهر المحدد"/>
-<Stat icon={<Clock3 size={18}/>} label="إجمالي ساعات الحضور" value={new Intl.NumberFormat('ar-EG',{maximumFractionDigits:2}).format(visibleAttendanceRows.filter(a=>a.status==='present').reduce((sum,a)=>sum+a.durationMinutes/60,0))} note="للحضور المسجل فقط"/>{canReadFinance && <Stat icon={<Wallet size={18}/>} label="إجمالي الأجر المستحق" value={money(visibleAttendanceRows.filter(a=>a.status==='present').reduce((sum,a)=>sum+(a.payableAmount ?? 0),0))} note="بناء على أجر الساعة المحفوظ وقت الحضور"/>}</section>
+<Stat icon={<Clock3 size={18}/>} label="إجمالي ساعات الحضور" value={new Intl.NumberFormat('ar-EG-u-nu-latn',{maximumFractionDigits:2}).format(visibleAttendanceRows.filter(a=>a.status==='present').reduce((sum,a)=>sum+a.durationMinutes/60,0))} note="للحضور المسجل فقط"/>{canReadFinance && <Stat icon={<Wallet size={18}/>} label="إجمالي الأجر المستحق" value={money(visibleAttendanceRows.filter(a=>a.status==='present').reduce((sum,a)=>sum+(a.payableAmount ?? 0),0))} note="بناء على أجر الساعة المحفوظ وقت الحضور"/>}</section>
 <ResponsiveTable
           caption="حضور المعلمات والطلاب"
           tableClassName="students-table wide-table schedule-session-table"

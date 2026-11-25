@@ -22,7 +22,7 @@ function cairoToday() {
 
 function dateLabel(value: string) {
   const date = new Date(`${value}T12:00:00`)
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('ar-EG', { day: 'numeric', month: 'long' }).format(date)
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'long' }).format(date)
 }
 
 function shiftDate(value: string, days: number) {

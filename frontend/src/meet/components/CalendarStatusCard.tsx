@@ -15,10 +15,13 @@ function lastSyncLabel(value: string | null) {
   if (!value) return 'لم تتم المزامنة بعد'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('ar-EG', {
+  return new Intl.DateTimeFormat('ar-EG-u-nu-latn', {
     timeZone: 'Africa/Cairo',
-    dateStyle: 'medium',
-    timeStyle: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(date)
 }
 

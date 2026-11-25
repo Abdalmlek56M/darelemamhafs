@@ -16,7 +16,7 @@ export function elapsedMinutes(startedAt: string | null | undefined) {
 }
 
 export function localTime(value: string) {
-  return new Date(value).toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit', hour12: true })
+  return new Date(value).toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Africa/Cairo' })
 }
 
 export function localDate(value: string) {

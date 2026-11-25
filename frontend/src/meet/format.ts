@@ -6,7 +6,7 @@ const CAIRO = 'Africa/Cairo'
 export function cairoDateTime(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat('ar-EG', {
+  return new Intl.DateTimeFormat('ar-EG-u-nu-latn', {
     timeZone: CAIRO,
     weekday: 'short',
     day: 'numeric',
@@ -19,7 +19,7 @@ export function cairoDateTime(value: string): string {
 export function cairoTime(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat('ar-EG', {
+  return new Intl.DateTimeFormat('ar-EG-u-nu-latn', {
     timeZone: CAIRO,
     hour: '2-digit',
     minute: '2-digit',

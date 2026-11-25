@@ -24,12 +24,12 @@ const statusLabels: Record<string, string> = {
 function dateLabel(value: string | null) {
   if (!value) return '—'
   const date = new Date(`${value}T12:00:00`)
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium' }).format(date)
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
 }
 
 function createdLabel(value: string) {
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' }).format(date)
 }
 
 export default function AdminRequestsPage({ ctx }: Props) {

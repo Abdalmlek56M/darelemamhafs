@@ -114,7 +114,7 @@ export default function TeacherHistoryDialog({ ctx }: Props) {
 </div>
 <div>
 <small>إجمالي الساعات</small>
-<strong>{history.totals.totalHours.toLocaleString('ar-EG',{maximumFractionDigits:2})}</strong>
+<strong>{history.totals.totalHours.toLocaleString('ar-EG-u-nu-latn',{maximumFractionDigits:2})}</strong>
 </div>{financeVisible&&<div>
 <small>الأجر المستحق المسجل</small>
 <strong>{money(history.totals.payableTotal)}</strong>

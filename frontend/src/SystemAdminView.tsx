@@ -66,7 +66,7 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
     }
     return Array.from(grouped.entries()).sort((a,b) => b[0].localeCompare(a[0])).map(([key, rows]) => ({
       key,
-      label: new Intl.DateTimeFormat('ar-EG', { dateStyle: 'full' }).format(new Date(`${key}T12:00:00`)),
+      label: new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'full' }).format(new Date(`${key}T12:00:00`)),
       rows: rows.sort((a,b) => b.occurredAt.localeCompare(a.occurredAt) || b.id-a.id),
     }))
   }, [auditRows])
@@ -303,7 +303,7 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
     </form>}
 
     {tab === 'audit' && can('audit.read') && <div className="system-panel glass"><div className="system-panel-heading"><div><span className="eyebrow">Accountability</span><h3>سجل التغييرات</h3><p>اختر الشهر، ثم افتح اليوم المطلوب لرؤية كل العمليات المسجلة فيه.</p></div><span className="system-heading-icon"><History size={20}/></span></div>
-      <div className="audit-month-toolbar"><label className="form-field"><span>الشهر</span><MonthPicker value={auditMonth} onChange={setAuditMonth} ariaLabel="شهر سجل التغييرات"/></label><div className="audit-month-summary"><strong>{new Intl.DateTimeFormat('ar-EG', { month: 'long', year: 'numeric' }).format(new Date(`${auditMonth}-01T12:00:00`))}</strong><span>{auditRows.length} عملية · {auditDayGroups.length} يومًا به نشاط</span></div></div>
+      <div className="audit-month-toolbar"><label className="form-field"><span>الشهر</span><MonthPicker value={auditMonth} onChange={setAuditMonth} ariaLabel="شهر سجل التغييرات"/></label><div className="audit-month-summary"><strong>{new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric' }).format(new Date(`${auditMonth}-01T12:00:00`))}</strong><span>{auditRows.length} عملية · {auditDayGroups.length} يومًا به نشاط</span></div></div>
       <div className="audit-month-group"><h4>أيام الشهر</h4>{auditDayGroups.map(day => <details className="audit-day-group" key={day.key}><summary><span>{day.label}</span><strong>{day.rows.length} عملية</strong></summary><div className="table-scroll"><table className="students-table wide-table"><thead><tr><th>الوقت</th><th>بواسطة</th><th>الإجراء</th><th>العنصر</th><th>تفاصيل</th><th>الاسترجاع</th></tr></thead><tbody>{day.rows.map(row => <tr key={row.id}><td>{formatDate(row.occurredAt)}</td><td>{row.actorName || (row.actionCode === 'setup.initial_admin' ? 'تهيئة النظام' : 'حساب غير معروف')}</td><td><strong>{actionLabel(row.actionCode, row.entityType)}</strong></td><td>{entityLabel(row.entityType)}</td><td><button className="secondary-button compact-button" onClick={() => setSelectedAudit(row)}>عرض التفاصيل</button></td><td>{row.canRestore && !row.restoredAt && can('audit.restore') ? <button className="secondary-button compact-button" onClick={() => void restoreAudit(row)}><RotateCcw size={13}/> استعادة البيانات السابقة</button> : row.restoredAt ? <span className="status-pill status-active">تم الاسترجاع</span> : <small className="sub-cell">لا يتوفر استرجاع لهذا الإجراء</small>}</td></tr>)}</tbody></table></div></details>)}{auditDayGroups.length === 0 && <div className="empty-inline">لا توجد عمليات مسجلة في هذا الشهر.</div>}</div>
     </div>}
 

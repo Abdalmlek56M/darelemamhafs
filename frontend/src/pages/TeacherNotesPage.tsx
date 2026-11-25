@@ -7,7 +7,7 @@ type Kind = 'all' | 'session' | 'student'
 
 function dateLabel(value: string) {
   const date = new Date(`${value}T12:00:00`)
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium' }).format(date)
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
 }
 
 export default function TeacherNotesPage() {
