@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BellRing, CheckCheck, CircleAlert, RefreshCw, ShieldAlert } from 'lucide-react'
 import { api } from '../system/api'
+import { requestPage } from '../services/apiClient'
+import Pager from '../components/common/Pager'
+import { ADMIN_PAGE_SIZE } from '../lib/pagination'
 import type { AdminNotification, AdminNotificationsResponse } from '../system/types'
 import type { DarApplicationContext } from '../application/useDarApplication'
 
@@ -41,20 +44,24 @@ export default function NotificationsPage({ ctx }: Props) {
   const [markingAll, setMarkingAll] = useState(false)
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [resolutionNote, setResolutionNote] = useState('')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
 
-  const load = useCallback(async (status: Filter) => {
+  const load = useCallback(async (status: Filter, requestedPage = page) => {
     setLoading(true)
     setError(null)
     try {
-      setData(await api<AdminNotificationsResponse>(`/api/admin/notifications?status=${status}`))
+      const response = await requestPage<AdminNotificationsResponse>(`/api/admin/notifications?status=${status}&page=${requestedPage}&pageSize=${ADMIN_PAGE_SIZE}`, undefined, ADMIN_PAGE_SIZE)
+      setData(response.data)
+      setTotal(response.meta.total)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر تحميل الإشعارات.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [page])
 
-  useEffect(() => { void load(filter) }, [filter, load])
+  useEffect(() => { void load(filter, page) }, [filter, page, load])
 
   const notifications = data?.notifications ?? []
   const openCount = data?.counts.open ?? 0
@@ -196,6 +203,7 @@ export default function NotificationsPage({ ctx }: Props) {
           )
         })}
       </div>
+      <Pager page={page} pageSize={ADMIN_PAGE_SIZE} total={total} onPageChange={setPage} label="إشعار" />
     </section>
   )
 }

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Megaphone, MessageSquareText, RefreshCw } from 'lucide-react'
 import { api } from '../system/api'
+import { requestPage } from '../services/apiClient'
+import Pager from '../components/common/Pager'
+import { ADMIN_PAGE_SIZE } from '../lib/pagination'
 import type { AdminTeacherNote, AdminTeacherNotesResponse } from '../system/types'
 
 type Kind = 'all' | 'session' | 'student'
@@ -16,24 +19,29 @@ export default function TeacherNotesPage() {
   const [teacherId, setTeacherId] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
 
-  const load = useCallback(async (nextKind: Kind, nextTeacherId: string) => {
+  const load = useCallback(async (nextKind: Kind, nextTeacherId: string, requestedPage = page) => {
     setLoading(true)
     setError(null)
     try {
       const params = new URLSearchParams()
       if (nextKind !== 'all') params.set('kind', nextKind)
       if (nextTeacherId) params.set('teacherId', nextTeacherId)
-      const query = params.size ? `?${params.toString()}` : ''
-      setData(await api<AdminTeacherNotesResponse>(`/api/admin/teacher-notes${query}`))
+      params.set('page', String(requestedPage))
+      params.set('pageSize', String(ADMIN_PAGE_SIZE))
+      const response = await requestPage<AdminTeacherNotesResponse>(`/api/admin/teacher-notes?${params.toString()}`, undefined, ADMIN_PAGE_SIZE)
+      setData(response.data)
+      setTotal(response.meta.total)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر تحميل ملاحظات المعلمات.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [page])
 
-  useEffect(() => { void load(kind, teacherId) }, [kind, teacherId, load])
+  useEffect(() => { void load(kind, teacherId, page) }, [kind, teacherId, page, load])
 
   const notes = data?.notes ?? []
   const teachers = data?.teachers ?? []
@@ -99,6 +107,7 @@ export default function TeacherNotesPage() {
         </div>
       )}
 
+      <Pager page={page} pageSize={ADMIN_PAGE_SIZE} total={total} onPageChange={setPage} label="ملاحظة" />
       <div className="admin-note-cards">
         {notes.map((item: AdminTeacherNote, index) => (
           <article className="admin-note-card" key={`${item.date}-${item.teacherId}-${index}`}>

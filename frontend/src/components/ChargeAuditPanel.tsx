@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Pencil, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { api } from '../system/api'
+import { requestPage } from '../services/apiClient'
+import Pager from './common/Pager'
+import { ADMIN_PAGE_SIZE } from '../lib/pagination'
 import type { ChargeAuditResponse } from '../system/types'
 import { money } from '../lib/formatters'
 import ResponsiveTable, { type ResponsiveColumn } from './common/ResponsiveTable'
@@ -13,20 +16,24 @@ export default function ChargeAuditPanel({ ctx }: Props) {
   const [data, setData] = useState<ChargeAuditResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
 
-  const load = useCallback(async (month: string) => {
+  const load = useCallback(async (month: string, requestedPage = page) => {
     setLoading(true)
     setError(null)
     try {
-      setData(await api<ChargeAuditResponse>(`/api/admin/charge-audit?month=${encodeURIComponent(month)}`))
+      const response = await requestPage<ChargeAuditResponse>(`/api/admin/charge-audit?month=${encodeURIComponent(month)}&page=${requestedPage}&pageSize=${ADMIN_PAGE_SIZE}`, undefined, ADMIN_PAGE_SIZE)
+      setData(response.data)
+      setTotal(response.meta.total)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر تحميل مراجعة الاستحقاقات.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [page])
 
-  useEffect(() => { void load(ctx.currentMonthValue) }, [ctx.currentMonthValue, load])
+  useEffect(() => { void load(ctx.currentMonthValue, page) }, [ctx.currentMonthValue, page, load])
 
   const openCorrection = (row: ChargeAuditRow) => {
     ctx.setEditingChargeId(row.chargeId)
@@ -52,7 +59,7 @@ export default function ChargeAuditPanel({ ctx }: Props) {
 
   return <section className="charge-audit-panel glass">
     <div className="charge-audit-head">
-      <div><span className="eyebrow">مراجعة مالية</span><h3>استحقاقات لا تساوي الرسوم المتفق عليها</h3><p>عددها {data.count} في {data.month}. راجع كل صف وافتحه للتصحيح؛ لا يتم تعديل أي مبلغ تلقائيًا.</p></div>
+      <div><span className="eyebrow">مراجعة مالية</span><h3>استحقاقات لا تساوي الرسوم المتفق عليها</h3><p>عددها {total} في {data.month}. راجع كل صف وافتحه للتصحيح؛ لا يتم تعديل أي مبلغ تلقائيًا.</p></div>
       <button className="secondary-button compact-button" onClick={() => void load(ctx.currentMonthValue)} disabled={loading}>تحديث</button>
     </div>
     <ResponsiveTable
@@ -66,5 +73,6 @@ export default function ChargeAuditPanel({ ctx }: Props) {
         ? <small className="warn-text">المدفوع أكبر من المتفق عليه — يحتاج مراجعة يدوية.</small>
         : <button className="secondary-button compact-button" onClick={() => openCorrection(row)}><Pencil size={13}/> فتح للتصحيح</button>}
     />
+    <Pager page={page} pageSize={ADMIN_PAGE_SIZE} total={total} onPageChange={setPage} label="صف" />
   </section>
 }

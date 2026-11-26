@@ -8,6 +8,9 @@ import {
   ImagePlus, LoaderCircle, RotateCcw, Save, Settings2, ShieldCheck, Trash2, XCircle, DatabaseZap,
 } from 'lucide-react'
 import { api } from './system/api'
+import { requestPage } from './services/apiClient'
+import Pager from './components/common/Pager'
+import { ADMIN_PAGE_SIZE } from './lib/pagination'
 import { defaultSettings, defaultWhatsappTemplates, emptyResetCandidates, resetTypeLabels, scopeOptions, systemTabs, trashPermissionFor, type SystemTab } from './system/constants'
 import { AuditValue, actionLabel, bytes, displayScopes, downloadBlob, entityLabel, formatDate, payloadToXml } from './system/formatting'
 import type { AdminSettings, AuditRecord, BackupRecord, ResetCandidate, ResetCandidates, ResetType, TrashRecord } from './system/types'
@@ -31,8 +34,12 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
   const [clearLogo, setClearLogo] = useState(false)
   const [auditRows, setAuditRows] = useState<AuditRecord[]>([])
   const [auditMonth, setAuditMonth] = useState(() => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}` })
+  const [auditPage, setAuditPage] = useState(1)
+  const [auditTotal, setAuditTotal] = useState(0)
   const [selectedAudit, setSelectedAudit] = useState<AuditRecord | null>(null)
   const [trashRows, setTrashRows] = useState<TrashRecord[]>([])
+  const [trashPage, setTrashPage] = useState(1)
+  const [trashTotal, setTrashTotal] = useState(0)
   const [selectedTrashIds, setSelectedTrashIds] = useState<Set<string>>(() => new Set())
   const [purgingSelectedTrash, setPurgingSelectedTrash] = useState(false)
   const [backupRows, setBackupRows] = useState<BackupRecord[]>([])
@@ -88,13 +95,13 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
         const loaded = await api<AdminSettings>('/api/admin/settings')
         setSettings(current => ({ ...current, ...loaded }))
       }
-      if (requested === 'audit' && can('audit.read')) setAuditRows(await api<AuditRecord[]>(`/api/admin/audit-log?limit=10000&month=${encodeURIComponent(auditMonth)}`))
-      if (requested === 'trash' && can('trash.manage')) setTrashRows(await api<TrashRecord[]>('/api/admin/trash'))
+      if (requested === 'audit' && can('audit.read')) { const response = await requestPage<AuditRecord[]>(`/api/admin/audit-log?month=${encodeURIComponent(auditMonth)}&page=${auditPage}&pageSize=${ADMIN_PAGE_SIZE}`, undefined, ADMIN_PAGE_SIZE); setAuditRows(response.data); setAuditTotal(response.meta.total) }
+      if (requested === 'trash' && can('trash.manage')) { const response = await requestPage<TrashRecord[]>(`/api/admin/trash?page=${trashPage}&pageSize=${ADMIN_PAGE_SIZE}`, undefined, ADMIN_PAGE_SIZE); setTrashRows(response.data); setTrashTotal(response.meta.total) }
       if (requested === 'backups' && can('backup.manage')) setBackupRows(await api<BackupRecord[]>('/api/admin/backups'))
       if (requested === 'reset' && can('trash.manage') && can('backup.manage')) setResetCandidates(await api<ResetCandidates>('/api/admin/reset-candidates'))
     } catch (error) { notify('error', error instanceof Error ? error.message : 'تعذر تحميل بيانات قسم النظام.') }
     finally { await minimumFeedback; setLoading(false); setRefreshing(false) }
-  }, [tab, can, notify, auditMonth])
+  }, [tab, can, notify, auditMonth, auditPage, trashPage])
   useEffect(() => { void loadTab(tab) }, [tab, loadTab])
 
   const resetTargetOptions: ResetCandidate[] = useMemo(() => {
@@ -303,13 +310,14 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
     </form>}
 
     {tab === 'audit' && can('audit.read') && <div className="system-panel glass"><div className="system-panel-heading"><div><span className="eyebrow">Accountability</span><h3>سجل التغييرات</h3><p>اختر الشهر، ثم افتح اليوم المطلوب لرؤية كل العمليات المسجلة فيه.</p></div><span className="system-heading-icon"><History size={20}/></span></div>
-      <div className="audit-month-toolbar"><label className="form-field"><span>الشهر</span><MonthPicker value={auditMonth} onChange={setAuditMonth} ariaLabel="شهر سجل التغييرات"/></label><div className="audit-month-summary"><strong>{new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric' }).format(new Date(`${auditMonth}-01T12:00:00`))}</strong><span>{auditRows.length} عملية · {auditDayGroups.length} يومًا به نشاط</span></div></div>
+      <div className="audit-month-toolbar"><label className="form-field"><span>الشهر</span><MonthPicker value={auditMonth} onChange={(value) => { setAuditMonth(value); setAuditPage(1) }} ariaLabel="شهر سجل التغييرات"/></label><div className="audit-month-summary"><strong>{new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric' }).format(new Date(`${auditMonth}-01T12:00:00`))}</strong><span>{auditTotal} عملية · {auditDayGroups.length} يومًا به نشاط</span></div><Pager page={auditPage} pageSize={ADMIN_PAGE_SIZE} total={auditTotal} onPageChange={setAuditPage} label="عملية" /></div>
       <div className="audit-month-group"><h4>أيام الشهر</h4>{auditDayGroups.map(day => <details className="audit-day-group" key={day.key}><summary><span>{day.label}</span><strong>{day.rows.length} عملية</strong></summary><div className="table-scroll"><table className="students-table wide-table"><thead><tr><th>الوقت</th><th>بواسطة</th><th>الإجراء</th><th>العنصر</th><th>تفاصيل</th><th>الاسترجاع</th></tr></thead><tbody>{day.rows.map(row => <tr key={row.id}><td>{formatDate(row.occurredAt)}</td><td>{row.actorName || (row.actionCode === 'setup.initial_admin' ? 'تهيئة النظام' : 'حساب غير معروف')}</td><td><strong>{actionLabel(row.actionCode, row.entityType)}</strong></td><td>{entityLabel(row.entityType)}</td><td><button className="secondary-button compact-button" onClick={() => setSelectedAudit(row)}>عرض التفاصيل</button></td><td>{row.canRestore && !row.restoredAt && can('audit.restore') ? <button className="secondary-button compact-button" onClick={() => void restoreAudit(row)}><RotateCcw size={13}/> استعادة البيانات السابقة</button> : row.restoredAt ? <span className="status-pill status-active">تم الاسترجاع</span> : <small className="sub-cell">لا يتوفر استرجاع لهذا الإجراء</small>}</td></tr>)}</tbody></table></div></details>)}{auditDayGroups.length === 0 && <div className="empty-inline">لا توجد عمليات مسجلة في هذا الشهر.</div>}</div>
     </div>}
 
     {tab === 'trash' && can('trash.manage') && <div className="system-panel glass"><div className="system-panel-heading"><div><span className="eyebrow">Recovery</span><h3>سلة المهملات</h3><p>يمكنك استعادة السجلات أو تحديد مجموعة لحذفها نهائيًا. حذف السجل الرئيسي قد يشمل السجلات التابعة له.</p></div><span className="system-heading-icon"><Trash2 size={20}/></span></div>
       <div className="trash-bulk-toolbar"><label className="trash-select-all"><input type="checkbox" checked={manageableTrashRows.length > 0 && manageableTrashRows.every(row => selectedTrashIds.has(row.id))} onChange={event => selectAllTrash(event.target.checked)} /><span>تحديد المسموح ({manageableTrashRows.length})</span></label><div><button type="button" className="secondary-button compact-button" onClick={() => selectAllTrash(false)} disabled={selectedTrashIds.size === 0}>إلغاء التحديد</button><button type="button" className="danger-button reset-danger-button" onClick={() => void purgeSelectedTrash()} disabled={selectedTrashIds.size === 0 || purgingSelectedTrash}>{purgingSelectedTrash ? <LoaderCircle className="spin" size={14}/> : <Trash2 size={14}/>} حذف المحدد نهائيًا ({selectedTrashIds.size})</button></div></div>
       <div className="table-scroll"><table className="students-table wide-table"><thead><tr><th>تحديد</th><th>السجل</th><th>النوع</th><th>نُقل بواسطة</th><th>تاريخ الحذف</th><th>الحذف التلقائي</th><th>الإجراء</th></tr></thead><tbody>{trashRows.map(item => <tr key={item.id}><td><input type="checkbox" checked={selectedTrashIds.has(item.id)} disabled={!canTrashEntity(item.entityType)} onChange={() => toggleTrashSelection(item.id)} aria-label={`تحديد ${item.displayName}`} /></td><td><strong>{item.displayName}</strong>{item.purgeError && <small className="error-text">تعذر الحذف التلقائي؛ توجد علاقة أو مشكلة تحتاج مراجعة.</small>}</td><td>{entityLabel(item.entityType)}</td><td>{item.deletedByName}</td><td>{formatDate(item.deletedAt)}</td><td>{formatDate(item.expiresAt)}</td><td>{canTrashEntity(item.entityType) ? <div className="row-actions"><button className="secondary-button compact-button" onClick={() => void restoreTrash(item)}><ArchiveRestore size={13}/> استعادة</button><button className="small-icon-button danger-action" title="حذف نهائي" onClick={() => void purgeTrash(item)}><Trash2 size={14}/></button></div> : <small className="sub-cell">لا تملك صلاحية إدارة هذا النوع</small>}</td></tr>)}{trashRows.length === 0 && <tr><td colSpan={7}>سلة المهملات فارغة.</td></tr>}</tbody></table></div>
+      <Pager page={trashPage} pageSize={ADMIN_PAGE_SIZE} total={trashTotal} onPageChange={setTrashPage} label="سجل" />
     </div>}
 
     {tab === 'backups' && can('backup.manage') && <div className="system-panel glass"><div className="system-panel-heading"><div><span className="eyebrow">Backup & restore</span><h3>النسخ الاحتياطية</h3><p>النسخة الكاملة تشمل مخطط PostgreSQL والبيانات. النسخ الجزئية بيانات فقط وتحتاج مخططًا متوافقًا عند الاستعادة.</p></div><span className="system-heading-icon"><FileArchive size={20}/></span></div>

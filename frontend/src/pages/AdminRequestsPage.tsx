@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle2, ClipboardCheck, RefreshCw, XCircle } from 'lucide-react'
 import { api } from '../system/api'
+import { requestPage } from '../services/apiClient'
+import Pager from '../components/common/Pager'
+import { ADMIN_PAGE_SIZE } from '../lib/pagination'
 import type { AdminAttendanceRequest, AdminRequestsResponse } from '../system/types'
 import type { DarApplicationContext } from '../application/useDarApplication'
 import { confirmAction } from '../components/common/confirmService'
@@ -45,20 +48,24 @@ export default function AdminRequestsPage({ ctx }: Props) {
   const [editDuration, setEditDuration] = useState('')
   const [editNote, setEditNote] = useState('')
   const [busy, setBusy] = useState(false)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
 
-  const load = useCallback(async (status: Filter) => {
+  const load = useCallback(async (status: Filter, requestedPage = page) => {
     setLoading(true)
     setError(null)
     try {
-      setData(await api<AdminRequestsResponse>(`/api/admin/requests?status=${status}`))
+      const response = await requestPage<AdminRequestsResponse>(`/api/admin/requests?status=${status}&page=${requestedPage}&pageSize=${ADMIN_PAGE_SIZE}`, undefined, ADMIN_PAGE_SIZE)
+      setData(response.data)
+      setTotal(response.meta.total)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر تحميل طلبات المعلمات.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [page])
 
-  useEffect(() => { void load(filter) }, [filter, load])
+  useEffect(() => { void load(filter, page) }, [filter, page, load])
 
   const review = async (approve: boolean) => {
     if (!reviewing) return
@@ -224,6 +231,7 @@ export default function AdminRequestsPage({ ctx }: Props) {
         ))}
       </div>
 
+      <Pager page={page} pageSize={ADMIN_PAGE_SIZE} total={total} onPageChange={setPage} label="طلب" />
       <div className="admin-request-note"><ClipboardCheck size={15} /><span>لا يتم تعديل أي سجل حضور قبل ضغط «اعتماد الطلب». رفض الطلب لا يغيّر الحضور.</span></div>
     </section>
   )
