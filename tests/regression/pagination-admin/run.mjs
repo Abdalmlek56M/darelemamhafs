@@ -160,6 +160,10 @@ assert.equal(studentHistory.body.attendanceTotal, 7);
 const teacherSessionId = one(`INSERT INTO teacher_sessions(id,teacher_id,circle_id,schedule_slot_id,session_date,started_at,ended_at,status,scheduled_duration_minutes,actual_duration_minutes)
   VALUES (gen_random_uuid(),${q(c.teacherId)},${q(c.circleId)},${q(c.slotId)},DATE '2026-10-01',
   TIMESTAMPTZ '2026-10-01 10:00:00+02',TIMESTAMPTZ '2026-10-01 11:00:00+02','completed',60,60) RETURNING id;`);
+one("INSERT INTO user_permissions(user_id,permission_code) SELECT id,'teacher.students.read' FROM app_users WHERE teacher_id=" + q(c.teacherId) + " ON CONFLICT DO NOTHING;");
+one("INSERT INTO user_permissions(user_id,permission_code) SELECT id,'teacher.attendance' FROM app_users WHERE teacher_id=" + q(c.teacherId) + " ON CONFLICT DO NOTHING;");
+one("INSERT INTO user_permissions(user_id,permission_code) SELECT id,'teacher.earnings.self' FROM app_users WHERE teacher_id=" + q(c.teacherId) + " ON CONFLICT DO NOTHING;");
+one("INSERT INTO user_permissions(user_id,permission_code) SELECT id,'teacher.subscriptions.read' FROM app_users WHERE teacher_id=" + q(c.teacherId) + " ON CONFLICT DO NOTHING;");
 async function newLogin(username) {
   const response = await fetch(process.env.Q6_NEW_URL + '/api/v1/auth/password', {
     method: 'POST', headers: { 'content-type': 'application/json' },
@@ -206,7 +210,7 @@ const detailStudent = await getNew(`/api/v1/supervisor/students/${seededStudent}
 assert.equal(detailStudent.status, 200, 'supervisor student detail status');
 assert.equal(detailStudent.body.historyTotal, 7);
 assert.equal(detailStudent.body.history.length, 2);
-const detailTeacher = await getNew(`/api/v1/supervisor/teachers/${c.teacherId}?page=1&pageSize=2`, adminAuth);
+const detailTeacher = await getNew(`/api/v1/supervisor/teachers/${c.teacherId}?from=2026-10-01&to=2026-10-31&page=1&pageSize=2`, adminAuth);
 assert.equal(detailTeacher.status, 200, 'supervisor teacher detail status');
 assert.equal(detailTeacher.body.historyTotal, 7);
 assert.equal(detailTeacher.body.history.length, 2);
