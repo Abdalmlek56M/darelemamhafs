@@ -244,12 +244,14 @@ public static class StudentsEndpoint
 
         var notes = new List<object>();
         var subscription = new List<object>();
+        long notesTotal = 0;
+        long subscriptionTotal = 0;
         var canFinance = TeachingPrincipal.Has(principal, "finance.read");
         var canUnpaid = canFinance || TeachingPrincipal.Has(principal, "supervisor.unpaid") || TeachingPrincipal.Has(principal, "users.manage");
         if (canUnpaid)
         {
-            await using var subscriptionCommand = new NpgsqlCommand("""
-                SELECT c.name, mc.amount_due, COALESCE(p.paid, 0)
+            var subscriptionQuery = """
+                SELECT c.name, mc.amount_due, COALESCE(p.paid, 0), COUNT(*) OVER() AS total
                 FROM monthly_charges mc
                 JOIN circle_enrollments ce ON ce.id = mc.enrollment_id AND ce.is_trashed = FALSE
                 JOIN circles c ON c.id = ce.circle_id AND c.is_trashed = FALSE
@@ -261,51 +263,63 @@ public static class StudentsEndpoint
                 WHERE ce.student_id = @id AND mc.is_trashed = FALSE AND mc.voided_at IS NULL
                   AND mc.billing_month = date_trunc('month', @today::date)::date
                   AND (@all OR c.id = ANY(@circles))
-                ORDER BY c.name
-                LIMIT 20;
-                """, connection);
+                ORDER BY c.name, mc.id
+                """;
+            if (paged) subscriptionQuery += " LIMIT @take OFFSET @skip";
+            await using var subscriptionCommand = new NpgsqlCommand(subscriptionQuery, connection);
             subscriptionCommand.Parameters.AddWithValue("id", id);
             subscriptionCommand.Parameters.AddWithValue("today", CairoTime.Today());
             subscriptionCommand.Parameters.AddWithValue("all", scope.All);
             subscriptionCommand.Parameters.AddWithValue("circles", scope.CircleIds);
-            await using var reader = await subscriptionCommand.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
+            if (paged) { subscriptionCommand.Parameters.AddWithValue("take", paging.PageSize); subscriptionCommand.Parameters.AddWithValue("skip", paging.Offset); }
+            await using (var reader = await subscriptionCommand.ExecuteReaderAsync(ct))
             {
-                var due = reader.GetDecimal(1);
-                var paid = reader.GetDecimal(2);
-                var balance = Money.Balance(due, paid);
-                subscription.Add(new
+                while (await reader.ReadAsync(ct))
                 {
-                    circleName = reader.GetString(0),
-                    status = balance <= 0 ? "paid" : paid > 0 ? "partial" : "unpaid",
-                    amountDue = canFinance ? due : (decimal?)null,
-                    paidAmount = canFinance ? paid : (decimal?)null,
-                    balance = canFinance ? balance : (decimal?)null
-                });
+                    subscriptionTotal = reader.ReadTotal();
+                    var due = reader.GetDecimal(1);
+                    var paid = reader.GetDecimal(2);
+                    var balance = Money.Balance(due, paid);
+                    subscription.Add(new
+                    {
+                        circleName = reader.GetString(0),
+                        status = balance <= 0 ? "paid" : paid > 0 ? "partial" : "unpaid",
+                        amountDue = canFinance ? due : (decimal?)null,
+                        paidAmount = canFinance ? paid : (decimal?)null,
+                        balance = canFinance ? balance : (decimal?)null
+                    });
+                }
             }
+            subscriptionTotal = await PaginationRules.EnsureTotalAsync(subscriptionCommand, subscriptionTotal, paged, ct);
         }
 
-        await using (var notesCommand = new NpgsqlCommand("""
-            SELECT sn.id, sn.note_text, sn.created_at, u.display_name
+        var notesQuery = """
+            SELECT sn.id, sn.note_text, sn.created_at, u.display_name, COUNT(*) OVER() AS total
             FROM student_notes sn
             LEFT JOIN app_users u ON u.id = sn.created_by
             WHERE sn.student_id = @id AND sn.is_trashed = FALSE
-            ORDER BY sn.created_at DESC
-            LIMIT 40;
-            """, connection))
+            ORDER BY sn.created_at DESC, sn.id
+            """;
+        if (paged) notesQuery += " LIMIT @take OFFSET @skip";
+        await using (var notesCommand = new NpgsqlCommand(notesQuery, connection))
         {
             notesCommand.Parameters.AddWithValue("id", id);
-            await using var reader = await notesCommand.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
+            if (paged) { notesCommand.Parameters.AddWithValue("take", paging.PageSize); notesCommand.Parameters.AddWithValue("skip", paging.Offset); }
+            await using (var reader = await notesCommand.ExecuteReaderAsync(ct))
             {
-                notes.Add(new
+                while (await reader.ReadAsync(ct))
                 {
-                    id = reader.GetGuid(0),
-                    text = reader.GetString(1),
-                    createdAt = reader.GetFieldValue<DateTimeOffset>(2),
-                    createdBy = reader.IsDBNull(3) ? null : reader.GetString(3)
-                });
+                    notesTotal = reader.ReadTotal();
+                    notes.Add(new
+                    {
+                        id = reader.GetGuid(0),
+                        text = reader.GetString(1),
+                        createdAt = reader.GetFieldValue<DateTimeOffset>(2),
+                        createdBy = reader.IsDBNull(3) ? null : reader.GetString(3)
+                    });
+                }
             }
+            notesTotal = await PaginationRules.EnsureTotalAsync(notesCommand, notesTotal, paged, ct);
         }
 
         PaginationHeaderWriter.Write(http.Response, historyTotal, paging, history.Count, paged);
@@ -336,7 +350,9 @@ public static class StudentsEndpoint
             history,
             historyTotal,
             notes,
-            subscription = canUnpaid ? subscription : null
+            notesTotal,
+            subscription = canUnpaid ? subscription : null,
+            subscriptionTotal
         });
     }
 }

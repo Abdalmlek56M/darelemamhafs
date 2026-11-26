@@ -206,10 +206,17 @@ assert.equal(optionsPage.body.circles.length, 1);
 assert.equal(optionsPage.body.circlesTotal, 1);
 
 // S-1.15 C1-C3: supervisor detail sub-lists must expose their own totals.
+one(`INSERT INTO student_notes(id,student_id,note_text,created_by,created_at)
+  SELECT gen_random_uuid(),${q(seededStudent)},'Detail note '||g,${q(c.adminId)},TIMESTAMPTZ '2026-10-05 10:00:00+02' + (g||' hours')::interval
+  FROM generate_series(1,3) g;`);
 const detailStudent = await getNew(`/api/v1/supervisor/students/${seededStudent}?page=1&pageSize=2`, adminAuth);
 assert.equal(detailStudent.status, 200, 'supervisor student detail status');
 assert.equal(detailStudent.body.historyTotal, 7);
 assert.equal(detailStudent.body.history.length, 2);
+assert.equal(detailStudent.body.notesTotal, 3);
+assert.equal(detailStudent.body.notes.length, 2);
+assert.equal(detailStudent.body.subscriptionTotal, 1);
+assert.equal(detailStudent.body.subscription.length, 1);
 const detailTeacher = await getNew(`/api/v1/supervisor/teachers/${c.teacherId}?from=2026-10-01&to=2026-10-31&page=1&pageSize=2`, adminAuth);
 assert.equal(detailTeacher.status, 200, 'supervisor teacher detail status');
 assert.equal(detailTeacher.body.historyTotal, 7);
