@@ -34,6 +34,8 @@ import {
   getCircleProfitSummary,
 } from './selectors'
 import { confirmAction } from '../components/common/confirmService'
+import useProfitSummary from './useProfitSummary'
+import { parseMoneyInput } from '../lib/money'
 
 export default function useDarApplication() {
 
@@ -134,6 +136,7 @@ export default function useDarApplication() {
     enableNotifications,
   } = useScheduleNotifications({ gate, scheduleSlots, setToast })
   const has = useCallback((code: string) => !!session?.permissionCodes.includes(code), [session])
+  const serverProfit = useProfitSummary(currentMonthValue, gate === 'ready' && Boolean(session) && has('finance.read'))
   const canOpenPage = useCallback((id: Page, codes: string[]) => {
     if (id === 'dashboard') return codes.includes('dashboard.read')
     if (id === 'students') return ['students.read','students.create','students.edit','students.delete'].some(code => codes.includes(code))
@@ -245,7 +248,11 @@ export default function useDarApplication() {
   const saveAdExpense = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const wasEditing = Boolean(editingAdExpenseId)
-    const payload = { circleId: adExpenseForm.circleId, platform: adExpenseForm.platform.trim() || null, startDate: adExpenseForm.startDate, daysCount: Number(adExpenseForm.daysCount), dailyCost: Number(adExpenseForm.dailyCost), note: adExpenseForm.note.trim() || null }
+    const parsedDailyCost = parseMoneyInput(adExpenseForm.dailyCost)
+    if (!parsedDailyCost.ok) { setToast({ tone: 'error', text: parsedDailyCost.error }); return }
+    const daysCount = Number(adExpenseForm.daysCount)
+    if (!Number.isInteger(daysCount) || daysCount < 1 || daysCount > 3650) { setToast({ tone: 'error', text: 'عدد الأيام يجب أن يكون بين 1 و3650.' }); return }
+    const payload = { circleId: adExpenseForm.circleId, platform: adExpenseForm.platform.trim() || null, startDate: adExpenseForm.startDate, daysCount, dailyCost: parsedDailyCost.value, note: adExpenseForm.note.trim() || null }
     setSaving(true)
     try {
       if (wasEditing) await request(`/api/advertising-expenses/${editingAdExpenseId}`, { method: 'PUT', body: JSON.stringify(payload) })
@@ -274,7 +281,9 @@ export default function useDarApplication() {
     event.preventDefault()
     setSaving(true)
     const canEditFinancials = has('finance.read') && has('finance.edit')
-    const payload = { studentId: enrollmentForm.studentId, circleId: enrollmentForm.circleId, startsOn: enrollmentForm.startsOn, ...(canEditFinancials ? { agreedMonthlyFee: Number(enrollmentForm.agreedMonthlyFee) } : {}), allowClosedCircle: Boolean(enrollmentForm.allowClosedCircle) }
+    const parsedFee = parseMoneyInput(enrollmentForm.agreedMonthlyFee, { allowZero: true })
+    if (canEditFinancials && !parsedFee.ok) { setToast({ tone: 'error', text: parsedFee.error }); return }
+    const payload = { studentId: enrollmentForm.studentId, circleId: enrollmentForm.circleId, startsOn: enrollmentForm.startsOn, ...(canEditFinancials && parsedFee.ok ? { agreedMonthlyFee: parsedFee.value } : {}), allowClosedCircle: Boolean(enrollmentForm.allowClosedCircle) }
     try {
       await request('/api/enrollments', { method: 'POST', body: JSON.stringify(payload) })
     } catch (error) {
@@ -346,13 +355,15 @@ export default function useDarApplication() {
   const saveCharge = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const editing = Boolean(editingChargeId)
+    const parsedAmount = parseMoneyInput(chargeForm.amountDue, { allowZero: true })
+    if (!parsedAmount.ok) { setToast({ tone: 'error', text: parsedAmount.error }); return }
     const key = chargeIdempotencyKeyRef.current ??= newIdempotencyKey()
     setSaving(true)
     try {
       if (editing) {
-        await request(`/api/charges/${editingChargeId}`, { method: 'PUT', body: JSON.stringify({ amountDue: Number(chargeForm.amountDue), note: chargeForm.note.trim() || null }) })
+        await request(`/api/charges/${editingChargeId}`, { method: 'PUT', body: JSON.stringify({ amountDue: parsedAmount.value, note: chargeForm.note.trim() || null }) })
       } else {
-        await request('/api/charges', { method: 'POST', headers: idempotencyHeaders(key), body: JSON.stringify({ ...chargeForm, amountDue: Number(chargeForm.amountDue) }) })
+        await request('/api/charges', { method: 'POST', headers: idempotencyHeaders(key), body: JSON.stringify({ ...chargeForm, amountDue: parsedAmount.value }) })
       }
     } catch (error) {
       setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ الاستحقاق.' })
@@ -403,7 +414,9 @@ export default function useDarApplication() {
   const savePayment = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const key = paymentIdempotencyKeyRef.current ??= newIdempotencyKey()
-    const data = { ...paymentForm, amount: Number(paymentForm.amount), method: paymentForm.method || null, reference: paymentForm.reference.trim() || null, note: paymentForm.note.trim() || null }
+    const parsedAmount = parseMoneyInput(paymentForm.amount)
+    if (!parsedAmount.ok) { setToast({ tone: 'error', text: parsedAmount.error }); return }
+    const data = { ...paymentForm, amount: parsedAmount.value, method: paymentForm.method || null, reference: paymentForm.reference.trim() || null, note: paymentForm.note.trim() || null }
     setSaving(true)
     try {
       if (paymentReceipt) {
@@ -442,20 +455,31 @@ export default function useDarApplication() {
   const editOperatingExpense = (expense: OperatingExpense) => { setEditingOperatingExpenseId(expense.id); setOperatingExpenseForm({ expenseDate: expense.expenseDate.slice(0,10), category: expense.category, description: expense.description, amount: String(expense.amount), circleId: expense.circleId ?? '', note: expense.note ?? '' }) }
   const saveOperatingExpense = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const amount = Number(operatingExpenseForm.amount)
-    if (!Number.isFinite(amount) || amount <= 0) { setToast({ tone: 'error', text: 'اكتب مبلغ مصروف أكبر من صفر.' }); return }
+    const parsedAmount = parseMoneyInput(operatingExpenseForm.amount)
+    if (!parsedAmount.ok) {
+      setToast({ tone: 'error', text: parsedAmount.error })
+      return
+    }
     setSaving(true)
-    const wasEditing = !!editingOperatingExpenseId
+    const wasEditing = Boolean(editingOperatingExpenseId)
     try {
-      const payload = { expenseDate: operatingExpenseForm.expenseDate, category: operatingExpenseForm.category.trim(), description: operatingExpenseForm.description.trim(), amount, circleId: operatingExpenseForm.circleId || null, note: operatingExpenseForm.note.trim() || null }
+      const payload = { expenseDate: operatingExpenseForm.expenseDate, category: operatingExpenseForm.category.trim(), description: operatingExpenseForm.description.trim(), amount: parsedAmount.value, circleId: operatingExpenseForm.circleId || null, note: operatingExpenseForm.note.trim() || null }
       await request(editingOperatingExpenseId ? `/api/operating-expenses/${editingOperatingExpenseId}` : '/api/operating-expenses', { method: editingOperatingExpenseId ? 'PUT' : 'POST', body: JSON.stringify(payload) })
-      resetOperatingExpenseForm()
-      const expenseMonth = payload.expenseDate.slice(0, 7)
-      if (expenseMonth !== currentMonthValue) setCurrentMonthValue(expenseMonth)
+    } catch (error) {
+      setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ المصروف التشغيلي.' })
+      setSaving(false)
+      return
+    }
+    const expenseMonth = operatingExpenseForm.expenseDate.slice(0, 7)
+    setSaving(false)
+    resetOperatingExpenseForm()
+    if (expenseMonth !== currentMonthValue) setCurrentMonthValue(expenseMonth)
+    setToast({ tone: 'success', text: wasEditing ? 'تم تحديث المصروف التشغيلي.' : 'تم تسجيل المصروف التشغيلي.' })
+    try {
       await loadOperatingExpenses(expenseMonth)
-      setToast({ tone: 'success', text: wasEditing ? 'تم تحديث المصروف التشغيلي.' : 'تم تسجيل المصروف التشغيلي.' })
-    } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ المصروف التشغيلي.' }) }
-    finally { setSaving(false) }
+    } catch {
+      setToast({ tone: 'info', text: 'تم حفظ المصروف، لكن تعذر تحديث القائمة. اضغط تحديث للمراجعة.' })
+    }
   }
   const deleteOperatingExpense = async (expense: OperatingExpense) => { if (!await moveRecordToTrash('operating-expense', expense.id, expense.description)) return; await loadOperatingExpenses() }
 
@@ -466,9 +490,12 @@ export default function useDarApplication() {
   const monthlyTeacherPayTotal = useMemo(() => getMonthlyTeacherPayTotal(attendanceRows), [attendanceRows])
   const monthlyAdvertisingTotal = useMemo(() => getMonthlyAdvertisingTotal(advertisingExpenses), [advertisingExpenses])
   const monthlyOperatingExpenseTotal = useMemo(() => getMonthlyOperatingExpenseTotal(operatingExpenses), [operatingExpenses])
-  const dashboardProfit = useMemo(() => getDashboardProfit({ currentMonthTotals, monthlyAdvertisingTotal, monthlyTeacherPayTotal, monthlyOperatingExpenseTotal, collections, monthSessions, clockNow }), [currentMonthTotals, monthlyAdvertisingTotal, monthlyTeacherPayTotal, monthlyOperatingExpenseTotal, collections, monthSessions, clockNow])
-  const teacherPaySummary = useMemo(() => getTeacherPaySummary(attendanceRows), [attendanceRows])
-  const circleProfitSummary = useMemo(() => getCircleProfitSummary({ circles, collections, advertisingExpenses, attendanceRows, operatingExpenses }), [circles, collections, advertisingExpenses, attendanceRows, operatingExpenses])
+  const localDashboardProfit = useMemo(() => getDashboardProfit({ currentMonthTotals, monthlyAdvertisingTotal, monthlyTeacherPayTotal, monthlyOperatingExpenseTotal, collections, monthSessions, clockNow }), [currentMonthTotals, monthlyAdvertisingTotal, monthlyTeacherPayTotal, monthlyOperatingExpenseTotal, collections, monthSessions, clockNow])
+  const dashboardProfit = useMemo(() => ({ ...localDashboardProfit, ...(serverProfit?.dashboard ?? {}) }), [localDashboardProfit, serverProfit])
+  const localTeacherPaySummary = useMemo(() => getTeacherPaySummary(attendanceRows), [attendanceRows])
+  const teacherPaySummary = serverProfit?.teachers ?? localTeacherPaySummary
+  const localCircleProfitSummary = useMemo(() => getCircleProfitSummary({ circles, collections, advertisingExpenses, attendanceRows, operatingExpenses }), [circles, collections, advertisingExpenses, attendanceRows, operatingExpenses])
+  const circleProfitSummary = serverProfit?.circles ?? localCircleProfitSummary
   const downloadProfitSummary = () => exportProfitSummary({ brandName: branding.brandName, currentMonthValue, dashboardProfit, teacherPaySummary, circleProfitSummary })
   const changePage = (next: Page) => { if (!visiblePages.some(item=>item.id===next)) { setToast({tone:'error',text:'حسابك لا يملك صلاحية فتح القسم المطلوب.'}); return }; setPage(next); if(next==='students'&&has('students.read'))void loadStudents();if(next==='teachers'&&has('teachers.read'))void loadTeachers();if(next==='circles'&&has('circles.read'))void loadCircles();if(next==='schedule'){if(has('schedule.read')||has('schedule.edit')||has('attendance.read')||has('attendance.edit'))void loadScheduleSlots();if(has('attendance.read')||has('attendance.edit'))void loadAttendance()}if(next==='payments'&&has('finance.read')){void loadCollections();void loadReports();void loadAdvertisingExpenses()}if(next==='users')void loadUsers() }
 

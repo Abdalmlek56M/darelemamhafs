@@ -140,5 +140,6 @@ run_suite pagination-admin tests/regression/pagination-admin/run.mjs q6
 run_suite tier0-money tests/regression/tier0-money/run.mjs q6
 run_suite tier0-trigger tests/regression/tier0-trigger/run.mjs q6
 run_suite tier0-idempotency tests/regression/tier0-idempotency/run.mjs q6
+run_suite tier0-profit tests/regression/tier0-profit/run.mjs q6
 echo "RESULT=$([ "$FAILED" -eq 0 ] && echo PASS || echo FAIL)"
 exit "$FAILED"

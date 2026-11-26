@@ -50,6 +50,7 @@ public static partial class DomainEndpoints
         MapOperatingExpenses(app);
         MapReports(app);
         MapSummaries(app);
+    MapProfitSummary(app);
     }
 
 
