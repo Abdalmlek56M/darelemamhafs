@@ -90,7 +90,8 @@ if [ -z "$DOMAIN" ] && [ -r "$ENV_FILE" ]; then
   DOMAIN="$(sed -n 's/^DAR_DOMAIN=//p' "$ENV_FILE" | head -n 1)"
 fi
 if [ -z "$DOMAIN" ]; then
-  DOMAIN="dar-elemam-hafs.rigxhardware.com"
+  echo 'DAR_DOMAIN (or --domain) is required.' >&2
+  exit 2
 fi
 if [ "$REAL_IP_MODE" != "cloudflare" ] && [ "$REAL_IP_MODE" != "direct" ]; then
   echo "REAL_IP_MODE must be direct or cloudflare (got $REAL_IP_MODE)" >&2

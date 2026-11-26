@@ -42,7 +42,7 @@ PostgreSQL 17         one database, public schema; module boundaries in code
 - Strong module boundaries; any module can be extracted later.
 - Microservices would add operations cost with no benefit at this scale.
 
-**Public origin:** `https://dar-elemam-hafs.rigxhardware.com`
+**Public origin:** `https://<deployment-host>`
 
 - Nginx يخدم ملفات الـSPA الثابتة من الـlegacy API (5080 بعد `vite build`).
 - `/api/v1/*` → `127.0.0.1:5081`؛ أي `/api/*` آخر → `127.0.0.1:5080`.
@@ -206,7 +206,7 @@ RFC 9457 ProblemDetails for every failure:
 
 ```json
 {
-  "type": "https://dar-elemam-hafs.rigxhardware.com/errors/insufficient-balance",
+  "type": "https://<deployment-host>/errors/insufficient-balance",
   "title": "الرصيد غير كافٍ",
   "status": 422,
   "detail": "لا يمكن تخصيص 500 جنيه على استحقاق قيمته 300 جنيه.",
@@ -347,7 +347,7 @@ flowchart TB
 
 | Domain | Service |
 |---|---|
-| `dar-elemam-hafs.rigxhardware.com` | Nginx → SPA + APIs (live) |
+| `<deployment-host>` | Nginx → SPA + APIs (live) |
 | `api.` subdomain | غير مستخدم؛ الـAPIs داخلية فقط |
 | `staging.` | غير مُنشأ بعد |
 
@@ -408,7 +408,7 @@ flowchart TB
 | 15 | Strangler migration | preserve working UI/business logic |
 | 16 | Keep existing SQL/business rules | don't rewrite proven financial behavior blindly |
 | 17 | Email OTP + Google | owner decision; temporary password fallback during migration |
-| 18 | Remove WPF/WebView2/desktop | web-only product; `dar-elemam-hafs.rigxhardware.com` |
+| 18 | Remove WPF/WebView2/desktop | web-only product; `<deployment-host>` |
 | 19 | No purge of financial history | corrections via Reverse/Void (انظر #30 وADR-0005) |
 | 20 | ~~Arabic + English~~ → **العربية الآن، الإنجليزية مؤجلة** (انظر #29) | لم يُنفَّذ i18n؛ لا حاجة تشغيلية حاليًا |
 | 21 | .NET is the final backend | owner decision; TypeScript/NestJS rejected to avoid a second rewrite |
@@ -438,7 +438,7 @@ flowchart TB
 | Tests | 16 unit + 20 integration (Testcontainers) + 6 Vitest؛ لا Contract ولا Playwright/E2E |
 | CI | موجود للمسارات الأساسية؛ لا deploy/rollback؛ أول run غير متحقق |
 | Deployment | Ubuntu + Nginx + Certbot + systemd + PostgreSQL 17؛ Docker/Caddy متقاعد |
-| Live | `https://dar-elemam-hafs.rigxhardware.com` — آخر commit متحقق `43cf810` |
+| Live | `https://<deployment-host>` — آخر commit متحقق `43cf810` |
 
 **Legacy tables (25):**
 `app_users`, `roles`, `permissions`, `role_permissions`, `user_roles`, `user_permissions`, `students`, `teachers`, `circles`, `circle_enrollments`, `monthly_charges`, `payments`, `student_notes`, `teacher_notes`, `circle_schedule_slots`, `teacher_attendance`, `student_attendance`, `advertising_expenses`, `operating_expenses`, `school_settings`, `audit_log`, `trash_items`, `system_backups`, `collection_reports`, `schema_migrations`.

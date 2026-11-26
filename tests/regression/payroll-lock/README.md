@@ -22,4 +22,4 @@ Both review paths' lock enforcement is covered by existing Q-1 cases and by the 
 - `Q2_SETUP_TOKEN` — setup token for the temporary legacy app.
 - `Q2_PASSWORD` — optional test password.
 
-The runner fails with exit 2 when required env is missing, and fails if fewer than 22 cases execute. Never point it at `dareltahfeez` or production.
+The runner fails with exit 2 when required env is missing, and fails if fewer than 22 cases execute. Never point it at `<database>` or production.

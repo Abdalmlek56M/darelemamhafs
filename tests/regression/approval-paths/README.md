@@ -18,7 +18,7 @@ absence approve, cancellation approve, correction absent→present, correction p
 
 The runner creates the setup admin and a reviewer with only test permissions, seeds isolated fixtures, and asserts HTTP status plus DB state (attendance status/duration/pay, request status, session status).
 
-It **fails** when `DAR_TEST_DATABASE` is missing, when executed tests are fewer than 20, or when any case fails. It never reads production secrets and must never be pointed at `dareltahfeez`.
+It **fails** when `DAR_TEST_DATABASE` is missing, when executed tests are fewer than 20, or when any case fails. It never reads production secrets and must never be pointed at `<database>`.
 
 ```bash
 DAR_TEST_DATABASE='Host=127.0.0.1;Port=5432;Database=q1_test;Username=q1;Password=...' \

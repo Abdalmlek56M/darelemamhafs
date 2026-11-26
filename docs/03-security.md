@@ -307,3 +307,13 @@ In both modes the app trusts only a header named X-Real-IP arriving from Forward
 - Saving settings with a blank token keeps the stored token (it is not wiped). A legacy plaintext value is detected by a failed decrypt and encrypted on the next save; the alert notifier falls back to reading legacy plaintext until then.
 - Regression: `tests/regression/tier0-meet-settings` (no token in GET/PUT responses, ciphertext at rest, blank save preserves the token). The disposable new-API process gets `Meet__EncryptionKey` from the regression harness.
 - **NOT VERIFIED:** the live Meet settings row was not migrated/read; the bot's actual delivery against Telegram and the production encryption key are untested.
+## 19. Repository leak scrub and test secrets (FINAL 0.10)
+
+- Removed the live server IP, production hostname and production database name from tracked tests, deploy scripts, docs and examples. Deployment-specific values now come from the untracked `deploy/.env` (`DAR_DOMAIN`, `POSTGRES_DB`, `PGDATABASE`) or from test env (`DAR_FORBIDDEN_HOSTS`, `DAR_FORBIDDEN_DB`); guard lists no longer embed live values.
+- `deploy/scripts/meet-login.sh` uses `<deploy-user>@<server-address>` placeholders.
+- `deploy/setup-nginx.sh` requires `DAR_DOMAIN`/`--domain` instead of a baked production hostname; `deploy/setup-host-db.sh` / `setup-host-backup.sh` read `POSTGRES_DB` from `deploy/.env`.
+- `tests/run-regression.sh` generates a random disposable superuser password per run and reads the schema-template database from `DAR_BASELINE_DB` (no baked production name/password).
+- Turnstile `ExpectedHostname` no longer defaults to the production hostname: the app now fails fast when Turnstile is enabled without `Auth:Turnstile:ExpectedHostname`, and the test fixture uses `turnstile.example.invalid`.
+- New regression suite `tests/regression/repo-secrets` scans backend/src/frontend/tests/deploy/services/packages/database for the live identifiers, the hardcoded superuser password and the non-configurable baseline DB, and fails the regression if any reappear.
+- **Secrets to rotate (owner action):** the old regression superuser password (`RegressionPass123`, previously committed test-only), the Cloudflare API token mentioned in old checkpoint docs, the server SSH access used for deployments, and any `deploy/.env` value that previously appeared in docs. No live credential was changed by this commit.
+- **NOT VERIFIED:** production hostnames/IPs/DNS in the live deployment, firewall/Cloudflare rules, and whether the live `deploy/.env` contains the placeholders. Docs that describe historic deployments were rewritten with placeholders; live runbooks must be re-generated from `deploy/.env`.

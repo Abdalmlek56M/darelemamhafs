@@ -8,7 +8,7 @@ Temporary test instance used to validate live audio quality **before** building 
 |---|---|---|
 | livekit-server v1.13.11 | `/usr/local/bin/livekit-server` + `dar-livekit.service` | binds signaling to 127.0.0.1:7880 |
 | RTC | UDP 7882 (mux) + TCP 7881 | opened in UFW by the installer; media never goes through Nginx/Cloudflare |
-| WSS signaling | `/livekit/` in the Nginx site | `https://dar-elemam-hafs.rigxhardware.com/livekit` |
+| WSS signaling | `/livekit/` in the Nginx site | `https://<deployment-host>/livekit` |
 | Test page | `/var/www/live-test/` → `/live-test/` | static, unlisted; no real auth, tokens required to join |
 | Tokens | `/usr/local/bin/dar-live-token ROOM IDENTITY NAME TTL_HOURS` | HS256, reads `/etc/dar/livekit.env` |
 | Config/secrets | `/etc/dar/livekit.yaml`, `/etc/dar/livekit.env` (640 root:livekit) | never committed |
@@ -30,7 +30,7 @@ The installer is idempotent; it downloads the binary only if missing and keeps e
 ```bash
 ROOM="dar-test-$(openssl rand -hex 3)"
 TOKEN=$(sudo /usr/local/bin/dar-live-token "$ROOM" owner 'المالك' 12)
-echo "https://dar-elemam-hafs.rigxhardware.com/live-test/#room=$ROOM&t=$TOKEN"
+echo "https://<deployment-host>/live-test/#room=$ROOM&t=$TOKEN"
 ```
 
 ## Test checklist (two devices, different networks)

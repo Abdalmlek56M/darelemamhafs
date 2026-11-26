@@ -9,10 +9,10 @@ const NEW_ORIGIN = process.env.P28B_NEW_URL || '';
 const CONN = process.env.DAR_TEST_DATABASE || '';
 const SETUP_TOKEN = process.env.P28B_SETUP_TOKEN || '';
 const PASSWORD = process.env.P28B_PASSWORD || 'P28B-StrongPass!';
-const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 for (const raw of [BASE, LEGACY_ORIGIN, NEW_ORIGIN]) { try { const u=new URL(raw); if(PROD_HOSTS.includes(u.hostname.toLowerCase())||!['127.0.0.1','localhost','::1','[::1]'].includes(u.hostname.toLowerCase())){console.error('P28B_FAIL non-test URL');process.exit(2);} } catch { console.error('P28B_FAIL invalid URL');process.exit(2);} }
 if (!CONN || !SETUP_TOKEN) { console.error('P28B_FAIL missing env'); process.exit(2); }
-if (/database\s*=\s*dareltahfeez\b/i.test(CONN)) { console.error('P28B_FAIL production database'); process.exit(2); }
+if (new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__') + '\\b', 'i').test(CONN)) { console.error('P28B_FAIL production database'); process.exit(2); }
 
 function pgEnv(){const e={...process.env};for(const part of CONN.split(';')){const i=part.indexOf('=');if(i<0)continue;const k=part.slice(0,i).trim().toLowerCase(),v=part.slice(i+1).trim();if(k==='host')e.PGHOST=v;if(k==='port')e.PGPORT=v;if(k==='database')e.PGDATABASE=v;if(k==='username')e.PGUSER=v;if(k==='password')e.PGPASSWORD=v;}return e;}
 const PGENV=pgEnv();

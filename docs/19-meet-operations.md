@@ -13,7 +13,7 @@
 # Google Cloud Console → OAuth 2.0 Client (Web application)
 Meet__Google__ClientId=...apps.googleusercontent.com
 Meet__Google__ClientSecret=...
-Meet__Google__RedirectUri=https://dar-elemam-hafs.rigxhardware.com/api/v1/meet/calendar/callback
+Meet__Google__RedirectUri=https://<deployment-host>/api/v1/meet/calendar/callback
 
 # 32 bytes base64 (AES-256-GCM) — يُولَّد تلقائيًا مع أول إنشاء للملف
 #Meet__EncryptionKey=...

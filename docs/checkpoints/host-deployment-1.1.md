@@ -37,8 +37,8 @@ Date: 16 Nov 2026
 4. Teacher portal UI awaits owner approval of the 5-screen sample.
 
 ## Verification
-- `https://dar-elemam-hafs.rigxhardware.com/health/ready` → ready.
-- `https://dar-elemam-hafs.rigxhardware.com/api/v1/ping` → ok.
+- `https://<deployment-host>/health/ready` → ready.
+- `https://<deployment-host>/api/v1/ping` → ok.
 - Certificate: Let's Encrypt ECDSA, valid to 2027-02-14.
 - Services active: nginx, postgresql, dar-legacy, dar-api.
 - Latest verified local backup: `/var/lib/dar/backups/db/dar-20261116-095559.dump`.

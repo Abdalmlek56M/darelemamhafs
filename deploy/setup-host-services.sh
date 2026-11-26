@@ -81,7 +81,7 @@ SMTP_FROM="$(sed -n 's/^SMTP_FROM=//p' "$ENV_FILE" | head -n 1)"
 SMTP_ENABLE_SSL="$(sed -n 's/^SMTP_ENABLE_SSL=//p' "$ENV_FILE" | head -n 1)"
 GOOGLE_CLIENT_ID="$(sed -n 's/^GOOGLE_CLIENT_ID=//p' "$ENV_FILE" | head -n 1)"
 DAR_DOMAIN_VALUE="$(sed -n 's/^DAR_DOMAIN=//p' "$ENV_FILE" | head -n 1 || true)"
-[ -n "$DAR_DOMAIN_VALUE" ] || DAR_DOMAIN_VALUE="dar-elemam-hafs.rigxhardware.com"
+[ -n "$DAR_DOMAIN_VALUE" ] || DAR_DOMAIN_VALUE="deployment.example.invalid"
 
 if [ -z "$POSTGRES_PASSWORD" ] || [ "$POSTGRES_PASSWORD" = "change-me-hex" ]; then
   echo "POSTGRES_PASSWORD is missing or still the example value in $ENV_FILE." >&2
@@ -95,7 +95,7 @@ fi
 [ -n "$SMTP_PORT" ] || SMTP_PORT=587
 [ -n "$SMTP_ENABLE_SSL" ] || SMTP_ENABLE_SSL=true
 
-DB="Host=127.0.0.1;Port=5432;Database=dareltahfeez;Username=dar_app;Password=$POSTGRES_PASSWORD"
+DB="Host=127.0.0.1;Port=5432;Database=dar_database;Username=dar_app;Password=$POSTGRES_PASSWORD"
 
 echo "==> Service user"
 if ! id dar >/dev/null 2>&1; then

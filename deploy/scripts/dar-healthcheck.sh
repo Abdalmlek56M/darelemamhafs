@@ -22,7 +22,7 @@
 #   HEALTHCHECK_DISK_MIN_FREE_PERCENT default 15
 #   HEALTHCHECK_BACKUP_DIR            default /var/lib/dar/backups/db
 #   HEALTHCHECK_BACKUP_MAX_AGE_HOURS  default 26
-#   HEALTHCHECK_CERT_DOMAIN           default dar-elemam-hafs.rigxhardware.com
+#   HEALTHCHECK_CERT_DOMAIN           required to enable the certificate check
 #   HEALTHCHECK_CERT_MIN_DAYS         default 14
 #   HEALTHCHECK_STRICT                1 = treat warnings as failures (default 0)
 
@@ -59,7 +59,7 @@ DISK_PATH="${HEALTHCHECK_DISK_PATH:-/var/lib/dar}"
 DISK_MIN_FREE_PCT="${HEALTHCHECK_DISK_MIN_FREE_PERCENT:-15}"
 BACKUP_DIR="${HEALTHCHECK_BACKUP_DIR:-${BACKUP_DIR:-/var/lib/dar/backups/db}}"
 BACKUP_MAX_AGE_HOURS="${HEALTHCHECK_BACKUP_MAX_AGE_HOURS:-26}"
-CERT_DOMAIN="${HEALTHCHECK_CERT_DOMAIN:-dar-elemam-hafs.rigxhardware.com}"
+CERT_DOMAIN="${HEALTHCHECK_CERT_DOMAIN:-}"
 CERT_MIN_DAYS="${HEALTHCHECK_CERT_MIN_DAYS:-14}"
 STRICT="${HEALTHCHECK_STRICT:-0}"
 HOST_NAME="$(hostname 2>/dev/null || printf 'unknown')"

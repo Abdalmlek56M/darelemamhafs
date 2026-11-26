@@ -167,7 +167,7 @@
 
 ## 7. التحقق Read-only على الإنتاج (خطوات جاهزة — لم تُنفَّذ من هنا)
 
-> ممنوع تشغيل أي كتابة على الإنتاج. كل ما يلي SELECT داخل **BEGIN TRANSACTION READ ONLY** عبر: sudo -u postgres psql -d dareltahfeez
+> ممنوع تشغيل أي كتابة على الإنتاج. كل ما يلي SELECT داخل **BEGIN TRANSACTION READ ONLY** عبر: sudo -u postgres psql -d <database>
 
 ### 7.1 هل ترحيل 012 مُطبَّق فعلًا على الإنتاج؟
 

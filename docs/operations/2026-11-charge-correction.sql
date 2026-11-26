@@ -4,7 +4,7 @@
 -- recorded payments already exceed that fee, and writes an audit row per charge.
 --
 -- Run inside a transaction with a fresh backup available:
---   psql -d dareltahfeez -v ON_ERROR_STOP=1 -f 2026-11-charge-correction.sql
+--   psql -d <database> -v ON_ERROR_STOP=1 -f 2026-11-charge-correction.sql
 DO $$
 DECLARE
     r RECORD;

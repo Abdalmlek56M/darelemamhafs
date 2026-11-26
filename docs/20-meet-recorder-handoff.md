@@ -25,7 +25,7 @@
 | المكوّن | التقنية | المسار على السيرفر |
 |---|---|---|
 | API + الواجهة | .NET 10 minimal API + React 19 | `/opt/dar/app/api`, `/opt/dar/app/legacy` |
-| قاعدة البيانات | PostgreSQL 17 | `dareltahfeez` (28 migration) |
+| قاعدة البيانات | PostgreSQL 17 | `<database>` (28 migration) |
 | البوت | Node 24 + TypeScript + Playwright + FFmpeg | `/opt/dar-meet-bot` |
 | الشاشة الافتراضية | `Xvfb :99` 1280x720x24 | يبدأها البوت |
 | الصوت | PulseAudio خاص بالبوت + `module-null-sink` | `$XDG_RUNTIME_DIR/pulse/native` |
@@ -227,9 +227,9 @@ ffmpeg ... -loglevel info -stats 2> /tmp/ffmpeg.log   # ثم: grep -E "frame=.*f
 ```bash
 systemctl status dar-meet-bot --no-pager
 journalctl -u dar-meet-bot -n 80 --no-pager
-sudo -u postgres psql -d dareltahfeez -c \
+sudo -u postgres psql -d <database> -c \
   "SELECT id,status,round(extract(epoch from now()-heartbeat_at)) AS hb_age,participants,pause_requested,stop_requested_at IS NOT NULL AS stop FROM meet_bot_jobs ORDER BY created_at DESC LIMIT 5;"
-sudo -u postgres psql -d dareltahfeez -c \
+sudo -u postgres psql -d <database> -c \
   "SELECT status, duration_seconds, participants FROM meet_sessions ORDER BY started_at DESC LIMIT 5;"
 cat /sys/fs/cgroup/dar.slice/dar-meet.slice/cpu.stat   # nr_throttled يجب ألا يزيد
 sudo -u dar env HOME=/var/lib/dar XDG_RUNTIME_DIR=<rt> PULSE_SERVER=unix:<rt>/pulse/native pactl list sink-inputs short

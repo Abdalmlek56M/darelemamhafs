@@ -6,7 +6,7 @@ set -euo pipefail
 umask 077
 
 PREFIX="dar_restore_s9_"
-PROD_DB="dareltahfeez"
+PROD_DB="${RESTORE_DRILL_PROD_DB:?RESTORE_DRILL_PROD_DB must name the production database to refuse}"
 BACKUP_DIR="/var/lib/dar/backups/db"
 REMOTE_PATH="gdrive:dar-backups/dar/db"
 RCLONE_CONFIG="/var/lib/dar/rclone/rclone.conf"

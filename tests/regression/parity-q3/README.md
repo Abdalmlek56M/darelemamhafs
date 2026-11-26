@@ -8,7 +8,7 @@ Runs the same scenarios against the legacy admin API and the new API, then compa
 
 ## Environment
 
-- `DAR_TEST_DATABASE`: disposable PostgreSQL database containing the current schema. Refused if its name is `dareltahfeez`.
+- `DAR_TEST_DATABASE`: disposable PostgreSQL database containing the current schema. Refused if its name is `<database>`.
 - `Q3_LEGACY_URL`: temporary legacy app URL. Loopback only.
 - `Q3_NEW_URL`: temporary new API URL. Loopback only.
 - `Q3_SETUP_TOKEN`: setup token configured on the temporary legacy app.

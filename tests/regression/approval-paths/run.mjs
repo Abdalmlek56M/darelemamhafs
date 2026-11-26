@@ -16,8 +16,8 @@ if (!CONN || !LEGACY || !NEW_API || !SETUP_TOKEN) {
   process.exit(2);
 }
 
-const PROD_DB = 'dareltahfeez';
-const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+const PROD_DB = process.env.DAR_FORBIDDEN_DB || '';
+const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 function isLoopbackHost(host) {
   return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]';
 }
@@ -26,7 +26,7 @@ function refuse(message, prefix) {
   process.exit(2);
 }
 function guardTargets(db, urls, prefix) {
-  if (db && /database\s*=\s*dareltahfeez\b/i.test(db)) refuse('production database name', prefix);
+  if (db && new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__') + '\\b', 'i').test(db)) refuse('production database name', prefix);
   const dbHost = /host\s*=\s*([^;]+)/i.exec(db || '');
   if (dbHost && PROD_HOSTS.includes(dbHost[1].trim().toLowerCase())) refuse('production database host', prefix);
   for (const raw of urls) {

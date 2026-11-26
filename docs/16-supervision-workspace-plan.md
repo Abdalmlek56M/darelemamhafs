@@ -291,7 +291,7 @@ npm run typecheck --prefix packages/api-client
 ```bash
 # Migration (on the host, after a fresh backup)
 cd /opt/dar
-ConnectionStrings__Default="Host=127.0.0.1;Port=5432;Database=dareltahfeez;Username=dar_app;Password=..." \
+ConnectionStrings__Default="Host=127.0.0.1;Port=5432;Database=<database>;Username=dar_app;Password=..." \
   ASPNETCORE_ENVIRONMENT=Production \
   dotnet run --project src/Host/Dar.Api -- --migrate
 

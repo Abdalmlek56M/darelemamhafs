@@ -59,7 +59,7 @@
 
 ## Current Status (22 Nov 2026)
 
-- **النظام Live** على `dar-elemam-hafs.rigxhardware.com` (Nginx + systemd + PostgreSQL 17).
+- **النظام Live** على `<deployment-host>` (Nginx + systemd + PostgreSQL 17).
 - **الواجهة:** React 19 + Vite (نهائي) — `/`، `/management`، `/teacher`، `/supervisor`.
 - **Backend:** legacy API (كل الدومين) + new API `/api/v1` (Identity + Secretariat + Teaching).
 - **الترحيلات:** 24 في المستودع (001→024)؛ الإنتاج على 23 حتى النشر القادم.

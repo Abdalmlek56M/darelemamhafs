@@ -49,7 +49,7 @@ Date: 16 Nov 2026
 1. Apply migration 017 to the live DB after a fresh backup.
 2. Publish/restart the new API and legacy SPA on the host.
 3. Create/link the owner’s teacher and supervisor accounts via the admin UI.
-4. Smoke-test `https://dar-elemam-hafs.rigxhardware.com/teacher` and `/supervisor`.
+4. Smoke-test `https://<deployment-host>/teacher` and `/supervisor`.
 5. Payroll lock/approval and production E2E.
 
 ## Files

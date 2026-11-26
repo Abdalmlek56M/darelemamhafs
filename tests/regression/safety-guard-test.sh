@@ -16,10 +16,12 @@ expect_refusal() {
 }
 
 LOCAL_DB='Host=127.0.0.1;Port=5432;Database=guard_test;Username=guard;Password=guard'
-PROD_DB='Host=127.0.0.1;Port=5432;Database=dareltahfeez;Username=guard;Password=guard'
-PROD_URL='https://dar-elemam-hafs.rigxhardware.com'
+PROD_DB='Host=127.0.0.1;Port=5432;Database=guard_forbidden_db;Username=guard;Password=guard'
+PROD_URL='https://prod.example.invalid'
 LOCAL_URL='http://127.0.0.1:5099'
-PROD_IP_URL='http://31.220.76.171:5099'
+PROD_IP_URL='http://198.51.100.10:5099'
+export DAR_FORBIDDEN_DB='guard_forbidden_db'
+export DAR_FORBIDDEN_HOSTS='prod.example.invalid,198.51.100.10'
 
 # Q-1 shell guard: production database name
 expect_refusal "q1_shell_prod_db" env DAR_TEST_DATABASE="$PROD_DB" Q1_LEGACY_URL="$LOCAL_URL" Q1_NEW_URL="$LOCAL_URL" Q1_SETUP_TOKEN="guard" bash "$ROOT/tests/regression/approval-paths/run.sh"

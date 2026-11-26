@@ -52,7 +52,7 @@ public sealed class TurnstileVerifier(
 
         var timeoutMs = configuration.GetValue<int?>("Auth:Turnstile:TimeoutMs") ?? 5000;
         var failOpen = configuration.GetValue<bool?>("Auth:Turnstile:FailOpen") ?? true;
-        var expectedHostname = configuration["Auth:Turnstile:ExpectedHostname"] ?? "dar-elemam-hafs.rigxhardware.com";
+        var expectedHostname = configuration["Auth:Turnstile:ExpectedHostname"] ?? "";
         var expectedAction = configuration["Auth:Turnstile:ExpectedAction"] ?? "login";
 
         var fields = new Dictionary<string, string>

@@ -5,7 +5,7 @@ services:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-dareltahfeez}
+      POSTGRES_DB: ${POSTGRES_DB:-<database>}
       POSTGRES_USER: ${POSTGRES_USER:-dar_app}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
     volumes:
@@ -25,7 +25,7 @@ services:
     command: ["--migrate"]
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__Default: Host=postgres;Port=5432;Database=${POSTGRES_DB:-dareltahfeez};Username=${POSTGRES_USER:-dar_app};Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=${POSTGRES_DB:-<database>};Username=${POSTGRES_USER:-dar_app};Password=${POSTGRES_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,7 +41,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DarDatabase: Host=postgres;Port=5432;Database=${POSTGRES_DB:-dareltahfeez};Username=${POSTGRES_USER:-dar_app};Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__DarDatabase: Host=postgres;Port=5432;Database=${POSTGRES_DB:-<database>};Username=${POSTGRES_USER:-dar_app};Password=${POSTGRES_PASSWORD}
       Database__ApplyMigrationsOnStartup: "false"
       Backup__RootPath: /var/lib/dar/backups
       Auth__SetupToken: ${SETUP_TOKEN:-}
@@ -70,7 +70,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__Default: Host=postgres;Port=5432;Database=${POSTGRES_DB:-dareltahfeez};Username=${POSTGRES_USER:-dar_app};Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=${POSTGRES_DB:-<database>};Username=${POSTGRES_USER:-dar_app};Password=${POSTGRES_PASSWORD}
       Auth__Otp__Pepper: ${OTP_PEPPER:?set OTP_PEPPER in deploy/.env}
       Auth__Smtp__Host: ${SMTP_HOST:-}
       Auth__Smtp__Port: ${SMTP_PORT:-587}

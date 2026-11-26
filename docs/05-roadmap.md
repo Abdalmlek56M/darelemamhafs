@@ -451,7 +451,7 @@
 
 ### 6.5 Staging + production
 - [x] Host stack deployed: Nginx + Certbot + systemd + PostgreSQL 17 + .NET 10.
-- [x] Final domain (`dar-elemam-hafs.rigxhardware.com`) + TLS.
+- [x] Final domain (`<deployment-host>`) + TLS.
 - [x] Smoke tests on the real host (health, ping, login, backup).
 - [x] Certbot DNS-01 renewal dry-run.
 - [ ] Offsite backup + restore drill.
@@ -517,7 +517,7 @@
 | 1.5.2 Frontend split | ✅ All frontend files under 400 lines |
 | 2.x New .NET foundation | 🟡 Identity + Students + OpenAPI + migrations done |
 | 3.x Module replacement | ⏳ Next |
-| 6.5 Host + domain launch | ✅ Live at `dar-elemam-hafs.rigxhardware.com`; offsite/rollback pending |
+| 6.5 Host + domain launch | ✅ Live at `<deployment-host>`; offsite/rollback pending |
 | 7.0 Teacher portal + mobile UI | ⏳ Awaiting visual sample approval |
 | 8.0 Payroll + follow-up | ⏳ Pending |
 

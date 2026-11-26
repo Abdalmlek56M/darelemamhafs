@@ -5,7 +5,7 @@ const BASE = process.env.P25_BASE_URL || 'http://127.0.0.1:5800';
 const PASSWORD = process.env.P25_PASSWORD || 'P25-StrongPass!';
 const CIRCLE = process.env.P25_CIRCLE_ID || '';
 const CONN = process.env.DAR_TEST_DATABASE || '';
-const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 if (!CIRCLE || !CONN) { console.error('P25_FAIL missing env'); process.exit(2); }
 try {
   const url = new URL(BASE);

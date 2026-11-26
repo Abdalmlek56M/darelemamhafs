@@ -12,7 +12,7 @@ const SETUP_TOKEN = process.env.Q3_SETUP_TOKEN || ''
 const PASSWORD = process.env.Q3_PASSWORD || 'Q3-StrongPass!'
 const REPORT_PATH = process.env.Q3_REPORT_PATH || 'parity-report.md'
 const COMMIT = process.env.Q3_COMMIT || 'unknown'
-const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171']
+const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean)
 const dbHost = /host\s*=\s*([^;]+)/i.exec(CONN)?.[1]?.trim().toLowerCase() || ''
 if (PROD_HOSTS.includes(dbHost)) { console.error('Q3_FAIL refusing production database host'); process.exit(2) }
 
@@ -21,7 +21,7 @@ if (!CONN || !LEGACY || !NEW_API || !SETUP_TOKEN) {
   process.exit(2)
 }
 for (const [label, value] of [['database', CONN], ['legacy', LEGACY], ['new', NEW_API]]) {
-  if (label === 'database' && /database\s*=\s*dareltahfeez/i.test(value)) {
+  if (label === 'database' && new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__'), 'i').test(value)) {
     console.error('Q3_FAIL refusing production database'); process.exit(2)
   }
   if (label !== 'database') {

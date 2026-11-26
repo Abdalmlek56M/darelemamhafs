@@ -4,7 +4,7 @@ const { spawnSync } = require('node:child_process');
 const BASE = process.env.P16_BASE_URL || 'http://127.0.0.1:5500';
 const PASSWORD = process.env.P16_PASSWORD || 'P16-StrongPass!';
 const CONN = process.env.DAR_TEST_DATABASE || '';
-const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 if (!CONN) { console.error('P16_FAIL missing DAR_TEST_DATABASE'); process.exit(2); }
 try {
   const url = new URL(BASE);

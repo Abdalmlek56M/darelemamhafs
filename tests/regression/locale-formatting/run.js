@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 const BASE = process.env.P24_BASE_URL || 'http://127.0.0.1:5700';
 const PASSWORD = process.env.P24_PASSWORD || 'P24-StrongPass!';
-const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 try {
   const url = new URL(BASE);
   if (PROD_HOSTS.includes(url.hostname.toLowerCase()) || !['127.0.0.1','localhost','::1','[::1]'].includes(url.hostname.toLowerCase())) {

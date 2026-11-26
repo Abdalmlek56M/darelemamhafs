@@ -11,7 +11,7 @@ Date: 17 Nov 2026
   - Mobile shell: compact topbar with page title, five-item bottom navigation, and a “كل الأقسام” sheet for the rest.
   - Wider teacher pages on desktop (860px instead of 520px).
 - Demo mode:
-  - URL: `https://dar-elemam-hafs.rigxhardware.com/supervisor?demo=1`.
+  - URL: `https://<deployment-host>/supervisor?demo=1`.
   - Or the in-app action “عرض نموذج بالبيانات”.
   - Uses built-in realistic sample data only; no database writes. A banner and a “العودة للبيانات الحقيقية” action are always visible.
   - Real empty state on the dashboard offers the demo preview instead of a blank page.

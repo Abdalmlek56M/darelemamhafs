@@ -232,7 +232,7 @@ DOMAIN=""
 if [ -r "$ENV_FILE" ]; then
   DOMAIN="$(sed -n 's/^DAR_DOMAIN=//p' "$ENV_FILE" | head -n 1)"
 fi
-[ -n "$DOMAIN" ] || DOMAIN="dar-elemam-hafs.rigxhardware.com"
+[ -n "$DOMAIN" ] || { echo 'DAR_DOMAIN is required (set it in deploy/.env).' >&2; exit 1; }
 CERT_FILE="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 if $SUDO test -f "$CERT_FILE"; then
   end_date="$($SUDO openssl x509 -in "$CERT_FILE" -noout -enddate 2>/dev/null | cut -d= -f2)"

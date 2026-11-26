@@ -3,8 +3,8 @@
 Date: 16 Nov 2026
 
 ## Live
-- **URL:** https://dar-elemam-hafs.rigxhardware.com
-- **Server:** Contabo VPS 4 — `31.220.76.171`
+- **URL:** https://<deployment-host>
+- **Server:** Contabo VPS 4 — `<server-ip>`
 - **OS:** Ubuntu 24.04.5 LTS
 - **Architecture:** Nginx + Certbot + systemd + host PostgreSQL 17 + .NET 10
 - **Certificate:** Let's Encrypt ECDSA, valid to 2027-02-14
@@ -19,7 +19,7 @@ Date: 16 Nov 2026
 
 ## Database
 - Host cluster `17/main`, timezone `Africa/Cairo`.
-- Role `dar_app`, database `dareltahfeez`.
+- Role `dar_app`, database `<database>`.
 - Restored from the Docker backup:
   - users: **1**
   - `web_schema_migrations`: **16**

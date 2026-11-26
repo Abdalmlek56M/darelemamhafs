@@ -3,7 +3,7 @@ const { spawnSync } = require('node:child_process');
 const BASE = process.env.P21_BASE_URL || 'http://127.0.0.1:6010';
 const PASSWORD = process.env.P21_PASSWORD || 'P21-StrongPass!';
 const CONN = process.env.DAR_TEST_DATABASE || '';
-const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 if (!CONN) { console.error('P21_FAIL missing DB'); process.exit(2); }
 try { const u = new URL(BASE); if (PROD_HOSTS.includes(u.hostname.toLowerCase()) || !['127.0.0.1','localhost','::1','[::1]'].includes(u.hostname.toLowerCase())) { console.error('P21_FAIL non-test URL'); process.exit(2); } } catch { console.error('P21_FAIL invalid URL'); process.exit(2); }
 function pgEnv() { const e={...process.env}; for(const part of CONN.split(';')){const i=part.indexOf('=');if(i<0)continue;const k=part.slice(0,i).trim().toLowerCase();const v=part.slice(i+1).trim();if(k==='host')e.PGHOST=v;if(k==='port')e.PGPORT=v;if(k==='database')e.PGDATABASE=v;if(k==='username')e.PGUSER=v;if(k==='password')e.PGPASSWORD=v;} return e; }

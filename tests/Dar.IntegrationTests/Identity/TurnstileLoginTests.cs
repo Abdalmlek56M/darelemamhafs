@@ -25,7 +25,7 @@ public sealed class TurnstileLoginTests
 {
     private const string EnvName = "DAR_TEST_DATABASE";
     private const string Password = "TestPass123!";
-    private const string ExpectedHostname = "dar-elemam-hafs.rigxhardware.com";
+    private const string ExpectedHostname = "turnstile.example.invalid";
     private const string ExpectedAction = "login";
     private static string? ConnectionString => Environment.GetEnvironmentVariable(EnvName);
 

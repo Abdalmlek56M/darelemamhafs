@@ -7,7 +7,7 @@
 #           (password + 2FA). Nothing here touches Dar.Api, the database or the site.
 # Usage   : sudo dar-meet-login            (keep this terminal open while signing in)
 #           then from your machine:
-#             ssh -N -L 6080:127.0.0.1:6080 deploy@31.220.76.171
+#             ssh -N -L 6080:127.0.0.1:6080 <deploy-user>@<server-address>
 #             http://localhost:6080/vnc.html?autoconnect=1&resize=scale
 # Safe    : loopback only, no VNC password, no public port; cleans up on exit.
 # =============================================================================
@@ -74,7 +74,7 @@ cat <<EOF
  جلسة تسجيل دخول Google للبوت (مؤقتة، loopback فقط)
 ================================================================
 1) من جهازك، افتح نافذة PowerShell واتركها مفتوحة:
-   ssh -i "\$env:USERPROFILE\\.ssh\\dar_deploy_ed25519" -N -L $WEB_PORT:127.0.0.1:$WEB_PORT deploy@31.220.76.171
+   ssh -N -L $WEB_PORT:127.0.0.1:$WEB_PORT <deploy-user>@<server-address>
 
 2) في المتصفح:
    http://localhost:$WEB_PORT/vnc.html?autoconnect=1&resize=scale

@@ -76,7 +76,7 @@ VERIFY_RESTORE_LIST="${VERIFY_RESTORE_LIST:-1}"
 RCLONE_CONFIG_FILE="${RCLONE_CONFIG:-/var/lib/dar/rclone/rclone.conf}"
 RCLONE_DEST_SUBDIR="${RCLONE_DEST_SUBDIR:-dar/db}"
 LOCK_FILE="${BACKUP_LOCK_FILE:-$DIR/.dar-backup.lock}"
-DATABASE_NAME="${PGDATABASE:-dareltahfeez}"
+DATABASE_NAME="${PGDATABASE:?PGDATABASE must be set to the database to back up}"
 HOST_NAME="$(hostname 2>/dev/null || printf 'unknown')"
 
 case "$RETENTION_DAYS" in

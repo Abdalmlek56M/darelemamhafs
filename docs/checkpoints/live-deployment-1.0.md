@@ -4,7 +4,7 @@ Date: 16 Nov 2026
 
 ## Server
 - Provider: Contabo Cloud VPS 4 (EU)
-- IP: `31.220.76.171`
+- IP: `<server-ip>`
 - OS: Ubuntu 24.04.5 LTS
 - Specs: 4 vCPU / 8 GB RAM / 100 GB SSD / 200 Mbit/s
 - Timezone: `Africa/Cairo`
@@ -26,7 +26,7 @@ Date: 16 Nov 2026
   - `dar-legacy-api-1` (healthy)
   - `dar-new-api-1` (healthy)
   - `dar-caddy-1` (TLS active)
-- Temporary URL: **https://dar.31.220.76.171.nip.io**
+- Temporary URL: **https://dar.<server-ip>.nip.io**
 - Frontend: HTTP 200
 - `GET /health/ready` → `{"status":"ready","database":"connected"}`
 - `GET /api/v1/ping` → `{"status":"ok","service":"Dar.Api","version":"0.1.0"}`
@@ -66,7 +66,7 @@ Date: 16 Nov 2026
 
 ## Pending
 - Add the deploy key to GitHub; convert `/opt/dar` to a Git checkout for updates.
-- Point the final domain (`darelemamhaf.rigxhardware.com`) to `31.220.76.171`; update `DAR_DOMAIN` and restart Caddy.
+- Point the final domain (`darelemamhaf.rigxhardware.com`) to `<server-ip>`; update `DAR_DOMAIN` and restart Caddy.
 - Offsite backup copy (R2/B2) + restore drill.
 - Deploy the two hardware stores and the Quran site as separate Compose projects behind the central Caddy.
 - First GitHub Actions run verification.

@@ -3,6 +3,8 @@ set -euo pipefail
 cd /opt/dar
 
 PASS="$(sed -n 's/^POSTGRES_PASSWORD=//p' deploy/.env)"
+DB_NAME="$(sed -n 's/^POSTGRES_DB=//p' deploy/.env | head -n 1)"
+[ -n "$DB_NAME" ] || { echo 'POSTGRES_DB must be set in deploy/.env.' >&2; exit 1; }
 
 sudo install -m 0750 -o root -g dar deploy/scripts/dar-backup.sh /usr/local/bin/dar-backup
 sudo install -d -m 0700 -o dar -g dar /var/lib/dar/rclone
@@ -10,7 +12,7 @@ sudo install -d -m 0700 -o dar -g dar /var/lib/dar/rclone
 sudo tee /etc/dar/backup.env >/dev/null <<EOF
 PGHOST=127.0.0.1
 PGPORT=5432
-PGDATABASE=dareltahfeez
+PGDATABASE=$DB_NAME
 PGUSER=dar_app
 PGPASSWORD=$PASS
 RCLONE_CONFIG=/var/lib/dar/rclone/rclone.conf

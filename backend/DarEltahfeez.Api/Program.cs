@@ -17,8 +17,8 @@ builder.Services.AddSingleton<TurnstileVerifier>();
 // P1-1 Turnstile: fail fast if the feature is enabled without its server-side configuration.
 var turnstileSection = builder.Configuration.GetSection("Auth:Turnstile");
 if (turnstileSection.GetValue<bool>("Enabled")
-    && (string.IsNullOrWhiteSpace(turnstileSection["SiteKey"]) || string.IsNullOrWhiteSpace(turnstileSection["SecretKey"])))
-    throw new InvalidOperationException("Auth:Turnstile is enabled but SiteKey/SecretKey is missing. Set them in the server environment.");
+    && (string.IsNullOrWhiteSpace(turnstileSection["SiteKey"]) || string.IsNullOrWhiteSpace(turnstileSection["SecretKey"]) || string.IsNullOrWhiteSpace(turnstileSection["ExpectedHostname"])))
+    throw new InvalidOperationException("Auth:Turnstile is enabled but SiteKey/SecretKey/ExpectedHostname is missing. Set them in the server environment.");
 
 // Caddy terminates TLS on the same host. Trust only loopback by default; Docker
 // deployments can add their proxy IP(s) through ForwardedHeaders:KnownProxies.

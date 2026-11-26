@@ -18,7 +18,7 @@ Verifies that supervisor notifications for attendance requests close when the re
 - Disposable PostgreSQL DB with the current schema.
 - Temporary legacy + new-API apps.
 - `DAR_TEST_DATABASE`, `P15_LEGACY_URL`, `P15_NEW_URL`, `P15_SETUP_TOKEN`; optional `P15_PASSWORD`.
-- The runner refuses `dareltahfeez` and production/live URLs.
+- The runner refuses `<database>` and production/live URLs.
 
 ```bash
 DAR_TEST_DATABASE='Host=127.0.0.1;Port=5432;Database=p15_test;Username=p15;Password=...' \

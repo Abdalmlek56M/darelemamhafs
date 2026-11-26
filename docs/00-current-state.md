@@ -10,7 +10,7 @@
 
 نظام إداري/مالي لدار تحفيظ قرآن (ليس منصة تعليمية): سكرتارية وطالبات وأولياء أمور ومعلمات، حلقات وجدول أسبوعي، حضور طالبات ومعلمات، أجر معلمات، اشتراكات ومدفوعات، خزنة ومصروفات، تقارير وصلاحيات ــ واجهة عربية RTL فقط حاليًا.
 
-**الحيّ الآن:** https://dar-elemam-hafs.rigxhardware.com
+**الحيّ الآن:** https://<deployment-host>
 
 ---
 
@@ -260,7 +260,7 @@
 #### P0-1 شواهد التشغيل والنشر (24 Nov 05:04)
 - **قبل الإصلاح** (على الكود الأصلي من `/opt/dar` + الاختبار الجديد): `Review_Correction_OnLockedMonth...` **FAIL** — `Assert.Equal` Expected 409 Actual 200؛ والحالة المفتوحة PASS. أي إعادة إنتاج للثغرة: اعتماد طلب تصحيح في شهر مقفول كان ينجح 200 ويعدّل الأجر.
 - **بعد الإصلاح**: `dotnet test --filter PayrollLockReviewTests` → **Passed: 2 / Failed: 0**.
-- **بيئة الاختبار:** قاعدة disposable `dar_p0_payroll_20261124050107` أُنشئت من `pg_dump -s -O -x dareltahfeez` (schema الإنتاج)، والاختبارات استخدمت `DAR_TEST_DATABASE`؛ بعد النجاح تم **إسقاط القاعدة والدور**.
+- **بيئة الاختبار:** قاعدة disposable `dar_p0_payroll_20261124050107` أُنشئت من `pg_dump -s -O -x <database>` (schema الإنتاج)، والاختبارات استخدمت `DAR_TEST_DATABASE`؛ بعد النجاح تم **إسقاط القاعدة والدور**.
 - **النشر:** `dar-api` فقط: نسخة `/opt/dar/app/api.old.20261124-050456`، DB backup `/var/lib/dar/backups/db/predeploy-P0-20261124-050456.dump`، smoke: `health/ready`=200، `/api/v1/meet/sessions` غير مصرح=401، `/management`=200. لم تُنشر أي تغييرات legacy/frontend/migrations في هذا البند.
 
 ### 24 Nov 2026 — P0-1: تجهيز الاختبار الخارجي + عائق الـpush

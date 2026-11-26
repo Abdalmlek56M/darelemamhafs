@@ -5,7 +5,7 @@ Date: 16 Nov 2026
 ## Done
 
 - Fresh live backup before migration: `dar-20261116-155118.dump` (184 TOC entries, uploaded to Google Drive, `rclone check` 0 differences / 7 matching files).
-- Applied **migration 017** to the live `dareltahfeez` database via the new migration runner. Ledger: 17 migrations.
+- Applied **migration 017** to the live `<database>` database via the new migration runner. Ledger: 17 migrations.
 - Published and swapped:
   - New API: `/opt/dar/app/api` (backend `fe03ce6`; teacher/supervisor/notifications module).
   - Legacy API + SPA: `/opt/dar/app/legacy` (backend `485e9f3`, frontend `fe03ce6` build).

@@ -6,7 +6,7 @@ APP="/tmp/dar-regression-$STAMP"
 UNIT_LOG="$APP/unit.log"
 PORT_OLD=6170
 PORT_NEW=6171
-PASS=RegressionPass123
+PASS="$(openssl rand -hex 16 2>/dev/null || od -An -N16 -tx1 /dev/urandom | tr -d " \n")"
 FAILED=0
 
 cleanup() {
@@ -47,7 +47,8 @@ prepare_db() {
   local role_sql="CREATE ROLE $ROLE LOGIN SUPERUSER PASSWORD '$PASS';"
   sudo -u postgres psql -v ON_ERROR_STOP=1 -c "$role_sql" >/dev/null || return 1
   sudo -u postgres createdb -O "$ROLE" "$DB" || return 1
-  sudo -u postgres pg_dump -s -O -x dareltahfeez | sudo -u postgres psql -q -v ON_ERROR_STOP=1 -d "$DB" || return 1
+  local baseline_db="${DAR_BASELINE_DB:?DAR_BASELINE_DB must name the disposable schema-template database}"
+  sudo -u postgres pg_dump -s -O -x "$baseline_db" | sudo -u postgres psql -q -v ON_ERROR_STOP=1 -d "$DB" || return 1
   DBENV="Host=127.0.0.1;Port=5432;Database=$DB;Username=$ROLE;Password=$PASS"
   # Apply post-baseline migrations to the disposable schema (production applies them via deploy).
   for migration_file in "$ROOT"/database/03[2-9]_*.sql; do
@@ -142,5 +143,6 @@ run_suite tier0-trigger tests/regression/tier0-trigger/run.mjs q6
 run_suite tier0-idempotency tests/regression/tier0-idempotency/run.mjs q6
 run_suite tier0-profit tests/regression/tier0-profit/run.mjs q6
 run_suite tier0-meet-settings tests/regression/tier0-meet-settings/run.mjs q6
+run_suite repo-secrets tests/regression/repo-secrets/run.mjs q6
 echo "RESULT=$([ "$FAILED" -eq 0 ] && echo PASS || echo FAIL)"
 exit "$FAILED"

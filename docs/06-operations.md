@@ -249,7 +249,7 @@ Cloudflare → Nginx:443 → SPA + legacy /api (5080) → PostgreSQL (127.0.0.1:
                        ↘ /api/v1/* → new API (5081) → PostgreSQL
 ```
 
-- `dar-elemam-hafs.rigxhardware.com` → Nginx؛ الـAPIs داخلية فقط.
+- `<deployment-host>` → Nginx؛ الـAPIs داخلية فقط.
 - PostgreSQL غير منشور.
 - Nginx يحمل TLS (Certbot) والـproxy buffers (إصلاح 502).
 
@@ -355,7 +355,7 @@ Alerts: Telegram/email. No paid service without approval.
 
 | Record | Value |
 |---|---|
-| `dar-elemam-hafs.rigxhardware.com` | Cloudflare → host (live) |
+| `<deployment-host>` | Cloudflare → host (live) |
 | `www` | غير مُعد (redirect لاحقًا إن لزم) |
 | `staging` | غير مُنشأ (Phase 2.5 smoke / 2.9 E2E) |
 

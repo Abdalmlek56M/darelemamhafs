@@ -30,6 +30,12 @@ public static class IdentityModule
         if (!isDevelopment && string.IsNullOrWhiteSpace(configuration["Auth:Otp:Pepper"]))
             throw new InvalidOperationException("Auth:Otp:Pepper must be configured outside Development. OTP login cannot run with a process-local key.");
 
+        var turnstileSection = configuration.GetSection("Auth:Turnstile");
+        if (turnstileSection.GetValue<bool>("Enabled")
+            && (string.IsNullOrWhiteSpace(turnstileSection["SiteKey"])
+                || string.IsNullOrWhiteSpace(turnstileSection["SecretKey"])
+                || string.IsNullOrWhiteSpace(turnstileSection["ExpectedHostname"])))
+            throw new InvalidOperationException("Auth:Turnstile is enabled but SiteKey/SecretKey/ExpectedHostname is missing. Set them in the server environment.");
         services.AddHttpContextAccessor();
         services.AddScoped<IIdentityRepository, IdentityRepository>();
         services.AddSingleton<ITicketStore, DatabaseTicketStore>();

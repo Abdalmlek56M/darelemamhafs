@@ -5,8 +5,8 @@ BEGIN TRANSACTION READ ONLY;
 
 WITH target AS (
     SELECT
-        '01a6c471-d6a3-4bc2-83d6-af9379d214de'::UUID AS circle_id,
-        '86f8e5af-19e8-4403-9431-3a6d6bf701ca'::UUID AS teacher_id
+        :'circle_id'::UUID AS circle_id,
+        :'teacher_id'::UUID AS teacher_id
 ), relevant_slots AS (
     SELECT
         slot.*,

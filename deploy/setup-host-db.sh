@@ -3,24 +3,24 @@
 # Dar host database - safe restore of the production database (idempotent role)
 # =============================================================================
 # Purpose : create/refresh the dar_app role and restore the initial database
-#           dump into the dareltahfeez database without risking live data.
+#           dump into the dar_database database without risking live data.
 # Requires: root, or the deploy user with passwordless sudo; PostgreSQL 17
 #           running on 127.0.0.1:5432; a verified .dump file.
 # Usage   : sudo bash deploy/setup-host-db.sh [--dump PATH] [--confirm-restore] [--force]
 #
 # Safety model:
-#   * If dareltahfeez does not exist (or has no public tables) the dump is
+#   * If dar_database does not exist (or has no public tables) the dump is
 #     restored directly into it. This is the fresh-host path.
-#   * If dareltahfeez already has tables, the script takes a verified pg_dump
+#   * If dar_database already has tables, the script takes a verified pg_dump
 #     snapshot first (pg_restore --list + sha256) and refuses to continue
 #     without --confirm-restore.
 #   * With --confirm-restore but without --force it stops after the backup and
 #     prints the exact command to run.
 #   * With both flags it stops the Dar services, restores the dump into a new
-#     dareltahfeez_restore_<stamp> database, compares per-table row counts with
+#     dar_database_restore_<stamp> database, compares per-table row counts with
 #     the live database, then swaps the two databases by name and restarts the
 #     services. The previous live database is kept as
-#     dareltahfeez_pre_restore_<stamp> for a manual rollback.
+#     dar_database_pre_restore_<stamp> for a manual rollback.
 #   * Secrets are read from deploy/.env and never echoed to the console.
 # =============================================================================
 set -euo pipefail
@@ -32,8 +32,9 @@ if [ ! -f "$REPO_DIR/deploy/.env" ] && [ -f /opt/dar/deploy/.env ]; then
 fi
 ENV_FILE="$REPO_DIR/deploy/.env"
 BACKUP_DIR="${DAR_BACKUP_DB_DIR:-/var/lib/dar/backups/db}"
-LIVE_DB="dareltahfeez"
-RESTORE_PREFIX="dareltahfeez_restore"
+LIVE_DB="$(sed -n 's/^POSTGRES_DB=//p' "$ENV_FILE" | head -n 1)"
+[ -n "$LIVE_DB" ] || { echo 'POSTGRES_DB must be set in deploy/.env.' >&2; exit 1; }
+RESTORE_PREFIX="${LIVE_DB}_restore"
 PG_HOST="127.0.0.1"
 PG_PORT="5432"
 PG_USER="dar_app"
@@ -49,12 +50,12 @@ Usage: setup-host-db.sh [--dump PATH] [--confirm-restore] [--force]
 
   --dump PATH        Dump to restore (default: newest *.dump in
                      backups/pre-host-migration/).
-  --confirm-restore  Required when dareltahfeez already has tables.
+  --confirm-restore  Required when dar_database already has tables.
   --force            Required to actually restore over a non-empty database
                      (a verified snapshot is always taken first).
   --help             Show this help.
 
-Restore always goes through a new dareltahfeez_restore_<stamp> database and a
+Restore always goes through a new dar_database_restore_<stamp> database and a
 verified row-count comparison before the names are swapped.
 USAGE
 }

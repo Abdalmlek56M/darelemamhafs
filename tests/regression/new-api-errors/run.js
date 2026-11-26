@@ -4,7 +4,7 @@ const LEGACY = process.env.P27C_LEGACY_URL || 'http://127.0.0.1:6013';
 const NEW = process.env.P27C_NEW_URL || 'http://127.0.0.1:6014';
 const PASSWORD = process.env.P27C_PASSWORD || 'P27C-StrongPass!';
 const CONN = process.env.DAR_TEST_DATABASE || '';
-const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 if (!CONN) { console.error('P27C_FAIL missing DB'); process.exit(2); }
 for (const base of [LEGACY, NEW]) { try { const u=new URL(base); if(PROD_HOSTS.includes(u.hostname.toLowerCase())||!['127.0.0.1','localhost','::1','[::1]'].includes(u.hostname.toLowerCase())){console.error('P27C_FAIL non-test URL');process.exit(2);} } catch { console.error('P27C_FAIL invalid URL'); process.exit(2); } }
 function pgEnv(){const e={...process.env};for(const p of CONN.split(';')){const i=p.indexOf('=');if(i<0)continue;const k=p.slice(0,i).trim().toLowerCase(),v=p.slice(i+1).trim();if(k==='host')e.PGHOST=v;if(k==='port')e.PGPORT=v;if(k==='database')e.PGDATABASE=v;if(k==='username')e.PGUSER=v;if(k==='password')e.PGPASSWORD=v;}return e;}

@@ -8,13 +8,13 @@ const SETUP_TOKEN = process.env.S1_SETUP_TOKEN || '';
 const PASSWORD = process.env.S1_PASSWORD || 'S1-BenchPass!';
 const LABEL = process.env.S1_LABEL || 'unknown';
 const ITERATIONS = Number(process.env.S1_ITERATIONS || 3);
-const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 
 function fail(message) { console.error('S1A_FAIL refusing/failed: ' + message); process.exit(2); }
 function isLoopback(host) { return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]'; }
 function guard() {
   if (!CONN || !LEGACY || !NEW_API || !SETUP_TOKEN) fail('missing DAR_TEST_DATABASE/S1_LEGACY_URL/S1_NEW_URL/S1_SETUP_TOKEN');
-  if (/database\s*=\s*dareltahfeez\b/i.test(CONN)) fail('production database name');
+  if (new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__') + '\\b', 'i').test(CONN)) fail('production database name');
   for (const raw of [LEGACY, NEW_API]) {
     let url;
     try { url = new URL(raw); } catch { fail('invalid URL'); }

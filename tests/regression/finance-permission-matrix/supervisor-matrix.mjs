@@ -1,8 +1,8 @@
 const BASE = process.env.P17_NEW_BASE_URL || 'http://127.0.0.1:5100';
 const PASSWORD = process.env.P17_TEST_PASSWORD || 'P17-StrongPass!';
 const STUDENT = '22222222-2222-4222-8222-222222222222';
-const PROD_DB = 'dareltahfeez';
-const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+const PROD_DB = process.env.DAR_FORBIDDEN_DB || '';
+const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 function isLoopbackHost(host) {
   return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]';
 }
@@ -17,7 +17,7 @@ function guardTargets(base) {
   if (PROD_HOSTS.includes(host)) refuseTarget('production hostname ' + host);
   if (!isLoopbackHost(host)) refuseTarget('non-loopback test URL ' + host);
   const db = process.env.P17_DAR_TEST_DATABASE || process.env.DAR_TEST_DATABASE || '';
-  if (db && /database\s*=\s*dareltahfeez\b/i.test(db)) refuseTarget('production database name');
+  if (db && new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__') + '\\b', 'i').test(db)) refuseTarget('production database name');
   const dbHost = /host\s*=\s*([^;]+)/i.exec(db);
   if (dbHost && PROD_HOSTS.includes(dbHost[1].trim().toLowerCase())) refuseTarget('production database host');
 }

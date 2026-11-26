@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 const BASE = process.env.P26F_BASE_URL || 'http://127.0.0.1:6010';
 const PASSWORD = process.env.P26F_PASSWORD || 'P26F-StrongPass!';
-const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 try { const u = new URL(BASE); if (PROD_HOSTS.includes(u.hostname.toLowerCase()) || !['127.0.0.1','localhost','::1','[::1]'].includes(u.hostname.toLowerCase())) { console.error('P26F_FAIL non-test URL'); process.exit(2); } } catch { console.error('P26F_FAIL invalid URL'); process.exit(2); }
 (async()=>{
  const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});

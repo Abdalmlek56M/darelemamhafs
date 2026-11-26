@@ -8,12 +8,12 @@ const NEW_API = process.env.P15_NEW_URL || '';
 const SETUP_TOKEN = process.env.P15_SETUP_TOKEN || '';
 const PASSWORD = process.env.P15_PASSWORD || 'P15-StrongPass!';
 const EXPECTED_TESTS = 10;
-const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 
 function fail(message) { console.error('P15_FAIL refusing/failed: ' + message); process.exit(2); }
 function isLoopback(host) { return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]'; }
 if (!CONN || !LEGACY || !NEW_API || !SETUP_TOKEN) fail('missing env');
-if (/database\s*=\s*dareltahfeez\b/i.test(CONN)) fail('production database');
+if (new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__') + '\\b', 'i').test(CONN)) fail('production database');
 for (const raw of [LEGACY, NEW_API]) {
   let url; try { url = new URL(raw); } catch { fail('invalid URL'); }
   if (PROD_HOSTS.includes(url.hostname.toLowerCase()) || !isLoopback(url.hostname.toLowerCase())) fail('non-test URL');

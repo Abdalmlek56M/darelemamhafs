@@ -46,7 +46,7 @@ async function createUser(adminCookie, username, perms) {
 
 export async function setup() {
   if (!CONN || !OLD || !NEW || !SETUP) throw new Error('Q6 env missing');
-  if (/database\s*=\s*dareltahfeez/i.test(CONN)) throw new Error('production database rejected');
+  if (new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__'), 'i').test(CONN)) throw new Error('production database rejected');
   for (const raw of [OLD, NEW]) { const h = new URL(raw).hostname.toLowerCase(); if (!['127.0.0.1', 'localhost'].includes(h)) throw new Error('non-loopback URL rejected'); }
   const setup = await fetch(OLD + '/api/setup/admin', { method: 'POST', headers: { 'content-type': 'application/json', 'X-Setup-Token': SETUP }, body: JSON.stringify({ username: 'q6_admin', displayName: 'Q6 Admin', password: PASS }) });
   if (![200, 409].includes(setup.status)) throw new Error('setup ' + setup.status);

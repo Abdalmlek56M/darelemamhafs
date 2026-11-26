@@ -20,7 +20,7 @@ Date: 18 Nov 2026
 
 ## Deployment
 
-- Commit `54d0fb2` pushed to `main` and deployed to `https://dar-elemam-hafs.rigxhardware.com`.
+- Commit `54d0fb2` pushed to `main` and deployed to `https://<deployment-host>`.
 - Pre-deploy DB backup: `dar-20261118-215031.dump`. Post-deploy DB backup: `dar-20261118-215411.dump`.
 - Previous `wwwroot` retained at `/var/lib/dar/backups/frontend-` as a rollback copy.
 - Live routes returned 200: `/`, `/management`, `/teacher`, `/supervisor`; the served admin bundle was `index-DOW_95cH.js`.

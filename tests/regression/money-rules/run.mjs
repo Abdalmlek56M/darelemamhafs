@@ -5,9 +5,9 @@ const CONN = process.env.DAR_TEST_DATABASE || '';
 const LEGACY = process.env.Q4_LEGACY_URL || '';
 const SETUP = process.env.Q4_SETUP_TOKEN || '';
 const PASSWORD = process.env.Q4_PASSWORD || 'Q4-StrongPass!';
-const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 if (!CONN || !LEGACY || !SETUP) { console.error('Q4_FAIL missing env'); process.exit(2); }
-if (/database\s*=\s*dareltahfeez/i.test(CONN)) { console.error('Q4_FAIL production database'); process.exit(2); }
+if (new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__'), 'i').test(CONN)) { console.error('Q4_FAIL production database'); process.exit(2); }
 const dbHost = /host\s*=\s*([^;]+)/i.exec(CONN)?.[1]?.trim().toLowerCase() || '';
 if (PROD_HOSTS.includes(dbHost)) { console.error('Q4_FAIL production database host'); process.exit(2); }
 const url = new URL(LEGACY); if (PROD_HOSTS.includes(url.hostname.toLowerCase()) || !['127.0.0.1','localhost','::1','[::1]'].includes(url.hostname.toLowerCase())) { console.error('Q4_FAIL non-loopback URL'); process.exit(2); }

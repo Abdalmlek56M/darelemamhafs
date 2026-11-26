@@ -10,7 +10,7 @@ Read-only HTTP baseline for the current list endpoints before pagination work.
 
 ## Safety
 
-- Refuses `dareltahfeez` and production/live URLs exactly like the other regression runners.
+- Refuses `<database>` and production/live URLs exactly like the other regression runners.
 - No production env files or secrets. Run only against a disposable DB and temporary apps.
 
 ## Commands

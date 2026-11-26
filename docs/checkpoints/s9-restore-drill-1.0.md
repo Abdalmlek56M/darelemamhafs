@@ -61,4 +61,4 @@ Verified after cleanup: no `dar_restore_s9_%` databases/roles, no `/tmp/s9-drill
 sudo bash deploy/scripts/restore-drill.sh
 ```
 
-The script refuses any database name without the `dar_restore_s9_` prefix, never targets `dareltahfeez`, uses read-only metrics on production, and removes its temporary databases/role/files on exit.
+The script refuses any database name without the `dar_restore_s9_` prefix, never targets `<database>`, uses read-only metrics on production, and removes its temporary databases/role/files on exit.

@@ -168,7 +168,7 @@ trap on_exit EXIT
 # -----------------------------------------------------------------------------
 PGHOST="127.0.0.1"
 PGPORT="5432"
-PGDATABASE="dareltahfeez"
+PGDATABASE="dar_database"
 PGUSER="dar_app"
 PGPASSWORD=""
 CONNECTION_STRING=""

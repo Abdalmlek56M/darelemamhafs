@@ -1,6 +1,6 @@
 # RIGX Dar — Host + Domain Deployment
 
-**Status:** Live on Contabo VPS 31.220.76.171 at **https://dar-elemam-hafs.rigxhardware.com** (since 16 Nov 2026).
+**Status:** Live on Contabo VPS <server-ip> at **https://<deployment-host>** (since 16 Nov 2026).
 **Architecture:** Ubuntu 24.04 + Nginx + Certbot + systemd + host PostgreSQL 17 + .NET 10 + React 19/Vite.
 **Last hardened:** 22 Nov 2026 — Phase 2.1 (safe deploy/update/rollback + backup manifest + healthcheck). راجع docs/17-master-plan.md.
 **Legacy note:** the earlier Docker/Caddy stack is retired on this host; its volumes are retained as a rollback copy.
@@ -16,7 +16,7 @@
 | Nginx | TLS, HTTP→HTTPS, reverse proxy, security headers | Ports 80/443 |
 | dar-legacy.service | legacy API + React SPA (/, /management, /teacher, /supervisor) + /api/* — 127.0.0.1:5080 | via Nginx |
 | dar-api.service | /api/v1/* + /health/* — 127.0.0.1:5081 | via Nginx |
-| PostgreSQL 17 | dareltahfeez database on 127.0.0.1:5432 | no |
+| PostgreSQL 17 | <database> database on 127.0.0.1:5432 | no |
 | dar-backup.timer | daily pg_dump + manifest + Google Drive offsite (30-day retention) | no |
 | dar-healthcheck.timer | every 6h: services, health, disk, backup age, TLS, nginx | no |
 
@@ -42,8 +42,8 @@ Routing:
 
 ## 3. First Deploy (fresh host — الترتيب الإلزامي)
 
-    1) scp deploy/bootstrap-server.sh deploy@31.220.76.171:/root/
-       ssh root@31.220.76.171 'bash /root/bootstrap-server.sh'
+    1) scp deploy/bootstrap-server.sh deploy@<server-ip>:/root/
+       ssh root@<server-ip> 'bash /root/bootstrap-server.sh'
        # OS bootstrap idempotent: users, dirs, docker, ufw, ssh, fail2ban, swap
 
     2) # Host packages: .NET 10, Node 24, PostgreSQL 17, Nginx, Certbot, rclone
@@ -56,7 +56,7 @@ Routing:
     5) sudo bash deploy/setup-host-backup.sh                  # backup + healthcheck timers
 
     6) sudo bash deploy/setup-nginx.sh
-       sudo certbot --nginx -d dar-elemam-hafs.rigxhardware.com --non-interactive --agree-tos -m admin@rigxhardware.com --redirect
+       sudo certbot --nginx -d <deployment-host> --non-interactive --agree-tos -m admin@rigxhardware.com --redirect
 
     7) sudo bash deploy/setup-host-db.sh --dump /path/to/database.dump
        # قاعدة موجودة فيها بيانات: --confirm-restore ثم --confirm-restore --force
@@ -90,7 +90,7 @@ Routing:
 - client_max_body_size 12m؛ proxy_buffer_size 32k / proxy_buffers 8 32k / proxy_busy_buffers_size 64k؛ proxy_read_timeout 120s/180s؛ server_tokens off.
 - Security headers على مستوى Nginx: HSTS (TLS فقط)، X-Content-Type-Options، Referrer-Policy، X-Frame-Options: DENY، Permissions-Policy.
 - X-Forwarded-Proto https صريح لأن Cloudflare يُنهي TLS.
-- Certificate: /etc/letsencrypt/live/dar-elemam-hafs.rigxhardware.com/ — كتلة Certbot تُحفظ كما هي.
+- Certificate: /etc/letsencrypt/live/<deployment-host>/ — كتلة Certbot تُحفظ كما هي.
 - Renewal: certbot.timer. **DNS-01** مُعد بعد فشل HTTP-01 عبر Cloudflare proxy:
   - Token: /root/.secrets/cloudflare.ini (600 root:root)، scoped Zone:DNS:Edit.
   - certbot renew --dry-run --no-random-sleep-on-renew يجب أن ينجح.
@@ -180,7 +180,7 @@ git pull + restart فقط **ممنوع** الآن. المسار المعتمد �
 
 ## 8. Smoke Checklist (بعد كل نشر)
 
-- [x] https://dar-elemam-hafs.rigxhardware.com/ → 200
+- [x] https://<deployment-host>/ → 200
 - [x] /health/ready → database connected
 - [x] /api/v1/ping → ok
 - [x] Admin login + /api/auth/me → permissions

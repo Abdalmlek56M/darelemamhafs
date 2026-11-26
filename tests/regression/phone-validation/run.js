@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 const BASE = process.env.P23_LEGACY_URL || 'http://127.0.0.1:5500';
 const NEW_API = process.env.P23_NEW_URL || 'http://127.0.0.1:5501';
 const PASSWORD = process.env.P23_PASSWORD || 'P23-StrongPass!';
-const PROD_HOSTS = ['dar-elemam-hafs.rigxhardware.com', '31.220.76.171'];
+const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 for (const raw of [BASE, NEW_API]) {
   try {
     const url = new URL(raw);
