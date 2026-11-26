@@ -339,3 +339,12 @@ Two independent cookies can share one browser: the legacy admin cookie `DarEltah
 - Portal logout clears only `dar_session`; the separate admin session remains alive (different credential, SameSite=Strict). The portal client keeps sending the marker after logout, so it cannot silently continue as admin.
 - Regression: `tests/regression/tier0-sessions` (both cookies; header returns teacher, no header returns admin; portal logout 401 with marker while admin still answers; marker without session 401) plus `frontend/src/lib/portalHeaders.test.ts`.
 - **NOT VERIFIED:** a real browser with both cookies, the live DataProtection key ring, cross-tab logout behaviour, and non-portal clients that omit the marker (those still get admin-first identity when both cookies are present, by design). No production session was changed.
+## 22. Windows-tooling port before removal (FINAL Z0, 2.11/2.12)
+
+The retired Windows desktop tooling was the only home of some operational checks. They are now ported to the Linux production tooling before the desktop edition is deleted:
+
+- `deploy/sql/integrity-checks.sql` is one read-only report (schema objects/indexes, duplicate enrollments/slots/attendance, payments over charge, teacher-payable mismatch, orphan relationships, WAL size, dead-tuple/autovacuum stats). It is executed by `dar-healthcheck` (`check_integrity`), the restore drill and the regression suite `tests/regression/integrity-sql`.
+- `dar-backup` now validates that every required table has a `TABLE DATA` entry in the dump (`BACKUP_REQUIRED_TABLES`), in addition to `pg_restore --list`/SHA-256.
+- The restore drill is now a scheduled systemd unit (`dar-restore-drill.timer`, weekly) with `/etc/dar/restore-drill.env` for the production database name, backup directory, off-site path and app port; no hardcoded names remain.
+- Regression: `tests/regression/backup-source` checks the ported contracts, and `tests/regression/integrity-sql` executes the SQL against a disposable schema.
+- **NOT VERIFIED:** the live healthcheck/restore-drill timers, the installed `/usr/local/share/dar/integrity-checks.sql`, the real backup set's per-table entries and an actual drill run were not executed on production in this session.

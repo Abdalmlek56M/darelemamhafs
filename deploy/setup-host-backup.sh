@@ -24,14 +24,28 @@ sudo chmod 600 /etc/dar/backup.env
 sudo install -m 0644 deploy/systemd/dar-backup.service /etc/systemd/system/dar-backup.service
 sudo install -m 0644 deploy/systemd/dar-backup.timer /etc/systemd/system/dar-backup.timer
 
-# Operational healthcheck (services + health endpoints + disk + backup age + TLS + nginx).
+# Shared read-only business-integrity SQL (ported from the retired Windows tools).
+sudo install -d -m 0755 -o root -g root /usr/local/share/dar
+sudo install -m 0644 -o root -g root deploy/sql/integrity-checks.sql /usr/local/share/dar/integrity-checks.sql
+
+# Operational healthcheck (services + health endpoints + disk + backup age + TLS + nginx + integrity).
 sudo install -m 0755 -o root -g root deploy/scripts/dar-healthcheck.sh /usr/local/bin/dar-healthcheck
 sudo install -m 0644 deploy/systemd/dar-healthcheck.service /etc/systemd/system/dar-healthcheck.service
 sudo install -m 0644 deploy/systemd/dar-healthcheck.timer /etc/systemd/system/dar-healthcheck.timer
 
+# Scheduled restore drill (disposable databases only; env file carries no hardcoded names).
+sudo install -m 0755 -o root -g root deploy/scripts/restore-drill.sh /usr/local/bin/dar-restore-drill
+sudo install -m 0644 deploy/systemd/dar-restore-drill.service /etc/systemd/system/dar-restore-drill.service
+sudo install -m 0644 deploy/systemd/dar-restore-drill.timer /etc/systemd/system/dar-restore-drill.timer
+if [ ! -f /etc/dar/restore-drill.env ]; then
+  sudo install -m 0600 -o root -g root deploy/restore-drill.env.example /etc/dar/restore-drill.env
+  echo 'WARN: edit /etc/dar/restore-drill.env before the first scheduled restore drill.' >&2
+fi
+
 sudo systemctl daemon-reload
 sudo systemctl enable --now dar-backup.timer
 sudo systemctl enable --now dar-healthcheck.timer
+sudo systemctl enable --now dar-restore-drill.timer
 sudo systemctl start dar-backup.service
 sleep 2
 sudo systemctl --no-pager --full status dar-backup.service | sed -n '1,12p' || true

@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly Dar restore drill
+
+[Timer]
+OnCalendar=Sun 04:30
+Persistent=true
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target

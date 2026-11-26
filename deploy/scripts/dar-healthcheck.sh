@@ -61,7 +61,7 @@ BACKUP_DIR="${HEALTHCHECK_BACKUP_DIR:-${BACKUP_DIR:-/var/lib/dar/backups/db}}"
 BACKUP_MAX_AGE_HOURS="${HEALTHCHECK_BACKUP_MAX_AGE_HOURS:-26}"
 CERT_DOMAIN="${HEALTHCHECK_CERT_DOMAIN:-}"
 CERT_MIN_DAYS="${HEALTHCHECK_CERT_MIN_DAYS:-14}"
-STRICT="${HEALTHCHECK_STRICT:-0}"
+STRICT="${HEALTHCHECK_STRICT:-0}"`nINTEGRITY_SQL="${HEALTHCHECK_INTEGRITY_SQL:-/usr/local/share/dar/integrity-checks.sql}"`nDEAD_TUPLE_WARN_PERCENT="${HEALTHCHECK_DEAD_TUPLE_WARN_PERCENT:-20}"
 HOST_NAME="$(hostname 2>/dev/null || printf 'unknown')"
 NOW_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
@@ -92,6 +92,32 @@ record() {
   CHECK_DETAILS+=("$3")
 }
 
+check_integrity() {
+  if ! command -v psql >/dev/null 2>&1; then
+    record "integrity" "warning" "psql not available; business-integrity report skipped"
+    return
+  fi
+  if [ ! -r "$INTEGRITY_SQL" ]; then
+    record "integrity" "warning" "business-integrity SQL not installed at $INTEGRITY_SQL"
+    return
+  fi
+  local report
+  if ! report="$(psql -X -q -t -A -v ON_ERROR_STOP=1 -f "$INTEGRITY_SQL" 2>/dev/null | tail -n 1)"; then
+    record "integrity" "critical" "business-integrity SQL failed"
+    return
+  fi
+  if ! command -v jq >/dev/null 2>&1; then
+    record "integrity" "warning" "jq not available; business-integrity report not parsed"
+    return
+  fi
+  local issues
+  issues="$(printf '%s' "$report" | jq -r '[.schema.missing_tables, .schema.missing_indexes, (.schema.unvalidated_constraints|select(.>0)|"unvalidated_constraints"), (.schema.invalid_indexes|select(.>0)|"invalid_indexes"), (.integrity|to_entries[]|select(.value>0)|.key), ((.autovacuum.max_dead_tuple_percent // 0)|select(.> '"$DEAD_TUPLE_WARN_PERCENT"')|"dead_tuple_percent:"+(tostring))] | map(select(. != null and . != "")) | join(",")' 2>/dev/null || true)"
+  if [ -z "$issues" ]; then
+    record "integrity" "ok" "business-integrity rules passed; WAL=$(printf '%s' "$report" | jq -r '.wal.size_bytes' 2>/dev/null)"
+  else
+    record "integrity" "warning" "integrity anomalies: $issues"
+  fi
+}
 check_services() {
   if ! command -v systemctl >/dev/null 2>&1; then
     record "services" "warning" "systemctl not available; skipped: $SERVICES"

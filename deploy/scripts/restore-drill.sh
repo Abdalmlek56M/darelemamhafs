@@ -7,9 +7,9 @@ umask 077
 
 PREFIX="dar_restore_s9_"
 PROD_DB="${RESTORE_DRILL_PROD_DB:?RESTORE_DRILL_PROD_DB must name the production database to refuse}"
-BACKUP_DIR="/var/lib/dar/backups/db"
-REMOTE_PATH="gdrive:dar-backups/dar/db"
-RCLONE_CONFIG="/var/lib/dar/rclone/rclone.conf"
+BACKUP_DIR="${RESTORE_DRILL_BACKUP_DIR:-/var/lib/dar/backups/db}"
+REMOTE_PATH="${RESTORE_DRILL_REMOTE_PATH:-}"
+RCLONE_CONFIG="${RCLONE_CONFIG:-/var/lib/dar/rclone/rclone.conf}"
 SAFE_STAMP="$(date +%Y%m%d%H%M%S)"
 DAILY_DB="dar_restore_s9_daily_$SAFE_STAMP"
 FRESH_DB="dar_restore_s9_fresh_$SAFE_STAMP"
@@ -105,7 +105,7 @@ app_smoke() {
       nohup dotnet DarEltahfeez.Api.dll > "$TMP_DIR/app-$label.log" 2>&1 &
   APP_PID=$!
   for _ in $(seq 1 60); do
-    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:5101/health/ready 2>/dev/null || true)
+    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "http://127.0.0.1:${RESTORE_DRILL_APP_PORT:-5101}/health/ready" 2>/dev/null || true)
     if [ "$code" = "200" ]; then ok=1; break; fi
     sleep 1
   done

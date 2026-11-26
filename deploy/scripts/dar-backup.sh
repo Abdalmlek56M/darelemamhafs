@@ -103,6 +103,7 @@ esac
 if [ "$BACKUP_KEEP_COUNT" -lt 1 ]; then
   fail "BACKUP_KEEP_COUNT must be at least 1"
 fi
+BACKUP_REQUIRED_TABLES="${BACKUP_REQUIRED_TABLES:-app_users students teachers circles circle_enrollments monthly_charges payments teacher_attendance student_attendance circle_schedule_slots}"
 
 mkdir -p -- "$DIR" 2>/dev/null || fail "cannot create backup directory: $DIR"
 
@@ -171,6 +172,12 @@ if [ "$VERIFY_RESTORE_LIST" = "1" ]; then
     fail "pg_restore --list returned zero TOC entries; the dump is not usable."
   fi
   VERIFY_NOTE="pg_restore --list ok ($TOC_ENTRIES entries)"
+  missing_tables=""
+  for table in $BACKUP_REQUIRED_TABLES; do
+    if ! grep -Eq "^[0-9;]+ TABLE DATA public $table( |$)" "$LIST_FILE"; then missing_tables="${missing_tables:+$missing_tables,}$table"; fi
+  done
+  if [ -n "$missing_tables" ]; then fail "backup is missing TABLE DATA for: $missing_tables"; fi
+  VERIFY_NOTE="pg_restore --list + TABLE DATA ok ($TOC_ENTRIES entries, $(printf '%s' "$BACKUP_REQUIRED_TABLES" | wc -w) required tables)"
   log "INFO: $VERIFY_NOTE"
 fi
 

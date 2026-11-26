@@ -1,0 +1,15 @@
+[Unit]
+Description=Dar scheduled restore drill (disposable databases only)
+After=postgresql.service
+Requires=postgresql.service
+OnFailure=dar-healthcheck.service
+
+[Service]
+Type=oneshot
+User=dar
+Group=dar
+EnvironmentFile=/etc/dar/restore-drill.env
+ExecStart=/usr/local/bin/dar-restore-drill
+TimeoutStartSec=1800
+Nice=10
+IOSchedulingClass=idle
