@@ -28,7 +28,7 @@ export default function RecordingSettingsDialog({ settings, close, saved }: Prop
     defaultAccessType: settings.defaultAccessType,
     maxSessionMinutes: String(settings.maxSessionMinutes),
     hlsRetentionHours: String(settings.hlsRetentionHours),
-    telegramBotToken: settings.telegramBotToken ?? '',
+    telegramBotToken: '',
     telegramChatId: settings.telegramChatId ?? '',
     alertEmail: settings.alertEmail ?? '',
   })
@@ -139,7 +139,7 @@ export default function RecordingSettingsDialog({ settings, close, saved }: Prop
         <label className="meet-settings-row">
           <span>Telegram Bot Token</span>
           <span className="meet-settings-control">
-            <input type="password" dir="ltr" placeholder="123456:ABC…" value={form.telegramBotToken} onChange={set('telegramBotToken')} />
+            <input type="password" dir="ltr" placeholder={settings.hasTelegramBotToken ? 'محفوظ — اتركه فارغًا للإبقاء' : '123456:ABC…'} value={form.telegramBotToken} onChange={set('telegramBotToken')} />
           </span>
         </label>
         <label className="meet-settings-row">

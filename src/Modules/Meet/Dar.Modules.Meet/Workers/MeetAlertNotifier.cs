@@ -35,7 +35,14 @@ public sealed class MeetAlertNotifier(
                 {
                     var settings = await provider.GetRequiredService<MeetScopeRepository>().GetSettingsAsync(stoppingToken);
                     var chatId = settings?.TelegramChatId;
-                    var token = settings?.TelegramBotToken;
+                    var storedToken = settings?.TelegramBotToken;
+                    var token = storedToken;
+                    if (!string.IsNullOrWhiteSpace(storedToken))
+                    {
+                        // FINAL 0.5: stored tokens are AES-GCM encrypted; legacy plaintext still works
+                        // until the next settings save re-encrypts it.
+                        token = crypto.TryDecrypt(storedToken, out var plaintext) ? plaintext : storedToken;
+                    }
                     if (!string.IsNullOrWhiteSpace(chatId) && !string.IsNullOrWhiteSpace(token))
                     {
                         var repository = provider.GetRequiredService<MeetAlertRepository>();

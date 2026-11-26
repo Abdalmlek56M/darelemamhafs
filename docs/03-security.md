@@ -300,3 +300,10 @@ In both modes the app trusts only a header named X-Real-IP arriving from Forward
 - **Meet link**: a scoped user can no longer re-link an event whose current circle is outside their scope (the target circle was already checked; the existing owner was not).
 - **Adjust attendance**: re-checked; it already requires `attendance.correct` plus `finance.read` for a manual amount and rejects out-of-scope attendance with 403. The audit lead was stale; the regression now locks the behaviour (`adjust_outside_403` / `adjust_inside_200`).
 - Regression: `tests/regression/scope-enforcement` adds `secretariat_list_scoped`, `secretariat_get_outside_404`, `meet_link_steal_forbidden`, `adjust_outside_403`, `adjust_inside_200`, `teacher_detail_outside_404` and `teacher_detail_summary_scoped`.
+## 18. Meet Telegram token at rest (FINAL 0.5)
+
+- The bot token is encrypted with the same AES-256-GCM `MeetCrypto` service used for the Google refresh token before it is written to `meet_settings.telegram_bot_token` (no new column; the stored value is ciphertext).
+- `GET /api/v1/meet/settings` and the `PUT` response return only `hasTelegramBotToken`; the token is never echoed to the browser.
+- Saving settings with a blank token keeps the stored token (it is not wiped). A legacy plaintext value is detected by a failed decrypt and encrypted on the next save; the alert notifier falls back to reading legacy plaintext until then.
+- Regression: `tests/regression/tier0-meet-settings` (no token in GET/PUT responses, ciphertext at rest, blank save preserves the token). The disposable new-API process gets `Meet__EncryptionKey` from the regression harness.
+- **NOT VERIFIED:** the live Meet settings row was not migrated/read; the bot's actual delivery against Telegram and the production encryption key are untested.

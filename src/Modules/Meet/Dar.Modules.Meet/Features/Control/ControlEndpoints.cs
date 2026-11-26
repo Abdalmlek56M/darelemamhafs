@@ -126,6 +126,7 @@ public static class ControlEndpoints
     private static async Task<IResult> UpdateSettingsAsync(
         MeetSettingsRequest request,
         MeetScopeRepository repository,
+        MeetCrypto crypto,
         CancellationToken ct)
     {
         var current = await repository.GetSettingsAsync(ct)
@@ -153,13 +154,45 @@ public static class ControlEndpoints
             throw AppException.Validation("maxSessionMinutes", "أقصى مدة بين 5 و720 دقيقة.");
 
         var hls = request.HlsRetentionHours ?? current.HlsRetentionHours;
+        var tokenToStore = ResolveTelegramToken(request.TelegramBotToken, current.TelegramBotToken, crypto);
+        var chatToStore = string.IsNullOrWhiteSpace(request.TelegramChatId)
+            ? current.TelegramChatId
+            : request.TelegramChatId.Trim();
         var updated = await repository.UpdateSettingsAsync(
             lead, grace, warn, block, access, maxSession, hls,
             string.IsNullOrWhiteSpace(request.AlertEmail) ? null : request.AlertEmail.Trim(),
-            string.IsNullOrWhiteSpace(request.TelegramBotToken) ? null : request.TelegramBotToken.Trim(),
-            string.IsNullOrWhiteSpace(request.TelegramChatId) ? null : request.TelegramChatId.Trim(),
+            tokenToStore,
+            chatToStore,
             ct);
-        return Results.Ok(updated);
+        if (updated is null) throw AppException.NotFound("إعدادات التسجيل غير موجودة.");
+        return Results.Ok(new MeetSettingsDto(
+            updated.RecordingEnabled,
+            updated.JoinLeadSeconds,
+            updated.StopGraceSeconds,
+            updated.MaxConcurrentSessions,
+            updated.DiskBlockGb,
+            updated.DiskWarnGb,
+            updated.UploadBwLimit,
+            updated.HlsRetentionHours,
+            !string.IsNullOrWhiteSpace(updated.TelegramBotToken)));
+    }
+
+    /// <summary>
+    /// FINAL 0.5: the bot token is stored encrypted exactly like the Google refresh token.
+    /// A blank request keeps the stored value (never wipes it); a legacy plaintext value is
+    /// encrypted on the next save. The response never carries the token itself.
+    /// </summary>
+    private static string? ResolveTelegramToken(string? requested, string? stored, MeetCrypto crypto)
+    {
+        if (!string.IsNullOrWhiteSpace(requested))
+        {
+            if (!crypto.IsReady)
+                throw AppException.Validation("telegramBotToken", "مفتاح التشفير غير مهيأ على الخادم؛ لا يمكن حفظ التوكن الآن.");
+            return crypto.Encrypt(requested.Trim());
+        }
+        if (string.IsNullOrWhiteSpace(stored)) return null;
+        if (crypto.TryDecrypt(stored, out _)) return stored;
+        return crypto.IsReady ? crypto.Encrypt(stored) : stored;
     }
 
     /// <summary>open/trusted override for one event; null restores the module default.</summary>

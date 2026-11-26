@@ -65,7 +65,7 @@ start_apps() {
   OLD_PID=$!
   cd "$APP/new"
   env ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS="http://127.0.0.1:$PORT_NEW" \
-    ConnectionStrings__Default="$DBENV" Database__ApplyMigrationsOnStartup=false TZ=UTC Auth__RateLimit__PermitLimit=10000 \
+    ConnectionStrings__Default="$DBENV" Database__ApplyMigrationsOnStartup=false TZ=UTC Auth__RateLimit__PermitLimit=10000 Meet__EncryptionKey=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
     dotnet Dar.Api.dll > "$APP/$1-new.log" 2>&1 &
   NEW_PID=$!
   for _ in $(seq 1 60); do
@@ -141,5 +141,6 @@ run_suite tier0-money tests/regression/tier0-money/run.mjs q6
 run_suite tier0-trigger tests/regression/tier0-trigger/run.mjs q6
 run_suite tier0-idempotency tests/regression/tier0-idempotency/run.mjs q6
 run_suite tier0-profit tests/regression/tier0-profit/run.mjs q6
+run_suite tier0-meet-settings tests/regression/tier0-meet-settings/run.mjs q6
 echo "RESULT=$([ "$FAILED" -eq 0 ] && echo PASS || echo FAIL)"
 exit "$FAILED"

@@ -78,4 +78,5 @@ public sealed record MeetSettingsDto(
     int DiskBlockGb,
     int DiskWarnGb,
     string UploadBwLimit,
-    int HlsRetentionHours);
+    int HlsRetentionHours,
+    bool HasTelegramBotToken);

@@ -72,6 +72,22 @@ public sealed class MeetCrypto
         return Encoding.UTF8.GetString(plain);
     }
 
+    /// <summary>Returns false for legacy plaintext or corrupt ciphertext instead of throwing.</summary>
+    public bool TryDecrypt(string? payload, out string plaintext)
+    {
+        plaintext = string.Empty;
+        if (string.IsNullOrWhiteSpace(payload)) return false;
+        try
+        {
+            plaintext = Decrypt(payload);
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
     public string CreateState(Guid userId, DateTimeOffset now)
     {
         var payload = JsonSerializer.SerializeToUtf8Bytes(new StatePayload(userId, now.Add(_stateLifetime).ToUnixTimeSeconds()));

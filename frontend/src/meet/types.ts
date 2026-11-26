@@ -85,6 +85,7 @@ export type MeetSettings = {
   alertEmail?: string | null
   telegramBotToken?: string | null
   telegramChatId?: string | null
+  hasTelegramBotToken?: boolean
 }
 
 export type MeetConnectResponse = { authorizationUrl: string }

@@ -69,7 +69,7 @@ public static class CircleEndpoints
     {
         var settings = await repository.GetSettingsAsync(ct);
         var dto = settings is null
-            ? new MeetSettingsDto(true, 60, 120, 1, 25, 40, "8M", 24)
+            ? new MeetSettingsDto(true, 60, 120, 1, 25, 40, "8M", 24, false)
             : new MeetSettingsDto(
                 settings.RecordingEnabled,
                 settings.JoinLeadSeconds,
@@ -78,7 +78,8 @@ public static class CircleEndpoints
                 settings.DiskBlockGb,
                 settings.DiskWarnGb,
                 settings.UploadBwLimit,
-                settings.HlsRetentionHours);
+                settings.HlsRetentionHours,
+                !string.IsNullOrWhiteSpace(settings.TelegramBotToken));
         return Results.Ok(dto);
     }
 }
