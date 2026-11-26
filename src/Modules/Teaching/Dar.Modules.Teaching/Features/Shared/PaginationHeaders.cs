@@ -20,7 +20,7 @@ public static class PaginationHeaders
         response.Headers["X-Total-Count"] = total.ToString();
         response.Headers["X-Page"] = page.Page.ToString();
         response.Headers["X-Page-Size"] = page.PageSize.ToString();
-        var truncated = paged ? (long)page.Page * page.PageSize < total : returned < total;
+        var truncated = PaginationRules.IsTruncated(total, page, returned, paged);
         response.Headers["X-Truncated"] = truncated.ToString().ToLowerInvariant();
     }
 }

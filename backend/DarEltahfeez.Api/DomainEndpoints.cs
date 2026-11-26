@@ -7,8 +7,8 @@ namespace DarEltahfeez.Api;
 
 public static partial class DomainEndpoints
 {
-    private const string StudentProjection = """
-        SELECT s.id, s.student_code, s.full_name, s.age_years, s.phone, s.guardian_name, s.guardian_phone,
+    private const string StudentSelectColumns = """
+        s.id, s.student_code, s.full_name, s.age_years, s.phone, s.guardian_name, s.guardian_phone,
                s.joined_on, s.status, s.notes, s.created_at, s.updated_at,
                COALESCE((SELECT string_agg(c.name, '، ' ORDER BY c.name)
                          FROM circle_enrollments ce JOIN circles c ON c.id=ce.circle_id
@@ -32,8 +32,11 @@ public static partial class DomainEndpoints
                                 WHERE ce.student_id=s.id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE AND mc.voided_at IS NULL AND p.is_trashed=FALSE AND p.voided_at IS NULL AND mc.billing_month=date_trunc('month', CURRENT_DATE)::date), 0) > 0 THEN 'partial'
                  ELSE 'unpaid'
                END AS current_month_payment_status
-        FROM students s
         """;
+
+    private const string StudentProjection = "SELECT " + StudentSelectColumns + "\nFROM students s";
+    private const string StudentProjectionWithTotal =
+        "SELECT " + StudentSelectColumns + ",\nCOUNT(*) OVER() AS total\nFROM students s";
 
     public static void Map(WebApplication app)
     {

@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Dar.Common.Pagination;
-using DarEltahfeez.Api.Pagination;
 using Npgsql;
 
 namespace DarEltahfeez.Api;
@@ -41,7 +40,10 @@ public static partial class DomainEndpoints
             await using var fallback = await cmd.ExecuteReaderAsync(ct);
             if (await fallback.ReadAsync(ct)) total = fallback.GetInt64(16);
         }
-        LegacyPaginationHeaders.Apply(http.Response, total, paging, rows.Count, paged);
+        http.Response.Headers["X-Total-Count"] = total.ToString();
+        http.Response.Headers["X-Page"] = paging.Page.ToString();
+        http.Response.Headers["X-Page-Size"] = paging.PageSize.ToString();
+        http.Response.Headers["X-Truncated"] = PaginationRules.IsTruncated(total, paging, rows.Count, paged).ToString().ToLowerInvariant();
         return Results.Ok(rows);
     }
 }
