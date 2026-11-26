@@ -33,7 +33,10 @@ Last verified main: `4f65a76` (full regression PASS, unit 51/51, frontend 68 tes
 | 1.3 permission catalog single source | done | `17f723a` | `tier1-permission-catalog` (legacy/modular/frontend/served code sets equal; meet.bot.control grantable) | SQL seed list vs code catalog still separate |
 | 1.4 attendance non-partial unique | done | `0463c12` | `tier1-attendance-unique` (trashed + live row coexist; live duplicate rejected) | migration not applied to production |
 
-## Remaining
+| 1.9 circle auto-link substring | in progress | pending | `MeetMatcherAmbiguityTests` | live calendar sync not run |
+| 1.16 migration checksum CRLF | in progress | pending | `MigrationChecksumTests` | production ledger not re-checked |
+| 1.17 pagination determinism/unify envelopes | partial | pending | Deterministic tie-break in Secretariat students | **BLOCKED** full envelope unify: requires contract-wide change; not attempted tonight |
+`n## Remaining
 
 Tier 1 items 1.5–1.25, then Z1/Z2 (including removing the frontend money fallback), Tier 2, Tier 3, Z3/Z4/Z5.
 
