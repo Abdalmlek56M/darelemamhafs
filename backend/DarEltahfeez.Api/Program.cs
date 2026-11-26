@@ -111,6 +111,7 @@ builder.Services.AddSingleton(sp =>
 });
 
 builder.Services.AddSingleton<SystemAdminService>();
+builder.Services.AddHostedService<DarEltahfeez.Api.Services.TrashPurgeWorker>();
 
 // ADR-0006: the admin session is shared with Dar.Api (/api/v1/meet/*). Both APIs must use
 // the same Data Protection key ring and application name, otherwise the new API cannot
@@ -292,6 +293,7 @@ SystemAdminEndpoints.Map(app);
 SystemAdminEndpoints.MapInsights(app);
 SystemAdminEndpoints.MapRequests(app);
 SystemAdminEndpoints.MapPayroll(app);
+SystemAdminEndpoints.MapTrashPurge(app);
 
 // Serve the React single-page app in release/desktop hosting. Unknown /api routes stay 404.
 app.MapFallback(async context =>

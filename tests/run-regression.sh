@@ -147,6 +147,10 @@ run_suite tier0-meet-settings tests/regression/tier0-meet-settings/run.mjs q6
 run_suite repo-secrets tests/regression/repo-secrets/run.mjs q6
 run_suite tier0-sessions tests/regression/tier0-sessions/run.mjs q6
 run_suite backup-source tests/regression/backup-source/run.mjs generic
+run_suite tier1-permission-catalog tests/regression/tier1-permission-catalog/run.mjs q6
+run_suite tier1-trash-purge tests/regression/tier1-trash-purge/run.mjs q6
+run_suite tier1-backup-download tests/regression/tier1-backup-download/run.mjs q6
+run_suite tier1-attendance-unique tests/regression/tier1-attendance-unique/run.mjs q6
 run_suite integrity-sql tests/regression/integrity-sql/run.mjs generic
 echo "RESULT=$([ "$FAILED" -eq 0 ] && echo PASS || echo FAIL)"
 exit "$FAILED"
