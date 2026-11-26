@@ -213,6 +213,14 @@ public static partial class DomainEndpoints
                     update.Parameters.AddWithValue("starts", request.StartsOn);
                     await update.ExecuteNonQueryAsync(ct);
                 }
+                // FINAL 1.5: a with-schedule update replaces the weekly plan; only live rows are
+                // replaced, old slots are soft-deleted so attendance history stays intact.
+                if (drafts.Count > 0)
+                {
+                    await using var clearSlots = new NpgsqlCommand("UPDATE circle_schedule_slots SET is_trashed=TRUE,updated_at=now() WHERE circle_id=@id AND is_trashed=FALSE;", conn, tx);
+                    clearSlots.Parameters.AddWithValue("id", id);
+                    await clearSlots.ExecuteNonQueryAsync(ct);
+                }
                 var savedSlots = await InsertScheduleDraftsAsync(conn, tx, id, drafts, principal, ct);
                 await InsertCircleWriteAuditAsync(conn, tx, principal, "circle.update", id, request.Name, request.TeacherId, savedSlots.Count, ct);
                 await tx.CommitAsync(ct);

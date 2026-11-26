@@ -104,7 +104,7 @@ public static partial class DomainEndpoints
             {
                 await using (var update = new NpgsqlCommand("""
                     UPDATE operating_expenses SET expense_date=@date,category=@category,description=@description,amount=@amount,circle_id=@circle,note=@note,updated_by=@actor,updated_at=now()
-                    WHERE id=@id RETURNING id;
+                    WHERE id=@id AND is_trashed=FALSE RETURNING id;
                     """, conn, tx))
                 {
                     AddOperatingExpenseParams(update, normalizedRequest, principal); update.Parameters.AddWithValue("id", id);
