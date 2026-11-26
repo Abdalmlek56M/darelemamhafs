@@ -191,129 +191,23 @@ public static partial class DomainEndpoints
             return Results.Ok(new { id=savedId, durationMinutes=duration, payableAmount=CanReadFinance(principal) ? payable : (decimal?)null, hourlyRateSnapshot=CanReadFinance(principal) ? rate : (decimal?)null, status });
         }).RequireAuthorization("attendance.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
-        app.MapGet("/api/student-attendance/roster", async Task<IResult> (Guid scheduleSlotId, DateOnly date, NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            var rows = new List<object>();
-            await using var cmd = db.CreateCommand("""
-                WITH candidates AS (
-                    SELECT ce.id AS enrollment_id, s.id AS student_id, s.student_code, s.full_name,
-                           sa.status, sa.note,
-                           (ce.starts_on<=@date AND (ce.ends_on IS NULL OR ce.ends_on>=@date) AND attendance_circle.starts_on<=@date
-                             AND public.dar_enrollment_is_attendance_eligible_on_date(ce.id,@date)) AS eligible_for_date,
-                           CASE
-                             WHEN attendance_circle.starts_on>@date THEN 'before-circle-start'
-                             WHEN ce.starts_on>@date THEN 'before-enrollment-start'
-                             WHEN ce.ends_on IS NOT NULL AND @date>ce.ends_on THEN 'after-enrollment-end'
-                             WHEN COALESCE(lifecycle.status_at_date, CASE WHEN ce.ends_on IS NOT NULL AND @date>ce.ends_on THEN 'ended' WHEN ce.status='paused' AND @date>=CURRENT_DATE THEN 'paused' ELSE 'active' END)='paused' THEN 'paused'
-                             WHEN NOT public.dar_enrollment_is_attendance_eligible_on_date(ce.id,@date) THEN 'not-active-on-date'
-                             ELSE NULL
-                           END AS eligibility_reason,
-                           ce.starts_on, ce.ends_on,
-                           COALESCE(lifecycle.status_at_date, CASE WHEN ce.ends_on IS NOT NULL AND @date>ce.ends_on THEN 'ended' WHEN ce.status='paused' AND @date>=CURRENT_DATE THEN 'paused' ELSE 'active' END) AS enrollment_status_at_date,
-                           ROW_NUMBER() OVER (
-                             PARTITION BY s.id
-                             ORDER BY (sa.id IS NOT NULL) DESC,
-                                      (ce.starts_on<=@date AND (ce.ends_on IS NULL OR ce.ends_on>=@date) AND attendance_circle.starts_on<=@date
-                                        AND public.dar_enrollment_is_attendance_eligible_on_date(ce.id,@date)) DESC,
-                                      (ce.status='active') DESC, ce.starts_on DESC, ce.created_at DESC, ce.id DESC
-                           ) AS student_row
-                    FROM circle_schedule_slots ss
-                    JOIN circle_enrollments ce ON ce.circle_id=ss.circle_id AND ce.is_trashed=FALSE
-                    JOIN circles attendance_circle ON attendance_circle.id=ss.circle_id AND attendance_circle.is_trashed=FALSE
-                    JOIN students s ON s.id=ce.student_id AND s.is_trashed=FALSE
-                    LEFT JOIN student_attendance sa ON sa.enrollment_id=ce.id AND sa.schedule_slot_id=ss.id AND sa.session_date=@date AND sa.is_trashed=FALSE
-                    LEFT JOIN LATERAL (
-                        SELECT public.dar_enrollment_status_at_date(ce.id,@date) AS status_at_date
-                    ) lifecycle ON TRUE
-                    WHERE ss.id=@slot AND ss.is_trashed=FALSE
-                )
-                SELECT enrollment_id,student_id,student_code,full_name,status,note,eligible_for_date,eligibility_reason,starts_on,ends_on,enrollment_status_at_date
-                FROM candidates WHERE student_row=1
-                ORDER BY eligible_for_date DESC,full_name;
-                """);
-            cmd.Parameters.AddWithValue("slot", scheduleSlotId); cmd.Parameters.AddWithValue("date", date);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) rows.Add(new { enrollmentId=reader.GetGuid(0), studentId=reader.GetGuid(1), studentCode=reader.GetString(2), studentName=reader.GetString(3), status=reader.IsDBNull(4)?null:reader.GetString(4), note=reader.IsDBNull(5)?null:reader.GetString(5), eligibleForDate=reader.GetBoolean(6), eligibilityReason=reader.IsDBNull(7)?null:reader.GetString(7), startsOn=reader.GetFieldValue<DateOnly>(8), endsOn=reader.IsDBNull(9)?(DateOnly?)null:reader.GetFieldValue<DateOnly>(9), enrollmentStatus=reader.GetString(10) });
-            return Results.Ok(rows);
-        }).RequireAuthorization("attendance.access");
+        app.MapGet("/api/student-attendance/roster",
+            (Guid scheduleSlotId, DateOnly date, int? page, int? pageSize, HttpContext http,
+                NpgsqlDataSource db, CancellationToken ct) =>
+            LoadLegacyStudentRosterAsync(scheduleSlotId, date, page, pageSize, http, db, ct))
+            .RequireAuthorization("attendance.access");
 
-        app.MapGet("/api/student-attendance/session-summary", async Task<IResult> (string? month, NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            if (!TryMonth(month, out var from)) return Results.ValidationProblem(new Dictionary<string, string[]> { ["month"] = ["حدد الشهر بصيغة YYYY-MM."] });
-            var rows = new List<object>();
-            await using var cmd = db.CreateCommand("""
-                WITH month_days AS (
-                    SELECT day_value::date AS session_date
-                    FROM generate_series(@from::date::timestamp, (@to::date - 1)::timestamp, interval '1 day') AS day_value
-                ),
-                sessions AS (
-                    SELECT ss.id AS slot_id, ss.circle_id, d.session_date
-                    FROM month_days d
-                    JOIN circle_schedule_slots ss ON ss.day_of_week=EXTRACT(DOW FROM d.session_date)::smallint
-                    JOIN circles c ON c.id=ss.circle_id AND c.is_trashed=FALSE
-                    WHERE ss.is_active=TRUE AND ss.is_trashed=FALSE
-                    UNION
-                    SELECT ta.schedule_slot_id, ta.circle_id, ta.session_date
-                    FROM teacher_attendance ta
-                    JOIN circle_schedule_slots ss ON ss.id=ta.schedule_slot_id AND ss.is_trashed=FALSE
-                    WHERE ta.is_trashed=FALSE AND ta.schedule_slot_id IS NOT NULL AND ta.session_date>=@from AND ta.session_date<@to
-                    UNION
-                    SELECT sa.schedule_slot_id, ce.circle_id, sa.session_date
-                    FROM student_attendance sa
-                    JOIN circle_schedule_slots ss ON ss.id=sa.schedule_slot_id AND ss.is_trashed=FALSE
-                    JOIN circle_enrollments ce ON ce.id=sa.enrollment_id AND ce.is_trashed=FALSE
-                    WHERE sa.is_trashed=FALSE AND sa.session_date>=@from AND sa.session_date<@to
-                ),
-                per_student AS (
-                    SELECT ses.slot_id,ses.session_date,s.id AS student_id,
-                           BOOL_OR(ce.starts_on<=ses.session_date AND (ce.ends_on IS NULL OR ce.ends_on>=ses.session_date)
-                             AND session_circle.starts_on<=ses.session_date
-                             AND public.dar_enrollment_is_attendance_eligible_on_date(ce.id,ses.session_date)) AS eligible_for_date,
-                           BOOL_OR(sa.id IS NOT NULL) AS has_saved_attendance,
-                           BOOL_OR(sa.status='present') AS is_present,
-                           BOOL_OR(ce.status='active' AND (ce.ends_on IS NULL OR ce.ends_on>=CURRENT_DATE) AND session_circle.starts_on<=CURRENT_DATE) AS is_current_roster
-                    FROM sessions ses
-                    JOIN circle_enrollments ce ON ce.circle_id=ses.circle_id AND ce.is_trashed=FALSE
-                    JOIN students s ON s.id=ce.student_id AND s.is_trashed=FALSE
-                    JOIN circles session_circle ON session_circle.id=ses.circle_id AND session_circle.is_trashed=FALSE
-                    LEFT JOIN student_attendance sa ON sa.enrollment_id=ce.id AND sa.schedule_slot_id=ses.slot_id AND sa.session_date=ses.session_date AND sa.is_trashed=FALSE
-                    GROUP BY ses.slot_id,ses.session_date,s.id
-                ),
-                counts AS (
-                    SELECT slot_id,session_date,
-                           COUNT(DISTINCT student_id) FILTER (WHERE is_current_roster OR eligible_for_date OR has_saved_attendance) AS total_students,
-                           COUNT(DISTINCT student_id) FILTER (WHERE is_present) AS present_students
-                    FROM per_student GROUP BY slot_id,session_date
-                )
-                SELECT ses.slot_id,ses.session_date,COALESCE(counts.total_students,0),COALESCE(counts.present_students,0)
-                FROM sessions ses LEFT JOIN counts ON counts.slot_id=ses.slot_id AND counts.session_date=ses.session_date
-                ORDER BY ses.session_date DESC,ses.slot_id;
-                """);
-            cmd.Parameters.AddWithValue("from", from); cmd.Parameters.AddWithValue("to", from.AddMonths(1));
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) rows.Add(new { scheduleSlotId=reader.GetGuid(0), sessionDate=reader.GetFieldValue<DateOnly>(1), totalStudents=reader.GetInt64(2), presentStudents=reader.GetInt64(3) });
-            return Results.Ok(rows);
-        }).RequireAuthorization("attendance.access");
+        app.MapGet("/api/student-attendance/session-summary",
+            (string? month, int? page, int? pageSize, HttpContext http,
+                NpgsqlDataSource db, CancellationToken ct) =>
+            LoadLegacySessionSummaryAsync(month, page, pageSize, http, db, ct))
+            .RequireAuthorization("attendance.access");
 
-        app.MapGet("/api/student-attendance", async Task<IResult> (string? month, NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            if (!TryMonth(month, out var from)) return Results.ValidationProblem(new Dictionary<string, string[]> { ["month"] = ["حدد الشهر بصيغة YYYY-MM."] });
-            var rows = new List<object>();
-            await using var cmd = db.CreateCommand("""
-                SELECT sa.id,sa.schedule_slot_id,ce.id,s.id,s.student_code,s.full_name,c.id,c.name,
-                       c.teacher_id,COALESCE(t.full_name,''),sa.session_date,ss.starts_at,sa.status,sa.note,sa.marked_at
-                FROM student_attendance sa JOIN circle_enrollments ce ON ce.id=sa.enrollment_id
-                JOIN students s ON s.id=ce.student_id JOIN circles c ON c.id=ce.circle_id
-                JOIN circle_schedule_slots ss ON ss.id=sa.schedule_slot_id LEFT JOIN teachers t ON t.id=c.teacher_id
-                WHERE sa.session_date>=@from AND sa.session_date<@to AND sa.is_trashed=FALSE
-                  AND ce.is_trashed=FALSE AND s.is_trashed=FALSE AND c.is_trashed=FALSE
-                ORDER BY sa.session_date DESC,ss.starts_at DESC,c.name,s.full_name;
-                """);
-            cmd.Parameters.AddWithValue("from", from); cmd.Parameters.AddWithValue("to", from.AddMonths(1));
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) rows.Add(new { id=reader.GetGuid(0), scheduleSlotId=reader.GetGuid(1), enrollmentId=reader.GetGuid(2), studentId=reader.GetGuid(3), studentCode=reader.GetString(4), studentName=reader.GetString(5), circleId=reader.GetGuid(6), circleName=reader.GetString(7), teacherId=reader.IsDBNull(8)?(Guid?)null:reader.GetGuid(8), teacherName=reader.GetString(9), sessionDate=reader.GetFieldValue<DateOnly>(10), startsAt=reader.GetFieldValue<TimeOnly>(11).ToString("HH:mm"), status=reader.GetString(12), note=reader.IsDBNull(13)?null:reader.GetString(13), markedAt=reader.GetFieldValue<DateTimeOffset>(14) });
-            return Results.Ok(rows);
-        }).RequireAuthorization("attendance.access");
+        app.MapGet("/api/student-attendance",
+            (string? month, int? page, int? pageSize, HttpContext http,
+                NpgsqlDataSource db, CancellationToken ct) =>
+            LoadLegacyStudentAttendanceListAsync(month, page, pageSize, http, db, ct))
+            .RequireAuthorization("attendance.access");
 
         app.MapPost("/api/student-attendance", async Task<IResult> (StudentAttendanceMarkRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {

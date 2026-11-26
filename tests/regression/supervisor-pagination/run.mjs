@@ -127,4 +127,56 @@ for (const [name, path, total] of legacyLists) {
   assert.equal(header(capped.headers, 'X-Page-Size'), '100');
 }
 
+const legacyAttendanceLists = [
+  ['attendance', '/api/student-attendance?month=2026-11', 120],
+  ['roster', '/api/student-attendance/roster?scheduleSlotId=' + c.slotId + '&date=' + date, 501],
+  ['session-summary', '/api/student-attendance/session-summary?month=2026-11', 5]
+];
+const legacyAttendanceChecks = {
+  attendance: body => {
+    assert.equal(body[0].sessionDate, '2026-11-30');
+    assert.equal(body[0].status, 'absent');
+  },
+  roster: body => {
+    assert.equal(body[0].eligibleForDate, true);
+    assert.equal(typeof body[0].enrollmentId, 'string');
+  },
+  'session-summary': body => {
+    const dates = body.map(x => x.sessionDate);
+    assert.deepEqual(dates, ['2026-11-30', '2026-11-23', '2026-11-16', '2026-11-09', '2026-11-02']);
+  }
+};
+for (const [name, basePath, total] of legacyAttendanceLists) {
+  async function getAttendanceList(page, size) {
+    let url = LEGACY + basePath;
+    const params = [];
+    if (page != null) params.push('page=' + page);
+    if (size != null) params.push('pageSize=' + size);
+    if (params.length) url += '&' + params.join('&');
+    const r = await fetch(url, { headers: { cookie: c.admin } });
+    return { status: r.status, headers: r.headers, body: await r.json() };
+  }
+  const plain = await getAttendanceList();
+  assert.equal(plain.status, 200, name + ' plain');
+  assert.ok(Array.isArray(plain.body), name + ' old shape is an array');
+  assert.equal(plain.body.length, total, name + ' old shape length');
+  assert.equal(header(plain.headers, 'X-Total-Count'), String(total), name + ' total');
+  assert.equal(header(plain.headers, 'X-Truncated'), 'false', name + ' plain truncated');
+  legacyAttendanceChecks[name](plain.body);
+  const paged = await getAttendanceList(1, 10);
+  assert.equal(paged.body.length, Math.min(total, 10), name + ' page length');
+  assert.equal(header(paged.headers, 'X-Page'), '1');
+  assert.equal(header(paged.headers, 'X-Page-Size'), '10');
+  assert.equal(header(paged.headers, 'X-Total-Count'), String(total));
+  assert.equal(header(paged.headers, 'X-Truncated'), String(10 < total));
+  const huge = await getAttendanceList(999, 25);
+  assert.equal(huge.body.length, 0, name + ' huge empty');
+  assert.equal(header(huge.headers, 'X-Total-Count'), String(total), name + ' huge total');
+  assert.equal(header(huge.headers, 'X-Truncated'), 'false', name + ' huge truncated');
+  const capped = await getAttendanceList(1, 1000);
+  assert.equal(capped.body.length, Math.min(total, 100), name + ' cap length');
+  assert.equal(header(capped.headers, 'X-Page-Size'), '100', name + ' cap header');
+  assert.equal(header(capped.headers, 'X-Truncated'), String(100 < total), name + ' capped truncated');
+}
+
 console.log(JSON.stringify({ suite: 'supervisor-pagination', ok: true, cases: suites.length }));
