@@ -7,7 +7,7 @@ const c = await setup();
 const createBody = {
   name: 'T1 Schedule Circle', circleCode: 'T1-SCH', isActive: true, startsOn: '2026-01-01', monthlyFee: 0,
   teacherId: c.teacherId,
-  slots: [{ dayOfWeek: 1, startsAt: '10:00', durationMinutes: 60 }],
+  slots: [{ dayOfWeek: 4, startsAt: '12:00', durationMinutes: 60 }],
 };
 const created = await req(OLD, c.admin, 'POST', '/api/circles/with-schedule', createBody);
 assert.equal(created.status, 201, 'circle create with schedule ' + created.text.slice(0, 200));
@@ -15,7 +15,7 @@ const circleId = JSON.parse(created.text).circle.id;
 
 const update = await req(OLD, c.admin, 'PUT', `/api/circles/${circleId}/with-schedule`, {
   ...createBody,
-  slots: [{ dayOfWeek: 2, startsAt: '11:00', durationMinutes: 90 }],
+  slots: [{ dayOfWeek: 5, startsAt: '13:00', durationMinutes: 90 }],
 });
 assert.equal(update.status, 200, 'circle update with schedule ' + update.text.slice(0, 200));
 const updated = JSON.parse(update.text);

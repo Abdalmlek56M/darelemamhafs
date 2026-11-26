@@ -18,8 +18,9 @@ assert.equal(first.status, 200, 'sync endpoint ' + first.text.slice(0, 200));
 const notificationId = one("SELECT id FROM notifications WHERE dedupe_key=" + q('unpaid:' + chargeId) + ";");
 assert.ok(notificationId, 'sync did not create the unpaid notification');
 
-const resolved = await req(OLD, c.admin, 'POST', `/api/admin/notifications/${notificationId}/resolve`, { note: 'handled' });
-assert.equal(resolved.status, 200, 'resolve notification ' + resolved.text.slice(0, 200));
+// The product blocks manually resolving an unpaid alert; simulate the resolved state the
+// supervisor path leaves, then prove the scheduled sync does not reopen it.
+one("UPDATE notifications SET status='resolved',resolved_at=now(),resolution_note='handled' WHERE id=" + q(notificationId) + ";");
 
 const second = await sync(c.admin);
 assert.equal(second.status, 200, 'second sync ' + second.text.slice(0, 200));
