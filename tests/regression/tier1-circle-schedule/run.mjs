@@ -20,6 +20,6 @@ const update = await req(OLD, c.admin, 'PUT', `/api/circles/${circleId}/with-sch
 assert.equal(update.status, 200, 'circle update with schedule ' + update.text.slice(0, 200));
 const updated = JSON.parse(update.text);
 assert.equal(updated.slots.length, 1, 'PUT must return exactly the new schedule');
-assert.equal(updated.slots[0].dayOfWeek, 2, 'PUT returned a stale slot');
+assert.equal(updated.slots[0].dayOfWeek, 5, 'PUT returned a stale slot');
 
 console.log(JSON.stringify({ suite: 'tier1-circle-schedule', ok: true, cases: 1 }));
