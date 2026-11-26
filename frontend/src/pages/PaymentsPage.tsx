@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Ban, CalendarDays, CheckCircle2, Download, Eye, FileImage, FileText, Pencil, Plus, Trash2, Wallet, CircleDollarSign, Megaphone } from 'lucide-react'
 import Stat from '../components/common/Stat'
@@ -12,12 +13,23 @@ import type { DarApplicationContext } from '../application/useDarApplication'
 import type { AdExpense, CollectionRow, OperatingExpense } from '../domain/types'
 import FinanceEntryCreateOnlyPanel from '../components/FinanceEntryCreateOnlyPanel'
 import ChargeAuditPanel from '../components/ChargeAuditPanel'
+import Pager from '../components/common/Pager'
+import { requestPage } from '../services/apiClient'
+import { usePagedResource } from '../hooks/usePagedResource'
+import { ADMIN_PAGE_SIZE } from '../lib/pagination'
+import { buildListQuery } from '../lib/listQuery'
 
 
 type Props = { ctx: DarApplicationContext }
 
 export default function PaymentsPage({ ctx }: Props) {
   const canReadFinance = ctx.has('finance.read')
+
+  const fetchCollections = useCallback(async (page: number, pageSize: number) => {
+    const response = await requestPage<CollectionRow[]>(`/api/collections${buildListQuery({ page, pageSize, month: ctx.currentMonthValue })}`, undefined, ADMIN_PAGE_SIZE)
+    return { items: response.data, meta: response.meta }
+  }, [ctx.currentMonthValue])
+  const collectionsPage = usePagedResource<CollectionRow>({ fetcher: fetchCollections, deps: [ctx.currentMonthValue], pageSize: ADMIN_PAGE_SIZE })
 
   const collectionColumns: ResponsiveColumn<CollectionRow>[] = [
     {
@@ -103,12 +115,12 @@ export default function PaymentsPage({ ctx }: Props) {
         <div className="table-heading">
           <div>
             <h3>الاستحقاقات والدفعات</h3>
-            <span>{ctx.collections.length} التحاق ظاهر في شهر {ctx.currentMonthValue} · الإلغاء (Void) يحفظ السجل ولا يحذفه</span>
+            <span>{collectionsPage.meta.total} التحاق ظاهر في شهر {ctx.currentMonthValue} · الإلغاء (Void) يحفظ السجل ولا يحذفه</span>
           </div>
         </div>
         <ResponsiveTable
           caption="الاستحقاقات والدفعات"
-          rows={ctx.collections}
+          rows={collectionsPage.items}
           columns={collectionColumns}
           rowKey={(row) => row.enrollmentId}
           empty={<Empty icon={<Wallet size={25}/>} title="لا توجد التحاقات نشطة لهذا الشهر" text="أنشئ حلقات وألحق الطلاب بها أولًا. وبعدها حدّد الاستحقاقات للشهر الذي تختاره."/>}
@@ -119,6 +131,7 @@ export default function PaymentsPage({ ctx }: Props) {
             {row.chargeId && ctx.has('finance.void') && <button className="small-icon-button" title="إلغاء الاستحقاق (Void) مع الاحتفاظ بالسجل" aria-label="إلغاء الاستحقاق (Void)" onClick={() => ctx.openVoidCharge(row.chargeId!, 'استحقاق ' + row.studentName + ' · ' + row.circleName + ' · ' + ctx.currentMonthValue, row.studentId)}><Ban size={14}/></button>}
           </>}
         />
+        <Pager page={collectionsPage.page} pageSize={collectionsPage.pageSize} total={collectionsPage.meta.total} onPageChange={collectionsPage.setPage} label="التحاق" />
       </div>
       : !ctx.has('finance.create') ? <div className="panel glass permission-note"><p>عرض الاستحقاقات والدفعات والتقارير المحفوظة يتطلب صلاحية <strong>finance.read</strong>.</p></div>
         : null}

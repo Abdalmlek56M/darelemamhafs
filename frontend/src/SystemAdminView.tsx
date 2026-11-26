@@ -21,6 +21,22 @@ type Props = { permissions: string[]; branding: Branding; onBrandingSaved: (valu
 type Tab = SystemTab
 const tabs = systemTabs
 
+async function fetchAuditPage(month: string, page: number) {
+  return await requestPage<AuditRecord[]>(
+    `/api/admin/audit-log?month=${encodeURIComponent(month)}&page=${page}&pageSize=${ADMIN_PAGE_SIZE}`,
+    undefined,
+    ADMIN_PAGE_SIZE,
+  )
+}
+
+async function fetchTrashPage(page: number) {
+  return await requestPage<TrashRecord[]>(
+    `/api/admin/trash?page=${page}&pageSize=${ADMIN_PAGE_SIZE}`,
+    undefined,
+    ADMIN_PAGE_SIZE,
+  )
+}
+
 export default function SystemAdminView({ permissions, branding, onBrandingSaved, notify, reportData }: Props) {
   const can = useCallback((permission: string) => permissions.includes(permission), [permissions])
   const canTrashEntity = useCallback((entityType: string) => {
@@ -95,8 +111,16 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
         const loaded = await api<AdminSettings>('/api/admin/settings')
         setSettings(current => ({ ...current, ...loaded }))
       }
-      if (requested === 'audit' && can('audit.read')) { const response = await requestPage<AuditRecord[]>(`/api/admin/audit-log?month=${encodeURIComponent(auditMonth)}&page=${auditPage}&pageSize=${ADMIN_PAGE_SIZE}`, undefined, ADMIN_PAGE_SIZE); setAuditRows(response.data); setAuditTotal(response.meta.total) }
-      if (requested === 'trash' && can('trash.manage')) { const response = await requestPage<TrashRecord[]>(`/api/admin/trash?page=${trashPage}&pageSize=${ADMIN_PAGE_SIZE}`, undefined, ADMIN_PAGE_SIZE); setTrashRows(response.data); setTrashTotal(response.meta.total) }
+      if (requested === 'audit' && can('audit.read')) {
+        const response = await fetchAuditPage(auditMonth, auditPage)
+        setAuditRows(response.data)
+        setAuditTotal(response.meta.total)
+      }
+      if (requested === 'trash' && can('trash.manage')) {
+        const response = await fetchTrashPage(trashPage)
+        setTrashRows(response.data)
+        setTrashTotal(response.meta.total)
+      }
       if (requested === 'backups' && can('backup.manage')) setBackupRows(await api<BackupRecord[]>('/api/admin/backups'))
       if (requested === 'reset' && can('trash.manage') && can('backup.manage')) setResetCandidates(await api<ResetCandidates>('/api/admin/reset-candidates'))
     } catch (error) { notify('error', error instanceof Error ? error.message : 'تعذر تحميل بيانات قسم النظام.') }
@@ -310,7 +334,21 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
     </form>}
 
     {tab === 'audit' && can('audit.read') && <div className="system-panel glass"><div className="system-panel-heading"><div><span className="eyebrow">Accountability</span><h3>سجل التغييرات</h3><p>اختر الشهر، ثم افتح اليوم المطلوب لرؤية كل العمليات المسجلة فيه.</p></div><span className="system-heading-icon"><History size={20}/></span></div>
-      <div className="audit-month-toolbar"><label className="form-field"><span>الشهر</span><MonthPicker value={auditMonth} onChange={(value) => { setAuditMonth(value); setAuditPage(1) }} ariaLabel="شهر سجل التغييرات"/></label><div className="audit-month-summary"><strong>{new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric' }).format(new Date(`${auditMonth}-01T12:00:00`))}</strong><span>{auditTotal} عملية · {auditDayGroups.length} يومًا به نشاط</span></div><Pager page={auditPage} pageSize={ADMIN_PAGE_SIZE} total={auditTotal} onPageChange={setAuditPage} label="عملية" /></div>
+      <div className="audit-month-toolbar">
+        <MonthPicker
+          value={auditMonth}
+          onChange={(value) => { setAuditMonth(value); setAuditPage(1) }}
+          ariaLabel="شهر سجل التغييرات"
+        />
+        <AuditMonthSummary month={auditMonth} total={auditTotal} dayCount={auditDayGroups.length} />
+        <Pager
+          page={auditPage}
+          pageSize={ADMIN_PAGE_SIZE}
+          total={auditTotal}
+          onPageChange={setAuditPage}
+          label="عملية"
+        />
+      </div>
       <div className="audit-month-group"><h4>أيام الشهر</h4>{auditDayGroups.map(day => <details className="audit-day-group" key={day.key}><summary><span>{day.label}</span><strong>{day.rows.length} عملية</strong></summary><div className="table-scroll"><table className="students-table wide-table"><thead><tr><th>الوقت</th><th>بواسطة</th><th>الإجراء</th><th>العنصر</th><th>تفاصيل</th><th>الاسترجاع</th></tr></thead><tbody>{day.rows.map(row => <tr key={row.id}><td>{formatDate(row.occurredAt)}</td><td>{row.actorName || (row.actionCode === 'setup.initial_admin' ? 'تهيئة النظام' : 'حساب غير معروف')}</td><td><strong>{actionLabel(row.actionCode, row.entityType)}</strong></td><td>{entityLabel(row.entityType)}</td><td><button className="secondary-button compact-button" onClick={() => setSelectedAudit(row)}>عرض التفاصيل</button></td><td>{row.canRestore && !row.restoredAt && can('audit.restore') ? <button className="secondary-button compact-button" onClick={() => void restoreAudit(row)}><RotateCcw size={13}/> استعادة البيانات السابقة</button> : row.restoredAt ? <span className="status-pill status-active">تم الاسترجاع</span> : <small className="sub-cell">لا يتوفر استرجاع لهذا الإجراء</small>}</td></tr>)}</tbody></table></div></details>)}{auditDayGroups.length === 0 && <div className="empty-inline">لا توجد عمليات مسجلة في هذا الشهر.</div>}</div>
     </div>}
 
@@ -351,4 +389,13 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
       </div><div className="modal-actions"><button className="secondary-button" onClick={() => setSelectedAudit(null)}>إغلاق التفاصيل</button>{selectedAudit.canRestore && !selectedAudit.restoredAt && can('audit.restore') && <button className="secondary-button" onClick={() => void restoreAudit(selectedAudit)}><RotateCcw size={14}/> استعادة البيانات السابقة</button>}</div>
     </Modal>}</AnimatePresence>
   </section>
+}
+function AuditMonthSummary({ month, total, dayCount }: { month: string; total: number; dayCount: number }) {
+  const label = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric' }).format(new Date(`${month}-01T12:00:00`))
+  return (
+    <div className="audit-month-summary">
+      <strong>{label}</strong>
+      <span>{total} عملية · {dayCount} يومًا به نشاط</span>
+    </div>
+  )
 }

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Archive, BookOpen, CalendarDays, CheckCircle2, Clock3, GraduationCap, Plus, Trash2, Wallet, X, CalendarClock, BellRing, BellOff, UserCheck, UsersRound, Pencil, Save } from 'lucide-react'
 import Field from '../components/common/Field'
@@ -14,6 +14,9 @@ import type { ScheduleSlot } from '../domain/types'
 import StudentAttendanceDialog from '../components/dialogs/StudentAttendanceDialog'
 import TeacherSubstitutionDialog from '../components/dialogs/TeacherSubstitutionDialog'
 import PayrollLockPanel from '../components/PayrollLockPanel'
+import Pager from '../components/common/Pager'
+
+const SCHEDULE_PAGE_SIZE = 25
 
 
 type Props = { ctx: DarApplicationContext }
@@ -25,6 +28,7 @@ export default function SchedulePage({ ctx }: Props) {
   const [durationDraft, setDurationDraft] = useState('60')
   const [circleFilter, setCircleFilter] = useState('all')
   const [teacherFilter, setTeacherFilter] = useState('all')
+  const [page, setPage] = useState(1)
   const circleOptions = useMemo(() => Array.from(new Map(ctx.scheduleSlots.filter(slot => teacherFilter === 'all' || slot.teacherId === teacherFilter).map(slot => [slot.circleId, { id: slot.circleId, name: slot.circleName }])).values()), [ctx.scheduleSlots, teacherFilter])
   const teacherOptions = useMemo(() => Array.from(new Map(ctx.scheduleSlots.filter(slot => circleFilter === 'all' || slot.circleId === circleFilter).filter(slot => slot.teacherId).map(slot => [slot.teacherId as string, { id: slot.teacherId as string, name: slot.teacherName }])).values()), [ctx.scheduleSlots, circleFilter])
   const matchesScheduleFilter = useCallback((slot: ScheduleSlot) => (circleFilter === 'all' || slot.circleId === circleFilter) && (teacherFilter === 'all' || slot.teacherId === teacherFilter), [circleFilter, teacherFilter])
@@ -33,6 +37,9 @@ export default function SchedulePage({ ctx }: Props) {
   const visibleNextSessions = useMemo(() => ctx.nextSessions.filter(slot => slot.circleIsActive !== false && matchesScheduleFilter(slot)), [ctx.nextSessions, matchesScheduleFilter])
   const visibleMonthSessions = useMemo(() => ctx.monthSessions.filter(item => (circleFilter === 'all' || item.slot.circleId === circleFilter) && (teacherFilter === 'all' || (item.attendance?.teacherId ?? item.slot.teacherId) === teacherFilter)), [ctx.monthSessions, circleFilter, teacherFilter])
   const visibleAttendanceRows = useMemo(() => ctx.attendanceRows.filter(row => (circleFilter === 'all' || row.circleId === circleFilter) && (teacherFilter === 'all' || row.teacherId === teacherFilter)), [ctx.attendanceRows, circleFilter, teacherFilter])
+  const safePage = Math.min(Math.max(page, 1), Math.max(1, Math.ceil(visibleMonthSessions.length / SCHEDULE_PAGE_SIZE)));
+  const pagedMonthSessions = useMemo(() => visibleMonthSessions.slice((safePage - 1) * SCHEDULE_PAGE_SIZE, safePage * SCHEDULE_PAGE_SIZE), [visibleMonthSessions, safePage]);
+  useEffect(() => { setPage(1) }, [circleFilter, teacherFilter, ctx.currentMonthValue])
   const studentSummaryIndex = useMemo(() => new Map(ctx.studentAttendanceSummaries.map(row => [`${row.scheduleSlotId}|${row.sessionDate.slice(0,10)}`, row] as const)), [ctx.studentAttendanceSummaries])
   const canReadFinance = ctx.has('finance.read')
   const [payrollLocked, setPayrollLocked] = useState(false)
@@ -178,7 +185,7 @@ export default function SchedulePage({ ctx }: Props) {
 <ResponsiveTable
           caption="حضور المعلمات والطلاب"
           tableClassName="students-table wide-table schedule-session-table"
-          rows={visibleMonthSessions}
+          rows={pagedMonthSessions}
           columns={sessionColumns}
           rowKey={(item) => item.slot.id + '-' + item.date}
           empty={<Empty icon={<CalendarClock size={22}/>} title="لا توجد حصص لهذا الشهر" text="أضف مواعيد أسبوعية للحلقات أولًا."/>}
@@ -196,6 +203,7 @@ export default function SchedulePage({ ctx }: Props) {
             </>
           }}
         />
+        <Pager page={safePage} pageSize={SCHEDULE_PAGE_SIZE} total={visibleMonthSessions.length} onPageChange={setPage} label="حصة" />
 </div>
           {canReadFinance && <div className="table-card glass">
 <div className="table-heading">
