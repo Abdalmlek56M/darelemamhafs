@@ -1,13 +1,16 @@
 ---
 name: playwright-best-practices
-description: Use when writing Playwright tests, fixing flaky tests, debugging failures, implementing Page Object Model, configuring CI/CD, optimizing performance, mocking APIs, handling authentication or OAuth, testing accessibility (axe-core), file uploads/downloads, date/time mocking, WebSockets, geolocation, permissions, multi-tab/popup flows, mobile/responsive layouts, touch gestures, GraphQL, error handling, offline mode, multi-user collaboration, third-party services (payments, email verification), console error monitoring, global setup/teardown, test annotations (skip, fixme, slow), test tags (@smoke, @fast, @critical, filtering with --grep), project dependencies, security testing (XSS, CSRF, auth), performance budgets (Web Vitals, Lighthouse), iframes, component testing, canvas/WebGL, service workers/PWA, test coverage, i18n/localization, Electron apps, or browser extension testing. Covers E2E, component, API, visual, accessibility, security, Electron, and extension testing.
+description: Use when writing Playwright tests, fixing flaky tests, debugging failures, implementing Page Object Model, configuring CI/CD, optimizing performance, mocking APIs, handling authentication or OAuth, testing accessibility (axe-core), file uploads/downloads, date/time mocking, WebSockets, geolocation, permissions, multi-tab/popup flows, mobile/responsive layouts, touch gestures, GraphQL, error handling, offline mode, multi-user collaboration, third-party services (payments, email verification), console error monitoring, global setup/teardown, test annotations (skip, fixme, slow), test tags (@smoke, @fast, @critical, filtering with --grep), project dependencies, security testing (XSS, CSRF, auth), performance budgets (Web Vitals, Lighthouse), iframes, component testing, canvas/WebGL, service workers/PWA, test coverage, i18n/localization. Covers E2E, component, API, visual, accessibility, security and third-party integrations.
 license: MIT
+# Project rule: never run Playwright tests against the production site or production data.
 metadata:
   author: currents.dev
   version: "1.2"
 ---
 
 # Playwright Best Practices
+
+> **Project rule:** never run these tests (or any agent) against the live production site or database. Only disposable local/regression targets.
 
 This skill provides comprehensive guidance for all aspects of Playwright test development, from writing new tests to debugging and maintaining existing test suites.
 
@@ -40,8 +43,6 @@ Consult these references based on what you're doing:
 | **Testing iframes**                 | [iframes.md](browser-apis/iframes.md)                                                                                                         |
 | **Testing canvas/WebGL**            | [canvas-webgl.md](testing-patterns/canvas-webgl.md)                                                                                           |
 | **Internationalization (i18n)**     | [i18n.md](testing-patterns/i18n.md)                                                                                                           |
-| **Testing Electron apps**           | [electron.md](testing-patterns/electron.md)                                                                                                   |
-| **Testing browser extensions**      | [browser-extensions.md](testing-patterns/browser-extensions.md)                                                                               |
 
 ### Mobile & Responsive Testing
 
@@ -121,13 +122,11 @@ Consult these references based on what you're doing:
 
 ### Framework-Specific Testing
 
-**When to use**: Testing React, Angular, Vue, or Next.js applications
+**When to use**: Testing React or Next.js applications
 
 | Activity                  | Reference Files                     |
 | ------------------------- | ----------------------------------- |
 | **Testing React apps**    | [react.md](frameworks/react.md)     |
-| **Testing Angular apps**  | [angular.md](frameworks/angular.md) |
-| **Testing Vue/Nuxt apps** | [vue.md](frameworks/vue.md)         |
 | **Testing Next.js apps**  | [nextjs.md](frameworks/nextjs.md)   |
 
 ### Refactoring & Maintenance
@@ -202,7 +201,6 @@ What are you doing?
 │  ├─ Accessibility test → testing-patterns/accessibility.md
 │  ├─ Mobile/responsive test → advanced/mobile-testing.md
 │  ├─ i18n/locale test → testing-patterns/i18n.md
-│  ├─ Electron app test → testing-patterns/electron.md
 │  ├─ Browser extension test → testing-patterns/browser-extensions.md
 │  ├─ Multi-user test → advanced/multi-user.md
 │  ├─ Form validation test → testing-patterns/forms-validation.md
@@ -230,8 +228,6 @@ What are you doing?
 │
 ├─ Framework-specific testing?
 │  ├─ React app → frameworks/react.md
-│  ├─ Angular app → frameworks/angular.md
-│  ├─ Vue/Nuxt app → frameworks/vue.md
 │  └─ Next.js app → frameworks/nextjs.md
 │
 ├─ Authentication testing?

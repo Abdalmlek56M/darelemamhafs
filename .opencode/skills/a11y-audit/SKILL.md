@@ -7,11 +7,8 @@ description: Audit a UI or design against WCAG 2.2 AA/AAA and ARIA patterns, ret
 
 ## Requirements
 
-This skill needs the full UX/UI Agent Skills kit: the gates, the references and
-the design-system library. Install it with `npx ux-ui-agent-skills@3.1.1 init`
-or as the Claude Code plugin. `npx skills@1.7.6 add` copies the skill folder and
-nothing else. Installed that way, this skill runs in **guidance-only mode**: no gate
-runs, so it gives no verdict.
+This repository keeps the skill as guidance only. The upstream installer is intentionally not used,
+so no gate runs here; treat the advice as a checklist, not as a verdict.
 
 > **Step 0: is the kit here?** Check once:
 > `ls ${CLAUDE_SKILL_DIR}/../../../tokens >/dev/null 2>&1 && echo KIT_OK || echo KIT_MISSING`

@@ -10,7 +10,7 @@ Composition over inheritance, Result type pattern, and testing patterns for mode
 
 ## Composition Over Inheritance
 
-**Avoid abstract base classes and inheritance hierarchies.** Use composition and interfaces instead.
+**Prefer composition and interfaces.** Abstract base classes are allowed when they model a real domain hierarchy; avoid deep inheritance hierarchies used only to share code.
 
 ```csharp
 // BAD: Abstract base class hierarchy

@@ -1,6 +1,6 @@
 ---
 name: modern-csharp-coding-standards
-description: Write modern, high-performance C# code using records, pattern matching, value objects, async/await, Span<T>/Memory<T>, and best-practice API design patterns. Emphasizes functional-style programming with C# 12+ features.
+description: Write modern, high-performance C# code using records, pattern matching, value objects, async/await, Span<T>/Memory<T>, and best-practice API design patterns. Emphasizes OOP, composition and modern C# 12+ features.
 user-invocable: false
 ---
 
@@ -31,7 +31,7 @@ Use this skill when:
 4. **Async Everywhere** - Prefer async APIs with proper cancellation support
 5. **Zero-Allocation Patterns** - Use `Span<T>` and `Memory<T>` for performance-critical code
 6. **API Design** - Accept abstractions, return appropriately specific types
-7. **Composition Over Inheritance** - Avoid abstract base classes, prefer composition
+7. **Composition Over Inheritance** - Prefer composition; abstract base classes are allowed when they model a real domain hierarchy
 8. **Value Objects as Structs** - Use `readonly record struct` for value objects
 
 ---
@@ -156,7 +156,7 @@ public void ProcessOrder(Order? order)
 
 ## Composition Over Inheritance
 
-**Avoid abstract base classes.** Use interfaces + composition. Use static helpers for shared logic. Use records with factory methods for variants.
+**Prefer interfaces + composition.** Abstract base classes are allowed when they model a real domain hierarchy; do not use them as a code-sharing shortcut. Use static helpers for shared logic and records with factory methods for variants.
 
 See [composition-and-error-handling.md](composition-and-error-handling.md) for full examples.
 

@@ -42,3 +42,7 @@ Thumbs.db
 # Agent / verification scratch directories
 .tmp*/
 .verify/
+
+# Python bytecode (skill scripts)
+**/__pycache__/
+**/*.pyc

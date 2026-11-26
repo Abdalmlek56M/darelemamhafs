@@ -42,8 +42,9 @@
 
 **Treasury:** خزنة + إيرادات + مصروفات + تقفيل الشهر — القيد المزدوج مؤجل (ADR-0003).
 
-**Domain:** `darelemamhaf.rigxhardware.com`
+**Domain:** `<deployment-host>` from `DAR_DOMAIN` in `deploy/.env` (never commit the live hostname)
 **Backend:** .NET 10 / ASP.NET Core minimal API + Npgsql + Dapper
+**Hardening plan:** [docs/23-hardening-plan.md](docs/23-hardening-plan.md)
 **Frontend:** React 19 + Vite + TypeScript — **نهائي**؛ قرار Next.js ملغي (ADR-0001).
 **Database:** PostgreSQL 17+ على نفس السيرفر
 **Auth:** Email OTP + Google (Google deferred)؛ كلمة مرور/جلسة مؤقتة الآن، بدون SMS

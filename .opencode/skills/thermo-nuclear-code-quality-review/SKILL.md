@@ -31,9 +31,9 @@ Apply the baseline prompt above, plus these explicit review rules:
    - Assume there is often a "code judo" move available: a re-organization that uses the existing architecture more effectively and makes the change dramatically simpler and more elegant.
    - If you see a path to delete complexity rather than rearrange it, push hard for that path.
 
-1. **Do not let a PR push a file from under 1k lines to over 1k lines without a very strong reason.**
+1. **Do not let a PR push a file from under 400 lines to over 400 lines without a very strong reason.**
    - Treat this as a strong code-quality smell by default.
-   - Prefer extracting helpers, subcomponents, modules, or local abstractions instead of letting a file sprawl past 1000 lines.
+   - Prefer extracting helpers, subcomponents, modules, or local abstractions instead of letting a file sprawl past 400 lines.
    - If the diff crosses that threshold, explicitly ask whether the code should be decomposed first.
    - Only waive this if there is a compelling structural reason and the resulting file is still clearly organized.
 
@@ -92,7 +92,7 @@ Escalate findings when you see:
 
 - A complicated implementation where a cleaner reframing could delete whole categories of complexity.
 - Refactors that move code around but fail to reduce the number of concepts a reader must hold in their head.
-- A file crossing 1000 lines due to the PR, especially if the new code could be split out.
+- A file crossing 400 lines due to the PR, especially if the new code could be split out.
 - New conditionals bolted onto unrelated code paths.
 - One-off booleans, nullable modes, or flags that complicate existing control flow.
 - Feature-specific logic leaking into general-purpose modules.
@@ -141,7 +141,7 @@ If the implementation missed an opportunity for a dramatic simplification, say t
 
 Good phrases:
 
-- `this pushes the file past 1k lines. can we decompose this first?`
+- `this pushes the file past 400 lines. can we decompose this first?`
 - `this adds another special-case branch into an already busy flow. can we move this behind its own abstraction?`
 - `this works, but it makes the surrounding code more spaghetti. let's keep the behavior and restructure the implementation.`
 - `this feels like feature logic leaking into a shared path. can we isolate it?`
@@ -183,7 +183,7 @@ The bar for approval is:
 Treat these as presumptive blockers unless the author can justify them clearly:
 
 - the PR preserves a lot of incidental complexity when there is a plausible code-judo move that would delete it
-- the PR pushes a file from below 1000 lines to above 1000 lines
+- the PR pushes a file from below 400 lines to above 400 lines
 - the PR adds ad-hoc branching that makes an existing flow more tangled
 - the PR solves a local problem by scattering feature checks across shared code
 - the PR adds an unnecessary abstraction, wrapper, or cast-heavy contract that makes the design more indirect
