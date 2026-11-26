@@ -101,6 +101,9 @@ public static class StudentsEndpoint
         Guid id,
         DateOnly? from,
         DateOnly? to,
+        int? page,
+        int? pageSize,
+        HttpContext http,
         ClaimsPrincipal principal,
         NpgsqlDataSource dataSource,
         CancellationToken ct)
@@ -110,6 +113,8 @@ public static class StudentsEndpoint
         var end = to ?? today;
         if (end < start || end.DayNumber - start.DayNumber > 366)
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["date"] = ["اختر فترة صحيحة لا تتجاوز سنة."] });
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
 
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         var scope = await SupervisionScope.LoadAsync(connection, principal, ct);
@@ -197,8 +202,10 @@ public static class StudentsEndpoint
         }
 
         var history = new List<object>();
-        await using (var sessions = new NpgsqlCommand("""
-            SELECT sa.session_date, c.name, COALESCE(ss.starts_at, '00:00'::time), sa.status, sa.note
+        long historyTotal = 0;
+        var historyQuery = """
+            SELECT sa.session_date, c.name, COALESCE(ss.starts_at, '00:00'::time), sa.status, sa.note,
+                   COUNT(*) OVER() AS total
             FROM student_attendance sa
             JOIN circle_enrollments ce ON ce.id = sa.enrollment_id
             JOIN circles c ON c.id = ce.circle_id AND c.is_trashed = FALSE
@@ -206,27 +213,33 @@ public static class StudentsEndpoint
             WHERE ce.student_id = @id AND sa.is_trashed = FALSE
               AND (@all OR c.id = ANY(@circles))
               AND sa.session_date BETWEEN @from AND @to
-            ORDER BY sa.session_date DESC, ss.starts_at DESC
-            LIMIT 80;
-            """, connection))
+            ORDER BY sa.session_date DESC, ss.starts_at DESC, sa.id
+            """;
+        if (paged) historyQuery += " LIMIT @take OFFSET @skip";
+        await using (var historyCommand = new NpgsqlCommand(historyQuery, connection))
         {
-            sessions.Parameters.AddWithValue("id", id);
-            sessions.Parameters.AddWithValue("all", scope.All);
-            sessions.Parameters.AddWithValue("circles", scope.CircleIds);
-            sessions.Parameters.AddWithValue("from", start);
-            sessions.Parameters.AddWithValue("to", end);
-            await using var reader = await sessions.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
+            historyCommand.Parameters.AddWithValue("id", id);
+            historyCommand.Parameters.AddWithValue("all", scope.All);
+            historyCommand.Parameters.AddWithValue("circles", scope.CircleIds);
+            historyCommand.Parameters.AddWithValue("from", start);
+            historyCommand.Parameters.AddWithValue("to", end);
+            if (paged) { historyCommand.Parameters.AddWithValue("take", paging.PageSize); historyCommand.Parameters.AddWithValue("skip", paging.Offset); }
+            await using (var reader = await historyCommand.ExecuteReaderAsync(ct))
             {
-                history.Add(new
+                while (await reader.ReadAsync(ct))
                 {
-                    date = reader.GetFieldValue<DateOnly>(0),
-                    circleName = reader.GetString(1),
-                    startsAt = reader.GetFieldValue<TimeOnly>(2).ToString("HH:mm"),
-                    status = reader.GetString(3),
-                    note = reader.IsDBNull(4) ? null : reader.GetString(4)
-                });
+                    historyTotal = reader.ReadTotal();
+                    history.Add(new
+                    {
+                        date = reader.GetFieldValue<DateOnly>(0),
+                        circleName = reader.GetString(1),
+                        startsAt = reader.GetFieldValue<TimeOnly>(2).ToString("HH:mm"),
+                        status = reader.GetString(3),
+                        note = reader.IsDBNull(4) ? null : reader.GetString(4)
+                    });
+                }
             }
+            historyTotal = await PaginationRules.EnsureTotalAsync(historyCommand, historyTotal, paged, ct);
         }
 
         var notes = new List<object>();
@@ -295,6 +308,7 @@ public static class StudentsEndpoint
             }
         }
 
+        PaginationHeaderWriter.Write(http.Response, historyTotal, paging, history.Count, paged);
         return Results.Ok(new
         {
             student = new
@@ -320,6 +334,7 @@ public static class StudentsEndpoint
                 rate = marked == 0 ? (double?)null : Math.Round(present * 100.0 / marked, 1)
             },
             history,
+            historyTotal,
             notes,
             subscription = canUnpaid ? subscription : null
         });

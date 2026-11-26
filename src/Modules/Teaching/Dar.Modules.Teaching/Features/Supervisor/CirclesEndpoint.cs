@@ -127,6 +127,9 @@ public static class CirclesEndpoint
 
     public static async Task<IResult> Detail(
         Guid id,
+        int? page,
+        int? pageSize,
+        HttpContext http,
         ClaimsPrincipal principal,
         NpgsqlDataSource dataSource,
         CancellationToken ct)
@@ -134,6 +137,8 @@ public static class CirclesEndpoint
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         var scope = await SupervisionScope.LoadAsync(connection, principal, ct);
         var canFinance = TeachingPrincipal.Has(principal, "finance.read");
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
 
         if (!scope.AllowsCircle(id))
             return Results.NotFound(new { message = "الحلقة غير موجودة داخل نطاقك." });
@@ -218,7 +223,8 @@ public static class CirclesEndpoint
         }
 
         var sessions = new List<object>();
-        await using (var sessionsCommand = new NpgsqlCommand("""
+        long sessionsTotal = 0;
+        var sessionsQuery = """
             SELECT ta.session_date, ta.status, COALESCE(ss.starts_at, '00:00'::time), ta.duration_minutes, ta.note,
                    (SELECT COUNT(*) FROM student_attendance sa
                      WHERE sa.schedule_slot_id = ta.schedule_slot_id AND sa.session_date = ta.session_date
@@ -233,32 +239,40 @@ public static class CirclesEndpoint
                      JOIN circle_enrollments ce ON ce.id = sa.enrollment_id
                      JOIN students s ON s.id = ce.student_id
                      WHERE sa.schedule_slot_id = ta.schedule_slot_id AND sa.session_date = ta.session_date
-                       AND sa.is_trashed = FALSE), '[]'::jsonb) AS student_attendance
+                       AND sa.is_trashed = FALSE), '[]'::jsonb) AS student_attendance,
+                   COUNT(*) OVER() AS total
             FROM teacher_attendance ta
             LEFT JOIN circle_schedule_slots ss ON ss.id = ta.schedule_slot_id
             WHERE ta.circle_id = @id AND ta.is_trashed = FALSE
-            ORDER BY ta.session_date DESC, ss.starts_at DESC
-            LIMIT 30;
-            """, connection))
+            ORDER BY ta.session_date DESC, ss.starts_at DESC, ta.id
+            """;
+        if (paged) sessionsQuery += " LIMIT @take OFFSET @skip";
+        await using (var sessionsCommand = new NpgsqlCommand(sessionsQuery, connection))
         {
             sessionsCommand.Parameters.AddWithValue("id", id);
-            await using var reader = await sessionsCommand.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
+            if (paged) { sessionsCommand.Parameters.AddWithValue("take", paging.PageSize); sessionsCommand.Parameters.AddWithValue("skip", paging.Offset); }
+            await using (var reader = await sessionsCommand.ExecuteReaderAsync(ct))
             {
-                sessions.Add(new
+                while (await reader.ReadAsync(ct))
                 {
-                    date = reader.GetFieldValue<DateOnly>(0),
-                    status = reader.GetString(1),
-                    startsAt = reader.GetFieldValue<TimeOnly>(2).ToString("HH:mm"),
-                    durationMinutes = reader.GetInt32(3),
-                    note = reader.IsDBNull(4) ? null : reader.GetString(4),
-                    presentStudents = (int)reader.GetInt64(5),
-                    missingStudents = (int)reader.GetInt64(6),
-                    studentAttendance = JsonDocument.Parse(reader.GetString(7)).RootElement.Clone()
-                });
+                    sessionsTotal = reader.ReadTotal();
+                    sessions.Add(new
+                    {
+                        date = reader.GetFieldValue<DateOnly>(0),
+                        status = reader.GetString(1),
+                        startsAt = reader.GetFieldValue<TimeOnly>(2).ToString("HH:mm"),
+                        durationMinutes = reader.GetInt32(3),
+                        note = reader.IsDBNull(4) ? null : reader.GetString(4),
+                        presentStudents = (int)reader.GetInt64(5),
+                        missingStudents = (int)reader.GetInt64(6),
+                        studentAttendance = JsonDocument.Parse(reader.GetString(7)).RootElement.Clone()
+                    });
+                }
             }
+            sessionsTotal = await PaginationRules.EnsureTotalAsync(sessionsCommand, sessionsTotal, paged, ct);
         }
 
+        PaginationHeaderWriter.Write(http.Response, sessionsTotal, paging, sessions.Count, paged);
         return Results.Ok(new
         {
             circle = new
@@ -274,7 +288,8 @@ public static class CirclesEndpoint
             studentCount = roster.Count,
             roster,
             schedule,
-            sessions
+            sessions,
+            sessionsTotal
         });
     }
 

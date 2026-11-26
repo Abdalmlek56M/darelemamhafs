@@ -93,6 +93,9 @@ public static class TeachersEndpoint
         Guid id,
         DateOnly? from,
         DateOnly? to,
+        int? page,
+        int? pageSize,
+        HttpContext http,
         ClaimsPrincipal principal,
         NpgsqlDataSource dataSource,
         CancellationToken ct)
@@ -102,6 +105,8 @@ public static class TeachersEndpoint
         var end = to ?? today;
         if (end < start || end.DayNumber - start.DayNumber > 366)
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["date"] = ["اختر فترة صحيحة لا تتجاوز سنة."] });
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
 
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         var scope = await SupervisionScope.LoadAsync(connection, principal, ct);
@@ -205,7 +210,8 @@ public static class TeachersEndpoint
         }
 
         var history = new List<object>();
-        await using (var historyCommand = new NpgsqlCommand("""
+        long historyTotal = 0;
+        var historyQuery = """
             SELECT ta.id, ta.session_date, c.name, COALESCE(ss.starts_at, '00:00'::time), ta.status,
                    ta.duration_minutes, ta.actual_duration_minutes, ta.overtime_minutes, ta.undertime_minutes,
                    ta.note,
@@ -215,40 +221,47 @@ public static class TeachersEndpoint
                        AND sa.is_trashed = FALSE AND sa.status = 'present') AS present_students,
                    (SELECT COUNT(*) FROM student_attendance sa
                      WHERE sa.schedule_slot_id = ta.schedule_slot_id AND sa.session_date = ta.session_date
-                       AND sa.is_trashed = FALSE AND sa.status = 'absent') AS absent_students
+                       AND sa.is_trashed = FALSE AND sa.status = 'absent') AS absent_students,
+                   COUNT(*) OVER() AS total
             FROM teacher_attendance ta
             JOIN circles c ON c.id = ta.circle_id
             LEFT JOIN circle_schedule_slots ss ON ss.id = ta.schedule_slot_id
             WHERE ta.teacher_id = @id AND ta.is_trashed = FALSE
               AND ta.session_date BETWEEN @from AND @to
-            ORDER BY ta.session_date DESC, ss.starts_at DESC
-            LIMIT 120;
-            """, connection))
+            ORDER BY ta.session_date DESC, ss.starts_at DESC, ta.id
+            """;
+        if (paged) historyQuery += " LIMIT @take OFFSET @skip";
+        await using (var historyCommand = new NpgsqlCommand(historyQuery, connection))
         {
             historyCommand.Parameters.AddWithValue("id", id);
             historyCommand.Parameters.AddWithValue("finance", canFinance);
             historyCommand.Parameters.AddWithValue("from", start);
             historyCommand.Parameters.AddWithValue("to", end);
-            await using var reader = await historyCommand.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
+            if (paged) { historyCommand.Parameters.AddWithValue("take", paging.PageSize); historyCommand.Parameters.AddWithValue("skip", paging.Offset); }
+            await using (var reader = await historyCommand.ExecuteReaderAsync(ct))
             {
-                history.Add(new
+                while (await reader.ReadAsync(ct))
                 {
-                    id = reader.GetGuid(0),
-                    date = reader.GetFieldValue<DateOnly>(1),
-                    circleName = reader.GetString(2),
-                    startsAt = reader.GetFieldValue<TimeOnly>(3).ToString("HH:mm"),
-                    status = reader.GetString(4),
-                    durationMinutes = reader.GetInt32(5),
-                    actualMinutes = reader.IsDBNull(6) ? (int?)null : reader.GetInt32(6),
-                    overtimeMinutes = reader.GetInt32(7),
-                    undertimeMinutes = reader.GetInt32(8),
-                    note = reader.IsDBNull(9) ? null : reader.GetString(9),
-                    payableAmount = reader.IsDBNull(10) ? (decimal?)null : reader.GetDecimal(10),
-                    presentStudents = (int)reader.GetInt64(11),
-                    absentStudents = (int)reader.GetInt64(12)
-                });
+                    historyTotal = reader.ReadTotal();
+                    history.Add(new
+                    {
+                        id = reader.GetGuid(0),
+                        date = reader.GetFieldValue<DateOnly>(1),
+                        circleName = reader.GetString(2),
+                        startsAt = reader.GetFieldValue<TimeOnly>(3).ToString("HH:mm"),
+                        status = reader.GetString(4),
+                        durationMinutes = reader.GetInt32(5),
+                        actualMinutes = reader.IsDBNull(6) ? (int?)null : reader.GetInt32(6),
+                        overtimeMinutes = reader.GetInt32(7),
+                        undertimeMinutes = reader.GetInt32(8),
+                        note = reader.IsDBNull(9) ? null : reader.GetString(9),
+                        payableAmount = reader.IsDBNull(10) ? (decimal?)null : reader.GetDecimal(10),
+                        presentStudents = (int)reader.GetInt64(11),
+                        absentStudents = (int)reader.GetInt64(12)
+                    });
+                }
             }
+            historyTotal = await PaginationRules.EnsureTotalAsync(historyCommand, historyTotal, paged, ct);
         }
 
         var notes = new List<object>();
@@ -275,6 +288,7 @@ public static class TeachersEndpoint
             }
         }
 
+        PaginationHeaderWriter.Write(http.Response, historyTotal, paging, history.Count, paged);
         return Results.Ok(new
         {
             teacher = new
@@ -299,6 +313,7 @@ public static class TeachersEndpoint
             },
             circles,
             history,
+            historyTotal,
             notes
         });
     }

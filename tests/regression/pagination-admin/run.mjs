@@ -156,4 +156,73 @@ assert.equal(studentHistory.headers.get('X-Total-Count'), '7');
 assert.equal(studentHistory.body.attendance.length, 2);
 assert.equal(studentHistory.body.attendanceTotal, 7);
 
-console.log(JSON.stringify({ suite: 'pagination-admin', ok: true, cases: 18 }));
+// S-1.15-S-1.17: teacher roster, earnings/subscriptions, charge-audit and scopes.
+const teacherSessionId = one(`INSERT INTO teacher_sessions(id,teacher_id,circle_id,schedule_slot_id,session_date,started_at,ended_at,status,scheduled_duration_minutes,actual_duration_minutes)
+  VALUES (gen_random_uuid(),${q(c.teacherId)},${q(c.circleId)},${q(c.slotId)},DATE '2026-10-01',
+  TIMESTAMPTZ '2026-10-01 10:00:00+02',TIMESTAMPTZ '2026-10-01 11:00:00+02','completed',60,60) RETURNING id;`);
+async function newLogin(username) {
+  const response = await fetch(process.env.Q6_NEW_URL + '/api/v1/auth/password', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username, password: process.env.Q6_PASSWORD }),
+  });
+  assert.equal(response.status, 200, username + ' login');
+  return { cookie: response.headers.getSetCookie().map(x => x.split(';')[0]).join('; ') };
+}
+const teacherAuth = await newLogin('q6_teacher');
+const adminAuth = await newLogin('q6_admin');
+async function getNew(path, auth) {
+  const response = await fetch(process.env.Q6_NEW_URL + path, { headers: auth });
+  return { status: response.status, headers: response.headers, body: await readJson(response, path) };
+}
+const teacherRoster = await getNew(`/api/v1/teacher/sessions/${teacherSessionId}/roster?page=1&pageSize=20`, teacherAuth);
+assert.equal(teacherRoster.status, 200, 'teacher roster status');
+assert.equal(teacherRoster.headers.get('X-Total-Count'), '1');
+assert.equal(teacherRoster.body.students.length, 1);
+assert.equal(teacherRoster.body.total, 1);
+const earnings = await getNew('/api/v1/teacher/earnings?month=2026-10&page=1&pageSize=2', teacherAuth);
+assert.equal(earnings.status, 200, 'teacher earnings status');
+assert.equal(earnings.headers.get('X-Total-Count'), '7');
+assert.equal(earnings.body.sessions.length, 2);
+const subscriptions = await getNew('/api/v1/teacher/subscriptions?month=2026-10&page=1&pageSize=2', teacherAuth);
+assert.equal(subscriptions.status, 200);
+assert.equal(subscriptions.headers.get('X-Total-Count'), '1');
+assert.equal(subscriptions.body.students.length, 1);
+const chargeAudit = await getJson('/api/admin/charge-audit?month=2026-11&page=1&pageSize=2');
+assert.equal(chargeAudit.headers.get('X-Total-Count'), '1');
+assert.equal(chargeAudit.body.rows.length, 1);
+const scopeTotal = Number(one(`SELECT count(*) FROM app_users u WHERE u.is_active=TRUE
+  AND EXISTS (SELECT 1 FROM user_permissions up WHERE up.user_id=u.id AND up.permission_code LIKE 'supervisor.%')`));
+const scopes = await getNew('/api/v1/supervisor/scopes?page=1&pageSize=2', adminAuth);
+assert.equal(scopes.status, 200, 'scopes status');
+assert.equal(scopes.headers.get('X-Total-Count'), String(scopeTotal));
+const optionsPage = await getNew('/api/v1/supervisor/scopes/options?page=1&pageSize=2', adminAuth);
+assert.equal(optionsPage.status, 200, 'scope options status');
+assert.equal(optionsPage.headers.get('X-Total-Count'), '1');
+assert.equal(optionsPage.body.circles.length, 1);
+assert.equal(optionsPage.body.circlesTotal, 1);
+
+// S-1.15 C1-C3: supervisor detail sub-lists must expose their own totals.
+const detailStudent = await getNew(`/api/v1/supervisor/students/${seededStudent}?page=1&pageSize=2`, adminAuth);
+assert.equal(detailStudent.status, 200, 'supervisor student detail status');
+assert.equal(detailStudent.body.historyTotal, 7);
+assert.equal(detailStudent.body.history.length, 2);
+const detailTeacher = await getNew(`/api/v1/supervisor/teachers/${c.teacherId}?page=1&pageSize=2`, adminAuth);
+assert.equal(detailTeacher.status, 200, 'supervisor teacher detail status');
+assert.equal(detailTeacher.body.historyTotal, 7);
+assert.equal(detailTeacher.body.history.length, 2);
+const detailCircle = await getNew(`/api/v1/supervisor/circles/${c.circleId}?page=1&pageSize=2`, adminAuth);
+assert.equal(detailCircle.status, 200, 'supervisor circle detail status');
+assert.ok('sessionsTotal' in detailCircle.body, 'circle detail exposes sessions total');
+
+// S-1.18: server search/status filters must change the total, not just the page.
+const filteredStudents = await getJson('/api/students?search=ADM-1&page=1&pageSize=50');
+assert.equal(filteredStudents.headers.get('X-Total-Count'), '1');
+assert.equal(filteredStudents.body.length, 1);
+assert.equal(filteredStudents.body[0].studentCode, 'ADM-1');
+const filteredTeachers = await getJson('/api/teachers?status=active&page=1&pageSize=50');
+assert.equal(filteredTeachers.headers.get('X-Total-Count'), '1');
+assert.equal(filteredTeachers.body[0].status, 'active');
+const filteredCircles = await getJson(`/api/circles?search=${encodeURIComponent('Q6')}&page=1&pageSize=50`);
+assert.equal(filteredCircles.headers.get('X-Total-Count'), '1');
+
+console.log(JSON.stringify({ suite: 'pagination-admin', ok: true, cases: 34 }));
