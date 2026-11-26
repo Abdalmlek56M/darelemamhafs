@@ -59,13 +59,13 @@ prepare_db() {
 start_apps() {
   cd "$APP/legacy"
   env ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS="http://127.0.0.1:$PORT_OLD" \
-    ConnectionStrings__DarDatabase="$DBENV" Auth__SetupToken="regression-setup" \
+    ConnectionStrings__DarDatabase="$DBENV" Auth__SetupToken="regression-setup" Auth__RateLimit__PermitLimit=10000 \
     Database__ApplyMigrationsOnStartup=false TZ=UTC \
     dotnet DarEltahfeez.Api.dll > "$APP/$1-old.log" 2>&1 &
   OLD_PID=$!
   cd "$APP/new"
   env ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS="http://127.0.0.1:$PORT_NEW" \
-    ConnectionStrings__Default="$DBENV" Database__ApplyMigrationsOnStartup=false TZ=UTC \
+    ConnectionStrings__Default="$DBENV" Database__ApplyMigrationsOnStartup=false TZ=UTC Auth__RateLimit__PermitLimit=10000 \
     dotnet Dar.Api.dll > "$APP/$1-new.log" 2>&1 &
   NEW_PID=$!
   for _ in $(seq 1 60); do
