@@ -2,7 +2,6 @@ import { useEffect, useState, type Dispatch, type FormEventHandler, type SetStat
 import { motion } from 'framer-motion'
 import { BookOpen, LockKeyhole, RefreshCw, ShieldCheck, UserRound, X } from 'lucide-react'
 import type { Branding, LoginCredentials, Notice, SetupCredentials } from '../domain/types'
-import { deleteDesktopCredential, getDesktopCredential } from '../services/desktopCredentialBridge'
 import SocialLinks from '../components/common/SocialLinks'
 import ToastView from '../components/common/ToastView'
 import TurnstileWidget, { type TurnstileStatus } from '../security/TurnstileWidget'
@@ -36,19 +35,9 @@ export default function AuthPage({ mode, branding, setup, setSetup, login, setLo
   useEffect(() => {
     if (toast?.tone === 'error') setTurnstileReset(value => value + 1)
   }, [toast])
-  const useProfile = async (profile: SavedProfile) => {
+  const useProfile = (profile: SavedProfile) => {
     if (turnstile.enabled && (!turnstile.ready || !login.turnstileToken)) { setTurnstileNotice('أكمل التحقق الأمني أولًا ثم أعد المحاولة.'); return }
     setLogin(current => ({ ...current, username: profile.username, password: '', rememberMe: true }))
-    const password = await getDesktopCredential(profile.username)
-    if (!password) return
-    const success = await onQuickLogin({ username: profile.username, password, rememberMe: true, turnstileToken: login.turnstileToken })
-    if (!success) {
-      // Passwords may have been reset from another admin account. Remove the stale local secret,
-      // leave the username selected, and allow a normal password sign-in.
-      deleteDesktopCredential(profile.username)
-      setTurnstileReset(value => value + 1)
-      setLogin(current => ({ ...current, username: profile.username, password: '', rememberMe: true }))
-    }
   }
   const handleLoginSubmit: FormEventHandler<HTMLFormElement> = event => {
     if (turnstile.enabled && (!turnstile.ready || !login.turnstileToken)) {
@@ -60,10 +49,10 @@ export default function AuthPage({ mode, branding, setup, setSetup, login, setLo
     onLogin(event)
   }
 
-  const removeProfile = (username: string) => { const next = savedProfiles.filter(profile => profile.username.toLowerCase() !== username.toLowerCase()); setSavedProfiles(next); deleteDesktopCredential(username); try { localStorage.setItem('dar-saved-profiles', JSON.stringify(next)) } catch { /* ignore local profile storage errors */ } }
+  const removeProfile = (username: string) => { const next = savedProfiles.filter(profile => profile.username.toLowerCase() !== username.toLowerCase()); setSavedProfiles(next); try { localStorage.setItem('dar-saved-profiles', JSON.stringify(next)) } catch { /* ignore local profile storage errors */ } }
   return <div className="auth-screen"><motion.div className="auth-card glass" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}}>
     <span className="brand-mark">{branding.logoDataUrl?<img src={branding.logoDataUrl} alt="شعار الدار"/>:<BookOpen size={27}/>}</span><span className="eyebrow">لوحة الإدارة الداخلية</span><h1>{branding.brandName}</h1><p className="auth-description">هذه لوحة إدارة خاصة وليست الموقع العام للدار. يلزم تسجيل الدخول للوصول إلى السجلات والبيانات.</p>
-    {mode==='login' && savedProfiles.length>0 && <div className="saved-profiles-panel"><div className="saved-profiles-heading"><strong>حسابات محفوظة على هذا الجهاز</strong><small>اضغط للدخول من بيانات مشفّرة لهذا المستخدم على Windows؛ اسم المستخدم فقط ظاهر في المتصفح.</small></div><div className="saved-profiles-grid">{savedProfiles.map(profile=><div className="saved-profile" key={profile.username}><button type="button" className="saved-profile-select" onClick={()=>void useProfile(profile)}><span className="saved-profile-avatar"><UserRound size={16}/></span><span><strong>{profile.displayName}</strong><small>@{profile.username}</small></span></button><button type="button" className="saved-profile-remove" aria-label={`إزالة ${profile.displayName} من الحسابات المحفوظة`} title="إزالة الحساب المحفوظ" onClick={()=>removeProfile(profile.username)}><X size={13}/></button></div>)}</div></div>}
+    {mode==='login' && savedProfiles.length>0 && <div className="saved-profiles-panel"><div className="saved-profiles-heading"><strong>حسابات محفوظة على هذا الجهاز</strong><small>اضغط لاختيار الحساب ثم أدخل كلمة المرور.</small></div><div className="saved-profiles-grid">{savedProfiles.map(profile=><div className="saved-profile" key={profile.username}><button type="button" className="saved-profile-select" onClick={()=>void useProfile(profile)}><span className="saved-profile-avatar"><UserRound size={16}/></span><span><strong>{profile.displayName}</strong><small>@{profile.username}</small></span></button><button type="button" className="saved-profile-remove" aria-label={`إزالة ${profile.displayName} من الحسابات المحفوظة`} title="إزالة الحساب المحفوظ" onClick={()=>removeProfile(profile.username)}><X size={13}/></button></div>)}</div></div>}
     {mode==='setup' ? <form onSubmit={onSetup} className="auth-form"><h2>إعداد حساب المدير الأول</h2><p>الحساب الأول يحصل على جميع الصلاحيات، ويمكنك لاحقًا إنشاء حسابات بصلاحيات محددة.</p>
       <label className="form-field"><span>اسم المستخدم</span><input required minLength={3} maxLength={100} autoComplete="username" value={setup.username} onChange={e=>setSetup(s=>({...s,username:e.target.value}))}/></label>
       <label className="form-field"><span>اسم المدير الظاهر</span><input required maxLength={160} autoComplete="name" value={setup.displayName} onChange={e=>setSetup(s=>({...s,displayName:e.target.value}))}/></label>

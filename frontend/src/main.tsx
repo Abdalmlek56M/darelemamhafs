@@ -53,7 +53,7 @@ window.addEventListener('error', () => reportUiError({ scope: 'global', page: cu
 window.addEventListener('unhandledrejection', () => reportUiError({ scope: 'global', page: currentPageName(), componentStack: '' }))
 
 // PWA baseline: cache only the shell, never API responses or sensitive administrative data.
-if (import.meta.env.PROD && import.meta.env.MODE !== 'desktop' && 'serviceWorker' in navigator) {
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     void navigator.serviceWorker.register('/sw.js').catch((error) => {
       console.error('تعذر تسجيل Service Worker:', error)

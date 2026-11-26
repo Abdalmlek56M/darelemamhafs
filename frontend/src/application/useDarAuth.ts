@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Branding, Gate, HistoryData, LoginCredentials, Notice, Page, Session, Student } from '../domain/types'
-import { saveDesktopCredential } from '../services/desktopCredentialBridge'
 import { request } from '../services/apiClient'
 import { ApiError, loginErrorMessage } from '../lib/userMessages'
 
@@ -107,8 +106,6 @@ export default function useDarAuth({
           ].slice(0, 6)
           localStorage.setItem('dar-saved-profiles', JSON.stringify(next))
         } catch { /* Saved profile shortcuts are optional; never interrupt a successful login. */ }
-        // On the WPF desktop, the password vault encrypts this credential with the current Windows user's DPAPI key.
-        saveDesktopCredential(signedIn.username, credentials.password, signedIn.displayName)
       }
       setLogin(current => ({ ...current, password: '', rememberMe: credentials.rememberMe }))
       setSession(signedIn)

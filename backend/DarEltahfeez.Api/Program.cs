@@ -278,7 +278,7 @@ app.MapGet("/api/health/details", async Task<IResult> (NpgsqlDataSource db, Canc
     {
         await using var cmd = db.CreateCommand("SELECT 1;");
         await cmd.ExecuteScalarAsync(ct);
-        return Results.Ok(new { status = "ok", service = "DarEltahfeez.Api", database = "connected", stage = "v0.8.25.0-desktop" });
+        return Results.Ok(new { status = "ok", service = "DarEltahfeez.Api", database = "connected", stage = $"v{typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "unknown"}" });
     }
     catch (NpgsqlException)
     {
