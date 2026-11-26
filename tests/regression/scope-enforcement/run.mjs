@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto';
 
 const CONN=process.env.DAR_TEST_DATABASE||'', LEGACY=process.env.Q5_LEGACY_URL||'', NEW=process.env.Q5_NEW_URL||'', SETUP=process.env.Q5_SETUP_TOKEN||'', PASSWORD=process.env.Q5_PASSWORD||'Q5-StrongPass!';
 if(!CONN||!LEGACY||!NEW||!SETUP){console.error('Q5_FAIL missing env');process.exit(2)}
-if(/database\s*=\s*dareltahfeez/i.test(CONN)){console.error('Q5_FAIL production database');process.exit(2)}
-for(const raw of [LEGACY,NEW]){const u=new URL(raw);if(['dar-elemam-hafs.rigxhardware.com','31.220.76.171'].includes(u.hostname.toLowerCase())||!['127.0.0.1','localhost','::1','[::1]'].includes(u.hostname.toLowerCase())){console.error('Q5_FAIL non-loopback URL');process.exit(2)}}
+if(new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__'), 'i').test(CONN)){console.error('Q5_FAIL production database');process.exit(2)}
+for(const raw of [LEGACY,NEW]){const u=new URL(raw);if((process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean).includes(u.hostname.toLowerCase())||!['127.0.0.1','localhost','::1','[::1]'].includes(u.hostname.toLowerCase())){console.error('Q5_FAIL non-loopback URL');process.exit(2)}}
 function pgEnv(){const e={...process.env};for(const p of CONN.split(';')){const i=p.indexOf('=');if(i<0)continue;const k=p.slice(0,i).trim().toLowerCase(),v=p.slice(i+1).trim();if(k==='host')e.PGHOST=v;if(k==='port')e.PGPORT=v;if(k==='database')e.PGDATABASE=v;if(k==='username')e.PGUSER=v;if(k==='password')e.PGPASSWORD=v;}return e;}
 const PGE=pgEnv();function psql(s){const r=spawnSync('psql',['-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-c',s],{env:PGE,encoding:'utf8'});if(r.status!==0)throw new Error('psql '+(r.stderr||'').trim());return (r.stdout||'').trim()}
 const q=v=>"'" + String(v).replaceAll("'","''") + "'";
@@ -95,7 +95,9 @@ async function createUser(admin,user,perms){const r=await req(LEGACY,admin,'POST
  await check('secretariat_get_inside_200',(await req(NEW,scopedNew,'GET','/api/v1/students/'+studentId)).status,200);
  await check('meet_link_steal_forbidden',(await req(NEW,scopedNew,'PUT','/api/v1/meet/events/'+meetB+'/link',{circleId:circA,enableRecording:false})).status,403);
  await check('adjust_outside_403',(await req(NEW,scopedNew,'POST','/api/v1/supervisor/attendance/'+bAtt+'/adjust',{payableDurationMinutes:30,payableAmount:null,note:'outside scope'})).status,403);
- await check('adjust_inside_200',(await req(NEW,scopedNew,'POST','/api/v1/supervisor/attendance/'+aAtt+'/adjust',{payableDurationMinutes:30,payableAmount:null,note:'inside scope'})).status,200);
+ const adjustInside=await req(NEW,scopedNew,'POST','/api/v1/supervisor/attendance/'+aAtt+'/adjust',{payableDurationMinutes:30,payableAmount:null,note:'inside scope'});
+ if(adjustInside.status!==200)throw new Error('adjust_inside '+adjustInside.status+' '+adjustInside.text);
+ await check('adjust_inside_200',adjustInside.status,200);
  const circA2=randomUUID(), slotA2=randomUUID();
  one("INSERT INTO circles(id,circle_code,name,teacher_id,monthly_fee,is_active,starts_on) VALUES ("+q(circA2)+",'Q5-CA2','Q5 A2',"+q(ta)+",0,TRUE,DATE '2026-01-01');");
  one("INSERT INTO circle_schedule_slots(id,circle_id,day_of_week,starts_at,duration_minutes,is_active) VALUES ("+q(slotA2)+","+q(circA2)+",1,'12:00',60,TRUE);");
