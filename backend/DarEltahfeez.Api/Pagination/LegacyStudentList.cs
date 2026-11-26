@@ -40,10 +40,7 @@ public static partial class DomainEndpoints
             await using var fallback = await cmd.ExecuteReaderAsync(ct);
             if (await fallback.ReadAsync(ct)) total = fallback.GetInt64(16);
         }
-        http.Response.Headers["X-Total-Count"] = total.ToString();
-        http.Response.Headers["X-Page"] = paging.Page.ToString();
-        http.Response.Headers["X-Page-Size"] = paging.PageSize.ToString();
-        http.Response.Headers["X-Truncated"] = PaginationRules.IsTruncated(total, paging, rows.Count, paged).ToString().ToLowerInvariant();
+        PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
         return Results.Ok(rows);
     }
 }

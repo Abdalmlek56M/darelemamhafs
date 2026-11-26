@@ -7,6 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Npgsql" Version="10.0.3" />
   </ItemGroup>
 </Project>
