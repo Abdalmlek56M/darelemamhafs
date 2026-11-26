@@ -35,7 +35,7 @@ Last verified main: `4f65a76` (full regression PASS, unit 51/51, frontend 68 tes
 
 | 1.9 circle auto-link substring | done | `4acb564` | `MeetMatcherAmbiguityTests` | live calendar sync not run |
 | 1.16 migration checksum CRLF | done | `08ef3c8` | `MigrationChecksumTests` | production ledger not re-checked |
-| 1.17 pagination determinism/unify envelopes | partial | pending | Deterministic tie-break in Secretariat students | **BLOCKED** full envelope unify: requires contract-wide change; not attempted tonight |
+| 1.17 pagination determinism/unify envelopes | partial | `e2b47bc` | Deterministic tie-break in Secretariat students | **BLOCKED** full envelope unify: requires contract-wide change; not attempted tonight |
 `n## Remaining
 
 Tier 1 items 1.5–1.25, then Z1/Z2 (including removing the frontend money fallback), Tier 2, Tier 3, Z3/Z4/Z5.
