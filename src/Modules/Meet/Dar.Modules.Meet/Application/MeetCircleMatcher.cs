@@ -71,9 +71,42 @@ public static class MeetCircleMatcher
         return best;
     }
 
+    /// <summary>
+    /// FINAL 1.9: automatic linking must be unambiguous. If two circles both reach the
+    /// exact-name confidence, return null instead of silently choosing the longer name.
+    /// </summary>
+    public static CircleMatch? BestUnambiguous(string? summary, IReadOnlyList<(Guid Id, string Name)> circles)
+    {
+        var normalizedSummary = Normalize(summary);
+        if (normalizedSummary.Length == 0 || circles.Count == 0) return null;
+
+        var summaryTokens = normalizedSummary.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var exact = new List<CircleMatch>();
+        CircleMatch? best = null;
+
+        foreach (var circle in circles)
+        {
+            var name = Normalize(circle.Name);
+            if (name.Length < 3) continue;
+            var confidence = Score(name, normalizedSummary, summaryTokens);
+            if (confidence <= 0) continue;
+            if (confidence == 100) exact.Add(new CircleMatch(circle.Id, circle.Name, confidence));
+            if (best is null || confidence > best.Confidence) best = new CircleMatch(circle.Id, circle.Name, confidence);
+        }
+
+        if (exact.Count > 1) return null;
+        return best;
+    }
+
     private static int Score(string normalizedName, string normalizedSummary, string[] summaryTokens)
     {
-        if (normalizedSummary.Contains(normalizedName, StringComparison.Ordinal))
+        // FINAL 1.9: require whole-word phrase boundaries. A plain Contains made a short
+        // circle name such as "نور" match inside another word such as "النور" and auto-link
+        // the wrong circle. Auto-linking only accepts 100, so partial-token scores never link.
+        if (normalizedSummary == normalizedName) return 100;
+        if (normalizedSummary.StartsWith(normalizedName + " ", StringComparison.Ordinal) ||
+            normalizedSummary.EndsWith(" " + normalizedName, StringComparison.Ordinal) ||
+            normalizedSummary.Contains(" " + normalizedName + " ", StringComparison.Ordinal))
             return 100;
 
         var nameTokens = normalizedName.Split(' ', StringSplitOptions.RemoveEmptyEntries);

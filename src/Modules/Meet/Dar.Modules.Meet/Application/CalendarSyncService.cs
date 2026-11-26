@@ -183,7 +183,7 @@ public sealed class CalendarSyncService(
                 if (string.IsNullOrWhiteSpace(item.MeetLink)) continue;
                 if (item.GoogleStatus == "cancelled") continue;
 
-                var match = MeetCircleMatcher.Best(item.Summary, linkable);
+                var match = MeetCircleMatcher.BestUnambiguous(item.Summary, linkable);
                 if (match is null || match.Confidence < Options.AutoLinkMinConfidence) continue;
                 if (await scopeRepository.LinkIfUnlinkedAsync(item.Id, match.CircleId, ct)) linked++;
             }
