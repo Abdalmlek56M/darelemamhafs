@@ -330,3 +330,12 @@ In both modes the app trusts only a header named X-Real-IP arriving from Forward
 - Regression: `tests/regression/backup-source` checks the source contract (globals/config/keys/media, crypt inspection, count-based retention, no `-mtime … -delete`) and runs `bash -n`.
 
 **NOT VERIFIED (needs the live host):** whether the production rclone remote is actually `crypt`, the live `BACKUP_CONFIG_FILES`/key paths, the media directory size/retention, the systemd timer run, and an actual off-site restore. The owner must confirm the rclone remote type; if it is not `crypt`, the manifest warning will show `offsite.encrypted=false`.
+## 21. Portal vs admin session identity (FINAL 0.12)
+
+Two independent cookies can share one browser: the legacy admin cookie `DarEltahfeez.Admin` and the modular portal session `dar_session`. `Dar.Session` previously tried the admin cookie first, so a portal request that carried both cookies could answer as the admin identity.
+
+- Portal clients (`/teacher`, `/supervisor`) now send the explicit `X-Dar-Portal: teacher` marker on every `/api/v1` request (`frontend/src/lib/portalHeaders.ts`). The `DarSessionHandler` then authenticates **only** `dar_session`; it never falls back to the admin bridge.
+- Requests without the marker keep the documented admin-bridge-first behaviour (the admin SPA relies on it). A marker without a valid portal session returns `401`, even when the admin cookie is valid.
+- Portal logout clears only `dar_session`; the separate admin session remains alive (different credential, SameSite=Strict). The portal client keeps sending the marker after logout, so it cannot silently continue as admin.
+- Regression: `tests/regression/tier0-sessions` (both cookies; header returns teacher, no header returns admin; portal logout 401 with marker while admin still answers; marker without session 401) plus `frontend/src/lib/portalHeaders.test.ts`.
+- **NOT VERIFIED:** a real browser with both cookies, the live DataProtection key ring, cross-tab logout behaviour, and non-portal clients that omit the marker (those still get admin-first identity when both cookies are present, by design). No production session was changed.

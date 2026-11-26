@@ -1,5 +1,6 @@
 import { ApiError, isArabicUserMessage, normalizeUserMessage, userErrorCode } from '../lib/userMessages'
 import { PORTAL_PAGE_SIZE, parsePageMeta, type PagedResponse } from '../lib/pagination'
+import { portalRequestHeaders } from '../lib/portalHeaders'
 
 const api = (path: string) => path
 
@@ -35,6 +36,9 @@ async function readError(response: Response): Promise<ParsedError> {
 
 async function send(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers)
+  if (typeof window !== 'undefined') {
+    for (const [name, value] of Object.entries(portalRequestHeaders(window.location.pathname))) headers.set(name, value)
+  }
   if (init?.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
   let response: Response
   try {
