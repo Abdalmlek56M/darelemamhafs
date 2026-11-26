@@ -265,7 +265,7 @@ public static class SessionEndpoints
             FROM teacher_sessions ts
             JOIN circle_schedule_slots ss ON ss.id = ts.schedule_slot_id
             WHERE ts.id = @id
-            ON CONFLICT (schedule_slot_id, session_date) DO UPDATE SET
+            ON CONFLICT (schedule_slot_id, session_date) WHERE is_trashed = FALSE DO UPDATE SET
                 duration_minutes=EXCLUDED.duration_minutes,
                 status='present',
                 hourly_rate_snapshot=EXCLUDED.hourly_rate_snapshot,

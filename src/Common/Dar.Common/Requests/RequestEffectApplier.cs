@@ -29,7 +29,7 @@ public static class RequestEffectApplier
                    @status,t.hourly_rate,0,@note,@reviewer,0,'manual',0,0,FALSE
             FROM circle_schedule_slots ss JOIN teachers t ON t.id=@teacher
             WHERE ss.id=@slot
-            ON CONFLICT(schedule_slot_id,session_date) DO UPDATE SET
+            ON CONFLICT (schedule_slot_id, session_date) WHERE is_trashed = FALSE DO UPDATE SET
                 status=EXCLUDED.status,duration_minutes=EXCLUDED.duration_minutes,payable_amount=0,
                 note=CASE
                     WHEN EXCLUDED.note IS NULL OR btrim(EXCLUDED.note)='' THEN teacher_attendance.note

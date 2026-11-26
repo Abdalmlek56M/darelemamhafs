@@ -289,7 +289,7 @@ public static partial class DomainEndpoints
             await using var cmd = new NpgsqlCommand("""
                 INSERT INTO teacher_attendance(schedule_slot_id,circle_id,teacher_id,session_date,scheduled_start,duration_minutes,status,hourly_rate_snapshot,payable_amount,note,marked_by)
                 VALUES(@slot,@circle,@teacher,@date,@start,@duration,@status,@rate,@payable,@note,@actor)
-                ON CONFLICT(schedule_slot_id,session_date) DO UPDATE SET
+                ON CONFLICT (schedule_slot_id, session_date) WHERE is_trashed = FALSE DO UPDATE SET
                     teacher_id=EXCLUDED.teacher_id,
                     hourly_rate_snapshot=CASE
                         WHEN teacher_attendance.teacher_id IS DISTINCT FROM EXCLUDED.teacher_id THEN EXCLUDED.hourly_rate_snapshot
