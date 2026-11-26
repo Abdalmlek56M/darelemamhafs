@@ -182,13 +182,15 @@ public static partial class DomainEndpoints
             if (MoneyRules.ExceedsOutstanding(paymentAmount, due, paid))
                 return Results.Conflict(new { message = CanReadFinance(principal) ? $"المبلغ أكبر من المتبقي ({MoneyRules.RoundCurrency(due - paid):0.00}). سجّل مبلغًا مساويًا أو أقل من المتبقي." : "المبلغ يتجاوز المتبقي المسموح لهذا الاستحقاق." });
             var paymentId=Guid.NewGuid();
+            // P0-2: the server owns paid_at; a client-supplied clock is ignored for money records.
+            var paidAt=DateTimeOffset.UtcNow;
             await using(var insert=new NpgsqlCommand("INSERT INTO payments(id,monthly_charge_id,amount,paid_at,method,reference,note,recorded_by) VALUES(@id,@charge,@amount,@date,@method,@reference,@note,@actor);",conn,tx))
             {
                 insert.Parameters.AddWithValue("id",paymentId);insert.Parameters.AddWithValue("charge",request.MonthlyChargeId);insert.Parameters.AddWithValue("amount",paymentAmount);
-                insert.Parameters.AddWithValue("date",request.PaidAt?.ToUniversalTime()??DateTimeOffset.UtcNow);AddNullable(insert,"method",request.Method);AddNullable(insert,"reference",request.Reference);AddNullable(insert,"note",request.Note);insert.Parameters.AddWithValue("actor",ActorId(principal));await insert.ExecuteNonQueryAsync(ct);
+                insert.Parameters.AddWithValue("date",paidAt);AddNullable(insert,"method",request.Method);AddNullable(insert,"reference",request.Reference);AddNullable(insert,"note",request.Note);insert.Parameters.AddWithValue("actor",ActorId(principal));await insert.ExecuteNonQueryAsync(ct);
             }
             await tx.CommitAsync(ct);
-            return Results.Created($"/api/payments/{paymentId}",new{id=paymentId,monthlyChargeId=request.MonthlyChargeId,amount=CanReadFinance(principal) ? paymentAmount : (decimal?)null,paidAt=request.PaidAt??DateTimeOffset.UtcNow,method=request.Method,reference=request.Reference,note=request.Note});
+            return Results.Created($"/api/payments/{paymentId}",new{id=paymentId,monthlyChargeId=request.MonthlyChargeId,amount=CanReadFinance(principal) ? paymentAmount : (decimal?)null,paidAt,method=request.Method,reference=request.Reference,note=request.Note});
         }).RequireAuthorization("finance.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPost("/api/payments/with-receipt", async Task<IResult> (HttpRequest httpRequest, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
@@ -214,8 +216,8 @@ public static partial class DomainEndpoints
             var isWebp = bytes.Length >= 12 && bytes[0] == (byte)'R' && bytes[1] == (byte)'I' && bytes[2] == (byte)'F' && bytes[3] == (byte)'F' && bytes[8] == (byte)'W' && bytes[9] == (byte)'E' && bytes[10] == (byte)'B' && bytes[11] == (byte)'P';
             if ((contentType == "image/jpeg" && !isJpeg) || (contentType == "image/png" && !isPng) || (contentType == "image/webp" && !isWebp))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["receipt"] = ["محتوى الملف لا يطابق صيغة الصورة المعلنة. اختر ملف صورة صحيحًا."] });
+            // P0-2: receipt uploads also use the server clock, never the browser's paidAt field.
             DateTimeOffset paidAt = DateTimeOffset.UtcNow;
-            if (DateTimeOffset.TryParse(form["paidAt"], System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var parsedDate)) paidAt = parsedDate.ToUniversalTime();
             string? method = form["method"].ToString(); string? reference = form["reference"].ToString(); string? note = form["note"].ToString();
             if (reference?.Length > 120 || note?.Length > 5000) return Results.ValidationProblem(new Dictionary<string, string[]> { ["note"] = ["المرجع أو الملاحظات أطول من المسموح."] });
             await using var conn = await db.OpenConnectionAsync(ct); await using var tx = await conn.BeginTransactionAsync(ct);

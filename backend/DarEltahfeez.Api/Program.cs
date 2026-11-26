@@ -244,7 +244,35 @@ if (app.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup") &&
         : "Applied database migrations: {Migrations}", string.Join(", ", applied));
 }
 
+// P0-14: public health answers expose status only; service/build details stay behind auth.
 app.MapGet("/health", async Task<IResult> (NpgsqlDataSource db, CancellationToken ct) =>
+{
+    try
+    {
+        await using var cmd = db.CreateCommand("SELECT 1;");
+        await cmd.ExecuteScalarAsync(ct);
+        return Results.Ok(new { status = "ok" });
+    }
+    catch (NpgsqlException)
+    {
+        return Results.Json(new { status = "degraded" }, statusCode: 503);
+    }
+});
+app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/health/ready", async Task<IResult> (NpgsqlDataSource db, CancellationToken ct) =>
+{
+    try
+    {
+        await using var cmd = db.CreateCommand("SELECT 1;");
+        await cmd.ExecuteScalarAsync(ct);
+        return Results.Ok(new { status = "ready" });
+    }
+    catch (NpgsqlException)
+    {
+        return Results.Json(new { status = "not-ready" }, statusCode: 503);
+    }
+});
+app.MapGet("/api/health/details", async Task<IResult> (NpgsqlDataSource db, CancellationToken ct) =>
 {
     try
     {
@@ -256,21 +284,7 @@ app.MapGet("/health", async Task<IResult> (NpgsqlDataSource db, CancellationToke
     {
         return Results.Json(new { status = "degraded", service = "DarEltahfeez.Api", database = "unavailable" }, statusCode: 503);
     }
-});
-app.MapGet("/health/live", () => Results.Ok(new { status = "ok", service = "DarEltahfeez.Api" }));
-app.MapGet("/health/ready", async Task<IResult> (NpgsqlDataSource db, CancellationToken ct) =>
-{
-    try
-    {
-        await using var cmd = db.CreateCommand("SELECT 1;");
-        await cmd.ExecuteScalarAsync(ct);
-        return Results.Ok(new { status = "ready", service = "DarEltahfeez.Api", database = "connected" });
-    }
-    catch (NpgsqlException)
-    {
-        return Results.Json(new { status = "not-ready", service = "DarEltahfeez.Api", database = "unavailable" }, statusCode: 503);
-    }
-});
+}).RequireAuthorization();
 
 AuthEndpoints.Map(app);
 DomainEndpoints.Map(app);

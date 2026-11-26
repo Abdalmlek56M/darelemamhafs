@@ -259,3 +259,9 @@
 8. Rate-limit public sensitive endpoints.
 9. Tests never use production data/DB.
 10. Backup before migration.
+
+## 12. Tier-0 owner decisions (Nov 2026)
+
+1. **payments.paid_at is server-owned.** The legacy payment JSON endpoint and the receipt-upload endpoint ignore any browser-supplied paidAt; the server writes DateTimeOffset.UtcNow. Client clocks are never trusted for money records.
+2. **Public health is status-only.** /health, /health/live and /health/ready return { status } only. Service name, database state and build stage live behind GET /api/health/details (authenticated).
+3. **Payroll lock blocks request reopen.** Reopening an approved attendance request restores its previous attendance effect, so the endpoint returns 409 when the request-date month is payroll-locked (payroll_locks.is_locked = TRUE). Unlocking the month allows the reopen. Covered by 	ests/regression/tier0-money.

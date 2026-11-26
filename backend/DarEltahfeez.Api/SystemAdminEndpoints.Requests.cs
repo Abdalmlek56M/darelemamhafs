@@ -152,8 +152,9 @@ public static partial class SystemAdminEndpoints
             string status;
             string? effectBefore, effectAfter;
             Guid teacherId, circleId;
+            DateOnly? requestDate;
             await using (var read = new NpgsqlCommand("""
-                SELECT status,COALESCE(effect_before::text,''),COALESCE(effect_after::text,''),teacher_id,circle_id
+                SELECT status,COALESCE(effect_before::text,''),COALESCE(effect_after::text,''),teacher_id,circle_id,request_date
                 FROM attendance_requests WHERE id=@id AND is_trashed=FALSE FOR UPDATE;
                 """, connection, transaction))
             {
@@ -169,11 +170,30 @@ public static partial class SystemAdminEndpoints
                 effectAfter = string.IsNullOrWhiteSpace(reader.GetString(2)) ? null : reader.GetString(2);
                 teacherId = reader.GetGuid(3);
                 circleId = reader.GetGuid(4);
+                requestDate = reader.IsDBNull(5) ? null : reader.GetFieldValue<DateOnly>(5);
             }
             if (!RequestWorkflow.CanReopen(status))
             {
                 await transaction.RollbackAsync(ct);
                 return Results.Conflict(new { message = "لا يمكن إعادة هذا الطلب للمراجعة إلا بعد اعتماده." });
+            }
+            // P0-8: reopening an approved request restores attendance, so a locked payroll month must block it.
+            if (requestDate is not null)
+            {
+                var locked = false;
+                await using (var lockCheck = new NpgsqlCommand("""
+                    SELECT EXISTS(SELECT 1 FROM payroll_locks
+                                  WHERE billing_month=date_trunc('month',@date::date)::date AND is_locked=TRUE);
+                    """, connection, transaction))
+                {
+                    lockCheck.Parameters.AddWithValue("date", requestDate.Value);
+                    locked = (bool)(await lockCheck.ExecuteScalarAsync(ct) ?? false);
+                }
+                if (locked)
+                {
+                    await transaction.RollbackAsync(ct);
+                    return Results.Conflict(new { message = "شهر الحضور مقفل للرواتب. افتح قفل الرواتب قبل إعادة الطلب للمراجعة." });
+                }
             }
 
             await RestoreEffectAsync(connection, transaction, effectBefore, effectAfter, ct);
