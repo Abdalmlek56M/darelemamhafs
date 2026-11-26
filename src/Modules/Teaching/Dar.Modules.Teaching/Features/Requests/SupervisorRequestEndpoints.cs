@@ -73,6 +73,8 @@ public static class SupervisorRequestEndpoints
                 attendanceId = reader.IsDBNull(13) ? (Guid?)null : reader.GetGuid(13)
             });
         }
+        await reader.DisposeAsync();
+        total = await PaginationHeaders.EnsureTotalAsync(command, total, 14, paged, ct);
         PaginationHeaders.Apply(http.Response, total, paging, rows.Count);
         return Results.Ok(new { count = rows.Count, requests = rows });
     }

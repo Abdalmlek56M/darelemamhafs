@@ -68,6 +68,8 @@ public static class UnpaidEndpoint
                     reader.GetFieldValue<DateOnly>(6), reader.GetString(7), reader.GetString(8),
                     reader.GetDecimal(9), reader.GetDecimal(10), Money.Balance(reader.GetDecimal(9), reader.GetDecimal(10))));
             }
+            await reader.DisposeAsync();
+            total = await PaginationHeaders.EnsureTotalAsync(command, total, 11, paged, ct);
         }
 
         PaginationHeaders.Apply(http.Response, total, paging, rows.Count);

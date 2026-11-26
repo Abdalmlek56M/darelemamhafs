@@ -3,9 +3,7 @@ using System.Text.Json;
 using Npgsql;
 using Dar.Common.Pagination;
 using Dar.Modules.Teaching.Features.Shared;
-
 namespace Dar.Modules.Teaching.Features.Supervisor;
-
 public static class CirclesEndpoint
 {
     private sealed record CircleRow(
@@ -75,6 +73,8 @@ public static class CirclesEndpoint
                     reader.IsDBNull(6) ? null : reader.GetDecimal(6),
                     (int)reader.GetInt64(7)));
             }
+            await reader.DisposeAsync();
+            total = await PaginationHeaders.EnsureTotalAsync(command, total, 8, paged, ct);
         }
 
         var schedules = new Dictionary<Guid, List<object>>();

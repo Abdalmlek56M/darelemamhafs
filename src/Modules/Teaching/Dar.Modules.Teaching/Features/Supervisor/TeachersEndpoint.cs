@@ -83,6 +83,9 @@ public static class TeachersEndpoint
             });
         }
 
+        await reader.DisposeAsync();
+
+        total = await PaginationHeaders.EnsureTotalAsync(command, total, 9, paged, ct);
         PaginationHeaders.Apply(http.Response, total, paging, teachers.Count);
         return Results.Ok(new { count = teachers.Count, month = monthStart, teachers });
     }

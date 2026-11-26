@@ -3,9 +3,7 @@ using Npgsql;
 using Dar.Common.Domain;
 using Dar.Common.Pagination;
 using Dar.Modules.Teaching.Features.Shared;
-
 namespace Dar.Modules.Teaching.Features.Supervisor;
-
 public static class StudentsEndpoint
 {
     public static async Task<IResult> List(
@@ -93,6 +91,9 @@ public static class StudentsEndpoint
             });
         }
 
+        await reader.DisposeAsync();
+
+        total = await PaginationHeaders.EnsureTotalAsync(command, total, 10, paged, ct);
         PaginationHeaders.Apply(http.Response, total, paging, students.Count);
         return Results.Ok(new { count = students.Count, students });
     }

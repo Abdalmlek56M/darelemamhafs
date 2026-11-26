@@ -129,5 +129,6 @@ run_suite q5 tests/regression/scope-enforcement/run.mjs generic
 run_suite q6-review tests/regression/request-workflow/review.mjs q6
 run_suite q6-admin tests/regression/request-workflow/admin-actions.mjs q6
 run_suite q6-teacher tests/regression/request-workflow/teacher-payroll.mjs q6
+run_suite supervisor-pagination tests/regression/supervisor-pagination/run.mjs q6
 echo "RESULT=$([ "$FAILED" -eq 0 ] && echo PASS || echo FAIL)"
 exit "$FAILED"

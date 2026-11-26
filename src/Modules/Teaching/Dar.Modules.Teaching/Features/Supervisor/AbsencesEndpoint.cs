@@ -70,6 +70,8 @@ public static class AbsencesEndpoint
                     markedAt = reader.GetFieldValue<DateTimeOffset>(9)
                 });
             }
+            await reader.DisposeAsync();
+            total = await PaginationHeaders.EnsureTotalAsync(command, total, 11, paged, ct);
         }
 
         var teachers = new List<object>();
