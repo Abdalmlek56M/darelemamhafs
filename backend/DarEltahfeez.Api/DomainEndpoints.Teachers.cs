@@ -10,9 +10,9 @@ public static partial class DomainEndpoints
     private static void MapTeachers(WebApplication app)
     {
         var route = app.MapGroup("/api/teachers");
-        route.MapGet("", (ClaimsPrincipal principal, int? page, int? pageSize, HttpContext http, NpgsqlDataSource db, CancellationToken ct) => LoadLegacyTeachersAsync(principal, page, pageSize, http, db, ct)).RequireAuthorization("teachers.read");
+        route.MapGet("", (ClaimsPrincipal principal, string? search, string? status, int? page, int? pageSize, HttpContext http, NpgsqlDataSource db, CancellationToken ct) => LoadLegacyTeachersAsync(principal, search, status, page, pageSize, http, db, ct)).RequireAuthorization("teachers.read");
 
-        route.MapGet("/{id:guid}/history", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await TeacherHistory(db, id, principal, ct))
+        route.MapGet("/{id:guid}/history", (Guid id, int? page, int? pageSize, HttpContext http, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => TeacherHistory(db, id, page, pageSize, http, principal, ct))
             .RequireAuthorization("teachers.read");
 
         route.MapPost("/{id:guid}/notes", async Task<IResult> (Guid id, StudentNoteRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>

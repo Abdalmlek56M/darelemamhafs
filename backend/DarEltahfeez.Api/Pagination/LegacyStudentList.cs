@@ -7,16 +7,25 @@ namespace DarEltahfeez.Api;
 public static partial class DomainEndpoints
 {
     internal static async Task<IResult> LoadLegacyStudentListAsync(
-        ClaimsPrincipal principal, int? page, int? pageSize, HttpContext http,
+        ClaimsPrincipal principal, string? search, string? status, int? page, int? pageSize, HttpContext http,
         NpgsqlDataSource db, CancellationToken ct)
     {
         var paging = LegacyPaging(page, pageSize, out var paged);
         var finance = CanReadFinance(principal);
+        var term = (search ?? string.Empty).Trim();
+        var statusFilter = (status ?? string.Empty).Trim();
         var sql = StudentProjectionWithTotal
-            + " WHERE s.is_trashed=FALSE ORDER BY CASE s.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1"
+            + " WHERE s.is_trashed=FALSE"
+            + " AND (@search = '' OR s.full_name ILIKE @like OR s.student_code ILIKE @like OR COALESCE(s.phone,'') ILIKE @like"
+            + " OR COALESCE(s.guardian_name,'') ILIKE @like OR COALESCE(s.guardian_phone,'') ILIKE @like)"
+            + " AND (@status = '' OR s.status = @status)"
+            + " ORDER BY CASE s.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1"
             + " WHEN 'withdrawn' THEN 2 ELSE 3 END, s.full_name, s.id";
         if (paged) sql += " LIMIT @take OFFSET @skip";
         await using var cmd = db.CreateCommand(sql);
+        cmd.Parameters.AddWithValue("search", term);
+        cmd.Parameters.AddWithValue("like", $"%{term}%");
+        cmd.Parameters.AddWithValue("status", statusFilter);
         if (paged)
         {
             cmd.Parameters.AddWithValue("take", paging.PageSize);

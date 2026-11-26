@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Dar.Common.Pagination;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -28,17 +29,21 @@ public static partial class DomainEndpoints
         cmd.Parameters.AddWithValue("id",id);await using var reader=await cmd.ExecuteReaderAsync(ct);return await reader.ReadAsync(ct)?ReadCircle(reader,financeVisible):null;
     }
 
-    private static async Task<IResult> TeacherHistory(NpgsqlDataSource db, Guid id, ClaimsPrincipal principal, CancellationToken ct)
+    private static async Task<IResult> TeacherHistory(NpgsqlDataSource db, Guid id, int? page, int? pageSize, HttpContext http, ClaimsPrincipal principal, CancellationToken ct)
     {
         var financeVisible = CanReadFinance(principal);
         var teacher = await LoadTeacher(db, id, financeVisible, ct);
         if (teacher is null) return Results.NotFound();
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
+        var take = paged ? paging.PageSize : 100;
 
         var circlesVisible = principal.HasClaim("permission", "circles.read");
         var attendanceVisible = principal.HasClaim("permission", "attendance.read") || principal.HasClaim("permission", "attendance.edit");
         var circles = new List<object>();
         var scheduleSlots = new List<object>();
         var attendance = new List<object>();
+        long attendanceTotal = 0;
         var notes = new List<StudentNoteResponse>();
         await using (var notesCmd = db.CreateCommand("SELECT n.id,n.note_text,n.created_at,COALESCE(u.display_name,'') FROM teacher_notes n LEFT JOIN app_users u ON u.id=n.created_by WHERE n.teacher_id=@teacher AND n.is_trashed=FALSE ORDER BY n.created_at DESC;"))
         {
@@ -85,20 +90,31 @@ public static partial class DomainEndpoints
                 SELECT a.id,a.session_date,COALESCE(c.name,'حلقة غير متاحة'),a.scheduled_start,a.duration_minutes,a.status,
                        a.hourly_rate_snapshot,a.payable_amount,a.note,a.marked_at,
                        CASE WHEN a.status='present' THEN (SELECT COUNT(DISTINCT ce.student_id) FROM student_attendance sa JOIN circle_enrollments ce ON ce.id=sa.enrollment_id WHERE sa.schedule_slot_id=a.schedule_slot_id
-                          AND sa.session_date=a.session_date AND sa.status='present' AND sa.is_trashed=FALSE AND ce.is_trashed=FALSE) ELSE 0 END AS present_students_count, a.schedule_slot_id
+                          AND sa.session_date=a.session_date AND sa.status='present' AND sa.is_trashed=FALSE AND ce.is_trashed=FALSE) ELSE 0 END AS present_students_count, a.schedule_slot_id,
+                       COUNT(*) OVER() AS total
                 FROM teacher_attendance a LEFT JOIN circles c ON c.id=a.circle_id
                 WHERE a.teacher_id=@teacher AND a.is_trashed=FALSE
-                ORDER BY a.session_date DESC,a.scheduled_start DESC LIMIT 100;
+                ORDER BY a.session_date DESC,a.scheduled_start DESC,a.id
+                LIMIT @take OFFSET @skip;
                 """);
             cmd.Parameters.AddWithValue("teacher", id);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) attendance.Add(new
+            cmd.Parameters.AddWithValue("take", take);
+            cmd.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
+            await using (var reader = await cmd.ExecuteReaderAsync(ct))
             {
-                id = reader.GetGuid(0), sessionDate = reader.GetFieldValue<DateOnly>(1), circleName = reader.GetString(2),
-                startsAt = reader.GetFieldValue<TimeOnly>(3).ToString("HH:mm"), durationMinutes = reader.GetInt32(4), status = reader.GetString(5),
-                hourlyRateSnapshot = financeVisible ? reader.GetDecimal(6) : (decimal?)null, payableAmount = financeVisible ? reader.GetDecimal(7) : (decimal?)null, note = reader.IsDBNull(8) ? null : reader.GetString(8),
-                markedAt = reader.GetFieldValue<DateTimeOffset>(9), presentStudentsCount = reader.GetInt64(10), scheduleSlotId = reader.IsDBNull(11) ? (Guid?)null : reader.GetGuid(11)
-            });
+                while (await reader.ReadAsync(ct))
+                {
+                    attendanceTotal = reader.ReadTotal();
+                    attendance.Add(new
+                    {
+                        id = reader.GetGuid(0), sessionDate = reader.GetFieldValue<DateOnly>(1), circleName = reader.GetString(2),
+                        startsAt = reader.GetFieldValue<TimeOnly>(3).ToString("HH:mm"), durationMinutes = reader.GetInt32(4), status = reader.GetString(5),
+                        hourlyRateSnapshot = financeVisible ? reader.GetDecimal(6) : (decimal?)null, payableAmount = financeVisible ? reader.GetDecimal(7) : (decimal?)null, note = reader.IsDBNull(8) ? null : reader.GetString(8),
+                        markedAt = reader.GetFieldValue<DateTimeOffset>(9), presentStudentsCount = reader.GetInt64(10), scheduleSlotId = reader.IsDBNull(11) ? (Guid?)null : reader.GetGuid(11)
+                    });
+                }
+            }
+            attendanceTotal = await PaginationRules.EnsureTotalAsync(cmd, attendanceTotal, paged, ct);
 
             await using var totalsCmd = db.CreateCommand("""
                 SELECT COUNT(*) FILTER (WHERE status='present'),
@@ -116,12 +132,16 @@ public static partial class DomainEndpoints
             };
         }
 
-        return Results.Ok(new { teacher, circles, scheduleSlots, attendance, notes, attendanceVisible, circlesVisible, financeVisible, attendanceLimit = 100, totals });
+        PaginationHeaderWriter.Write(http.Response, attendanceTotal, paging, attendance.Count, paged);
+        return Results.Ok(new { teacher, circles, scheduleSlots, attendance, notes, attendanceVisible, circlesVisible, financeVisible, attendanceLimit = take, attendanceTotal, totals });
     }
 
-    private static async Task<IResult> StudentHistory(NpgsqlDataSource db,Guid id,ClaimsPrincipal principal,CancellationToken ct)
+    private static async Task<IResult> StudentHistory(NpgsqlDataSource db,Guid id,int? page,int? pageSize,HttpContext http,ClaimsPrincipal principal,CancellationToken ct)
     {
         var financeVisible = CanReadFinance(principal);
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
+        var take = paged ? paging.PageSize : 0;
         var student=await LoadStudent(db,id,financeVisible,ct);if(student is null)return Results.NotFound();
         var enrollments=new List<object>();
         await using(var cmd=db.CreateCommand("""
@@ -154,14 +174,25 @@ public static partial class DomainEndpoints
                 if(!reader.IsDBNull(5))charge.Payments.Add(new PaymentHistory(reader.GetGuid(5),reader.GetDecimal(6),reader.GetFieldValue<DateTimeOffset>(7),reader.IsDBNull(8)?null:reader.GetString(8),reader.IsDBNull(9)?null:reader.GetString(9),reader.IsDBNull(10)?null:reader.GetString(10),reader.GetBoolean(11),reader.IsDBNull(14)?(DateTimeOffset?)null:reader.GetFieldValue<DateTimeOffset>(14),reader.IsDBNull(15)?null:reader.GetString(15),reader.IsDBNull(16)?null:reader.GetString(16)));
               }}
         }
-        var notes=new List<StudentNoteResponse>();
-        await using(var cmd=db.CreateCommand("SELECT n.id,n.note_text,n.created_at,COALESCE(u.display_name,'') FROM student_notes n LEFT JOIN app_users u ON u.id=n.created_by WHERE n.student_id=@id AND n.is_trashed=FALSE ORDER BY n.created_at DESC;"))
-        {cmd.Parameters.AddWithValue("id",id);await using var reader=await cmd.ExecuteReaderAsync(ct);while(await reader.ReadAsync(ct))notes.Add(new StudentNoteResponse(reader.GetGuid(0),reader.GetString(1),reader.GetFieldValue<DateTimeOffset>(2),reader.GetString(3)));}
+        var notes = new List<StudentNoteResponse>();
+        long notesTotal = 0;
+        var notesQuery = "SELECT n.id,n.note_text,n.created_at,COALESCE(u.display_name,''),COUNT(*) OVER() AS total FROM student_notes n LEFT JOIN app_users u ON u.id=n.created_by WHERE n.student_id=@id AND n.is_trashed=FALSE ORDER BY n.created_at DESC,n.id DESC";
+        if (paged) notesQuery += " LIMIT @take OFFSET @skip";
+        await using(var cmd=db.CreateCommand(notesQuery))
+        {
+            cmd.Parameters.AddWithValue("id",id);
+            if (paged) { cmd.Parameters.AddWithValue("take", take); cmd.Parameters.AddWithValue("skip", paging.Offset); }
+            await using var reader=await cmd.ExecuteReaderAsync(ct);
+            while(await reader.ReadAsync(ct)){notesTotal=reader.ReadTotal();notes.Add(new StudentNoteResponse(reader.GetGuid(0),reader.GetString(1),reader.GetFieldValue<DateTimeOffset>(2),reader.GetString(3)));}
+            await reader.DisposeAsync();
+            notesTotal=await PaginationRules.EnsureTotalAsync(cmd,notesTotal,paged,ct);
+        }
         var attendanceVisible = principal.HasClaim("permission", "attendance.read") || principal.HasClaim("permission", "attendance.edit");
         var attendance = new List<object>();
+        long attendanceTotal = 0;
         if (attendanceVisible)
         {
-            await using var cmd = db.CreateCommand("""
+            var attendanceQuery = """
                 WITH ranked_attendance AS (
                     SELECT sa.id,sa.session_date,c.name AS circle_name,ss.starts_at,sa.status,COALESCE(t.full_name,'') AS teacher_name,sa.note,sa.marked_at,
                            ROW_NUMBER() OVER(PARTITION BY ce.student_id,sa.schedule_slot_id,sa.session_date ORDER BY sa.marked_at DESC,sa.id DESC) AS student_session_row
@@ -172,20 +203,31 @@ public static partial class DomainEndpoints
                     LEFT JOIN teachers t ON t.id=c.teacher_id
                     WHERE ce.student_id=@id AND sa.is_trashed=FALSE AND ce.is_trashed=FALSE AND c.is_trashed=FALSE
                 )
-                SELECT id,session_date,circle_name,starts_at,status,teacher_name,note,marked_at
+                SELECT id,session_date,circle_name,starts_at,status,teacher_name,note,marked_at,COUNT(*) OVER() AS total
                 FROM ranked_attendance WHERE student_session_row=1
-                ORDER BY session_date DESC,starts_at DESC,marked_at DESC;
-                """);
+                ORDER BY session_date DESC,starts_at DESC,marked_at DESC,id
+                """;
+            if (paged) attendanceQuery += " LIMIT @take OFFSET @skip";
+            await using var cmd = db.CreateCommand(attendanceQuery);
             cmd.Parameters.AddWithValue("id", id);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) attendance.Add(new
+            if (paged) { cmd.Parameters.AddWithValue("take", take); cmd.Parameters.AddWithValue("skip", paging.Offset); }
+            await using (var reader = await cmd.ExecuteReaderAsync(ct))
             {
-                id = reader.GetGuid(0), sessionDate = reader.GetFieldValue<DateOnly>(1), circleName = reader.GetString(2),
-                startsAt = reader.GetFieldValue<TimeOnly>(3).ToString("HH:mm"), status = reader.GetString(4), teacherName = reader.GetString(5),
-                note = reader.IsDBNull(6) ? null : reader.GetString(6), markedAt = reader.GetFieldValue<DateTimeOffset>(7)
-            });
+                while (await reader.ReadAsync(ct))
+                {
+                    attendanceTotal = reader.ReadTotal();
+                    attendance.Add(new
+                    {
+                        id = reader.GetGuid(0), sessionDate = reader.GetFieldValue<DateOnly>(1), circleName = reader.GetString(2),
+                        startsAt = reader.GetFieldValue<TimeOnly>(3).ToString("HH:mm"), status = reader.GetString(4), teacherName = reader.GetString(5),
+                        note = reader.IsDBNull(6) ? null : reader.GetString(6), markedAt = reader.GetFieldValue<DateTimeOffset>(7)
+                    });
+                }
+            }
+            attendanceTotal = await PaginationRules.EnsureTotalAsync(cmd, attendanceTotal, paged, ct);
         }
-        return Results.Ok(new {student,enrollments,charges=charges.Values.Select(c=>c.ToResponse()),notes,attendance,attendanceVisible,financeVisible=principal.HasClaim("permission","finance.read")});
+        PaginationHeaderWriter.Write(http.Response, attendanceTotal, paging, attendance.Count, paged);
+        return Results.Ok(new {student,enrollments,charges=charges.Values.Select(c=>c.ToResponse()),notes,attendance,attendanceVisible,attendanceTotal,notesTotal,financeVisible=principal.HasClaim("permission","finance.read")});
     }
     private static StudentResponse ReadStudent(NpgsqlDataReader r,bool financeVisible)=>new(r.GetGuid(0),r.GetString(1),r.GetString(2),r.IsDBNull(3)?null:r.GetInt32(3),r.IsDBNull(4)?null:r.GetString(4),r.IsDBNull(5)?null:r.GetString(5),r.IsDBNull(6)?null:r.GetString(6),r.GetFieldValue<DateOnly>(7),r.GetString(8),r.IsDBNull(9)?null:r.GetString(9),r.GetFieldValue<DateTimeOffset>(10),r.GetFieldValue<DateTimeOffset>(11),r.GetString(12),financeVisible?r.GetDecimal(13):null,financeVisible?r.GetDecimal(14):null,financeVisible?r.GetString(15):null);
     private static TeacherResponse ReadTeacher(NpgsqlDataReader r,bool financeVisible)=>new(r.GetGuid(0),r.GetString(1),r.GetString(2),r.IsDBNull(3)?null:r.GetString(3),financeVisible?r.GetDecimal(4):null,r.GetString(5),r.IsDBNull(6)?null:r.GetString(6),r.GetFieldValue<DateTimeOffset>(7),r.GetFieldValue<DateTimeOffset>(8),r.GetString(9),r.GetInt64(10));

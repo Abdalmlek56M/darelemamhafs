@@ -3,6 +3,7 @@ using System.IO;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Dar.Common.Pagination;
 using DarEltahfeez.Api.Services;
 using Npgsql;
 using NpgsqlTypes;
@@ -215,10 +216,12 @@ public static partial class SystemAdminEndpoints
             return Results.Ok(new { id, logged = true });
         }).RequireAuthorization();
 
-        app.MapGet("/api/admin/audit-log", async Task<IResult> (int? limit, string? month, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
+        app.MapGet("/api/admin/audit-log", async Task<IResult> (int? limit, string? month, int? page, int? pageSize, HttpContext http, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
             var financeVisible = CanReadFinance(principal);
-            var take = Math.Clamp(limit ?? 500, 1, 10000);
+            var paging = new PageRequest(page, pageSize);
+            var paged = page is not null || pageSize is not null;
+            var take = paged ? paging.PageSize : Math.Clamp(limit ?? 500, 1, 10000);
             DateOnly? monthStart = null;
             if (!string.IsNullOrWhiteSpace(month))
             {
@@ -226,20 +229,30 @@ public static partial class SystemAdminEndpoints
                     return Results.ValidationProblem(new Dictionary<string, string[]> { ["month"] = ["حدد الشهر بصيغة YYYY-MM."] });
                 monthStart = parsedMonth;
             }
-            await using var cmd = db.CreateCommand("SELECT l.id,l.actor_user_id,COALESCE(l.actor_display_name,u.display_name,'حساب غير معروف'),l.action_code,l.entity_type,l.entity_id,l.occurred_at,l.details::text,l.before_data::text,l.after_data::text,l.can_restore,l.restored_at FROM audit_log AS l LEFT JOIN app_users AS u ON u.id=l.actor_user_id WHERE (@month IS NULL OR ((l.occurred_at AT TIME ZONE 'Africa/Cairo') >= @month::date AND (l.occurred_at AT TIME ZONE 'Africa/Cairo') < (@month::date + INTERVAL '1 month'))) ORDER BY l.occurred_at DESC,l.id DESC LIMIT @limit;");
+            await using var cmd = db.CreateCommand("SELECT l.id,l.actor_user_id,COALESCE(l.actor_display_name,u.display_name,'حساب غير معروف'),l.action_code,l.entity_type,l.entity_id,l.occurred_at,l.details::text,l.before_data::text,l.after_data::text,l.can_restore,l.restored_at,COUNT(*) OVER() AS total FROM audit_log AS l LEFT JOIN app_users AS u ON u.id=l.actor_user_id WHERE (@month IS NULL OR ((l.occurred_at AT TIME ZONE 'Africa/Cairo') >= @month::date AND (l.occurred_at AT TIME ZONE 'Africa/Cairo') < (@month::date + INTERVAL '1 month'))) ORDER BY l.occurred_at DESC,l.id DESC LIMIT @limit OFFSET @skip;");
             var monthParameter = cmd.Parameters.Add("month", NpgsqlDbType.Date);
             monthParameter.Value = monthStart.HasValue ? (object)monthStart.Value : DBNull.Value;
             cmd.Parameters.AddWithValue("limit", take);
-            var rows = new List<object>(); await using var r = await cmd.ExecuteReaderAsync(ct);
-            while (await r.ReadAsync(ct)) rows.Add(new
+            cmd.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
+            var rows = new List<object>(); long total = 0;
+            await using (var r = await cmd.ExecuteReaderAsync(ct))
             {
-                id = r.GetInt64(0), actorUserId = r.IsDBNull(1) ? (Guid?)null : r.GetGuid(1), actorName = r.GetString(2), actionCode = r.GetString(3),
-                entityType = r.GetString(4), entityId = r.IsDBNull(5) ? (Guid?)null : r.GetGuid(5), occurredAt = r.GetFieldValue<DateTimeOffset>(6),
-                details = ParseJsonForFinance(r.IsDBNull(7) ? null : r.GetString(7), financeVisible),
-                beforeData = ParseJsonForFinance(r.IsDBNull(8) ? null : r.GetString(8), financeVisible),
-                afterData = ParseJsonForFinance(r.IsDBNull(9) ? null : r.GetString(9), financeVisible),
-                canRestore = r.GetBoolean(10), restoredAt = r.IsDBNull(11) ? (DateTimeOffset?)null : r.GetFieldValue<DateTimeOffset>(11)
-            });
+                while (await r.ReadAsync(ct))
+                {
+                    total = r.ReadTotal();
+                    rows.Add(new
+                    {
+                        id = r.GetInt64(0), actorUserId = r.IsDBNull(1) ? (Guid?)null : r.GetGuid(1), actorName = r.GetString(2), actionCode = r.GetString(3),
+                        entityType = r.GetString(4), entityId = r.IsDBNull(5) ? (Guid?)null : r.GetGuid(5), occurredAt = r.GetFieldValue<DateTimeOffset>(6),
+                        details = ParseJsonForFinance(r.IsDBNull(7) ? null : r.GetString(7), financeVisible),
+                        beforeData = ParseJsonForFinance(r.IsDBNull(8) ? null : r.GetString(8), financeVisible),
+                        afterData = ParseJsonForFinance(r.IsDBNull(9) ? null : r.GetString(9), financeVisible),
+                        canRestore = r.GetBoolean(10), restoredAt = r.IsDBNull(11) ? (DateTimeOffset?)null : r.GetFieldValue<DateTimeOffset>(11)
+                    });
+                }
+            }
+            total = await PaginationRules.EnsureTotalAsync(cmd, total, paged, ct);
+            PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
             return Results.Ok(rows);
         }).RequireAuthorization("audit.read");
 
@@ -265,12 +278,26 @@ public static partial class SystemAdminEndpoints
             return Results.Ok(new { restored = true, message = "تمت استعادة القيم السابقة. راجع السجل الجديد للتأكد." });
         }).RequireAuthorization("audit.restore").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
-        app.MapGet("/api/admin/trash", async Task<IResult> (ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
+        app.MapGet("/api/admin/trash", async Task<IResult> (int? page, int? pageSize, HttpContext http, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
             var financeVisible = CanReadFinance(principal);
-            await using var cmd = db.CreateCommand("SELECT id,entity_type,entity_id,display_name,deleted_by_name,deleted_at,expires_at,purged_at,purge_error,record_snapshot::text FROM trash_items WHERE restored_at IS NULL AND purged_at IS NULL ORDER BY deleted_at DESC LIMIT 5000;");
-            var rows = new List<object>(); await using var r = await cmd.ExecuteReaderAsync(ct);
-            while (await r.ReadAsync(ct)) rows.Add(new { id = r.GetGuid(0), entityType = r.GetString(1), entityId = r.GetGuid(2), displayName = financeVisible ? r.GetString(3) : GetFinanceSafeTrashDisplayName(r.GetString(1)), deletedByName = r.IsDBNull(4) ? "غير معروف" : r.GetString(4), deletedAt = r.GetFieldValue<DateTimeOffset>(5), expiresAt = r.GetFieldValue<DateTimeOffset>(6), purgedAt = r.IsDBNull(7) ? (DateTimeOffset?)null : r.GetFieldValue<DateTimeOffset>(7), purgeError = r.IsDBNull(8) ? null : r.GetString(8), recordSnapshot = ParseJsonForFinance(r.IsDBNull(9) ? null : r.GetString(9), financeVisible) });
+            var paging = new PageRequest(page, pageSize);
+            var paged = page is not null || pageSize is not null;
+            var take = paged ? paging.PageSize : 5000;
+            await using var cmd = db.CreateCommand("SELECT id,entity_type,entity_id,display_name,deleted_by_name,deleted_at,expires_at,purged_at,purge_error,record_snapshot::text,COUNT(*) OVER() AS total FROM trash_items WHERE restored_at IS NULL AND purged_at IS NULL ORDER BY deleted_at DESC,id DESC LIMIT @take OFFSET @skip;");
+            cmd.Parameters.AddWithValue("take", take);
+            cmd.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
+            var rows = new List<object>(); long total = 0;
+            await using (var r = await cmd.ExecuteReaderAsync(ct))
+            {
+                while (await r.ReadAsync(ct))
+                {
+                    total = r.ReadTotal();
+                    rows.Add(new { id = r.GetGuid(0), entityType = r.GetString(1), entityId = r.GetGuid(2), displayName = financeVisible ? r.GetString(3) : GetFinanceSafeTrashDisplayName(r.GetString(1)), deletedByName = r.IsDBNull(4) ? "غير معروف" : r.GetString(4), deletedAt = r.GetFieldValue<DateTimeOffset>(5), expiresAt = r.GetFieldValue<DateTimeOffset>(6), purgedAt = r.IsDBNull(7) ? (DateTimeOffset?)null : r.GetFieldValue<DateTimeOffset>(7), purgeError = r.IsDBNull(8) ? null : r.GetString(8), recordSnapshot = ParseJsonForFinance(r.IsDBNull(9) ? null : r.GetString(9), financeVisible) });
+                }
+            }
+            total = await PaginationRules.EnsureTotalAsync(cmd, total, paged, ct);
+            PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
             return Results.Ok(rows);
         }).RequireAuthorization("trash.manage");
 
@@ -278,11 +305,25 @@ public static partial class SystemAdminEndpoints
         app.MapPost("/api/admin/trash/{id:guid}/restore", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await RestoreTrashAsync(id, principal, db, ct)).RequireAuthorization("trash.manage").AddEndpointFilter<ScopedAccessEndpointFilter>();
         app.MapDelete("/api/admin/trash/{id:guid}", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await PurgeTrashAsync(id, principal, db, ct)).RequireAuthorization("trash.manage").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
-        app.MapGet("/api/admin/backups", async Task<IResult> (NpgsqlDataSource db, CancellationToken ct) =>
+        app.MapGet("/api/admin/backups", async Task<IResult> (int? page, int? pageSize, HttpContext http, NpgsqlDataSource db, CancellationToken ct) =>
         {
-            await using var cmd = db.CreateCommand("SELECT id,backup_file_name,scope_codes,backup_format,status,file_size_bytes,started_at,completed_at,created_by_name,error_message FROM system_backups ORDER BY started_at DESC LIMIT 100;");
-            var rows = new List<object>(); await using var r = await cmd.ExecuteReaderAsync(ct);
-            while (await r.ReadAsync(ct)) rows.Add(new { id = r.GetGuid(0), fileName = r.GetString(1), scopes = r.GetString(2), format = r.GetString(3), status = r.GetString(4), sizeBytes = r.IsDBNull(5) ? (long?)null : r.GetInt64(5), startedAt = r.GetFieldValue<DateTimeOffset>(6), completedAt = r.IsDBNull(7) ? (DateTimeOffset?)null : r.GetFieldValue<DateTimeOffset>(7), createdByName = r.IsDBNull(8) ? "نسخ احتياطي تلقائي" : r.GetString(8), errorMessage = r.IsDBNull(9) ? null : r.GetString(9) });
+            var paging = new PageRequest(page, pageSize);
+            var paged = page is not null || pageSize is not null;
+            var take = paged ? paging.PageSize : 100;
+            await using var cmd = db.CreateCommand("SELECT id,backup_file_name,scope_codes,backup_format,status,file_size_bytes,started_at,completed_at,created_by_name,error_message,COUNT(*) OVER() AS total FROM system_backups ORDER BY started_at DESC,id DESC LIMIT @take OFFSET @skip;");
+            cmd.Parameters.AddWithValue("take", take);
+            cmd.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
+            var rows = new List<object>(); long total = 0;
+            await using (var r = await cmd.ExecuteReaderAsync(ct))
+            {
+                while (await r.ReadAsync(ct))
+                {
+                    total = r.ReadTotal();
+                    rows.Add(new { id = r.GetGuid(0), fileName = r.GetString(1), scopes = r.GetString(2), format = r.GetString(3), status = r.GetString(4), sizeBytes = r.IsDBNull(5) ? (long?)null : r.GetInt64(5), startedAt = r.GetFieldValue<DateTimeOffset>(6), completedAt = r.IsDBNull(7) ? (DateTimeOffset?)null : r.GetFieldValue<DateTimeOffset>(7), createdByName = r.IsDBNull(8) ? "نسخ احتياطي تلقائي" : r.GetString(8), errorMessage = r.IsDBNull(9) ? null : r.GetString(9) });
+                }
+            }
+            total = await PaginationRules.EnsureTotalAsync(cmd, total, paged, ct);
+            PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
             return Results.Ok(rows);
         }).RequireAuthorization("backup.manage");
 

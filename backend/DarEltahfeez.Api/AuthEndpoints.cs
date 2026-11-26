@@ -374,39 +374,7 @@ public static partial class AuthEndpoints
         var users = app.MapGroup("/api/admin/users").RequireAuthorization("users.manage");
         app.MapGet("/api/admin/permissions", () => Results.Ok(AppPermissions.All.Select(p => new PermissionResponse(p.Code, p.NameAr))))
             .RequireAuthorization("users.manage");
-        users.MapGet("", async Task<IResult> (NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            var list = new List<AdminUserResponse>();
-            await using var cmd = db.CreateCommand("""
-                SELECT id, username, display_name, is_active, is_locked, teacher_id, lock_reason, created_at,
-                       COALESCE((SELECT array_agg(scope_id) FROM app_user_scopes s
-                                 WHERE s.user_id = app_users.id AND s.scope_type = 'circle'), ARRAY[]::uuid[]) AS scope_circles,
-                       COALESCE((SELECT array_agg(scope_id) FROM app_user_scopes s
-                                 WHERE s.user_id = app_users.id AND s.scope_type = 'teacher'), ARRAY[]::uuid[]) AS scope_teachers
-                FROM app_users
-                ORDER BY created_at, username;
-                """);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
-            {
-                list.Add(new AdminUserResponse(
-                    reader.GetGuid(0),
-                    reader.GetString(1),
-                    reader.GetString(2),
-                    reader.GetBoolean(3),
-                    reader.GetBoolean(4),
-                    reader.IsDBNull(5) ? null : reader.GetGuid(5),
-                    reader.IsDBNull(6) ? null : reader.GetString(6),
-                    reader.GetFieldValue<DateTimeOffset>(7),
-                    [],
-                    reader.GetFieldValue<Guid[]>(8),
-                    reader.GetFieldValue<Guid[]>(9)));
-            }
-            await reader.CloseAsync();
-            foreach (var user in list)
-                user.PermissionCodes = await LoadPermissions(db, user.Id, ct);
-            return Results.Ok(list);
-        });
+        users.MapGet("", (int? page, int? pageSize, HttpContext http, NpgsqlDataSource db, CancellationToken ct) => LoadAdminUsersAsync(page, pageSize, http, db, ct));
 
         users.MapPost("", async Task<IResult> (AdminUserWriteRequest request, NpgsqlDataSource db, CancellationToken ct) =>
         {

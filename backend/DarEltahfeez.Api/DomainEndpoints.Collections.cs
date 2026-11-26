@@ -3,6 +3,7 @@ using System.Text.Json;
 using Npgsql;
 using NpgsqlTypes;
 
+using Dar.Common.Pagination;
 using DarEltahfeez.Api.Scoping;
 
 namespace DarEltahfeez.Api;
@@ -11,14 +12,17 @@ public static partial class DomainEndpoints
 {
     private static void MapCollections(WebApplication app)
     {
-        app.MapGet("/api/finance-entry-options", async Task<IResult> (string? month, NpgsqlDataSource db, CancellationToken ct) =>
+        app.MapGet("/api/finance-entry-options", async Task<IResult> (string? month, int? page, int? pageSize, HttpContext http, NpgsqlDataSource db, CancellationToken ct) =>
         {
             if (!TryMonth(month, out var billingMonth))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["month"] = ["حدد الشهر بصيغة YYYY-MM."] });
+            var paging = new PageRequest(page, pageSize);
+            var paged = page is not null || pageSize is not null;
 
             var enrollments = new List<object>();
-            await using (var cmd = db.CreateCommand("""
-                SELECT ce.id,s.id,s.student_code,s.full_name,c.id,c.name,COALESCE(t.full_name,'')
+            long enrollmentsTotal = 0;
+            var enrollmentQuery = """
+                SELECT ce.id,s.id,s.student_code,s.full_name,c.id,c.name,COALESCE(t.full_name,''),COUNT(*) OVER() AS total
                 FROM circle_enrollments ce
                 JOIN students s ON s.id=ce.student_id
                 JOIN circles c ON c.id=ce.circle_id
@@ -28,39 +32,70 @@ public static partial class DomainEndpoints
                   AND (ce.ends_on IS NULL OR ce.ends_on>=@month)
                   AND public.dar_enrollment_has_active_day_in_month(ce.id,@month)
                   AND NOT EXISTS(SELECT 1 FROM monthly_charges existing_charge WHERE existing_charge.enrollment_id=ce.id AND existing_charge.billing_month=@month AND existing_charge.is_trashed=FALSE AND existing_charge.voided_at IS NULL)
-                ORDER BY c.name,s.full_name;
-                """))
+                ORDER BY c.name,s.full_name,ce.id
+                """;
+            if (paged) enrollmentQuery += " LIMIT @take OFFSET @skip";
+            await using (var cmd = db.CreateCommand(enrollmentQuery))
             {
                 cmd.Parameters.AddWithValue("month", billingMonth);
+                if (paged)
+                {
+                    cmd.Parameters.AddWithValue("take", paging.PageSize);
+                    cmd.Parameters.AddWithValue("skip", paging.Offset);
+                }
                 await using var reader = await cmd.ExecuteReaderAsync(ct);
-                while (await reader.ReadAsync(ct)) enrollments.Add(new { enrollmentId=reader.GetGuid(0), studentId=reader.GetGuid(1), studentCode=reader.GetString(2), studentName=reader.GetString(3), circleId=reader.GetGuid(4), circleName=reader.GetString(5), teacherName=reader.GetString(6) });
+                while (await reader.ReadAsync(ct))
+                {
+                    enrollmentsTotal = reader.ReadTotal();
+                    enrollments.Add(new { enrollmentId=reader.GetGuid(0), studentId=reader.GetGuid(1), studentCode=reader.GetString(2), studentName=reader.GetString(3), circleId=reader.GetGuid(4), circleName=reader.GetString(5), teacherName=reader.GetString(6) });
+                }
+                await reader.DisposeAsync();
+                enrollmentsTotal = await PaginationRules.EnsureTotalAsync(cmd, enrollmentsTotal, paged, ct);
             }
 
             var charges = new List<object>();
-            await using (var cmd = db.CreateCommand("""
-                SELECT mc.id,s.student_code,s.full_name,c.name,mc.billing_month
+            long chargesTotal = 0;
+            var chargeQuery = """
+                SELECT mc.id,s.student_code,s.full_name,c.name,mc.billing_month,COUNT(*) OVER() AS total
                 FROM monthly_charges mc
                 JOIN circle_enrollments ce ON ce.id=mc.enrollment_id
                 JOIN students s ON s.id=ce.student_id
                 JOIN circles c ON c.id=ce.circle_id
                 WHERE mc.billing_month=@month AND mc.is_trashed=FALSE AND mc.voided_at IS NULL AND ce.is_trashed=FALSE
                   AND s.is_trashed=FALSE AND c.is_trashed=FALSE
-                ORDER BY c.name,s.full_name;
-                """))
+                ORDER BY c.name,s.full_name,mc.id
+                """;
+            if (paged) chargeQuery += " LIMIT @take OFFSET @skip";
+            await using (var cmd = db.CreateCommand(chargeQuery))
             {
                 cmd.Parameters.AddWithValue("month", billingMonth);
+                if (paged)
+                {
+                    cmd.Parameters.AddWithValue("take", paging.PageSize);
+                    cmd.Parameters.AddWithValue("skip", paging.Offset);
+                }
                 await using var reader = await cmd.ExecuteReaderAsync(ct);
-                while (await reader.ReadAsync(ct)) charges.Add(new { monthlyChargeId=reader.GetGuid(0), studentCode=reader.GetString(1), studentName=reader.GetString(2), circleName=reader.GetString(3), billingMonth=reader.GetFieldValue<DateOnly>(4) });
+                while (await reader.ReadAsync(ct))
+                {
+                    chargesTotal = reader.ReadTotal();
+                    charges.Add(new { monthlyChargeId=reader.GetGuid(0), studentCode=reader.GetString(1), studentName=reader.GetString(2), circleName=reader.GetString(3), billingMonth=reader.GetFieldValue<DateOnly>(4) });
+                }
+                await reader.DisposeAsync();
+                chargesTotal = await PaginationRules.EnsureTotalAsync(cmd, chargesTotal, paged, ct);
             }
 
+            PaginationHeaderWriter.Write(http.Response, enrollmentsTotal, paging, enrollments.Count, paged);
             // This endpoint intentionally returns identity and opaque record IDs only; no fees, payments, balances or payment status.
-            return Results.Ok(new { billingMonth, enrollments, charges });
+            return Results.Ok(new { billingMonth, enrollments, charges, enrollmentsTotal, chargesTotal });
         }).RequireAuthorization("finance.create");
 
-        app.MapGet("/api/collections",async Task<IResult> (string? month,NpgsqlDataSource db,CancellationToken ct)=>
+        app.MapGet("/api/collections",async Task<IResult> (string? month,int? page,int? pageSize,HttpContext http,NpgsqlDataSource db,CancellationToken ct)=>
         {
             if(!TryMonth(month,out var billingMonth))return Results.ValidationProblem(new Dictionary<string,string[]>{{"month",["حدد الشهر بصيغة YYYY-MM."]}});
-            return Results.Ok(await LoadCollections(db,billingMonth,ct));
+            var paging=new PageRequest(page,pageSize);var paged=page is not null||pageSize is not null;
+            var (rows,total)=await LoadCollections(db,billingMonth,ct,paged?paging:null);
+            PaginationHeaderWriter.Write(http.Response,total,paging,rows.Length,paged);
+            return Results.Ok(rows);
         }).RequireAuthorization("finance.read");
 
         app.MapPost("/api/charges",async Task<IResult> (ChargeWriteRequest request,ClaimsPrincipal principal,NpgsqlDataSource db,CancellationToken ct)=>
@@ -317,21 +352,25 @@ public static partial class DomainEndpoints
         }).RequireAuthorization("finance.void").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
     }
-    private static async Task<CollectionRow[]> LoadCollections(NpgsqlDataSource db,DateOnly month,CancellationToken ct)
+    private static async Task<(CollectionRow[] Rows,long Total)> LoadCollections(NpgsqlDataSource db,DateOnly month,CancellationToken ct,PageRequest? paging=null)
     {
         var rows=new List<CollectionRow>();
-        await using var cmd=db.CreateCommand("""
+        var query="""
           SELECT ce.id,mc.id,s.id,s.student_code,s.full_name,c.id,c.name,COALESCE(t.full_name,''),ce.agreed_monthly_fee,
                  COALESCE(mc.amount_due,0),COALESCE(p.paid,0),mc.note,
                  CASE WHEN mc.id IS NULL THEN 'not-set' WHEN COALESCE(p.paid,0)>=mc.amount_due THEN 'paid' WHEN COALESCE(p.paid,0)>0 THEN 'partial' ELSE 'unpaid' END,
-                 ce.starts_on,ce.ends_on,c.starts_on
+                 ce.starts_on,ce.ends_on,c.starts_on,COUNT(*) OVER() AS total
           FROM circle_enrollments ce JOIN students s ON s.id=ce.student_id JOIN circles c ON c.id=ce.circle_id LEFT JOIN teachers t ON t.id=c.teacher_id
           LEFT JOIN monthly_charges mc ON mc.enrollment_id=ce.id AND mc.billing_month=@month AND mc.is_trashed=FALSE AND mc.voided_at IS NULL
           LEFT JOIN LATERAL(SELECT COALESCE(SUM(amount),0) AS paid FROM payments WHERE monthly_charge_id=mc.id AND is_trashed=FALSE AND voided_at IS NULL) p ON TRUE
           WHERE ce.is_trashed=FALSE AND s.is_trashed=FALSE AND c.is_trashed=FALSE AND (ce.status='active' OR mc.id IS NOT NULL) AND ce.starts_on<=(@month+INTERVAL '1 month - 1 day')::date AND (ce.ends_on IS NULL OR ce.ends_on>=@month) AND (c.starts_on<=(@month+INTERVAL '1 month - 1 day')::date OR mc.id IS NOT NULL)
-          ORDER BY c.name,s.full_name;
-          """);cmd.Parameters.AddWithValue("month",month);await using var reader=await cmd.ExecuteReaderAsync(ct);
-        while(await reader.ReadAsync(ct))rows.Add(new CollectionRow(reader.GetGuid(0),reader.IsDBNull(1)?null:reader.GetGuid(1),reader.GetGuid(2),reader.GetString(3),reader.GetString(4),reader.GetGuid(5),reader.GetString(6),reader.GetString(7),reader.GetDecimal(8),reader.GetDecimal(9),reader.GetDecimal(10),reader.IsDBNull(11)?null:reader.GetString(11),reader.GetString(12),month,reader.GetFieldValue<DateOnly>(13),reader.IsDBNull(14)?null:reader.GetFieldValue<DateOnly>(14),reader.GetFieldValue<DateOnly>(15)));
-        return rows.ToArray();
+          ORDER BY c.name,s.full_name,ce.id
+          """;
+        if(paging is not null)query+=" LIMIT @take OFFSET @skip";
+        await using var cmd=db.CreateCommand(query);cmd.Parameters.AddWithValue("month",month);
+        if(paging is not null){cmd.Parameters.AddWithValue("take",paging.Value.PageSize);cmd.Parameters.AddWithValue("skip",paging.Value.Offset);}
+        long total=0;await using var reader=await cmd.ExecuteReaderAsync(ct);
+        while(await reader.ReadAsync(ct)){total=reader.ReadTotal();rows.Add(new CollectionRow(reader.GetGuid(0),reader.IsDBNull(1)?null:reader.GetGuid(1),reader.GetGuid(2),reader.GetString(3),reader.GetString(4),reader.GetGuid(5),reader.GetString(6),reader.GetString(7),reader.GetDecimal(8),reader.GetDecimal(9),reader.GetDecimal(10),reader.IsDBNull(11)?null:reader.GetString(11),reader.GetString(12),month,reader.GetFieldValue<DateOnly>(13),reader.IsDBNull(14)?null:reader.GetFieldValue<DateOnly>(14),reader.GetFieldValue<DateOnly>(15)));}
+        return (rows.ToArray(),total);
     }
 }

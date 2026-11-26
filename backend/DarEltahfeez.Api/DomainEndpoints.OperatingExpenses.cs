@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Dar.Common.Pagination;
 using System.Text.Json;
 using Npgsql;
 using NpgsqlTypes;
@@ -9,25 +10,45 @@ public static partial class DomainEndpoints
 {
     private static void MapOperatingExpenses(WebApplication app)
     {
-        app.MapGet("/api/operating-expenses", async Task<IResult> (string? month, NpgsqlDataSource db, CancellationToken ct) =>
+        app.MapGet("/api/operating-expenses", async Task<IResult> (string? month, int? page, int? pageSize, HttpContext http, NpgsqlDataSource db, CancellationToken ct) =>
         {
             if (!TryMonth(month, out var from)) return Results.ValidationProblem(new Dictionary<string, string[]> { ["month"] = ["حدد الشهر بصيغة YYYY-MM."] });
             var to = from.AddMonths(1);
-            var rows = new List<object>();
-            await using var cmd = db.CreateCommand("""
-                SELECT e.id,e.expense_date,e.category,e.description,e.amount,e.circle_id,c.name,e.note,e.created_at
+            var paging = new PageRequest(page, pageSize);
+            var paged = page is not null || pageSize is not null;
+            var query = """
+                SELECT e.id,e.expense_date,e.category,e.description,e.amount,e.circle_id,c.name,e.note,e.created_at,
+                       COUNT(*) OVER() AS total
                 FROM operating_expenses e LEFT JOIN circles c ON c.id=e.circle_id
                 WHERE e.expense_date>=@from AND e.expense_date<@to AND e.is_trashed=FALSE AND (e.circle_id IS NULL OR COALESCE(c.is_trashed,FALSE)=FALSE)
-                ORDER BY e.expense_date DESC,e.created_at DESC;
-                """);
-            cmd.Parameters.AddWithValue("from", from); cmd.Parameters.AddWithValue("to", to);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) rows.Add(new
+                ORDER BY e.expense_date DESC,e.created_at DESC,e.id
+                """;
+            if (paged) query += " LIMIT @take OFFSET @skip";
+            await using var cmd = db.CreateCommand(query);
+            cmd.Parameters.AddWithValue("from", from);
+            cmd.Parameters.AddWithValue("to", to);
+            if (paged)
             {
-                id = reader.GetGuid(0), expenseDate = reader.GetFieldValue<DateOnly>(1), category = reader.GetString(2), description = reader.GetString(3),
-                amount = reader.GetDecimal(4), circleId = reader.IsDBNull(5) ? (Guid?)null : reader.GetGuid(5), circleName = reader.IsDBNull(6) ? null : reader.GetString(6),
-                note = reader.IsDBNull(7) ? null : reader.GetString(7), createdAt = reader.GetFieldValue<DateTimeOffset>(8)
-            });
+                cmd.Parameters.AddWithValue("take", paging.PageSize);
+                cmd.Parameters.AddWithValue("skip", paging.Offset);
+            }
+            var rows = new List<object>();
+            long total = 0;
+            await using (var reader = await cmd.ExecuteReaderAsync(ct))
+            {
+                while (await reader.ReadAsync(ct))
+                {
+                    total = reader.ReadTotal();
+                    rows.Add(new
+                    {
+                        id = reader.GetGuid(0), expenseDate = reader.GetFieldValue<DateOnly>(1), category = reader.GetString(2), description = reader.GetString(3),
+                        amount = reader.GetDecimal(4), circleId = reader.IsDBNull(5) ? (Guid?)null : reader.GetGuid(5), circleName = reader.IsDBNull(6) ? null : reader.GetString(6),
+                        note = reader.IsDBNull(7) ? null : reader.GetString(7), createdAt = reader.GetFieldValue<DateTimeOffset>(8)
+                    });
+                }
+            }
+            total = await PaginationRules.EnsureTotalAsync(cmd, total, paged, ct);
+            PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
             return Results.Ok(rows);
         }).RequireAuthorization("finance.read");
 

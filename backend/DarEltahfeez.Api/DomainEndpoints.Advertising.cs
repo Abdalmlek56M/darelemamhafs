@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Dar.Common.Pagination;
 using System.Text.Json;
 using Npgsql;
 using NpgsqlTypes;
@@ -9,23 +10,44 @@ public static partial class DomainEndpoints
 {
     private static void MapAdvertisingExpenses(WebApplication app)
     {
-        app.MapGet("/api/advertising-expenses", async Task<IResult> (string? month, NpgsqlDataSource db, CancellationToken ct) =>
+        app.MapGet("/api/advertising-expenses", async Task<IResult> (string? month, int? page, int? pageSize, HttpContext http, NpgsqlDataSource db, CancellationToken ct) =>
         {
             if (!TryMonth(month, out var from)) return Results.ValidationProblem(new Dictionary<string, string[]> { ["month"] = ["حدد الشهر بصيغة YYYY-MM."] });
-            var to = from.AddMonths(1); var rows = new List<object>();
-            await using var cmd = db.CreateCommand("""
+            var to = from.AddMonths(1);
+            var paging = new PageRequest(page, pageSize);
+            var paged = page is not null || pageSize is not null;
+            var query = """
                 SELECT a.id,a.circle_id,c.name,a.platform,a.start_date,a.days_count,a.daily_cost,a.total_amount,
-                       period_calc.overlap_days,(a.daily_cost * period_calc.overlap_days) AS month_amount,a.note,a.created_at
+                       period_calc.overlap_days,(a.daily_cost * period_calc.overlap_days) AS month_amount,a.note,a.created_at,
+                       COUNT(*) OVER() AS total
                 FROM advertising_expenses a JOIN circles c ON c.id=a.circle_id
                 CROSS JOIN LATERAL (
                     SELECT GREATEST(0, LEAST(a.start_date + (a.days_count - 1), @to - 1) - GREATEST(a.start_date, @from) + 1) AS overlap_days
                 ) period_calc
                 WHERE a.start_date<@to AND (a.start_date + a.days_count - 1)>=@from AND a.is_trashed=FALSE AND c.is_trashed=FALSE
-                ORDER BY a.start_date DESC,a.created_at DESC;
-                """);
-            cmd.Parameters.AddWithValue("from", from); cmd.Parameters.AddWithValue("to", to);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) rows.Add(new { id=reader.GetGuid(0), circleId=reader.GetGuid(1), circleName=reader.GetString(2), platform=reader.IsDBNull(3)?null:reader.GetString(3), startDate=reader.GetFieldValue<DateOnly>(4), daysCount=reader.GetInt32(5), dailyCost=reader.GetDecimal(6), totalAmount=reader.GetDecimal(7), overlapDays=reader.GetInt32(8), monthAmount=reader.GetDecimal(9), note=reader.IsDBNull(10)?null:reader.GetString(10), createdAt=reader.GetFieldValue<DateTimeOffset>(11) });
+                ORDER BY a.start_date DESC,a.created_at DESC,a.id
+                """;
+            if (paged) query += " LIMIT @take OFFSET @skip";
+            await using var cmd = db.CreateCommand(query);
+            cmd.Parameters.AddWithValue("from", from);
+            cmd.Parameters.AddWithValue("to", to);
+            if (paged)
+            {
+                cmd.Parameters.AddWithValue("take", paging.PageSize);
+                cmd.Parameters.AddWithValue("skip", paging.Offset);
+            }
+            var rows = new List<object>();
+            long total = 0;
+            await using (var reader = await cmd.ExecuteReaderAsync(ct))
+            {
+                while (await reader.ReadAsync(ct))
+                {
+                    total = reader.ReadTotal();
+                    rows.Add(new { id=reader.GetGuid(0), circleId=reader.GetGuid(1), circleName=reader.GetString(2), platform=reader.IsDBNull(3)?null:reader.GetString(3), startDate=reader.GetFieldValue<DateOnly>(4), daysCount=reader.GetInt32(5), dailyCost=reader.GetDecimal(6), totalAmount=reader.GetDecimal(7), overlapDays=reader.GetInt32(8), monthAmount=reader.GetDecimal(9), note=reader.IsDBNull(10)?null:reader.GetString(10), createdAt=reader.GetFieldValue<DateTimeOffset>(11) });
+                }
+            }
+            total = await PaginationRules.EnsureTotalAsync(cmd, total, paged, ct);
+            PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
             return Results.Ok(rows);
         }).RequireAuthorization("finance.read");
 

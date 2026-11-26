@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Claims;
 using System.Text.Json;
+using Dar.Common.Pagination;
 using Npgsql;
 
 namespace DarEltahfeez.Api;
@@ -9,15 +10,19 @@ public static partial class SystemAdminEndpoints
 {
     internal static void MapInsights(WebApplication app)
     {
-        app.MapGet("/api/admin/notifications", async Task<IResult> (string? status, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
+        app.MapGet("/api/admin/notifications", async Task<IResult> (string? status, int? page, int? pageSize, HttpContext http, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
             var filter = string.IsNullOrWhiteSpace(status) ? "open" : status.Trim().ToLowerInvariant();
             if (filter is not ("open" or "resolved" or "all"))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["status"] = ["استخدم open أو resolved أو all."] });
             if (ActorId(principal) is not Guid userId) return Results.Unauthorized();
             var canFinance = CanReadFinance(principal);
+            var paging = new PageRequest(page, pageSize);
+            var paged = page is not null || pageSize is not null;
+            var take = paged ? paging.PageSize : 300;
 
             var rows = new List<object>();
+            long total = 0;
             int openCount, unreadCount, resolvedCount;
             await using var connection = await db.OpenConnectionAsync(ct);
             await using (var counts = new NpgsqlCommand("""
@@ -41,39 +46,46 @@ public static partial class SystemAdminEndpoints
 
             await using (var command = new NpgsqlCommand("""
                 SELECT n.id, n.category, n.status, n.severity, n.title, n.body, n.action_url,
-                       n.created_at, n.resolved_at, n.resolution_note, nr.read_at
+                       n.created_at, n.resolved_at, n.resolution_note, nr.read_at, COUNT(*) OVER() AS total
                 FROM notifications n
                 LEFT JOIN notification_reads nr ON nr.notification_id=n.id AND nr.user_id=@user
                 WHERE (n.user_id=@user OR n.role_scope IN ('supervisor','admin'))
                   AND (n.category <> 'payment' OR @canFinance)
                   AND (@status='all' OR n.status=@status)
-                ORDER BY (n.status='open') DESC, n.created_at DESC
-                LIMIT 300;
+                ORDER BY (n.status='open') DESC, n.created_at DESC, n.id
+                LIMIT @take OFFSET @skip;
                 """, connection))
             {
                 command.Parameters.AddWithValue("user", userId);
                 command.Parameters.AddWithValue("canFinance", canFinance);
                 command.Parameters.AddWithValue("status", filter);
-                await using var reader = await command.ExecuteReaderAsync(ct);
-                while (await reader.ReadAsync(ct))
+                command.Parameters.AddWithValue("take", take);
+                command.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
+                await using (var reader = await command.ExecuteReaderAsync(ct))
                 {
-                    rows.Add(new
+                    while (await reader.ReadAsync(ct))
                     {
-                        id = reader.GetGuid(0),
-                        category = reader.GetString(1),
-                        status = reader.GetString(2),
-                        severity = reader.GetString(3),
-                        title = reader.GetString(4),
-                        body = reader.GetString(5),
-                        actionUrl = reader.IsDBNull(6) ? null : reader.GetString(6),
-                        createdAt = reader.GetFieldValue<DateTimeOffset>(7),
-                        resolvedAt = reader.IsDBNull(8) ? (DateTimeOffset?)null : reader.GetFieldValue<DateTimeOffset>(8),
-                        resolutionNote = reader.IsDBNull(9) ? null : reader.GetString(9),
-                        readAt = reader.IsDBNull(10) ? (DateTimeOffset?)null : reader.GetFieldValue<DateTimeOffset>(10)
-                    });
+                        total = reader.ReadTotal();
+                        rows.Add(new
+                        {
+                            id = reader.GetGuid(0),
+                            category = reader.GetString(1),
+                            status = reader.GetString(2),
+                            severity = reader.GetString(3),
+                            title = reader.GetString(4),
+                            body = reader.GetString(5),
+                            actionUrl = reader.IsDBNull(6) ? null : reader.GetString(6),
+                            createdAt = reader.GetFieldValue<DateTimeOffset>(7),
+                            resolvedAt = reader.IsDBNull(8) ? (DateTimeOffset?)null : reader.GetFieldValue<DateTimeOffset>(8),
+                            resolutionNote = reader.IsDBNull(9) ? null : reader.GetString(9),
+                            readAt = reader.IsDBNull(10) ? (DateTimeOffset?)null : reader.GetFieldValue<DateTimeOffset>(10)
+                        });
+                    }
                 }
+                total = await PaginationRules.EnsureTotalAsync(command, total, paged, ct);
             }
 
+            PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
             return Results.Ok(new { counts = new { open = openCount, unread = unreadCount, resolved = resolvedCount }, notifications = rows });
         }).RequireAuthorization("dashboard.read");
 
@@ -153,17 +165,21 @@ public static partial class SystemAdminEndpoints
             return Results.Ok(new { id, status = "resolved", alreadyResolved = false });
         }).RequireAuthorization();
 
-        app.MapGet("/api/admin/charge-audit", async Task<IResult> (string? month, NpgsqlDataSource db, CancellationToken ct) =>
+        app.MapGet("/api/admin/charge-audit", async Task<IResult> (string? month, int? page, int? pageSize, HttpContext http, NpgsqlDataSource db, CancellationToken ct) =>
         {
             if (!DateOnly.TryParseExact($"{month}-01", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var billingMonth)
                 || billingMonth > DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(1)))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["month"] = ["حدد الشهر بصيغة YYYY-MM."] });
+            var paging = new PageRequest(page, pageSize);
+            var paged = page is not null || pageSize is not null;
 
             var rows = new List<object>();
+            long total = 0;
             await using var connection = await db.OpenConnectionAsync(ct);
-            await using (var command = new NpgsqlCommand("""
+            var query = """
                 SELECT mc.id, ce.id, s.full_name, s.student_code, c.name,
-                       mc.amount_due, ce.agreed_monthly_fee, COALESCE(p.paid,0) AS paid
+                       mc.amount_due, ce.agreed_monthly_fee, COALESCE(p.paid,0) AS paid,
+                       COUNT(*) OVER() AS total
                 FROM monthly_charges mc
                 JOIN circle_enrollments ce ON ce.id=mc.enrollment_id AND ce.is_trashed=FALSE
                 JOIN students s ON s.id=ce.student_id AND s.is_trashed=FALSE
@@ -174,96 +190,119 @@ public static partial class SystemAdminEndpoints
                 ) p ON p.monthly_charge_id=mc.id
                 WHERE mc.billing_month=@month AND mc.is_trashed=FALSE AND mc.voided_at IS NULL
                   AND mc.amount_due <> ce.agreed_monthly_fee
-                ORDER BY c.name, s.full_name;
-                """, connection))
+                ORDER BY c.name, s.full_name, mc.id
+                """;
+            if (paged) query += " LIMIT @take OFFSET @skip";
+            await using (var command = new NpgsqlCommand(query, connection))
             {
                 command.Parameters.AddWithValue("month", billingMonth);
-                await using var reader = await command.ExecuteReaderAsync(ct);
-                while (await reader.ReadAsync(ct))
+                if (paged) { command.Parameters.AddWithValue("take", paging.PageSize); command.Parameters.AddWithValue("skip", paging.Offset); }
+                await using (var reader = await command.ExecuteReaderAsync(ct))
                 {
-                    var amountDue = reader.GetDecimal(5);
-                    var agreedFee = reader.GetDecimal(6);
-                    var paid = reader.GetDecimal(7);
-                    rows.Add(new
+                    while (await reader.ReadAsync(ct))
                     {
-                        chargeId = reader.GetGuid(0),
-                        enrollmentId = reader.GetGuid(1),
-                        studentName = reader.GetString(2),
-                        studentCode = reader.GetString(3),
-                        circleName = reader.GetString(4),
-                        amountDue,
-                        agreedFee,
-                        paid,
-                        difference = agreedFee - amountDue,
-                        balanceAfterCorrection = MoneyRules.Balance(agreedFee, paid)
-                    });
+                        total = reader.ReadTotal();
+                        var amountDue = reader.GetDecimal(5);
+                        var agreedFee = reader.GetDecimal(6);
+                        var paid = reader.GetDecimal(7);
+                        rows.Add(new
+                        {
+                            chargeId = reader.GetGuid(0),
+                            enrollmentId = reader.GetGuid(1),
+                            studentName = reader.GetString(2),
+                            studentCode = reader.GetString(3),
+                            circleName = reader.GetString(4),
+                            amountDue,
+                            agreedFee,
+                            paid,
+                            difference = agreedFee - amountDue,
+                            balanceAfterCorrection = MoneyRules.Balance(agreedFee, paid)
+                        });
+                    }
                 }
+                total = await PaginationRules.EnsureTotalAsync(command, total, paged, ct);
             }
+            PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
 
             return Results.Ok(new
             {
                 month = billingMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture),
                 count = rows.Count,
-                rows
+                rows,
+                total
             });
         }).RequireAuthorization("finance.read");
 
-        app.MapGet("/api/admin/teacher-notes", async Task<IResult> (string? kind, Guid? teacherId, NpgsqlDataSource db, CancellationToken ct) =>
+        app.MapGet("/api/admin/teacher-notes", async Task<IResult> (string? kind, Guid? teacherId, int? page, int? pageSize, HttpContext http, NpgsqlDataSource db, CancellationToken ct) =>
         {
             var filterKind = string.IsNullOrWhiteSpace(kind) ? "all" : kind.Trim().ToLowerInvariant();
             if (filterKind is not ("all" or "session" or "student"))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["kind"] = ["استخدم all أو session أو student."] });
+            var paging = new PageRequest(page, pageSize);
+            var paged = page is not null || pageSize is not null;
+            var take = paged ? paging.PageSize : 250;
 
             var rows = new List<object>();
+            long total = 0;
             await using var connection = await db.OpenConnectionAsync(ct);
             await using (var command = new NpgsqlCommand("""
-                SELECT 'session' AS kind, ta.teacher_id, t.full_name, c.name, ta.session_date,
-                       ta.note, ta.marked_at, NULL::text AS student_name, NULL::text AS student_code
-                FROM teacher_attendance ta
-                JOIN teachers t ON t.id=ta.teacher_id AND t.is_trashed=FALSE
-                JOIN circles c ON c.id=ta.circle_id AND c.is_trashed=FALSE
-                WHERE ta.is_trashed=FALSE
-                  AND ta.note IS NOT NULL AND btrim(ta.note)<>''
-                  AND (@teacher::uuid IS NULL OR t.id=@teacher)
-                  AND (@kind='all' OR @kind='session')
+                SELECT combined.*, COUNT(*) OVER() AS total
+                FROM (
+                    SELECT 'session' AS kind, ta.id, ta.teacher_id, t.full_name, c.name, ta.session_date,
+                           ta.note, ta.marked_at, NULL::text AS student_name, NULL::text AS student_code
+                    FROM teacher_attendance ta
+                    JOIN teachers t ON t.id=ta.teacher_id AND t.is_trashed=FALSE
+                    JOIN circles c ON c.id=ta.circle_id AND c.is_trashed=FALSE
+                    WHERE ta.is_trashed=FALSE
+                      AND ta.note IS NOT NULL AND btrim(ta.note)<>''
+                      AND (@teacher::uuid IS NULL OR t.id=@teacher)
+                      AND (@kind='all' OR @kind='session')
 
-                UNION ALL
+                    UNION ALL
 
-                SELECT 'student' AS kind, c.teacher_id, t.full_name, c.name, sa.session_date,
-                       sa.note, sa.marked_at, s.full_name, s.student_code
-                FROM student_attendance sa
-                JOIN circle_enrollments ce ON ce.id=sa.enrollment_id AND ce.is_trashed=FALSE
-                JOIN students s ON s.id=ce.student_id AND s.is_trashed=FALSE
-                JOIN circles c ON c.id=ce.circle_id AND c.is_trashed=FALSE
-                JOIN teachers t ON t.id=c.teacher_id AND t.is_trashed=FALSE
-                WHERE sa.is_trashed=FALSE
-                  AND sa.note IS NOT NULL AND btrim(sa.note)<>''
-                  AND (@teacher::uuid IS NULL OR t.id=@teacher)
-                  AND (@kind='all' OR @kind='student')
-
-                ORDER BY session_date DESC, marked_at DESC
-                LIMIT 250;
+                    SELECT 'student', sa.id, c.teacher_id, t.full_name, c.name, sa.session_date,
+                           sa.note, sa.marked_at, s.full_name, s.student_code
+                    FROM student_attendance sa
+                    JOIN circle_enrollments ce ON ce.id=sa.enrollment_id AND ce.is_trashed=FALSE
+                    JOIN students s ON s.id=ce.student_id AND s.is_trashed=FALSE
+                    JOIN circles c ON c.id=ce.circle_id AND c.is_trashed=FALSE
+                    JOIN teachers t ON t.id=c.teacher_id AND t.is_trashed=FALSE
+                    WHERE sa.is_trashed=FALSE
+                      AND sa.note IS NOT NULL AND btrim(sa.note)<>''
+                      AND (@teacher::uuid IS NULL OR t.id=@teacher)
+                      AND (@kind='all' OR @kind='student')
+                ) combined
+                ORDER BY combined.session_date DESC, combined.marked_at DESC, combined.id
+                LIMIT @take OFFSET @skip;
                 """, connection))
             {
                 command.Parameters.AddWithValue("teacher", (object?)teacherId ?? DBNull.Value);
                 command.Parameters.AddWithValue("kind", filterKind);
-                await using var reader = await command.ExecuteReaderAsync(ct);
-                while (await reader.ReadAsync(ct))
+                command.Parameters.AddWithValue("take", take);
+                command.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
+                await using (var reader = await command.ExecuteReaderAsync(ct))
                 {
-                    rows.Add(new
+                    while (await reader.ReadAsync(ct))
                     {
-                        kind = reader.GetString(0),
-                        teacherId = reader.GetGuid(1),
-                        teacherName = reader.GetString(2),
-                        circleName = reader.GetString(3),
-                        date = reader.GetFieldValue<DateOnly>(4),
-                        note = reader.GetString(5),
-                        markedAt = reader.GetFieldValue<DateTimeOffset>(6),
-                        studentName = reader.IsDBNull(7) ? null : reader.GetString(7),
-                        studentCode = reader.IsDBNull(8) ? null : reader.GetString(8)
-                    });
+                        total = reader.ReadTotal();
+                        rows.Add(new
+                        {
+                            id = reader.GetGuid(1),
+                            kind = reader.GetString(0),
+                            teacherId = reader.GetGuid(2),
+                            teacherName = reader.GetString(3),
+                            circleName = reader.GetString(4),
+                            date = reader.GetFieldValue<DateOnly>(5),
+                            note = reader.GetString(6),
+                            markedAt = reader.GetFieldValue<DateTimeOffset>(7),
+                            studentName = reader.IsDBNull(8) ? null : reader.GetString(8),
+                            studentCode = reader.IsDBNull(9) ? null : reader.GetString(9)
+                        });
+                    }
                 }
+                total = await PaginationRules.EnsureTotalAsync(command, total, paged, ct);
             }
+            PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
 
             var teachers = new List<object>();
             await using (var teacherCommand = new NpgsqlCommand("SELECT id,full_name FROM teachers WHERE is_trashed=FALSE ORDER BY full_name;", connection))

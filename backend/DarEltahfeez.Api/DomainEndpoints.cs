@@ -49,6 +49,7 @@ public static partial class DomainEndpoints
         MapAdvertisingExpenses(app);
         MapOperatingExpenses(app);
         MapReports(app);
+        MapSummaries(app);
     }
 
 
