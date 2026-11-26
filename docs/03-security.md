@@ -355,3 +355,15 @@ The retired Windows desktop tooling was the only home of some operational checks
 - **1.3:** `meet.bot.control` was missing from the legacy catalog served to the admin Users screen and from the frontend labels. It is added; a regression compares the legacy catalog, the modular `PermissionCodes` catalog, the frontend label/group keys and the `/api/admin/permissions` response as one set. Regression: `tier1-permission-catalog`.
 - **1.4:** migration `034_teacher_attendance_partial_unique.sql` replaces the non-partial `UNIQUE(schedule_slot_id, session_date)` with a partial unique index over live rows, so an undone (trashed) attendance row no longer blocks re-marking the session. Regression: `tier1-attendance-unique`.
 - **NOT VERIFIED:** the live worker timer, a real browser download, production migration of 034, and whether the production permission seed rows already include `meet.bot.control` (migration 027 does).
+## 24. Overnight Tier-1 batch 2/3: money audit, migration cleanup, auto-link, checksum, Cairo date, OTP consume
+
+- **1.6:** JSON payment/charge creation now write their `audit_log` row inside the same database transaction as the money row (receipt-path payments already did). A rejected create writes no audit. Regression: `tier1-money-audit`.
+- **1.8:** migration `035_schedule_locks_cleanup.sql` replaces the 025 timetable guard functions without the legacy global advisory lock; per-teacher locks remain. The live `dar_void_payment` remains the 031 subscription-aware version (024 is superseded history). Regression: `tier1-migration-cleanup`.
+- **1.9:** circle auto-link requires a whole-word phrase; a short name inside another word no longer scores 100, and two exact matches are not auto-linked. Regression: `MeetMatcherAmbiguityTests`.
+- **1.10:** Telegram HTML mode now escapes title/body/code. Regression: `MeetTelegramEscapingTests`.
+- **1.11:** new students get the Africa/Cairo server day (legacy and modular). Regression: `tier1-student-joined`.
+- **1.12:** escaped unique violations become 409 in the legacy global error handler. Regression: `tier1-unique-race`.
+- **1.15 (partial):** OTP verification consumes the code with one atomic conditional UPDATE, so two concurrent verifications cannot both succeed; attempts are already incremented atomically. OAuth state replay/revoke and SMTP queue remain blocked (Google credentials/SMTP queue design).
+- **1.16:** migration checksums normalize CRLF/LF before SHA-256. Regression: `MigrationChecksumTests`.
+- **1.17 (partial):** Secretariat student page has a deterministic `id` tie-break; unifying the two pagination envelopes is blocked on a cross-app contract decision.
+- **1.5:** with-schedule PUT replaces live slots (soft-deletes old ones), trashed operating expenses reject PUT. Regression: `tier1-circle-schedule`, `tier1-expense-trashed`.
