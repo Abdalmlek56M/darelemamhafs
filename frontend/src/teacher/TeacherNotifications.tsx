@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Bell, CheckCircle2, RefreshCw } from 'lucide-react'
-import type { AppNotification, NotificationsResponse } from './teacherTypes'
+import { teacherApi } from './teacherApi'
+import type { AppNotification } from './teacherTypes'
+import Pager from '../components/common/Pager'
+import { usePagedResource } from '../hooks/usePagedResource'
 
 type Props = {
-  data: NotificationsResponse | null
   loading: boolean
   error: string | null
   canResolve: boolean
@@ -13,6 +15,7 @@ type Props = {
   onReadAll: () => void
   onResolve: (id: string, note: string) => Promise<void>
   onAction: (url: string) => void
+  onUnreadChange?: (unread: number) => void
 }
 
 const categories = [
@@ -23,17 +26,27 @@ const categories = [
   { id: 'system', label: 'النظام' },
 ]
 
-export default function TeacherNotifications({ data, loading, error, canResolve, busy, onRefresh, onRead, onReadAll, onResolve, onAction }: Props) {
+export default function TeacherNotifications({ loading, error, canResolve, busy, onRefresh, onRead, onReadAll, onResolve, onAction, onUnreadChange }: Props) {
   const [category, setCategory] = useState('all')
   const [status, setStatus] = useState<'open' | 'resolved' | 'all'>('all')
   const [resolving, setResolving] = useState<string | null>(null)
   const [note, setNote] = useState('')
+  const unreadChange = useRef(onUnreadChange)
+  unreadChange.current = onUnreadChange
 
-  const items = useMemo(() => {
-    return (data?.notifications ?? []).filter((item) =>
-      (category === 'all' || item.category === category) &&
-      (status === 'all' || item.status === status))
-  }, [data, category, status])
+  const fetchNotifications = useCallback(async (page: number, pageSize: number) => {
+    const response = await teacherApi.notificationsPage({ status, page, pageSize })
+    unreadChange.current?.(response.data.counts.unread)
+    return { items: response.data.notifications, meta: response.meta }
+  }, [status])
+  const notificationsPage = usePagedResource<AppNotification>({ fetcher: fetchNotifications, deps: [status] })
+
+  const items = useMemo(
+    () => notificationsPage.items.filter((item) => category === 'all' || item.category === category),
+    [notificationsPage.items, category],
+  )
+
+  const refresh = () => { notificationsPage.reload(); onRefresh() }
 
   const resolve = async (item: AppNotification) => {
     if (!note.trim()) return
@@ -41,15 +54,19 @@ export default function TeacherNotifications({ data, loading, error, canResolve,
       await onResolve(item.id, note.trim())
       setResolving(null)
       setNote('')
+      refresh()
     } catch { /* the parent shows the error */ }
   }
+
+  const displayLoading = loading || notificationsPage.loading
+  const displayError = error ?? notificationsPage.error
 
   return (
     <div className="t-page">
       <header className="t-subheader">
         <span className="t-icon-button"><Bell size={20} /></span>
         <div><span className="t-eyebrow">مركز التنبيهات</span><h1>التنبيهات</h1></div>
-        <button className="t-icon-button" aria-label="تحديث" onClick={onRefresh} disabled={loading}><RefreshCw size={18} /></button>
+        <button className="t-icon-button" aria-label="تحديث" onClick={refresh} disabled={displayLoading}><RefreshCw size={18} /></button>
       </header>
 
       <div className="t-filter-row">
@@ -63,12 +80,12 @@ export default function TeacherNotifications({ data, loading, error, canResolve,
             {value === 'open' ? 'مفتوح' : value === 'resolved' ? 'تم الحل' : 'الكل'}
           </button>
         ))}
-        <button className="t-filter" onClick={onReadAll} disabled={busy}>تحديد الكل كمقروء</button>
+        <button className="t-filter" onClick={() => { onReadAll(); refresh() }} disabled={busy}>تحديد الكل كمقروء</button>
       </div>
 
-      {loading && !data && <div className="t-empty">جارٍ تحميل التنبيهات…</div>}
-      {error && <p className="t-error">{error}</p>}
-      {items.length === 0 && !loading && <div className="t-empty">لا توجد تنبيهات في هذا التصنيف.</div>}
+      {displayLoading && notificationsPage.items.length === 0 && <div className="t-empty">جارٍ تحميل التنبيهات…</div>}
+      {displayError && <p className="t-error">{displayError}</p>}
+      {items.length === 0 && !displayLoading && <div className="t-empty">لا توجد تنبيهات في هذا التصنيف.</div>}
 
       <div className="t-notifications">
         {items.map((item) => (
@@ -81,7 +98,7 @@ export default function TeacherNotifications({ data, loading, error, canResolve,
             {item.resolutionNote && <p className="t-note">الإغلاق: {item.resolutionNote}</p>}
             <div className="t-notification-actions">
               {item.actionUrl && <button className="t-text-button" onClick={() => { onRead(item.id); onAction(item.actionUrl!) }}>فتح</button>}
-              {!item.readAt && <button className="t-text-button" onClick={() => onRead(item.id)}>تحديد كمقروء</button>}
+              {!item.readAt && <button className="t-text-button" onClick={() => { onRead(item.id); refresh() }}>تحديد كمقروء</button>}
               {canResolve && item.status === 'open' && item.category !== 'payment' && (
                 <button className="t-text-button" onClick={() => setResolving(resolving === item.id ? null : item.id)}>إغلاق المشكلة</button>
               )}
@@ -98,6 +115,15 @@ export default function TeacherNotifications({ data, loading, error, canResolve,
           </article>
         ))}
       </div>
+
+      <Pager
+        page={notificationsPage.page}
+        pageSize={notificationsPage.pageSize}
+        total={notificationsPage.meta.total}
+        onPageChange={notificationsPage.setPage}
+        buttonClassName="t-secondary"
+        label="تنبيه"
+      />
 
       <p className="t-footnote">التنبيهات تبقى مفتوحة حتى تُحل المشكلة نفسها — مجرد القراءة لا تغلقها. تنبيه الاشتراك يُغلق تلقائيًا عند سداد المبلغ بالكامل.</p>
     </div>

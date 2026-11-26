@@ -218,6 +218,20 @@ export const teacherApi = {
   supervisorRequestsPage: (params: { status: string; page: number; pageSize: number }) =>
     requestPage<{ count: number; requests: SupervisorAttendanceRequest[] }>(
       `/api/v1/supervisor/requests?status=${encodeURIComponent(params.status)}&page=${params.page}&pageSize=${params.pageSize}`),
+  notificationsPage: (params: { status: string; page: number; pageSize: number }) =>
+    requestPage<NotificationsResponse>(
+      `/api/v1/notifications?status=${encodeURIComponent(params.status)}&page=${params.page}&pageSize=${params.pageSize}`),
+  teacherHistoryPage: (params: { page: number; pageSize: number }) =>
+    requestPage<TeacherHistoryResponse>(`/api/v1/teacher/history?page=${params.page}&pageSize=${params.pageSize}`),
+  teacherRequestsPage: (params: { page: number; pageSize: number }) =>
+    requestPage<{ count: number; requests: AttendanceRequest[] }>(
+      `/api/v1/teacher/requests?page=${params.page}&pageSize=${params.pageSize}`),
+  supervisorTeacherNotesPage: (params: { kind?: string; teacherId?: string; page: number; pageSize: number }) => {
+    const query = new URLSearchParams({ page: String(params.page), pageSize: String(params.pageSize) })
+    if (params.kind && params.kind !== 'all') query.set('kind', params.kind)
+    if (params.teacherId) query.set('teacherId', params.teacherId)
+    return requestPage<SupervisorTeacherNotesResponse>(`/api/v1/supervisor/teacher-notes?${query.toString()}`)
+  },
   teacherCalendar: (from?: string, days = 7) => {
     const params = new URLSearchParams({ days: String(days) })
     if (from) params.set('from', from)

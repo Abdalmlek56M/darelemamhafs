@@ -75,4 +75,31 @@ describe('teacher portal pagination', () => {
     expect(requests.data.requests).toHaveLength(1)
     expect(requests.meta.total).toBe(6)
   })
+
+  it('requests teacher notifications, history, requests and notes pages', async () => {
+    mockFetch({ counts: { open: 2, unread: 1 }, notifications: [{ id: 'n1' }] }, {
+      'X-Total-Count': '7', 'X-Page': '2', 'X-Page-Size': '25', 'X-Truncated': 'false',
+    })
+    const notifications = await teacherApi.notificationsPage({ status: 'all', page: 2, pageSize: 25 })
+    expect(notifications.data.notifications).toHaveLength(1)
+    expect(notifications.meta).toEqual({ page: 2, pageSize: 25, total: 7, truncated: false })
+
+    mockFetch({ sessions: [{ id: 's1' }], attendance: [{ id: 'a1' }], logins: [], sessionTotal: 9, attendanceTotal: 8 }, {
+      'X-Total-Count': '9', 'X-Page': '1', 'X-Page-Size': '25',
+    })
+    const history = await teacherApi.teacherHistoryPage({ page: 1, pageSize: 25 })
+    expect(history.data.sessionTotal).toBe(9)
+    expect(history.data.attendanceTotal).toBe(8)
+    expect(history.meta.total).toBe(9)
+
+    mockFetch({ count: 1, requests: [{ id: 'r1' }] }, { 'X-Total-Count': '11' })
+    const teacherRequests = await teacherApi.teacherRequestsPage({ page: 1, pageSize: 25 })
+    expect(teacherRequests.data.requests).toHaveLength(1)
+    expect(teacherRequests.meta.total).toBe(11)
+
+    mockFetch({ count: 1, notes: [{ id: 'x1' }], banner: 'ملاحظة' }, { 'X-Total-Count': '13' })
+    const notes = await teacherApi.supervisorTeacherNotesPage({ kind: 'session', page: 1, pageSize: 25 })
+    expect(notes.data.notes).toHaveLength(1)
+    expect(notes.meta.total).toBe(13)
+  })
 })

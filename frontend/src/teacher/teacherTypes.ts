@@ -233,6 +233,7 @@ export type SupervisorSubscription = {
 }
 
 export type SupervisorTeacherNote = {
+  id: string
   kind: 'session' | 'student'
   teacherId: string
   teacherName: string

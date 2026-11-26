@@ -68,4 +68,6 @@ export type TeacherHistoryResponse = {
   sessions: TeacherHistorySession[]
   attendance: TeacherHistoryAttendance[]
   logins: TeacherHistoryLogin[]
+  sessionTotal?: number
+  attendanceTotal?: number
 }

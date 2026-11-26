@@ -1,37 +1,30 @@
+import { useCallback, useState, type FormEvent } from 'react'
 import { formatTime12 } from '../lib/dates'
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { CalendarPlus, RefreshCw, XCircle } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { AttendanceRequest, TodayResponse } from './teacherTypes'
 import { dateLabel } from './supervisorFormat'
+import Pager from '../components/common/Pager'
+import { usePagedResource } from '../hooks/usePagedResource'
 
 type Props = { today: TodayResponse | null }
 type RequestType = 'absence' | 'cancellation' | 'correction'
 
 export default function TeacherRequests({ today }: Props) {
-  const [requests, setRequests] = useState<AttendanceRequest[]>([])
   const [type, setType] = useState<RequestType>('absence')
   const [slotId, setSlotId] = useState('')
   const [reason, setReason] = useState('')
   const [duration, setDuration] = useState('60')
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      setRequests((await teacherApi.teacherRequests()).requests)
-    } catch (err) {
-      setError(err instanceof TeacherApiError ? err.message : 'تعذر تحميل الطلبات.')
-    } finally {
-      setLoading(false)
-    }
+  const fetchRequests = useCallback(async (page: number, pageSize: number) => {
+    const response = await teacherApi.teacherRequestsPage({ page, pageSize })
+    return { items: response.data.requests, meta: response.meta }
   }, [])
-
-  useEffect(() => { void load() }, [load])
+  const requestsPage = usePagedResource<AttendanceRequest>({ fetcher: fetchRequests, deps: [] })
+  const requests = requestsPage.items
 
   const slots = today?.slots ?? []
   const needsAttendance = type === 'correction'
@@ -59,7 +52,7 @@ export default function TeacherRequests({ today }: Props) {
       }
       setReason('')
       setNotice('تم إرسال الطلب إلى المشرفة.')
-      await load()
+      requestsPage.reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر إرسال الطلب.')
     } finally {
@@ -70,7 +63,7 @@ export default function TeacherRequests({ today }: Props) {
   const cancel = async (id: string) => {
     try {
       await teacherApi.cancelTeacherRequest(id)
-      await load()
+      requestsPage.reload()
     } catch (err) {
       setError(err instanceof TeacherApiError ? err.message : 'تعذر إلغاء الطلب.')
     }
@@ -81,7 +74,7 @@ export default function TeacherRequests({ today }: Props) {
       <header className="t-subheader">
         <span className="t-icon-button"><CalendarPlus size={20} /></span>
         <div><span className="t-eyebrow">طلبات الحضور</span><h1>طلباتي</h1></div>
-        <button className="t-icon-button" aria-label="تحديث" onClick={() => void load()} disabled={loading}><RefreshCw size={18} /></button>
+        <button className="t-icon-button" aria-label="تحديث" onClick={requestsPage.reload} disabled={requestsPage.loading}><RefreshCw size={18} /></button>
       </header>
 
       <form className="t-note-form" onSubmit={submit}>
@@ -116,10 +109,11 @@ export default function TeacherRequests({ today }: Props) {
         <button className="t-primary" type="submit" disabled={saving || !choices.length}>{saving ? 'جارٍ الإرسال…' : 'إرسال الطلب'}</button>
       </form>
 
-      <div className="t-section-title"><strong>طلباتي السابقة</strong><span>{requests.length}</span></div>
+      <div className="t-section-title"><strong>طلباتي السابقة</strong><span>{requestsPage.meta.total}</span></div>
       <div className="t-list">
-        {loading && requests.length === 0 && <div className="t-empty">جارٍ تحميل الطلبات…</div>}
-        {!loading && requests.length === 0 && <div className="t-empty">لا توجد طلبات بعد.</div>}
+        {requestsPage.loading && requests.length === 0 && <div className="t-empty">جارٍ تحميل الطلبات…</div>}
+        {!requestsPage.loading && requests.length === 0 && <div className="t-empty">لا توجد طلبات بعد.</div>}
+        {requestsPage.error && <p className="t-error">{requestsPage.error}</p>}
         {requests.map((request) => (
           <article className="t-row" key={request.id}>
             <div className="t-row-copy">
@@ -136,6 +130,15 @@ export default function TeacherRequests({ today }: Props) {
           </article>
         ))}
       </div>
+
+      <Pager
+        page={requestsPage.page}
+        pageSize={requestsPage.pageSize}
+        total={requestsPage.meta.total}
+        onPageChange={requestsPage.setPage}
+        buttonClassName="t-secondary"
+        label="طلب"
+      />
 
       <p className="t-footnote">الطلبات تراجعها المشرفة. التصحيح يحتاج موافقة قبل تطبيقه.</p>
     </div>

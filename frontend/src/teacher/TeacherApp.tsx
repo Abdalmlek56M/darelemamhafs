@@ -483,7 +483,6 @@ export default function TeacherApp({ mode }: Props) {
         )}
         {page === 'notifications' && (
           <TeacherNotifications
-            data={notifications}
             loading={notifLoading}
             error={notifError}
             canResolve={canCorrect}
@@ -493,6 +492,7 @@ export default function TeacherApp({ mode }: Props) {
             onReadAll={() => void readAll()}
             onResolve={resolve}
             onAction={openAction}
+            onUnreadChange={(value) => setNotifications((current) => current ? { ...current, counts: { ...current.counts, unread: value } } : current)}
           />
         )}
         {page === 'subscriptions' && canSubscriptions && (

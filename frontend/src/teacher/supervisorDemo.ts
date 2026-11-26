@@ -165,10 +165,10 @@ export function demoCircleDetail(id: string): SupervisorCircleDetailResponse {
 }
 
 export const demoTeacherNotes: SupervisorTeacherNote[] = [
-  { kind: 'session', teacherId: 'demo-t1', teacherName: 'أسماء عمران', circleName: 'حلقة النور', date: today, note: 'بدأت في الموعد، ومجموعة التلاوة كانت ممتازة.', markedAt: new Date().toISOString(), studentName: null, studentCode: null },
-  { kind: 'student', teacherId: 'demo-t1', teacherName: 'أسماء عمران', circleName: 'حلقة النور', date: today, note: 'مريم تحتاج متابعة في أحكام المدود، تم التنبيه عليها.', markedAt: new Date().toISOString(), studentName: 'مريم أحمد', studentCode: 'ST-1001' },
-  { kind: 'student', teacherId: 'demo-t2', teacherName: 'هدى مصطفى', circleName: 'حلقة جزء تبارك', date: today, note: 'جنى كانت متعبة اليوم، تم التواصل مع ولي الأمر.', markedAt: new Date().toISOString(), studentName: 'جنى خالد', studentCode: 'ST-1005' },
-  { kind: 'session', teacherId: 'demo-t2', teacherName: 'هدى مصطفى', circleName: 'حلقة جزء تبارك', date: day(-1), note: 'تمت مراجعة الجزء كاملًا، والطالبات جاهزات للتسميع القادم.', markedAt: new Date(Date.now() - 86400000).toISOString(), studentName: null, studentCode: null },
+  { id: 'demo-note-1', kind: 'session', teacherId: 'demo-t1', teacherName: 'أسماء عمران', circleName: 'حلقة النور', date: today, note: 'بدأت في الموعد، ومجموعة التلاوة كانت ممتازة.', markedAt: new Date().toISOString(), studentName: null, studentCode: null },
+  { id: 'demo-note-2', kind: 'student', teacherId: 'demo-t1', teacherName: 'أسماء عمران', circleName: 'حلقة النور', date: today, note: 'مريم تحتاج متابعة في أحكام المدود، تم التنبيه عليها.', markedAt: new Date().toISOString(), studentName: 'مريم أحمد', studentCode: 'ST-1001' },
+  { id: 'demo-note-3', kind: 'student', teacherId: 'demo-t2', teacherName: 'هدى مصطفى', circleName: 'حلقة جزء تبارك', date: today, note: 'جنى كانت متعبة اليوم، تم التواصل مع ولي الأمر.', markedAt: new Date().toISOString(), studentName: 'جنى خالد', studentCode: 'ST-1005' },
+  { id: 'demo-note-4', kind: 'session', teacherId: 'demo-t2', teacherName: 'هدى مصطفى', circleName: 'حلقة جزء تبارك', date: day(-1), note: 'تمت مراجعة الجزء كاملًا، والطالبات جاهزات للتسميع القادم.', markedAt: new Date(Date.now() - 86400000).toISOString(), studentName: null, studentCode: null },
 ]
 
 export const demoRequests: SupervisorAttendanceRequest[] = [
