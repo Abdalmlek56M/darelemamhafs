@@ -33,7 +33,7 @@ internal static class ScopeTargetResolution
         if (path == "/api/payments" && http.Request.Method == "POST")
             return await FinanceScopeResolver.ResolvePaymentWriteAsync(connection, context);
         if (path == "/api/payments/with-receipt" && http.Request.Method == "POST")
-            return await ResolveReceiptPaymentAsync(connection, context, ct);
+            return await ResolveReceiptPaymentAsync(connection, context, http.RequestAborted);
         if (path.StartsWith("/api/payments/") && path.EndsWith("/void") && id is not null)
             return await AuditTrashScopeResolver.EntityTargetAsync(connection, "payment", id.Value);
         if (path == "/api/advertising-expenses" && http.Request.Method == "POST")
