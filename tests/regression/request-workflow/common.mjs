@@ -33,9 +33,9 @@ async function login(base, path, user) {
   const c = r.headers.getSetCookie ? r.headers.getSetCookie() : [r.headers.get('set-cookie')];
   return c.filter(Boolean).map(x => x.split(';')[0]).join('; ');
 }
-async function req(base, cookie, method, path, body) {
+async function req(base, cookie, method, path, body, extraHeaders = {}) {
   const sameOrigin = base === NEW ? { origin: NEW } : {};
-  const r = await fetch(base + path, { method, headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...sameOrigin, cookie }, body: body ? JSON.stringify(body) : undefined });
+  const r = await fetch(base + path, { method, headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...sameOrigin, ...extraHeaders, cookie }, body: body ? JSON.stringify(body) : undefined });
   return { status: r.status, text: await r.text() };
 }
 async function createUser(adminCookie, username, perms) {
