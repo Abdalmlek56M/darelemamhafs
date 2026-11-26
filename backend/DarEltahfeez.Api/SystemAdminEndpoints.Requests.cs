@@ -65,148 +65,48 @@ public static partial class SystemAdminEndpoints
 
             await using var connection = await db.OpenConnectionAsync(ct);
             await using var transaction = await connection.BeginTransactionAsync(ct);
-            string type, status, reason, payloadJson;
-            Guid teacherId, circleId, slotId, attendanceId;
-            DateOnly? requestDate, attendanceDate;
+            var actor = (Guid)DbGuid(ActorId(principal));
+            var result = await RequestReviewService.ReviewAsync(
+                connection, transaction, id, request.Approve, note, actor, null, ct);
 
-            await using (var read = new NpgsqlCommand("""
-                SELECT r.request_type,r.status,r.reason,r.teacher_id,r.circle_id,r.schedule_slot_id,r.attendance_id,r.request_date,
-                       COALESCE(r.requested_payload::text,'{}'),ta.session_date
-                FROM attendance_requests r
-                LEFT JOIN teacher_attendance ta ON ta.id=r.attendance_id
-                WHERE r.id=@id FOR UPDATE OF r;
-                """, connection, transaction))
-            {
-                read.Parameters.AddWithValue("id", id);
-                await using var reader = await read.ExecuteReaderAsync(ct);
-                if (!await reader.ReadAsync(ct))
-                {
-                    await transaction.RollbackAsync(ct);
-                    return Results.NotFound(new { message = "الطلب غير موجود." });
-                }
-                type = reader.GetString(0);
-                status = reader.GetString(1);
-                reason = reader.GetString(2);
-                teacherId = reader.GetGuid(3);
-                circleId = reader.GetGuid(4);
-                slotId = reader.IsDBNull(5) ? Guid.Empty : reader.GetGuid(5);
-                attendanceId = reader.IsDBNull(6) ? Guid.Empty : reader.GetGuid(6);
-                requestDate = reader.IsDBNull(7) ? null : reader.GetFieldValue<DateOnly>(7);
-                payloadJson = reader.GetString(8);
-                attendanceDate = reader.IsDBNull(9) ? null : reader.GetFieldValue<DateOnly>(9);
-            }
-
-            if (!RequestWorkflow.CanReview(status))
+            if (result.Outcome != RequestReviewOutcome.Ok)
             {
                 await transaction.RollbackAsync(ct);
-                return Results.Conflict(new { message = "تمت مراجعة هذا الطلب بالفعل." });
-            }
-
-            if (request.Approve)
-            {
-                var lockDate = type == "correction" ? attendanceDate : requestDate;
-                if (lockDate is not null)
+                return result.Outcome switch
                 {
-                    await using var lockCheck = new NpgsqlCommand("SELECT is_locked FROM payroll_locks WHERE billing_month=date_trunc('month',@date::date)::date;", connection, transaction);
-                    lockCheck.Parameters.AddWithValue("date", lockDate.Value);
-                    if (await lockCheck.ExecuteScalarAsync(ct) is bool locked && locked)
-                    {
-                        await transaction.RollbackAsync(ct);
-                        return Results.Conflict(new { message = "مسير رواتب هذا الشهر مقفل. افتح المسير قبل اعتماد الطلب." });
-                    }
-                }
+                    RequestReviewOutcome.NotFound => Results.NotFound(new { message = "الطلب غير موجود." }),
+                    RequestReviewOutcome.Forbidden => Results.Json(new { message = "هذا الطلب خارج نطاقك." },
+                        statusCode: StatusCodes.Status403Forbidden),
+                    RequestReviewOutcome.AlreadyReviewed => Results.Conflict(
+                        new { message = "تمت مراجعة هذا الطلب بالفعل." }),
+                    RequestReviewOutcome.MissingSchedule => Results.ValidationProblem(
+                        new Dictionary<string, string[]> { ["request"] = ["بيانات الموعد ناقصة."] }),
+                    RequestReviewOutcome.MissingAttendance => Results.ValidationProblem(
+                        new Dictionary<string, string[]> { ["request"] = ["سجل الحضور غير موجود."] }),
+                    RequestReviewOutcome.InvalidDuration => Results.ValidationProblem(
+                        new Dictionary<string, string[]> { ["durationMinutes"] = ["المدة المقترحة غير صحيحة."] }),
+                    RequestReviewOutcome.InvalidStatus => Results.ValidationProblem(
+                        new Dictionary<string, string[]> { ["status"] = ["حالة الحضور المقترحة غير صحيحة."] }),
+                    RequestReviewOutcome.InvalidAmount => Results.ValidationProblem(
+                        new Dictionary<string, string[]> { ["amount"] = ["تعذر حساب الأجر."] }),
+                    RequestReviewOutcome.Locked => Results.Conflict(new { message =
+                        "مسير رواتب هذا الشهر مقفل. افتح المسير قبل اعتماد الطلب." }),
+                    _ => Results.Problem()
+                };
             }
 
-            var nextStatus = RequestWorkflow.ReviewStatus(request.Approve);
-            string? effectBefore = null;
-            string? effectAfter = null;
-            if (request.Approve)
-            {
-                effectBefore = await RequestEffectReader.ReadAsync(connection, transaction, slotId, requestDate, attendanceId, ct);
-                if (type is "absence" or "cancellation")
-                {
-                    if (slotId == Guid.Empty || requestDate is null)
-                    {
-                        await transaction.RollbackAsync(ct);
-                        return Results.ValidationProblem(new Dictionary<string, string[]> { ["request"] = ["بيانات الموعد ناقصة."] });
-                    }
-                    await RequestEffectApplier.ApplyAttendanceStatusAsync(connection, transaction, type, circleId, teacherId, slotId, requestDate.Value, note, reason, (Guid)DbGuid(ActorId(principal)), ct);
-                }
-                else if (type == "correction")
-                {
-                    if (attendanceId == Guid.Empty)
-                    {
-                        await transaction.RollbackAsync(ct);
-                        return Results.ValidationProblem(new Dictionary<string, string[]> { ["request"] = ["سجل الحضور غير موجود."] });
-                    }
-                    var payload = JsonDocument.Parse(payloadJson).RootElement;
-                    var duration = payload.TryGetProperty("durationMinutes", out var durationValue) && durationValue.TryGetInt32(out var parsed) ? parsed : 0;
-                    if (duration is < 1 or > 360)
-                    {
-                        await transaction.RollbackAsync(ct);
-                        return Results.ValidationProblem(new Dictionary<string, string[]> { ["durationMinutes"] = ["المدة المقترحة غير صحيحة."] });
-                    }
-                    var proposedNote = payload.TryGetProperty("note", out var noteValue) ? noteValue.GetString() : null;
-                    var proposedStatus = payload.TryGetProperty("status", out var statusValue) ? statusValue.GetString() : null;
-                    if (proposedStatus is not null && proposedStatus is not ("present" or "absent" or "cancelled"))
-                    {
-                        await transaction.RollbackAsync(ct);
-                        return Results.ValidationProblem(new Dictionary<string, string[]> { ["status"] = ["حالة الحضور المقترحة غير صحيحة."] });
-                    }
+            if (result.Type == "correction" && result.Correction is { } correction)
+                await InsertRequestAuditAsync(connection, transaction, ActorId(principal),
+                    principal.FindFirstValue("display_name"), "request.correction.apply",
+                    "teacher_attendance", result.AttendanceId,
+                    JsonSerializer.Serialize(new {
+                        oldDuration = correction.OldDuration,
+                        oldStatus = correction.OldStatus,
+                        newDuration = correction.NewDuration,
+                        newStatus = correction.NewStatus,
+                        amount = correction.Amount
+                    }), id, ct);
 
-                    decimal rate;
-                    int oldDuration;
-                    string oldStatus;
-                    await using (var current = new NpgsqlCommand("SELECT hourly_rate_snapshot,duration_minutes,status FROM teacher_attendance WHERE id=@id AND is_trashed=FALSE FOR UPDATE;", connection, transaction))
-                    {
-                        current.Parameters.AddWithValue("id", attendanceId);
-                        await using var reader = await current.ExecuteReaderAsync(ct);
-                        if (!await reader.ReadAsync(ct))
-                        {
-                            await transaction.RollbackAsync(ct);
-                            return Results.NotFound(new { message = "سجل الحضور غير موجود." });
-                        }
-                        rate = reader.GetDecimal(0);
-                        oldDuration = reader.GetInt32(1);
-                        oldStatus = reader.GetString(2);
-                    }
-                    if (!MoneyRules.TryCalculateTeacherPayableAmount(rate, duration, out var computedAmount))
-                    {
-                        await transaction.RollbackAsync(ct);
-                        return Results.ValidationProblem(new Dictionary<string, string[]> { ["amount"] = ["تعذر حساب الأجر."] });
-                    }
-                    // P0-5: apply the proposed attendance status together with duration/pay in this
-                    // transaction. Only a present record is paid; old requests without a status keep it.
-                    var newStatus = proposedStatus ?? oldStatus;
-                    var amount = newStatus == "present" ? computedAmount : 0m;
-                    // teacher_sessions.payable_duration_minutes allows NULL or 1..360 only.
-                    var payableDuration = newStatus == "present" ? (int?)duration : null;
-                    await RequestEffectApplier.ApplyCorrectionAsync(connection, transaction, attendanceId, duration, newStatus, amount, payableDuration, proposedNote, (Guid)DbGuid(ActorId(principal)), ct);
-                    await InsertRequestAuditAsync(connection, transaction, ActorId(principal), principal.FindFirstValue("display_name"),
-                        "request.correction.apply", "teacher_attendance", attendanceId,
-                        JsonSerializer.Serialize(new { oldDuration, oldStatus, newDuration = duration, newStatus, amount }), id, ct);
-                }
-            }
-
-            if (request.Approve)
-                effectAfter = await RequestEffectReader.ReadAsync(connection, transaction, slotId, requestDate, attendanceId, ct);
-
-            await using (var update = new NpgsqlCommand("""
-                UPDATE attendance_requests SET status=@status,reviewed_by=@reviewer,reviewed_at=now(),review_note=@note,
-                    effect_before=@effectBefore::jsonb,effect_after=@effectAfter::jsonb,updated_at=now()
-                WHERE id=@id;
-                """, connection, transaction))
-            {
-                update.Parameters.AddWithValue("id", id);
-                update.Parameters.AddWithValue("status", nextStatus);
-                update.Parameters.AddWithValue("reviewer", DbGuid(ActorId(principal)));
-                update.Parameters.Add(new NpgsqlParameter("note", NpgsqlDbType.Text) { Value = (object?)note ?? DBNull.Value });
-                update.Parameters.AddWithValue("effectBefore", (object?)effectBefore ?? DBNull.Value);
-                update.Parameters.AddWithValue("effectAfter", (object?)effectAfter ?? DBNull.Value);
-                await update.ExecuteNonQueryAsync(ct);
-            }
-
-            // P1-5: resolve the supervisor request notification in the same transaction.
             await using (var resolveNotification = new NpgsqlCommand("""
                 UPDATE notifications
                 SET status='resolved', resolved_at=now(), resolved_by=@actor, resolution_note=@note
@@ -214,20 +114,22 @@ public static partial class SystemAdminEndpoints
                 """, connection, transaction))
             {
                 resolveNotification.Parameters.AddWithValue("actor", DbGuid(ActorId(principal)));
-                resolveNotification.Parameters.AddWithValue("note", request.Approve ? "تم اعتماد الطلب." : "تم رفض الطلب.");
+                resolveNotification.Parameters.AddWithValue("note",
+                    request.Approve ? "تم اعتماد الطلب." : "تم رفض الطلب.");
                 resolveNotification.Parameters.AddWithValue("id", id);
                 await resolveNotification.ExecuteNonQueryAsync(ct);
             }
 
-            await NotifyTeacherAsync(connection, transaction, teacherId, id,
+            await NotifyTeacherAsync(connection, transaction, result.TeacherId, id,
                 request.Approve ? "تم اعتماد طلبك" : "تم رفض طلبك",
-                request.Approve ? "تمت مراجعة الطلب واعتماده." : $"تم رفض الطلب. {note ?? string.Empty}".Trim(), ct);
+                request.Approve ? "تمت مراجعة الطلب واعتماده."
+                    : $"تم رفض الطلب. {note ?? string.Empty}".Trim(), ct);
 
-            await InsertRequestAuditAsync(connection, transaction, ActorId(principal), principal.FindFirstValue("display_name"),
-                "request.review", "attendance_request", id,
-                JsonSerializer.Serialize(new { approved = request.Approve, note, type }), id, ct);
+            await InsertRequestAuditAsync(connection, transaction, ActorId(principal),
+                principal.FindFirstValue("display_name"), "request.review", "attendance_request", id,
+                JsonSerializer.Serialize(new { approved = request.Approve, note, type = result.Type }), id, ct);
             await transaction.CommitAsync(ct);
-            return Results.Ok(new { id, status = nextStatus });
+            return Results.Ok(new { id, status = result.Status });
         }).RequireAuthorization("attendance.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPost("/api/admin/requests/{id:guid}/reopen", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
