@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Npgsql;
 using Dar.Common.Pagination;
-using Dar.Modules.Teaching.Features.Shared;
 using Dar.Common.Domain;
 
 namespace Dar.Modules.Teaching.Features.Supervisor;
@@ -61,7 +60,7 @@ public static class UnpaidEndpoint
             await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                total = reader.GetInt64(11);
+                total = reader.ReadTotal();
                 rows.Add(new UnpaidRow(
                     reader.GetGuid(0), reader.GetGuid(1), reader.GetFieldValue<DateOnly>(2), reader.GetString(3), reader.GetString(4),
                     reader.IsDBNull(5) ? null : reader.GetString(5),
@@ -69,10 +68,10 @@ public static class UnpaidEndpoint
                     reader.GetDecimal(9), reader.GetDecimal(10), Money.Balance(reader.GetDecimal(9), reader.GetDecimal(10))));
             }
             await reader.DisposeAsync();
-            total = await PaginationHeaders.EnsureTotalAsync(command, total, 11, paged, ct);
+            total = await PaginationRules.EnsureTotalAsync(command, total, paged, ct);
         }
 
-        PaginationHeaders.Apply(http.Response, total, paging, rows.Count, paged);
+        PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
         return Results.Ok(new
         {
             month = billingMonth.ToString("yyyy-MM"),

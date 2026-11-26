@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Npgsql;
 using Dar.Common.Pagination;
-using Dar.Modules.Teaching.Features.Shared;
 
 namespace Dar.Modules.Teaching.Features.Supervisor;
 
@@ -68,7 +67,7 @@ public static class TeachersEndpoint
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
-            total = reader.GetInt64(9);
+            total = reader.ReadTotal();
             teachers.Add(new
             {
                 id = reader.GetGuid(0),
@@ -85,8 +84,8 @@ public static class TeachersEndpoint
 
         await reader.DisposeAsync();
 
-        total = await PaginationHeaders.EnsureTotalAsync(command, total, 9, paged, ct);
-        PaginationHeaders.Apply(http.Response, total, paging, teachers.Count, paged);
+        total = await PaginationRules.EnsureTotalAsync(command, total, paged, ct);
+        PaginationHeaderWriter.Write(http.Response, total, paging, teachers.Count, paged);
         return Results.Ok(new { count = teachers.Count, month = monthStart, teachers });
     }
 

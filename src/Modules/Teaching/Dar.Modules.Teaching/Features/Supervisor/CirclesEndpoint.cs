@@ -2,7 +2,6 @@ using System.Security.Claims;
 using System.Text.Json;
 using Npgsql;
 using Dar.Common.Pagination;
-using Dar.Modules.Teaching.Features.Shared;
 namespace Dar.Modules.Teaching.Features.Supervisor;
 public static class CirclesEndpoint
 {
@@ -62,7 +61,7 @@ public static class CirclesEndpoint
             await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                total = reader.GetInt64(8);
+                total = reader.ReadTotal();
                 circles.Add(new CircleRow(
                     reader.GetGuid(0),
                     reader.GetString(1),
@@ -74,7 +73,7 @@ public static class CirclesEndpoint
                     (int)reader.GetInt64(7)));
             }
             await reader.DisposeAsync();
-            total = await PaginationHeaders.EnsureTotalAsync(command, total, 8, paged, ct);
+            total = await PaginationRules.EnsureTotalAsync(command, total, paged, ct);
         }
 
         var schedules = new Dictionary<Guid, List<object>>();
@@ -122,7 +121,7 @@ public static class CirclesEndpoint
             };
         }).ToArray();
 
-        PaginationHeaders.Apply(http.Response, total, paging, result.Length, paged);
+        PaginationHeaderWriter.Write(http.Response, total, paging, result.Length, paged);
         return Results.Ok(new { count = result.Length, circles = result });
     }
 

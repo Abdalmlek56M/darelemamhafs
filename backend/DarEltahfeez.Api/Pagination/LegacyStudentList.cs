@@ -27,11 +27,11 @@ public static partial class DomainEndpoints
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
-            total = reader.GetInt64(16);
+            total = reader.ReadTotal();
             rows.Add(ReadStudent(reader, finance));
         }
         await reader.DisposeAsync();
-        total = await LegacyTotalAsync(cmd, total, 16, paged, ct);
+        total = await LegacyTotalAsync(cmd, total, paged, ct);
         LegacyHeaders(http, total, paging, rows.Count, paged);
         return Results.Ok(rows);
     }

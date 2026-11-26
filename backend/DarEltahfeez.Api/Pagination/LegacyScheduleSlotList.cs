@@ -33,11 +33,11 @@ public static partial class DomainEndpoints
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
-            total = reader.GetInt64(10);
+            total = reader.ReadTotal();
             rows.Add(new { id = reader.GetGuid(0), circleId = reader.GetGuid(1), circleName = reader.GetString(2), teacherId = reader.IsDBNull(3) ? (Guid?)null : reader.GetGuid(3), teacherName = reader.GetString(4), dayOfWeek = reader.GetInt16(5), startsAt = reader.GetFieldValue<TimeOnly>(6).ToString("HH:mm"), durationMinutes = reader.GetInt32(7), isActive = reader.GetBoolean(8), circleIsActive = reader.GetBoolean(9) });
         }
         await reader.DisposeAsync();
-        total = await LegacyTotalAsync(command, total, 10, paged, ct);
+        total = await LegacyTotalAsync(command, total, paged, ct);
         LegacyHeaders(http, total, paging, rows.Count, paged);
         return Results.Ok(rows);
     }

@@ -15,6 +15,6 @@ public static partial class DomainEndpoints
         PaginationHeaderWriter.Write(http.Response, total, paging, returned, paged);
 
     private static async Task<long> LegacyTotalAsync(
-        NpgsqlCommand command, long total, int ordinal, bool paged, CancellationToken ct) =>
-        await PaginationRules.EnsureTotalAsync(command, total, ordinal, paged, ct);
+        NpgsqlCommand command, long total, bool paged, CancellationToken ct) =>
+        await PaginationRules.EnsureTotalAsync(command, total, paged, ct);
 }

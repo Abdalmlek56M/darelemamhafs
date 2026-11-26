@@ -6,7 +6,6 @@ using Npgsql;
 using NpgsqlTypes;
 using Dar.Modules.Teaching.Features.Supervisor;
 using Dar.Common.Pagination;
-using Dar.Modules.Teaching.Features.Shared;
 
 namespace Dar.Modules.Teaching.Features.Requests;
 
@@ -40,7 +39,7 @@ public static class SupervisorRequestEndpoints
             LEFT JOIN teacher_attendance ta ON ta.id = r.attendance_id
             WHERE (@all OR r.circle_id = ANY(@circles))
               AND (@status = 'all' OR r.status = @status)
-            ORDER BY (r.status = 'pending') DESC, r.created_at DESC
+            ORDER BY (r.status = 'pending') DESC, r.created_at DESC, r.id
             LIMIT @take OFFSET @skip;
             """, connection);
         command.Parameters.AddWithValue("all", scope.All);
@@ -54,7 +53,7 @@ public static class SupervisorRequestEndpoints
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
-            total = reader.GetInt64(14);
+            total = reader.ReadTotal();
             rows.Add(new
             {
                 id = reader.GetGuid(0),
@@ -74,8 +73,8 @@ public static class SupervisorRequestEndpoints
             });
         }
         await reader.DisposeAsync();
-        total = await PaginationHeaders.EnsureTotalAsync(command, total, 14, paged, ct);
-        PaginationHeaders.Apply(http.Response, total, paging, rows.Count, paged);
+        total = await PaginationRules.EnsureTotalAsync(command, total, paged, ct);
+        PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
         return Results.Ok(new { count = rows.Count, requests = rows });
     }
 

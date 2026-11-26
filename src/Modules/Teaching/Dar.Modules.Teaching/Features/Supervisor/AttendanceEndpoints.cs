@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Npgsql;
 using Dar.Common.Pagination;
-using Dar.Modules.Teaching.Features.Shared;
 
 namespace Dar.Modules.Teaching.Features.Supervisor;
 
@@ -60,7 +59,7 @@ public static class AttendanceEndpoints
         {
             while (await reader.ReadAsync(ct))
             {
-                total = reader.GetInt64(14);
+                total = reader.ReadTotal();
                 var startsAt = reader.GetFieldValue<TimeOnly>(5);
                 var duration = reader.GetInt32(6);
                 var isPast = day < today || (day == today && now >= startsAt.AddMinutes(duration));
@@ -84,8 +83,8 @@ public static class AttendanceEndpoints
             }
         }
 
-        total = await PaginationHeaders.EnsureTotalAsync(command, total, 14, paged, ct);
-        PaginationHeaders.Apply(http.Response, total, paging, rows.Count, paged);
+        total = await PaginationRules.EnsureTotalAsync(command, total, paged, ct);
+        PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
         return Results.Ok(new { date = day, count = rows.Count, sessions = rows });
     }
 
@@ -145,7 +144,7 @@ public static class AttendanceEndpoints
         {
             while (await reader.ReadAsync(ct))
             {
-                total = reader.GetInt64(10);
+                total = reader.ReadTotal();
                 rows.Add(new
                 {
                     attendanceId = reader.GetGuid(0),
@@ -162,8 +161,8 @@ public static class AttendanceEndpoints
             }
         }
 
-        total = await PaginationHeaders.EnsureTotalAsync(command, total, 10, paged, ct);
-        PaginationHeaders.Apply(http.Response, total, paging, rows.Count, paged);
+        total = await PaginationRules.EnsureTotalAsync(command, total, paged, ct);
+        PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
         return Results.Ok(new { date = day, count = rows.Count, attendance = rows });
     }
 }

@@ -38,7 +38,7 @@ public static partial class DomainEndpoints
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
-            total = reader.GetInt64(15);
+            total = reader.ReadTotal();
             rows.Add(new
             {
                 id = reader.GetGuid(0),
@@ -59,7 +59,7 @@ public static partial class DomainEndpoints
             });
         }
         await reader.DisposeAsync();
-        total = await LegacyTotalAsync(command, total, 15, paged, ct);
+        total = await LegacyTotalAsync(command, total, paged, ct);
         LegacyHeaders(http, total, paging, rows.Count, paged);
         return Results.Ok(rows);
     }

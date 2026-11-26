@@ -179,4 +179,40 @@ for (const [name, basePath, total] of legacyAttendanceLists) {
   assert.equal(header(capped.headers, 'X-Truncated'), String(100 < total), name + ' capped truncated');
 }
 
+// Legacy teacher total must be COUNT(*) OVER(), not the circle_count column.
+one("INSERT INTO teachers(id,teacher_code,full_name,status,hourly_rate) SELECT gen_random_uuid(),"
+  + "'PAG-T-'||g,'Pagination Teacher '||g,'active',50 FROM generate_series(1,10) g;");
+one("INSERT INTO circles(id,circle_code,name,teacher_id,monthly_fee,is_active,starts_on) SELECT gen_random_uuid(),"
+  + "'PAG-C-'||g,'Pagination Circle '||g," + q(c.teacherId) + ",0,TRUE,DATE '2026-01-01' FROM generate_series(1,2) g;");
+const dbTeacherTotal = one('SELECT count(*) FROM teachers WHERE is_trashed=FALSE;');
+const teacherCircleCount = one('SELECT count(*) FROM circles WHERE teacher_id=' + q(c.teacherId)
+  + ' AND is_trashed=FALSE;');
+assert.equal(dbTeacherTotal, '11', 'teacher total in database');
+assert.equal(teacherCircleCount, '3', 'primary teacher circle count in database');
+
+async function getLegacyTeachers(page, size) {
+  let url = LEGACY + '/api/teachers';
+  const params = [];
+  if (page != null) params.push('page=' + page);
+  if (size != null) params.push('pageSize=' + size);
+  if (params.length) url += '?' + params.join('&');
+  const r = await fetch(url, { headers: { cookie: c.admin } });
+  return { status: r.status, headers: r.headers, body: await r.json() };
+}
+const teachersPlain = await getLegacyTeachers();
+assert.equal(teachersPlain.status, 200, 'legacy teachers status');
+assert.equal(header(teachersPlain.headers, 'X-Total-Count'), dbTeacherTotal, 'teachers total equals DB count');
+assert.equal(teachersPlain.body.length, Number(dbTeacherTotal), 'teachers rows equal DB count');
+const primaryTeacher = teachersPlain.body.find(t => t.id === c.teacherId);
+assert.equal(primaryTeacher.circleCount, 3, 'primary teacher circle_count');
+assert.notEqual(primaryTeacher.circleCount, Number(dbTeacherTotal), 'circle_count differs from total');
+const teachersPageOne = await getLegacyTeachers(1, 5);
+assert.equal(teachersPageOne.body.length, 5, 'teachers page 1 length');
+assert.equal(header(teachersPageOne.headers, 'X-Total-Count'), dbTeacherTotal);
+assert.equal(header(teachersPageOne.headers, 'X-Truncated'), 'true');
+const teachersLastPage = await getLegacyTeachers(3, 5);
+assert.equal(teachersLastPage.body.length, 1, 'teachers last page length');
+assert.equal(header(teachersLastPage.headers, 'X-Total-Count'), dbTeacherTotal);
+assert.equal(header(teachersLastPage.headers, 'X-Truncated'), 'false');
+
 console.log(JSON.stringify({ suite: 'supervisor-pagination', ok: true, cases: suites.length }));

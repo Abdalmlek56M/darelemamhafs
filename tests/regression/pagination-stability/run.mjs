@@ -25,14 +25,20 @@ one("INSERT INTO monthly_charges(id,enrollment_id,billing_month,amount_due) "
   + "SELECT gen_random_uuid(),ce.id,date_trunc('month',current_date)::date,10 "
   + "FROM circle_enrollments ce JOIN students s ON s.id=ce.student_id "
   + "WHERE s.student_code LIKE 'STB-%';");
+one("INSERT INTO attendance_requests(id,request_type,teacher_id,circle_id,schedule_slot_id,request_date,"
+  + "requested_by,reason,status,created_at) SELECT gen_random_uuid(),'absence'," + q(c.teacherId) + ","
+  + q(c.circleId) + "," + q(c.slotId) + "," + q(date) + "," + q(c.adminId)
+  + ",'Stability request','pending',TIMESTAMPTZ '2026-11-26 10:00:00+02' FROM generate_series(1,7);");
 
 const ids = sqlText => sqlText.split('\n').map(x => x.trim()).filter(Boolean);
 const studentIds = ids(one('SELECT id FROM students ORDER BY id;'));
 const attendanceIds = ids(one('SELECT id FROM student_attendance ORDER BY id;'));
 const chargeIds = ids(one('SELECT id FROM monthly_charges ORDER BY id;'));
+const requestIds = ids(one('SELECT id FROM attendance_requests ORDER BY id;'));
 assert.equal(studentIds.length, 7, 'seeded students');
 assert.equal(attendanceIds.length, 7, 'seeded attendance');
 assert.equal(chargeIds.length, 7, 'seeded charges');
+assert.equal(requestIds.length, 7, 'seeded requests');
 
 const sessionDates = ['2026-11-30', '2026-11-23', '2026-11-16', '2026-11-09', '2026-11-02'];
 const endpoints = [
@@ -48,6 +54,8 @@ const endpoints = [
     '/api/v1/supervisor/attendance/students?date=' + date, 'attendance', 7,
     row => row.attendanceId, () => attendanceIds],
   ['supervisor-unpaid', NEW, '/api/v1/supervisor/unpaid', 'unpaid', 7, row => row.chargeId, () => chargeIds],
+  ['supervisor-requests', NEW, '/api/v1/supervisor/requests?status=all', 'requests', 7,
+    row => row.id, () => requestIds],
   ['legacy-students', LEGACY, '/api/students', null, 7, row => row.id, () => studentIds],
   ['legacy-teachers', LEGACY, '/api/teachers', null, 1, row => row.id, null],
   ['legacy-circles', LEGACY, '/api/circles', null, 1, row => row.id, null],
