@@ -8,7 +8,7 @@ public readonly record struct PageRequest
 
     public int Page { get; }
     public int PageSize { get; }
-    public int Offset => (Page - 1) * PageSize;
+    public long Offset => ((long)Page - 1) * PageSize;
 
     public PageRequest(int? page = null, int? pageSize = null)
     {

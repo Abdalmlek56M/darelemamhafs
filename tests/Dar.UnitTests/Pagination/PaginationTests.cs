@@ -60,3 +60,11 @@ public sealed class PaginationTests
         Assert.False(result.HasPreviousPage);
     }
 }
+    [Fact]
+    public void PageRequest_MaxIntPage_OffsetStaysPositive()
+    {
+        var request = new PageRequest(int.MaxValue, PageRequest.MaxPageSize);
+        Assert.True(request.Offset > 0);
+        Assert.Equal(((long)int.MaxValue - 1) * PageRequest.MaxPageSize, request.Offset);
+    }
+
