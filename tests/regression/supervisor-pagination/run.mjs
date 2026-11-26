@@ -92,4 +92,39 @@ assert.equal(capped.body.length, 100, 'legacy students cap length');
 assert.equal(header(capped.headers, 'X-Page-Size'), '100');
 assert.equal(header(capped.headers, 'X-Truncated'), 'true');
 
+
+const legacyLists = [
+  ['teachers', '/api/teachers', 1],
+  ['circles', '/api/circles', 1],
+  ['schedule-slots', '/api/schedule-slots', 1]
+];
+for (const [name, path, total] of legacyLists) {
+  async function getLegacy(page, size) {
+    let url = LEGACY + path;
+    const params = [];
+    if (page != null) params.push('page=' + page);
+    if (size != null) params.push('pageSize=' + size);
+    if (params.length) url += '?' + params.join('&');
+    const r = await fetch(url, { headers: { cookie: c.admin } });
+    return { status: r.status, headers: r.headers, body: await r.json() };
+  }
+  const plain = await getLegacy();
+  assert.equal(plain.status, 200, name + ' plain');
+  assert.equal(plain.body.length, total, name + ' old shape');
+  assert.equal(header(plain.headers, 'X-Total-Count'), String(total));
+  assert.equal(header(plain.headers, 'X-Truncated'), 'false');
+  const paged = await getLegacy(1, 10);
+  assert.equal(paged.body.length, total);
+  assert.equal(header(paged.headers, 'X-Page'), '1');
+  assert.equal(header(paged.headers, 'X-Page-Size'), '10');
+  assert.equal(header(paged.headers, 'X-Truncated'), 'false');
+  const huge = await getLegacy(999, 25);
+  assert.equal(huge.body.length, 0);
+  assert.equal(header(huge.headers, 'X-Total-Count'), String(total));
+  assert.equal(header(huge.headers, 'X-Truncated'), 'false');
+  const capped = await getLegacy(1, 1000);
+  assert.equal(capped.body.length, total);
+  assert.equal(header(capped.headers, 'X-Page-Size'), '100');
+}
+
 console.log(JSON.stringify({ suite: 'supervisor-pagination', ok: true, cases: suites.length }));

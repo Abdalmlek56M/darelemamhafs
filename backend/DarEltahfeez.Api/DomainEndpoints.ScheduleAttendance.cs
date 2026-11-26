@@ -9,27 +9,7 @@ public static partial class DomainEndpoints
 {
     private static void MapScheduleAndAttendance(WebApplication app)
     {
-        app.MapGet("/api/schedule-slots", async Task<IResult> (NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            var rows = new List<object>();
-            await using var cmd = db.CreateCommand("""
-                SELECT ss.id,ss.circle_id,c.name,c.teacher_id,COALESCE(t.full_name,''),ss.day_of_week,ss.starts_at,ss.duration_minutes,ss.is_active,c.is_active
-                FROM circle_schedule_slots ss JOIN circles c ON c.id=ss.circle_id
-                LEFT JOIN teachers t ON t.id=c.teacher_id
-                WHERE ss.is_trashed=FALSE AND c.is_trashed=FALSE
-                  AND (ss.is_active=TRUE OR EXISTS(SELECT 1 FROM teacher_attendance ta WHERE ta.schedule_slot_id=ss.id AND ta.is_trashed=FALSE)
-                    OR EXISTS(SELECT 1 FROM student_attendance sa WHERE sa.schedule_slot_id=ss.id AND sa.is_trashed=FALSE))
-                ORDER BY ss.is_active DESC,ss.day_of_week,ss.starts_at,c.name;
-                """);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) rows.Add(new
-            {
-                id = reader.GetGuid(0), circleId = reader.GetGuid(1), circleName = reader.GetString(2),
-                teacherId = reader.IsDBNull(3) ? (Guid?)null : reader.GetGuid(3), teacherName = reader.GetString(4),
-                dayOfWeek = reader.GetInt16(5), startsAt = reader.GetFieldValue<TimeOnly>(6).ToString("HH:mm"), durationMinutes = reader.GetInt32(7), isActive = reader.GetBoolean(8), circleIsActive = reader.GetBoolean(9)
-            });
-            return Results.Ok(rows);
-        }).RequireAuthorization("schedule.access");
+        app.MapGet("/api/schedule-slots", (int? page, int? pageSize, HttpContext http, NpgsqlDataSource db, CancellationToken ct) => LoadLegacyScheduleSlotsAsync(page, pageSize, http, db, ct)).RequireAuthorization("schedule.access");
 
         app.MapPost("/api/schedule-slots", async Task<IResult> (ScheduleSlotWriteRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {

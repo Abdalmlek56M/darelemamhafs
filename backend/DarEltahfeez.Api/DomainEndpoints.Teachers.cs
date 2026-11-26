@@ -10,20 +10,7 @@ public static partial class DomainEndpoints
     private static void MapTeachers(WebApplication app)
     {
         var route = app.MapGroup("/api/teachers");
-        route.MapGet("", async Task<IResult> (ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            var financeVisible = CanReadFinance(principal);
-            var rows = new List<TeacherResponse>();
-            await using var cmd = db.CreateCommand("""
-                SELECT t.id,t.teacher_code,t.full_name,t.phone,t.hourly_rate,t.status,t.notes,t.created_at,t.updated_at,
-                    COALESCE((SELECT string_agg(c.name,'، ' ORDER BY c.name) FROM circles c WHERE c.teacher_id=t.id AND c.is_trashed=FALSE), '') AS circle_names,
-                    (SELECT COUNT(*) FROM circles c WHERE c.teacher_id=t.id AND c.is_trashed=FALSE) AS circle_count
-                FROM teachers t WHERE t.is_trashed=FALSE ORDER BY CASE t.status WHEN 'active' THEN 0 WHEN 'inactive' THEN 1 ELSE 2 END,t.full_name;
-                """);
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) rows.Add(ReadTeacher(reader, financeVisible));
-            return Results.Ok(rows);
-        }).RequireAuthorization("teachers.read");
+        route.MapGet("", (ClaimsPrincipal principal, int? page, int? pageSize, HttpContext http, NpgsqlDataSource db, CancellationToken ct) => LoadLegacyTeachersAsync(principal, page, pageSize, http, db, ct)).RequireAuthorization("teachers.read");
 
         route.MapGet("/{id:guid}/history", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await TeacherHistory(db, id, principal, ct))
             .RequireAuthorization("teachers.read");
