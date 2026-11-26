@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Dar.Common.Pagination;
 using Dar.Modules.Teaching.Features.Supervisor;
 using Npgsql;
 
@@ -18,12 +19,18 @@ public static class NotificationEndpoints
 
     private static async Task<IResult> List(
         string? status,
+        int? page,
+        int? pageSize,
+        HttpContext http,
         ClaimsPrincipal principal,
         NpgsqlDataSource dataSource,
         CancellationToken ct)
     {
         var userId = TeachingPrincipal.UserId(principal);
         if (userId == Guid.Empty) return Results.Unauthorized();
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
+        var take = paged ? paging.PageSize : 200;
         var isSupervisor = TeachingPrincipal.Has(principal, "supervisor.portal");
         var isAdmin = TeachingPrincipal.Has(principal, "users.manage");
         var canFinance = isAdmin || TeachingPrincipal.Has(principal, "finance.read") || TeachingPrincipal.Has(principal, "supervisor.unpaid");
@@ -32,6 +39,7 @@ public static class NotificationEndpoints
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["status"] = ["استخدم open أو resolved أو all."] });
 
         var rows = new List<object>();
+        long total = 0;
         int openCount;
         int unreadCount;
         await using var connection = await dataSource.OpenConnectionAsync(ct);
@@ -64,7 +72,7 @@ public static class NotificationEndpoints
 
         await using (var command = new NpgsqlCommand("""
             SELECT n.id, n.category, n.status, n.severity, n.title, n.body, n.action_url,
-                   n.created_at, n.resolved_at, n.resolution_note, nr.read_at
+                   n.created_at, n.resolved_at, n.resolution_note, nr.read_at, COUNT(*) OVER() AS total
             FROM notifications n
             LEFT JOIN notification_reads nr ON nr.notification_id=n.id AND nr.user_id=@user
             WHERE (n.user_id=@user OR (@supervisor AND n.role_scope='supervisor') OR (@admin AND n.role_scope IN ('supervisor','admin')))
@@ -72,8 +80,8 @@ public static class NotificationEndpoints
               AND (n.scope_circle_id IS NULL OR @scopeAll OR n.scope_circle_id = ANY(@scopeCircles))
               AND (n.scope_teacher_id IS NULL OR @scopeAll OR n.scope_teacher_id = ANY(@scopeTeachers))
               AND (@status='all' OR n.status=@status)
-            ORDER BY (n.status='open') DESC, n.created_at DESC
-            LIMIT 200;
+            ORDER BY (n.status='open') DESC, n.created_at DESC, n.id
+            LIMIT @take OFFSET @skip;
             """, connection))
         {
             command.Parameters.AddWithValue("user", userId);
@@ -84,9 +92,12 @@ public static class NotificationEndpoints
             command.Parameters.AddWithValue("scopeCircles", scope.CircleIds);
             command.Parameters.AddWithValue("scopeTeachers", scope.TeacherIds);
             command.Parameters.AddWithValue("status", filter);
+            command.Parameters.AddWithValue("take", take);
+            command.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
             await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
+                total = reader.ReadTotal();
                 rows.Add(new
                 {
                     id = reader.GetGuid(0),
@@ -102,7 +113,11 @@ public static class NotificationEndpoints
                     readAt = reader.IsDBNull(10) ? (DateTimeOffset?)null : reader.GetFieldValue<DateTimeOffset>(10)
                 });
             }
+            await reader.DisposeAsync();
+            total = await PaginationRules.EnsureTotalAsync(command, total, paged, ct);
         }
+
+        PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
 
         return Results.Ok(new { counts = new { open = openCount, unread = unreadCount }, notifications = rows });
     }

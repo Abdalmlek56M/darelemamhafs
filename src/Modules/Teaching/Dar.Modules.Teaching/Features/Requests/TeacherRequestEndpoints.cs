@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Dar.Common.Pagination;
 using Npgsql;
 
 namespace Dar.Modules.Teaching.Features.Requests;
@@ -116,6 +117,9 @@ public static class TeacherRequestEndpoints
     }
 
     public static async Task<IResult> List(
+        int? page,
+        int? pageSize,
+        HttpContext http,
         ClaimsPrincipal principal,
         NpgsqlDataSource dataSource,
         CancellationToken ct)
@@ -124,36 +128,49 @@ public static class TeacherRequestEndpoints
         if (teacherId == Guid.Empty)
             return Results.Json(new { message = "هذا الحساب غير مرتبط بمعلمة." }, statusCode: StatusCodes.Status403Forbidden);
 
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
+        var take = paged ? paging.PageSize : 100;
+
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         await using var command = new NpgsqlCommand("""
             SELECT r.id, r.request_type, c.name, r.request_date, r.reason, r.status,
-                   r.created_at, r.review_note, r.reviewed_at, r.requested_payload::text
+                   r.created_at, r.review_note, r.reviewed_at, r.requested_payload::text,
+                   COUNT(*) OVER() AS total
             FROM attendance_requests r
             JOIN circles c ON c.id = r.circle_id
             WHERE r.teacher_id = @teacher
-            ORDER BY r.created_at DESC
-            LIMIT 100;
+            ORDER BY r.created_at DESC, r.id
+            LIMIT @take OFFSET @skip;
             """, connection);
         command.Parameters.AddWithValue("teacher", teacherId);
+        command.Parameters.AddWithValue("take", take);
+        command.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
 
         var rows = new List<object>();
-        await using var reader = await command.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
+        long total = 0;
+        await using (var reader = await command.ExecuteReaderAsync(ct))
         {
-            rows.Add(new
+            while (await reader.ReadAsync(ct))
             {
-                id = reader.GetGuid(0),
-                type = reader.GetString(1),
-                circleName = reader.GetString(2),
-                date = reader.IsDBNull(3) ? (DateOnly?)null : reader.GetFieldValue<DateOnly>(3),
-                reason = reader.GetString(4),
-                status = reader.GetString(5),
-                createdAt = reader.GetFieldValue<DateTimeOffset>(6),
-                reviewNote = reader.IsDBNull(7) ? null : reader.GetString(7),
-                reviewedAt = reader.IsDBNull(8) ? (DateTimeOffset?)null : reader.GetFieldValue<DateTimeOffset>(8),
-                payload = reader.IsDBNull(9) ? null : reader.GetString(9)
-            });
+                total = reader.ReadTotal();
+                rows.Add(new
+                {
+                    id = reader.GetGuid(0),
+                    type = reader.GetString(1),
+                    circleName = reader.GetString(2),
+                    date = reader.IsDBNull(3) ? (DateOnly?)null : reader.GetFieldValue<DateOnly>(3),
+                    reason = reader.GetString(4),
+                    status = reader.GetString(5),
+                    createdAt = reader.GetFieldValue<DateTimeOffset>(6),
+                    reviewNote = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    reviewedAt = reader.IsDBNull(8) ? (DateTimeOffset?)null : reader.GetFieldValue<DateTimeOffset>(8),
+                    payload = reader.IsDBNull(9) ? null : reader.GetString(9)
+                });
+            }
         }
+        total = await PaginationRules.EnsureTotalAsync(command, total, paged, ct);
+        PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
         return Results.Ok(new { count = rows.Count, requests = rows });
     }
 

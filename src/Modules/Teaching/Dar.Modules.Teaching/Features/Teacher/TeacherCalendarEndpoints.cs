@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Claims;
+using Dar.Common.Pagination;
 using Npgsql;
 
 namespace Dar.Modules.Teaching.Features.Teacher;
@@ -93,6 +94,9 @@ public static class TeacherCalendarEndpoints
 
     public static async Task<IResult> History(
         int? limit,
+        int? page,
+        int? pageSize,
+        HttpContext http,
         ClaimsPrincipal principal,
         NpgsqlDataSource dataSource,
         CancellationToken ct)
@@ -102,12 +106,15 @@ public static class TeacherCalendarEndpoints
         if (teacherId == Guid.Empty)
             return Results.Json(new { message = "هذا الحساب غير مرتبط بمعلمة. راجع المدير." }, statusCode: StatusCodes.Status403Forbidden);
 
-        var take = Math.Clamp(limit ?? 50, 1, 100);
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
+        var take = paged ? paging.PageSize : Math.Clamp(limit ?? 50, 1, 100);
         var today = CairoTime.Today();
         var canSeeEarnings = TeachingPrincipal.Has(principal, "teacher.earnings.self");
         await using var connection = await dataSource.OpenConnectionAsync(ct);
 
         var sessions = new List<object>();
+        long sessionTotal = 0;
         await using (var command = new NpgsqlCommand("""
             SELECT ts.id, ts.session_date, c.name, ts.status, ts.started_at, ts.ended_at,
                    ts.scheduled_duration_minutes, ts.actual_duration_minutes, ts.payable_duration_minutes,
@@ -117,69 +124,82 @@ public static class TeacherCalendarEndpoints
                      WHERE ce.circle_id=ts.circle_id AND sa.schedule_slot_id=ts.schedule_slot_id
                        AND sa.session_date=ts.session_date AND sa.is_trashed=FALSE AND sa.status='present'),
                    (SELECT COUNT(*) FROM circle_enrollments ce
-                     WHERE ce.circle_id=ts.circle_id AND ce.status='active' AND ce.is_trashed=FALSE)
+                     WHERE ce.circle_id=ts.circle_id AND ce.status='active' AND ce.is_trashed=FALSE),
+                   COUNT(*) OVER() AS total
             FROM teacher_sessions ts
             JOIN circles c ON c.id=ts.circle_id AND c.is_trashed=FALSE
             WHERE ts.teacher_id=@teacher AND ts.session_date<=@today
-            ORDER BY ts.session_date DESC, ts.started_at DESC
-            LIMIT @take;
+            ORDER BY ts.session_date DESC, ts.started_at DESC, ts.id
+            LIMIT @take OFFSET @skip;
             """, connection))
         {
             command.Parameters.AddWithValue("teacher", teacherId);
             command.Parameters.AddWithValue("today", today);
             command.Parameters.AddWithValue("take", take);
-            await using var reader = await command.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
+            command.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
+            await using (var reader = await command.ExecuteReaderAsync(ct))
             {
-                sessions.Add(new
+                while (await reader.ReadAsync(ct))
                 {
-                    id = reader.GetGuid(0),
-                    date = reader.GetFieldValue<DateOnly>(1),
-                    circleName = reader.GetString(2),
-                    status = reader.GetString(3),
-                    startedAt = reader.GetFieldValue<DateTimeOffset>(4),
-                    endedAt = reader.IsDBNull(5) ? (DateTimeOffset?)null : reader.GetFieldValue<DateTimeOffset>(5),
-                    scheduledMinutes = reader.GetInt32(6),
-                    actualMinutes = reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7),
-                    payableMinutes = reader.IsDBNull(8) ? (int?)null : reader.GetInt32(8),
-                    payBasis = reader.IsDBNull(9) ? null : reader.GetString(9),
-                    overtimeMinutes = reader.GetInt32(10),
-                    undertimeMinutes = reader.GetInt32(11),
-                    note = reader.IsDBNull(12) ? null : reader.GetString(12),
-                    presentStudents = reader.GetInt64(13),
-                    totalStudents = reader.GetInt64(14)
-                });
+                    sessionTotal = reader.ReadTotal();
+                    sessions.Add(new
+                    {
+                        id = reader.GetGuid(0),
+                        date = reader.GetFieldValue<DateOnly>(1),
+                        circleName = reader.GetString(2),
+                        status = reader.GetString(3),
+                        startedAt = reader.GetFieldValue<DateTimeOffset>(4),
+                        endedAt = reader.IsDBNull(5) ? (DateTimeOffset?)null : reader.GetFieldValue<DateTimeOffset>(5),
+                        scheduledMinutes = reader.GetInt32(6),
+                        actualMinutes = reader.IsDBNull(7) ? (int?)null : reader.GetInt32(7),
+                        payableMinutes = reader.IsDBNull(8) ? (int?)null : reader.GetInt32(8),
+                        payBasis = reader.IsDBNull(9) ? null : reader.GetString(9),
+                        overtimeMinutes = reader.GetInt32(10),
+                        undertimeMinutes = reader.GetInt32(11),
+                        note = reader.IsDBNull(12) ? null : reader.GetString(12),
+                        presentStudents = reader.GetInt64(13),
+                        totalStudents = reader.GetInt64(14)
+                    });
+                }
             }
+            sessionTotal = await PaginationRules.EnsureTotalAsync(command, sessionTotal, paged, ct);
         }
 
         var attendance = new List<object>();
+        long attendanceTotal = 0;
         await using (var command = new NpgsqlCommand("""
-            SELECT ta.id, ta.session_date, c.name, ta.status, ta.duration_minutes, ta.payable_amount, ta.note, ta.marked_at
+            SELECT ta.id, ta.session_date, c.name, ta.status, ta.duration_minutes, ta.payable_amount, ta.note, ta.marked_at,
+                   COUNT(*) OVER() AS total
             FROM teacher_attendance ta
             JOIN circles c ON c.id=ta.circle_id AND c.is_trashed=FALSE
             WHERE ta.teacher_id=@teacher AND ta.session_date<=@today AND ta.is_trashed=FALSE
-            ORDER BY ta.session_date DESC, ta.marked_at DESC
-            LIMIT @take;
+            ORDER BY ta.session_date DESC, ta.marked_at DESC, ta.id
+            LIMIT @take OFFSET @skip;
             """, connection))
         {
             command.Parameters.AddWithValue("teacher", teacherId);
             command.Parameters.AddWithValue("today", today);
             command.Parameters.AddWithValue("take", take);
-            await using var reader = await command.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
+            command.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
+            await using (var reader = await command.ExecuteReaderAsync(ct))
             {
-                attendance.Add(new
+                while (await reader.ReadAsync(ct))
                 {
-                    id = reader.GetGuid(0),
-                    date = reader.GetFieldValue<DateOnly>(1),
-                    circleName = reader.GetString(2),
-                    status = reader.GetString(3),
-                    durationMinutes = reader.GetInt32(4),
-                    payableAmount = canSeeEarnings ? reader.GetDecimal(5) : (decimal?)null,
-                    note = reader.IsDBNull(6) ? null : reader.GetString(6),
-                    markedAt = reader.GetFieldValue<DateTimeOffset>(7)
-                });
+                    attendanceTotal = reader.ReadTotal();
+                    attendance.Add(new
+                    {
+                        id = reader.GetGuid(0),
+                        date = reader.GetFieldValue<DateOnly>(1),
+                        circleName = reader.GetString(2),
+                        status = reader.GetString(3),
+                        durationMinutes = reader.GetInt32(4),
+                        payableAmount = canSeeEarnings ? reader.GetDecimal(5) : (decimal?)null,
+                        note = reader.IsDBNull(6) ? null : reader.GetString(6),
+                        markedAt = reader.GetFieldValue<DateTimeOffset>(7)
+                    });
+                }
             }
+            attendanceTotal = await PaginationRules.EnsureTotalAsync(command, attendanceTotal, paged, ct);
         }
 
         var logins = new List<object>();
@@ -203,6 +223,7 @@ public static class TeacherCalendarEndpoints
             }
         }
 
-        return Results.Ok(new { sessions, attendance, logins });
+        PaginationHeaderWriter.Write(http.Response, sessionTotal, paging, sessions.Count, paged);
+        return Results.Ok(new { sessions, attendance, logins, sessionTotal, attendanceTotal });
     }
 }
