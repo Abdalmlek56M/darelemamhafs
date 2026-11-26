@@ -217,7 +217,7 @@ public static partial class DomainEndpoints
                 // replaced, old slots are soft-deleted so attendance history stays intact.
                 if (drafts.Count > 0)
                 {
-                    await using var clearSlots = new NpgsqlCommand("UPDATE circle_schedule_slots SET is_trashed=TRUE,updated_at=now() WHERE circle_id=@id AND is_trashed=FALSE;", conn, tx);
+                    await using var clearSlots = new NpgsqlCommand("UPDATE circle_schedule_slots SET is_trashed=TRUE WHERE circle_id=@id AND is_trashed=FALSE;", conn, tx);
                     clearSlots.Parameters.AddWithValue("id", id);
                     await clearSlots.ExecuteNonQueryAsync(ct);
                 }
