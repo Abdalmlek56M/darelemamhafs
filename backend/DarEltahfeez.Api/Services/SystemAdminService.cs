@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -59,6 +59,9 @@ public sealed class SystemAdminService(NpgsqlDataSource dataSource, ILogger<Syst
         ["student_notes"] = ["note_text"],
         ["teacher_notes"] = ["note_text"]
     };
+
+    /// <summary>Same validated root used when creating/downloading backups.</summary>
+    public string BackupRootPath => BackupRoot;
 
     private string BackupRoot
     {

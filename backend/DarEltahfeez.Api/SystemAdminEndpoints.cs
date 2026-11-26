@@ -348,12 +348,12 @@ public static partial class SystemAdminEndpoints
             }
         }).RequireAuthorization("backup.manage");
 
-        app.MapGet("/api/admin/backups/{id:guid}/download", async Task<IResult> (Guid id, NpgsqlDataSource db, CancellationToken ct) =>
+        app.MapGet("/api/admin/backups/{id:guid}/download", async Task<IResult> (Guid id, NpgsqlDataSource db, SystemAdminService service, CancellationToken ct) =>
         {
             await using var cmd = db.CreateCommand("SELECT backup_file_name,backup_path FROM system_backups WHERE id=@id AND status='completed';"); cmd.Parameters.AddWithValue("id", id);
             await using var r = await cmd.ExecuteReaderAsync(ct); if (!await r.ReadAsync(ct)) return Results.NotFound();
             var fileName = Path.GetFileName(r.GetString(0)); var path = Path.GetFullPath(r.GetString(1));
-            var root = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DarEltahfeez", "Backups")) + Path.DirectorySeparatorChar;
+            var root = Path.GetFullPath(service.BackupRootPath) + Path.DirectorySeparatorChar;
             if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase) || !File.Exists(path)) return Results.NotFound(new { message = "ملف النسخة الاحتياطية غير موجود في مجلد النسخ المعتمد." });
             return Results.File(path, "application/octet-stream", fileName, enableRangeProcessing: true);
         }).RequireAuthorization("backup.manage");
