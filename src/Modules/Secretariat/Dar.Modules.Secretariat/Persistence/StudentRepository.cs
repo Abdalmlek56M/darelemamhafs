@@ -75,7 +75,7 @@ public sealed class StudentRepository(NpgsqlDataSource dataSource) : IStudentRep
             parameters);
 
         var items = (await connection.QueryAsync<Student>(
-            Select + " " + filter + " ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 WHEN 'withdrawn' THEN 2 ELSE 3 END, full_name LIMIT @pageSize OFFSET @offset;",
+            Select + " " + filter + " ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 WHEN 'withdrawn' THEN 2 ELSE 3 END, full_name, id LIMIT @pageSize OFFSET @offset;",
             parameters)).AsList();
 
         return new PagedResult<Student>(items, page, pageSize, total);

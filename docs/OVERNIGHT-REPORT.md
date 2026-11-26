@@ -34,7 +34,7 @@ Last verified main: `4f65a76` (full regression PASS, unit 51/51, frontend 68 tes
 | 1.4 attendance non-partial unique | done | `0463c12` | `tier1-attendance-unique` (trashed + live row coexist; live duplicate rejected) | migration not applied to production |
 
 | 1.9 circle auto-link substring | done | `4acb564` | `MeetMatcherAmbiguityTests` | live calendar sync not run |
-| 1.16 migration checksum CRLF | in progress | pending | `MigrationChecksumTests` | production ledger not re-checked |
+| 1.16 migration checksum CRLF | done | `08ef3c8` | `MigrationChecksumTests` | production ledger not re-checked |
 | 1.17 pagination determinism/unify envelopes | partial | pending | Deterministic tie-break in Secretariat students | **BLOCKED** full envelope unify: requires contract-wide change; not attempted tonight |
 `n## Remaining
 
