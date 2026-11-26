@@ -6,7 +6,7 @@ APP="/tmp/dar-regression-$STAMP"
 UNIT_LOG="$APP/unit.log"
 PORT_OLD=6170
 PORT_NEW=6171
-PASS="$(openssl rand -hex 16 2>/dev/null || od -An -N16 -tx1 /dev/urandom | tr -d " \n")"
+PASS="Reg$(openssl rand -hex 12 2>/dev/null || od -An -N12 -tx1 /dev/urandom | tr -d " \n")Pass123"
 FAILED=0
 
 cleanup() {
@@ -145,6 +145,7 @@ run_suite tier0-idempotency tests/regression/tier0-idempotency/run.mjs q6
 run_suite tier0-profit tests/regression/tier0-profit/run.mjs q6
 run_suite tier0-meet-settings tests/regression/tier0-meet-settings/run.mjs q6
 run_suite repo-secrets tests/regression/repo-secrets/run.mjs q6
+run_suite tier0-sessions tests/regression/tier0-sessions/run.mjs q6
 run_suite backup-source tests/regression/backup-source/run.mjs generic
 echo "RESULT=$([ "$FAILED" -eq 0 ] && echo PASS || echo FAIL)"
 exit "$FAILED"
