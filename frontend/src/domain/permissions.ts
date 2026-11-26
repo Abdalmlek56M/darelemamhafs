@@ -14,7 +14,7 @@ export const permissionGroups: { label: string; codes: string[] }[] = [
   { label: 'الإشراف — الطلاب', codes: ['supervisor.students.read', 'supervisor.students.create', 'supervisor.students.edit', 'supervisor.students.delete', 'supervisor.students.notes'] },
   { label: 'الإشراف — الحلقات', codes: ['supervisor.circles.read', 'supervisor.circles.create', 'supervisor.circles.edit', 'supervisor.circles.delete'] },
   { label: 'الإشراف — المعلمات', codes: ['supervisor.teachers.read', 'supervisor.teachers.notes'] },
-  { label: 'التسجيل والمحاضرات', codes: ['meet.view', 'meet.manage', 'meet.calendar.manage', 'meet.media.view', 'meet.media.delete'] },
+  { label: 'التسجيل والمحاضرات', codes: ['meet.view', 'meet.manage', 'meet.calendar.manage', 'meet.media.view', 'meet.media.delete', 'meet.bot.control'] },
   { label: 'التقارير', codes: ['reports.finance'] },
 ]
 export const knownPermissionNames: Record<string, string> = {
@@ -28,6 +28,6 @@ export const knownPermissionNames: Record<string, string> = {
   'supervisor.students.read': 'عرض الطلاب في النطاق', 'supervisor.students.create': 'إضافة طلاب في النطاق', 'supervisor.students.edit': 'تعديل طلاب في النطاق', 'supervisor.students.delete': 'أرشفة طلاب في النطاق', 'supervisor.students.notes': 'إضافة ملاحظات الطلاب',
   'supervisor.circles.read': 'عرض الحلقات في النطاق', 'supervisor.circles.create': 'إضافة حلقات في النطاق', 'supervisor.circles.edit': 'تعديل حلقات في النطاق', 'supervisor.circles.delete': 'أرشفة حلقات في النطاق',
   'supervisor.teachers.notes': 'إضافة ملاحظات المعلمات', 'supervisor.attendance.requests': 'مراجعة طلبات الغياب والتصحيح', 'supervisor.communication': 'استخدام قوالب واتساب', 'supervisor.reports': 'تقارير الإشراف',
-  'meet.view': 'عرض التسجيل والمحاضرات', 'meet.manage': 'إدارة التسجيل وربط الحلقات', 'meet.calendar.manage': 'ربط ومزامنة تقويم Google', 'meet.media.view': 'مشاهدة تسجيلات الحلقات', 'meet.media.delete': 'حذف ملفات التسجيل يدويًا',
+  'meet.view': 'عرض التسجيل والمحاضرات', 'meet.manage': 'إدارة التسجيل وربط الحلقات', 'meet.calendar.manage': 'ربط ومزامنة تقويم Google', 'meet.media.view': 'مشاهدة تسجيلات الحلقات', 'meet.media.delete': 'حذف ملفات التسجيل يدويًا', 'meet.bot.control': 'التحكم في بوت التسجيل',
   'reports.finance': 'الأقسام المالية في التقارير',
 }
