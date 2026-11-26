@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Npgsql;
+using Dar.Common.Pagination;
+using Dar.Modules.Teaching.Features.Shared;
 
 namespace Dar.Modules.Teaching.Features.Supervisor;
 
@@ -18,6 +20,9 @@ public static class CirclesEndpoint
 
     public static async Task<IResult> List(
         string? search,
+        int? page,
+        int? pageSize,
+        HttpContext http,
         ClaimsPrincipal principal,
         NpgsqlDataSource dataSource,
         CancellationToken ct)
@@ -27,20 +32,25 @@ public static class CirclesEndpoint
         var canFinance = TeachingPrincipal.Has(principal, "finance.read");
         var term = (search ?? string.Empty).Trim();
         var like = $"%{term}%";
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
+        var take = paged ? paging.PageSize : 300;
 
         var circles = new List<CircleRow>();
+        long total = 0;
         await using (var command = new NpgsqlCommand("""
             SELECT c.id, c.name, c.teacher_id, t.full_name, c.is_active, c.starts_on,
                    CASE WHEN @finance THEN c.monthly_fee ELSE NULL END,
                    (SELECT COUNT(*) FROM circle_enrollments ce
-                     WHERE ce.circle_id = c.id AND ce.is_trashed = FALSE AND ce.status = 'active') AS students
+                     WHERE ce.circle_id = c.id AND ce.is_trashed = FALSE AND ce.status = 'active') AS students,
+                   COUNT(*) OVER() AS total
             FROM circles c
             LEFT JOIN teachers t ON t.id = c.teacher_id AND t.is_trashed = FALSE
             WHERE c.is_trashed = FALSE
               AND (@all OR c.id = ANY(@circles))
               AND (@search = '' OR c.name ILIKE @like OR COALESCE(t.full_name, '') ILIKE @like)
             ORDER BY c.name
-            LIMIT 300;
+            LIMIT @take OFFSET @skip;
             """, connection))
         {
             command.Parameters.AddWithValue("finance", canFinance);
@@ -48,10 +58,13 @@ public static class CirclesEndpoint
             command.Parameters.AddWithValue("circles", scope.CircleIds);
             command.Parameters.AddWithValue("search", term);
             command.Parameters.AddWithValue("like", like);
+            command.Parameters.AddWithValue("take", take);
+            command.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
 
             await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
+                total = reader.GetInt64(8);
                 circles.Add(new CircleRow(
                     reader.GetGuid(0),
                     reader.GetString(1),
@@ -109,6 +122,7 @@ public static class CirclesEndpoint
             };
         }).ToArray();
 
+        PaginationHeaders.Apply(http.Response, total, paging, result.Length);
         return Results.Ok(new { count = result.Length, circles = result });
     }
 

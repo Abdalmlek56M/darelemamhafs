@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using Npgsql;
+using Dar.Common.Pagination;
+using Dar.Modules.Teaching.Features.Shared;
 
 namespace Dar.Modules.Teaching.Features.Supervisor;
 
@@ -7,6 +9,9 @@ public static class TeachersEndpoint
 {
     public static async Task<IResult> List(
         string? search,
+        int? page,
+        int? pageSize,
+        HttpContext http,
         ClaimsPrincipal principal,
         NpgsqlDataSource dataSource,
         CancellationToken ct)
@@ -18,6 +23,9 @@ public static class TeachersEndpoint
         var monthStart = new DateOnly(today.Year, today.Month, 1);
         var term = (search ?? string.Empty).Trim();
         var like = $"%{term}%";
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
+        var take = paged ? paging.PageSize : 300;
 
         await using var command = new NpgsqlCommand("""
             SELECT t.id, t.full_name, t.phone, t.status,
@@ -36,13 +44,14 @@ public static class TeachersEndpoint
                    (SELECT COUNT(*) FROM teacher_attendance ta
                      WHERE ta.teacher_id = t.id AND ta.is_trashed = FALSE
                        AND ta.session_date BETWEEN @from AND @to
-                       AND ta.status IN ('absent', 'cancelled')) AS missed_count
+                       AND ta.status IN ('absent', 'cancelled')) AS missed_count,
+                   COUNT(*) OVER() AS total
             FROM teachers t
             WHERE t.is_trashed = FALSE
               AND (@all OR t.id = ANY(@teachers))
               AND (@search = '' OR t.full_name ILIKE @like OR COALESCE(t.phone, '') ILIKE @like)
             ORDER BY t.full_name
-            LIMIT 300;
+            LIMIT @take OFFSET @skip;
             """, connection);
         command.Parameters.AddWithValue("finance", canFinance);
         command.Parameters.AddWithValue("all", scope.All);
@@ -51,11 +60,15 @@ public static class TeachersEndpoint
         command.Parameters.AddWithValue("like", like);
         command.Parameters.AddWithValue("from", monthStart);
         command.Parameters.AddWithValue("to", today);
+        command.Parameters.AddWithValue("take", take);
+        command.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
 
         var teachers = new List<object>();
+        long total = 0;
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
+            total = reader.GetInt64(9);
             teachers.Add(new
             {
                 id = reader.GetGuid(0),
@@ -70,6 +83,7 @@ public static class TeachersEndpoint
             });
         }
 
+        PaginationHeaders.Apply(http.Response, total, paging, teachers.Count);
         return Results.Ok(new { count = teachers.Count, month = monthStart, teachers });
     }
 

@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Npgsql;
 using Dar.Common.Domain;
+using Dar.Common.Pagination;
+using Dar.Modules.Teaching.Features.Shared;
 
 namespace Dar.Modules.Teaching.Features.Supervisor;
 
@@ -9,6 +11,9 @@ public static class StudentsEndpoint
     public static async Task<IResult> List(
         string? search,
         Guid? circleId,
+        int? page,
+        int? pageSize,
+        HttpContext http,
         ClaimsPrincipal principal,
         NpgsqlDataSource dataSource,
         CancellationToken ct)
@@ -21,6 +26,9 @@ public static class StudentsEndpoint
 
         var term = (search ?? string.Empty).Trim();
         var like = $"%{term}%";
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
+        var take = paged ? paging.PageSize : 500;
 
         await using var command = new NpgsqlCommand("""
             SELECT s.id, s.student_code, s.full_name, s.phone, s.guardian_name, s.guardian_phone,
@@ -39,7 +47,8 @@ public static class StudentsEndpoint
                     ) p ON TRUE
                     WHERE ce2.student_id=s.id AND ce2.is_trashed=FALSE AND ce2.status IN ('active','paused')
                       AND (@all OR c2.id = ANY(@circles))) AS subscription_status,
-                   COALESCE(array_agg(DISTINCT c.name) FILTER (WHERE c.id IS NOT NULL), ARRAY[]::text[]) AS circles
+                   COALESCE(array_agg(DISTINCT c.name) FILTER (WHERE c.id IS NOT NULL), ARRAY[]::text[]) AS circles,
+                   COUNT(*) OVER() AS total
             FROM students s
             JOIN circle_enrollments ce ON ce.student_id = s.id AND ce.is_trashed = FALSE
                  AND ce.status IN ('active', 'paused')
@@ -51,7 +60,7 @@ public static class StudentsEndpoint
               AND (@circle::uuid IS NULL OR c.id = @circle)
             GROUP BY s.id
             ORDER BY s.full_name
-            LIMIT 500;
+            LIMIT @take OFFSET @skip;
             """, connection);
         command.Parameters.AddWithValue("all", scope.All);
         command.Parameters.AddWithValue("circles", scope.CircleIds);
@@ -60,11 +69,15 @@ public static class StudentsEndpoint
         command.Parameters.AddWithValue("circle", (object?)circleId ?? DBNull.Value);
         var today = CairoTime.Today();
         command.Parameters.AddWithValue("month", new DateOnly(today.Year, today.Month, 1));
+        command.Parameters.AddWithValue("take", take);
+        command.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
 
         var students = new List<object>();
+        long total = 0;
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
+            total = reader.GetInt64(10);
             students.Add(new
             {
                 id = reader.GetGuid(0),
@@ -80,6 +93,7 @@ public static class StudentsEndpoint
             });
         }
 
+        PaginationHeaders.Apply(http.Response, total, paging, students.Count);
         return Results.Ok(new { count = students.Count, students });
     }
 
