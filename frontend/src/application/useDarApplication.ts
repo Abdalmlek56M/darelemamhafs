@@ -8,6 +8,7 @@ import { localDateString, localDateKey, currentMonth, formatTime12 } from '../li
 import { formatDate, money } from '../lib/formatters'
 import { safeDownload, toCsv, makeReportSvg } from '../lib/reportExports'
 import { request, requestForm } from '../services/apiClient'
+import { idempotencyHeaders, newIdempotencyKey } from '../lib/idempotency'
 import { navItems } from '../domain/navigation'
 import useScheduleNotifications from './useScheduleNotifications'
 import useDarDataLoaders from './useDarDataLoaders'
@@ -100,6 +101,8 @@ export default function useDarApplication() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyNote, setHistoryNote] = useState('')
   const historyRequestRef = useRef(0)
+  const paymentIdempotencyKeyRef = useRef<string | null>(null)
+  const chargeIdempotencyKeyRef = useRef<string | null>(null)
   const teacherHistoryRequestRef = useRef(0)
   const circleRosterRequestRef = useRef(0)
   const [selectedCircle, setSelectedCircle] = useState<Circle | null>(null)
@@ -216,20 +219,80 @@ export default function useDarApplication() {
     loadCircles, loadTeachers, loadScheduleSlots, loadAttendance, loadAdvertisingExpenses, loadOperatingExpenses,
   })
 
-  const saveScheduleSlot = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSaving(true); try { await request('/api/schedule-slots', { method: 'POST', body: JSON.stringify({ circleId: scheduleForm.circleId, dayOfWeek: Number(scheduleForm.dayOfWeek), startsAt: scheduleForm.startsAt, durationMinutes: Number(scheduleForm.durationMinutes) }) }); await Promise.all([loadScheduleSlots(), loadAttendance()]); setToast({ tone: 'success', text: 'تم حفظ الموعد الأسبوعي وتحديث الحصص المتوقعة وكشف الحضور.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ موعد الحلقة.' }) } finally { setSaving(false) } }
+  const saveScheduleSlot = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setSaving(true)
+    try {
+      await request('/api/schedule-slots', { method: 'POST', body: JSON.stringify({ circleId: scheduleForm.circleId, dayOfWeek: Number(scheduleForm.dayOfWeek), startsAt: scheduleForm.startsAt, durationMinutes: Number(scheduleForm.durationMinutes) }) })
+    } catch (error) {
+      setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ موعد الحلقة.' })
+      setSaving(false)
+      return
+    }
+    setSaving(false)
+    setToast({ tone: 'success', text: 'تم حفظ الموعد الأسبوعي وتحديث الحصص المتوقعة وكشف الحضور.' })
+    try {
+      await Promise.all([loadScheduleSlots(), loadAttendance()])
+    } catch {
+      setToast({ tone: 'info', text: 'تم حفظ الموعد، لكن تعذر تحديث الجدول. اضغط تحديث للمراجعة.' })
+    }
+  }
   const removeScheduleSlot = async (slot: ScheduleSlot) => { if (!await moveRecordToTrash('schedule-slot', slot.id, `${slot.circleName} · ${weekDays[slot.dayOfWeek]} ${formatTime12(slot.startsAt)}`)) return; await Promise.all([loadScheduleSlots(), loadAttendance()]) }
   const markAttendance = async (slot: ScheduleSlot, date: string, status: AttendanceRow['status'], substituteTeacherId?: string) => { const label = status === 'present' ? 'حضور' : status === 'absent' ? 'غياب' : 'إلغاء الحصة'; const selectedTeacher = substituteTeacherId ? teachers.find(item => item.id === substituteTeacherId) : undefined; const teacherName = selectedTeacher?.fullName ?? slot.teacherName; const substituteMessage = selectedTeacher && selectedTeacher.id !== slot.teacherId ? ` كبديلة عن ${slot.teacherName}` : ''; if (!(await confirmAction({ title: 'تأكيد تسجيل الحضور', message: `تسجيل ${label} للمعلمة ${teacherName}${substituteMessage} في حلقة ${slot.circleName} يوم ${formatDate(date)}؟`, confirmLabel: 'متابعة' }))) return false; try { const saved = await request<{payableAmount:number|null;hourlyRateSnapshot:number|null;teacherName?:string;isSubstitute?:boolean}>('/api/teacher-attendance', { method: 'POST', body: JSON.stringify({ scheduleSlotId: slot.id, sessionDate: date, status, note: null, teacherId: substituteTeacherId ?? null }) }); await loadAttendance(); setToast({ tone: 'success', text: status === 'present' ? (has('finance.read') ? `تم تسجيل حضور ${saved.teacherName ?? teacherName}. المستحق لهذه الحصة ${money(saved.payableAmount)} (أجر الساعة المحفوظ ${money(saved.hourlyRateSnapshot)}).` : `تم تسجيل حضور ${saved.teacherName ?? teacherName} بنجاح.`) : `تم تسجيل ${label} ولن تُحتسب أجرة لهذه الحصة.` }); return true } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر تسجيل الحضور.' }); return false } }
   const updateAttendanceDuration = async (attendanceId: string, durationMinutes: number) => { if (!Number.isInteger(durationMinutes) || durationMinutes < 15 || durationMinutes > 360) { setToast({ tone: 'error', text: 'مدة الحصة يجب أن تكون بين 15 و360 دقيقة.' }); return }; try { const saved = await request<{ durationMinutes: number; payableAmount: number | null; status: string }>(`/api/teacher-attendance/${attendanceId}/duration`, { method: 'PUT', body: JSON.stringify({ durationMinutes }) }); await loadAttendance(); setToast({ tone: 'success', text: has('finance.read') ? `تم تعديل مدة الحضور إلى ${saved.durationMinutes} دقيقة وإعادة حساب المستحق إلى ${money(saved.payableAmount)}.` : `تم تعديل مدة الحضور إلى ${saved.durationMinutes} دقيقة بنجاح.` }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر تعديل مدة الحضور.' }) } }
   const resetAdExpenseForm = () => { setEditingAdExpenseId(null); setAdExpenseForm(blankAdExpense()) }
   const openAdExpenseEdit = (ad: AdExpense) => { if (!has('finance.edit') || !has('finance.read')) { setToast({ tone: 'error', text: 'تعديل مصروف الإعلان يحتاج صلاحية تعديل المالية وقراءتها.' }); return } setEditingAdExpenseId(ad.id); setAdExpenseForm({ circleId: ad.circleId, platform: ad.platform ?? '', startDate: ad.startDate.slice(0, 10), daysCount: String(ad.daysCount), dailyCost: String(ad.dailyCost), note: ad.note ?? '' }) }
-  const saveAdExpense = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSaving(true); try { const payload = { circleId: adExpenseForm.circleId, platform: adExpenseForm.platform.trim() || null, startDate: adExpenseForm.startDate, daysCount: Number(adExpenseForm.daysCount), dailyCost: Number(adExpenseForm.dailyCost), note: adExpenseForm.note.trim() || null }; if (editingAdExpenseId) await request(`/api/advertising-expenses/${editingAdExpenseId}`, { method: 'PUT', body: JSON.stringify(payload) }); else await request('/api/advertising-expenses', { method: 'POST', body: JSON.stringify(payload) }); resetAdExpenseForm(); await loadAdvertisingExpenses(); setToast({ tone: 'success', text: editingAdExpenseId ? 'تم تعديل مصروف الإعلان وتحديث الإجمالي والتقارير.' : 'تم حفظ مصروف الإعلان وربطه بالحلقة.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : (editingAdExpenseId ? 'تعذر تعديل مصروف الإعلان.' : 'تعذر حفظ مصروف الإعلان.') }) } finally { setSaving(false) } }
+  const saveAdExpense = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const wasEditing = Boolean(editingAdExpenseId)
+    const payload = { circleId: adExpenseForm.circleId, platform: adExpenseForm.platform.trim() || null, startDate: adExpenseForm.startDate, daysCount: Number(adExpenseForm.daysCount), dailyCost: Number(adExpenseForm.dailyCost), note: adExpenseForm.note.trim() || null }
+    setSaving(true)
+    try {
+      if (wasEditing) await request(`/api/advertising-expenses/${editingAdExpenseId}`, { method: 'PUT', body: JSON.stringify(payload) })
+      else await request('/api/advertising-expenses', { method: 'POST', body: JSON.stringify(payload) })
+    } catch (error) {
+      setToast({ tone: 'error', text: error instanceof Error ? error.message : (wasEditing ? 'تعذر تعديل مصروف الإعلان.' : 'تعذر حفظ مصروف الإعلان.') })
+      setSaving(false)
+      return
+    }
+    setSaving(false)
+    resetAdExpenseForm()
+    setToast({ tone: 'success', text: wasEditing ? 'تم تعديل مصروف الإعلان وتحديث الإجمالي والتقارير.' : 'تم حفظ مصروف الإعلان وربطه بالحلقة.' })
+    try {
+      await loadAdvertisingExpenses()
+    } catch {
+      setToast({ tone: 'info', text: 'تم حفظ مصروف الإعلان، لكن تعذر تحديث القائمة. اضغط تحديث للمراجعة.' })
+    }
+  }
   const deleteAdExpense = async (ad: AdExpense) => { if (!await moveRecordToTrash('advertising-expense', ad.id, `إعلان ${ad.circleName}`)) return; await loadAdvertisingExpenses() }
   const nextSessions = useMemo(() => getNextSessions(scheduleSlots, circles, clockNow), [scheduleSlots, circles, clockNow])
   const monthSessions = useMemo(() => getMonthSessions(scheduleSlots, attendanceRows, currentMonthValue), [scheduleSlots, attendanceRows, currentMonthValue])
   const monthlyTeacherPay = useMemo(() => getMonthlyTeacherPay(attendanceRows), [attendanceRows])
 
   const openEnrollmentCreate = (studentId = '', circleId = '', fee: number | null = 0) => { setHistory(null); setSelectedStudent(null); setSelectedCircle(null); setEnrollmentForm(blankEnrollment(studentId, circleId, fee)); setEnrollmentModal(true) }
-  const saveEnrollment = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSaving(true); try { const canEditFinancials = has('finance.read') && has('finance.edit'); const payload = { studentId: enrollmentForm.studentId, circleId: enrollmentForm.circleId, startsOn: enrollmentForm.startsOn, ...(canEditFinancials ? { agreedMonthlyFee: Number(enrollmentForm.agreedMonthlyFee) } : {}), allowClosedCircle: Boolean(enrollmentForm.allowClosedCircle) }; await request('/api/enrollments', { method: 'POST', body: JSON.stringify(payload) }); setEnrollmentModal(false); await Promise.all([loadStudents(), loadCircles(), loadCollections()]); if (selectedStudent) await openHistory(selectedStudent.id); if (selectedCircle) await openCircleDetails(selectedCircle); setToast({ tone: 'success', text: 'تم إلحاق الطالب بالحلقة وحفظ تاريخ الالتحاق.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر تسجيل الالتحاق.' }) } finally { setSaving(false) } }
+  const saveEnrollment = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setSaving(true)
+    const canEditFinancials = has('finance.read') && has('finance.edit')
+    const payload = { studentId: enrollmentForm.studentId, circleId: enrollmentForm.circleId, startsOn: enrollmentForm.startsOn, ...(canEditFinancials ? { agreedMonthlyFee: Number(enrollmentForm.agreedMonthlyFee) } : {}), allowClosedCircle: Boolean(enrollmentForm.allowClosedCircle) }
+    try {
+      await request('/api/enrollments', { method: 'POST', body: JSON.stringify(payload) })
+    } catch (error) {
+      setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر تسجيل الالتحاق.' })
+      setSaving(false)
+      return
+    }
+    setSaving(false)
+    setEnrollmentModal(false)
+    setToast({ tone: 'success', text: 'تم إلحاق الطالب بالحلقة وحفظ تاريخ الالتحاق.' })
+    try {
+      await Promise.all([loadStudents(), loadCircles(), loadCollections()])
+      if (selectedStudent) await openHistory(selectedStudent.id)
+      if (selectedCircle) await openCircleDetails(selectedCircle)
+    } catch {
+      setToast({ tone: 'info', text: 'تم تسجيل الالتحاق، لكن تعذر تحديث القوائم. اضغط تحديث للمراجعة.' })
+    }
+  }
   const endEnrollment = async (enrollmentId: string, studentId: string, studentName = 'الطالب', circleName = 'الحلقة', circleId = selectedCircle?.id ?? '') => { setEndEnrollmentDate(localDateString()); setEndingEnrollment({ enrollmentId, studentId, studentName, circleId, circleName }) }
   const refreshEnrollmentViews = async (circleId: string, studentId?: string) => {
     await Promise.all([loadStudents(), loadCircles(), loadCollections()])
@@ -279,8 +342,33 @@ export default function useDarApplication() {
     finally { setSaving(false) }
   }
 
-  const openChargeCreate = (row: CollectionRow) => { closeDetailLayers(); setEditingChargeId(null); setChargeForm(blankCharge(row.enrollmentId, currentMonthValue, getSuggestedMonthlyCharge(row))); setChargeModal(true) }
-  const saveCharge = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSaving(true); try { if (editingChargeId) await request(`/api/charges/${editingChargeId}`, { method: 'PUT', body: JSON.stringify({ amountDue: Number(chargeForm.amountDue), note: chargeForm.note.trim() || null }) }); else await request('/api/charges', { method: 'POST', body: JSON.stringify({ ...chargeForm, amountDue: Number(chargeForm.amountDue) }) }); setChargeModal(false); setEditingChargeId(null); await loadCollections(); setToast({ tone: 'success', text: editingChargeId ? 'تم تعديل الاستحقاق.' : 'تم تسجيل استحقاق الشهر للحلقة والطالب.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ الاستحقاق.' }) } finally { setSaving(false) } }
+  const openChargeCreate = (row: CollectionRow) => { closeDetailLayers(); setEditingChargeId(null); chargeIdempotencyKeyRef.current = newIdempotencyKey(); setChargeForm(blankCharge(row.enrollmentId, currentMonthValue, getSuggestedMonthlyCharge(row))); setChargeModal(true) }
+  const saveCharge = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const editing = Boolean(editingChargeId)
+    const key = chargeIdempotencyKeyRef.current ??= newIdempotencyKey()
+    setSaving(true)
+    try {
+      if (editing) {
+        await request(`/api/charges/${editingChargeId}`, { method: 'PUT', body: JSON.stringify({ amountDue: Number(chargeForm.amountDue), note: chargeForm.note.trim() || null }) })
+      } else {
+        await request('/api/charges', { method: 'POST', headers: idempotencyHeaders(key), body: JSON.stringify({ ...chargeForm, amountDue: Number(chargeForm.amountDue) }) })
+      }
+    } catch (error) {
+      setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ الاستحقاق.' })
+      setSaving(false)
+      return
+    }
+    setSaving(false)
+    setChargeModal(false)
+    setEditingChargeId(null)
+    setToast({ tone: 'success', text: editing ? 'تم تعديل الاستحقاق.' : 'تم تسجيل استحقاق الشهر للحلقة والطالب.' })
+    try {
+      await loadCollections()
+    } catch {
+      setToast({ tone: 'info', text: 'تم حفظ الاستحقاق، لكن تعذر تحديث القائمة. اضغط تحديث للمراجعة.' })
+    }
+  }
   const openVoidCharge = (chargeId: string, label: string, studentId?: string) => {
     if (!has(FINANCE_VOID_PERMISSION)) { setToast({ tone: 'error', text: 'إلغاء سجل مالي يحتاج صلاحية إلغاء السجلات المالية (finance.void). اطلبها من المدير.' }); return }
     setVoidReason('')
@@ -311,8 +399,38 @@ export default function useDarApplication() {
   }
   const deleteReport = async (report: SavedReport) => { if (!await moveRecordToTrash('collection-report', report.id, report.title)) return; await loadReports() }
 
-  const openPaymentCreate = (row: CollectionRow) => { if (!row.chargeId) return; closeDetailLayers(); setPaymentForm(blankPayment(row.chargeId, row.balance)); setPaymentModal(true) }
-  const savePayment = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setSaving(true); try { const data = { ...paymentForm, amount: Number(paymentForm.amount), paidAt: new Date().toISOString(), method: paymentForm.method || null, reference: paymentForm.reference.trim() || null, note: paymentForm.note.trim() || null }; if (paymentReceipt) { const form = new FormData(); Object.entries(data).forEach(([key,value])=>form.append(key, value == null ? '' : String(value))); form.append('receipt',paymentReceipt); await requestForm('/api/payments/with-receipt',form) } else { await request('/api/payments', { method: 'POST', body: JSON.stringify(data) }) } setPaymentModal(false); setPaymentReceipt(null); setPaymentReceiptPreview(null); await Promise.all([loadCollections(), loadStudents()]); if (selectedStudent) await openHistory(selectedStudent.id); setToast({ tone: 'success', text: paymentReceipt ? 'تم تسجيل التحصيل وحفظ صورة الإيصال داخل قاعدة البيانات.' : 'تم تسجيل مبلغ التحصيل.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر تسجيل التحصيل.' }) } finally { setSaving(false) } }
+  const openPaymentCreate = (row: CollectionRow) => { if (!row.chargeId) return; closeDetailLayers(); paymentIdempotencyKeyRef.current = newIdempotencyKey(); setPaymentForm(blankPayment(row.chargeId, row.balance)); setPaymentModal(true) }
+  const savePayment = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const key = paymentIdempotencyKeyRef.current ??= newIdempotencyKey()
+    const data = { ...paymentForm, amount: Number(paymentForm.amount), method: paymentForm.method || null, reference: paymentForm.reference.trim() || null, note: paymentForm.note.trim() || null }
+    setSaving(true)
+    try {
+      if (paymentReceipt) {
+        const form = new FormData()
+        Object.entries(data).forEach(([field, value]) => form.append(field, value == null ? '' : String(value)))
+        form.append('receipt', paymentReceipt)
+        await requestForm('/api/payments/with-receipt', form, { headers: idempotencyHeaders(key) })
+      } else {
+        await request('/api/payments', { method: 'POST', headers: idempotencyHeaders(key), body: JSON.stringify(data) })
+      }
+    } catch (error) {
+      setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر تسجيل التحصيل.' })
+      setSaving(false)
+      return
+    }
+    setSaving(false)
+    setPaymentModal(false)
+    setPaymentReceipt(null)
+    setPaymentReceiptPreview(null)
+    setToast({ tone: 'success', text: paymentReceipt ? 'تم تسجيل التحصيل وحفظ صورة الإيصال داخل قاعدة البيانات.' : 'تم تسجيل مبلغ التحصيل.' })
+    try {
+      await Promise.all([loadCollections(), loadStudents()])
+      if (selectedStudent) await openHistory(selectedStudent.id)
+    } catch {
+      setToast({ tone: 'info', text: 'تم تسجيل التحصيل، لكن تعذر تحديث القوائم. اضغط تحديث للمراجعة.' })
+    }
+  }
 
   const createReport = async () => { setSaving(true); try { await request('/api/collection-reports', { method: 'POST', body: JSON.stringify({ billingMonth: currentMonthValue, title: `تقرير تحصيل ${currentMonthValue}` }) }); await loadReports(); setToast({ tone: 'success', text: 'تم حفظ نسخة ثابتة من تقرير التحصيل في النظام.' }) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر حفظ التقرير.' }) } finally { setSaving(false) } }
   const openSavedReport = async (report: SavedReport) => { try { setReportView(await request<ReportSnapshot>(`/api/collection-reports/${report.id}`)) } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر فتح التقرير المحفوظ.' }) } }

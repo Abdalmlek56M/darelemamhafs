@@ -71,10 +71,10 @@ export async function requestPage<T>(path: string, init?: RequestInit, fallbackP
   return { data, meta: parsePageMeta(response.headers, returned, fallbackPageSize) }
 }
 
-export async function requestForm<T>(path: string, form: FormData): Promise<T> {
+export async function requestForm<T>(path: string, form: FormData, init?: RequestInit): Promise<T> {
   let response: Response
   try {
-    response = await fetch(api(path), { method: 'POST', body: form, credentials: 'include', cache: 'no-store' })
+    response = await fetch(api(path), { ...init, method: 'POST', body: form, credentials: 'include', cache: 'no-store' })
   } catch (error) {
     throw new ApiError(normalizeUserMessage(error instanceof Error ? error.message : null, 0), 0, 'network')
   }

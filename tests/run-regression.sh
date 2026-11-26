@@ -49,6 +49,11 @@ prepare_db() {
   sudo -u postgres createdb -O "$ROLE" "$DB" || return 1
   sudo -u postgres pg_dump -s -O -x dareltahfeez | sudo -u postgres psql -q -v ON_ERROR_STOP=1 -d "$DB" || return 1
   DBENV="Host=127.0.0.1;Port=5432;Database=$DB;Username=$ROLE;Password=$PASS"
+  # Apply post-baseline migrations to the disposable schema (production applies them via deploy).
+  for migration_file in "$ROOT"/database/03[2-9]_*.sql; do
+    [ -e "$migration_file" ] || continue
+    sudo -u postgres psql -q -v ON_ERROR_STOP=1 -d "$DB" -f "$migration_file" >/dev/null || return 1
+  done
 }
 
 start_apps() {
@@ -134,5 +139,6 @@ run_suite pagination-stability tests/regression/pagination-stability/run.mjs q6
 run_suite pagination-admin tests/regression/pagination-admin/run.mjs q6
 run_suite tier0-money tests/regression/tier0-money/run.mjs q6
 run_suite tier0-trigger tests/regression/tier0-trigger/run.mjs q6
+run_suite tier0-idempotency tests/regression/tier0-idempotency/run.mjs q6
 echo "RESULT=$([ "$FAILED" -eq 0 ] && echo PASS || echo FAIL)"
 exit "$FAILED"

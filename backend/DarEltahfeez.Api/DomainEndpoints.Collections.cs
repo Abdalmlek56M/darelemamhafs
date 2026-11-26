@@ -98,36 +98,8 @@ public static partial class DomainEndpoints
             return Results.Ok(rows);
         }).RequireAuthorization("finance.read");
 
-        app.MapPost("/api/charges",async Task<IResult> (ChargeWriteRequest request,ClaimsPrincipal principal,NpgsqlDataSource db,CancellationToken ct)=>
-        {
-            if(request.EnrollmentId==Guid.Empty||!TryMonth(request.BillingMonth,out var month))
-                return Results.ValidationProblem(new Dictionary<string,string[]>{{"charge",["حدد الالتحاق والشهر الصحيح."]}});
-            if (!MoneyRules.TryNormalizeNonNegativeCurrency(request.AmountDue, out var amountDue))
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["amountDue"] = ["المبلغ يتجاوز الحد المسموح أو لا يمكن تمثيله بدقة منزلتين عشريتين."] });
-            try
-            {
-                await using var cmd=db.CreateCommand("""
-                    INSERT INTO monthly_charges(enrollment_id,billing_month,amount_due,note)
-                    SELECT ce.id,@month,@amount,@note
-                    FROM circle_enrollments ce
-                    JOIN students s ON s.id=ce.student_id
-                    JOIN circles c ON c.id=ce.circle_id
-                    WHERE ce.id=@enrollment AND ce.is_trashed=FALSE
-                      AND s.is_trashed=FALSE AND c.is_trashed=FALSE
-                      AND ce.starts_on<=(@month+INTERVAL '1 month - 1 day')::date
-                      AND (ce.ends_on IS NULL OR ce.ends_on>=@month)
-                      AND public.dar_enrollment_has_active_day_in_month(ce.id,@month)
-                    RETURNING id;
-                    """);
-                cmd.Parameters.AddWithValue("enrollment",request.EnrollmentId);cmd.Parameters.AddWithValue("month",month);cmd.Parameters.AddWithValue("amount",amountDue);AddNullable(cmd,"note",request.Note);
-                var chargeValue = await cmd.ExecuteScalarAsync(ct);
-                if (chargeValue is null) return Results.NotFound(new { message = "سجل الالتحاق غير موجود أو موجود في سلة المهملات." });
-                var id=(Guid)chargeValue;
-                return Results.Created($"/api/charges/{id}",new{id,enrollmentId=request.EnrollmentId,billingMonth=month,amountDue=CanReadFinance(principal) ? amountDue : (decimal?)null,note=request.Note});
-            }
-            catch(PostgresException ex) when(ex.SqlState=="23505"){return Results.Conflict(new{message="تم تحديد الاستحقاق لهذا الطالب والحلقة في الشهر نفسه بالفعل."});}
-            catch(PostgresException ex) when(ex.SqlState=="23503"){return Results.NotFound(new{message="سجل الالتحاق غير موجود."});}
-        }).RequireAuthorization("finance.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
+        app.MapPost("/api/charges", (ChargeWriteRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, HttpRequest httpRequest, CancellationToken ct) =>
+            CreateChargeWithIdempotencyAsync(request, principal, db, httpRequest, ct)).RequireAuthorization("finance.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
 
         app.MapPut("/api/charges/{id:guid}", async Task<IResult> (Guid id, ChargeUpdateRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
@@ -164,34 +136,8 @@ public static partial class DomainEndpoints
             }
         }).RequireAuthorization("finance.edit", "finance.read").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
-        app.MapPost("/api/payments",async Task<IResult> (PaymentWriteRequest request,ClaimsPrincipal principal,NpgsqlDataSource db,CancellationToken ct)=>
-        {
-            if (request.MonthlyChargeId == Guid.Empty)
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["amount"] = ["حدد الاستحقاق واكتب مبلغًا صحيحًا أكبر من صفر وبحد أقصى 9,999,999,999.99 ج.م."] });
-            if (!MoneyRules.TryNormalizePaymentAmount(request.Amount, out var paymentAmount))
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["amount"] = ["حدد الاستحقاق واكتب مبلغًا صحيحًا أكبر من صفر وبحد أقصى 9,999,999,999.99 ج.م."] });
-            await using var conn=await db.OpenConnectionAsync(ct);await using var tx=await conn.BeginTransactionAsync(ct);
-            decimal due,paid;
-            await using(var check=new NpgsqlCommand("SELECT amount_due FROM monthly_charges WHERE id=@id AND is_trashed=FALSE AND voided_at IS NULL FOR UPDATE;",conn,tx))
-            {
-                check.Parameters.AddWithValue("id",request.MonthlyChargeId);var value=await check.ExecuteScalarAsync(ct);
-                if(value is null)return Results.NotFound(new{message="الاستحقاق غير موجود."});due=Convert.ToDecimal(value,System.Globalization.CultureInfo.InvariantCulture);
-            }
-            await using(var sum=new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE monthly_charge_id=@id AND is_trashed=FALSE AND voided_at IS NULL;",conn,tx))
-            {sum.Parameters.AddWithValue("id",request.MonthlyChargeId);paid=Convert.ToDecimal(await sum.ExecuteScalarAsync(ct)??0m,System.Globalization.CultureInfo.InvariantCulture);}
-            if (MoneyRules.ExceedsOutstanding(paymentAmount, due, paid))
-                return Results.Conflict(new { message = CanReadFinance(principal) ? $"المبلغ أكبر من المتبقي ({MoneyRules.RoundCurrency(due - paid):0.00}). سجّل مبلغًا مساويًا أو أقل من المتبقي." : "المبلغ يتجاوز المتبقي المسموح لهذا الاستحقاق." });
-            var paymentId=Guid.NewGuid();
-            // P0-2: the server owns paid_at; a client-supplied clock is ignored for money records.
-            var paidAt=DateTimeOffset.UtcNow;
-            await using(var insert=new NpgsqlCommand("INSERT INTO payments(id,monthly_charge_id,amount,paid_at,method,reference,note,recorded_by) VALUES(@id,@charge,@amount,@date,@method,@reference,@note,@actor);",conn,tx))
-            {
-                insert.Parameters.AddWithValue("id",paymentId);insert.Parameters.AddWithValue("charge",request.MonthlyChargeId);insert.Parameters.AddWithValue("amount",paymentAmount);
-                insert.Parameters.AddWithValue("date",paidAt);AddNullable(insert,"method",request.Method);AddNullable(insert,"reference",request.Reference);AddNullable(insert,"note",request.Note);insert.Parameters.AddWithValue("actor",ActorId(principal));await insert.ExecuteNonQueryAsync(ct);
-            }
-            await tx.CommitAsync(ct);
-            return Results.Created($"/api/payments/{paymentId}",new{id=paymentId,monthlyChargeId=request.MonthlyChargeId,amount=CanReadFinance(principal) ? paymentAmount : (decimal?)null,paidAt,method=request.Method,reference=request.Reference,note=request.Note});
-        }).RequireAuthorization("finance.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
+        app.MapPost("/api/payments", (PaymentWriteRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, HttpRequest httpRequest, CancellationToken ct) =>
+            CreatePaymentWithIdempotencyAsync(request, principal, db, httpRequest, ct)).RequireAuthorization("finance.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
         app.MapPost("/api/payments/with-receipt", async Task<IResult> (HttpRequest httpRequest, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
@@ -201,6 +147,13 @@ public static partial class DomainEndpoints
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["payment"] = ["حدد الاستحقاق ومبلغًا صحيحًا أكبر من صفر وبحد أقصى 9,999,999,999.99 ج.م."] });
             var denied = await ScopedWriteGuard.RequireEntityAsync(db, principal, "monthly-charge", chargeId, ct);
             if (denied is not null) return denied;
+            var idempotencyKey = IdempotencySupport.ReadKey(httpRequest);
+            if (idempotencyKey is not null)
+            {
+                await using var replayConnection = await db.OpenConnectionAsync(ct);
+                var existing = await IdempotencySupport.FindPaymentAsync(replayConnection, null, idempotencyKey, ct);
+                if (existing is not null) return PaymentReplayResult(existing, principal);
+            }
             if (!decimal.TryParse(form["amount"], System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var parsedAmount))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["payment"] = ["حدد الاستحقاق ومبلغًا صحيحًا أكبر من صفر وبحد أقصى 9,999,999,999.99 ج.م."] });
             if (!MoneyRules.TryNormalizePaymentAmount(parsedAmount, out var amount))
@@ -230,12 +183,22 @@ public static partial class DomainEndpoints
             if (MoneyRules.ExceedsOutstanding(amount, due, paid))
                 return Results.Conflict(new { message = CanReadFinance(principal) ? $"المبلغ أكبر من المتبقي ({MoneyRules.RoundCurrency(due - paid):0.00}). سجّل مبلغًا مساويًا أو أقل من المتبقي." : "المبلغ يتجاوز المتبقي المسموح لهذا الاستحقاق." });
             var paymentId = Guid.NewGuid();
-            await using (var insert = new NpgsqlCommand("INSERT INTO payments(id,monthly_charge_id,amount,paid_at,method,reference,note,recorded_by,receipt_file_name,receipt_content_type,receipt_data,receipt_uploaded_at) VALUES(@id,@charge,@amount,@date,@method,@reference,@note,@actor,@filename,@contenttype,@data,now());", conn, tx))
+            await using (var insert = new NpgsqlCommand("INSERT INTO payments(id,monthly_charge_id,amount,paid_at,method,reference,note,recorded_by,receipt_file_name,receipt_content_type,receipt_data,receipt_uploaded_at,client_key) VALUES(@id,@charge,@amount,@date,@method,@reference,@note,@actor,@filename,@contenttype,@data,now(),@key);", conn, tx))
             {
                 insert.Parameters.AddWithValue("id",paymentId);insert.Parameters.AddWithValue("charge",chargeId);insert.Parameters.AddWithValue("amount",amount);insert.Parameters.AddWithValue("date",paidAt);
                 AddNullable(insert,"method",method);AddNullable(insert,"reference",reference);AddNullable(insert,"note",note);insert.Parameters.AddWithValue("actor",ActorId(principal));
                 insert.Parameters.AddWithValue("filename",Path.GetFileName(receipt.FileName));insert.Parameters.AddWithValue("contenttype",contentType);insert.Parameters.AddWithValue("data",bytes);
-                await insert.ExecuteNonQueryAsync(ct);
+                AddNullable(insert,"key",idempotencyKey);
+                try { await insert.ExecuteNonQueryAsync(ct); }
+                catch (PostgresException ex) when (ex.SqlState == "23505" && idempotencyKey is not null)
+                {
+                    await tx.RollbackAsync(ct);
+                    await using var replayConnection = await db.OpenConnectionAsync(ct);
+                    var existing = await IdempotencySupport.FindPaymentAsync(replayConnection, null, idempotencyKey, ct);
+                    return existing is null
+                        ? Results.Conflict(new { message = "تم تسجيل حركة التحصيل بالفعل." })
+                        : PaymentReplayResult(existing, principal);
+                }
             }
             await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'payment.create_with_receipt','payment',@id,jsonb_build_object('chargeId',@charge,'amount',@amount,'receiptFileName',@filename));",conn,tx))
             {audit.Parameters.AddWithValue("actor",ActorId(principal));audit.Parameters.AddWithValue("id",paymentId);audit.Parameters.AddWithValue("charge",chargeId);audit.Parameters.AddWithValue("amount",amount);audit.Parameters.AddWithValue("filename",Path.GetFileName(receipt.FileName));await audit.ExecuteNonQueryAsync(ct);}
