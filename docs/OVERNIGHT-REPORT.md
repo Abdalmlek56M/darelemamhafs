@@ -38,6 +38,7 @@ Last verified main: `4f65a76` (full regression PASS, unit 51/51, frontend 68 tes
 | 1.17 pagination determinism/unify envelopes | partial | `e2b47bc` | Deterministic tie-break in Secretariat students | **BLOCKED** full envelope unify: requires contract-wide change; not attempted tonight |
 `n| 1.6 audit not in money transaction | done | `4063425` | `tier1-money-audit` | not re-run on production data |
 | 1.8 duplicate trigger defs/global lock cleanup | done | `94b17b2` | `tier1-migration-cleanup` | production migration still pending |
+| 1.13 notification sync reopens resolved items (other 1.13 items blocked) | in progress | pending | ``tier1-notification-sync`` | remaining end-session/absent/correction state machine blocked |
 | 1.15 OTP consume race (other 1.15 items blocked) | partial | `1ba3a48` | none (identity API not HTTP-testable offline) | **PARTIAL:** OAuth revoke/state replay + SMTP queue blocked |
 `n## Remaining
 

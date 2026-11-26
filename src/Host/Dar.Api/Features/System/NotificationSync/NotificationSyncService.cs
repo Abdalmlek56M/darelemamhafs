@@ -58,7 +58,11 @@ public sealed class NotificationSyncService(
               AND mc.amount_due > COALESCE(p.paid, 0)
               AND (now() AT TIME ZONE 'Africa/Cairo')::date >= (mc.billing_month + INTERVAL '1 month - 1 day')
             ON CONFLICT (dedupe_key) DO UPDATE SET
-                status='open', resolved_at=NULL, resolved_by=NULL, resolution_note=NULL,
+                -- FINAL 1.13: a scheduled refresh must not reopen an item the supervisor resolved.
+                status = CASE WHEN notifications.status = 'resolved' THEN 'resolved' ELSE 'open' END,
+                resolved_at = CASE WHEN notifications.status = 'resolved' THEN notifications.resolved_at ELSE NULL END,
+                resolved_by = CASE WHEN notifications.status = 'resolved' THEN notifications.resolved_by ELSE NULL END,
+                resolution_note = CASE WHEN notifications.status = 'resolved' THEN notifications.resolution_note ELSE NULL END,
                 title=EXCLUDED.title, body=EXCLUDED.body, action_url=EXCLUDED.action_url,
                 scope_circle_id=EXCLUDED.scope_circle_id, scope_teacher_id=EXCLUDED.scope_teacher_id;
             """, connection);

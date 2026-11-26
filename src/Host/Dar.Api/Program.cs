@@ -98,6 +98,7 @@ app.UseAuthorization();
 app.MapOpenApi("/api/openapi/{documentName}.json");
 app.MapHealthEndpoints();
 app.MapIdentityEndpoints();
+app.MapNotificationSyncEndpoints();
 app.MapSecretariatEndpoints();
 app.MapTeachingEndpoints();
 app.MapMeetEndpoints();
