@@ -94,7 +94,7 @@ public static class StudentsEndpoint
         await reader.DisposeAsync();
 
         total = await PaginationHeaders.EnsureTotalAsync(command, total, 10, paged, ct);
-        PaginationHeaders.Apply(http.Response, total, paging, students.Count);
+        PaginationHeaders.Apply(http.Response, total, paging, students.Count, paged);
         return Results.Ok(new { count = students.Count, students });
     }
 

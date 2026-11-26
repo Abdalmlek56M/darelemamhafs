@@ -116,7 +116,7 @@ public static class AbsencesEndpoint
             }
         }
 
-        PaginationHeaders.Apply(http.Response, total, paging, students.Count);
+        PaginationHeaders.Apply(http.Response, total, paging, students.Count, paged);
         return Results.Ok(new
         {
             date = day,

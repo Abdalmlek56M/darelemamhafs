@@ -72,7 +72,7 @@ public static class UnpaidEndpoint
             total = await PaginationHeaders.EnsureTotalAsync(command, total, 11, paged, ct);
         }
 
-        PaginationHeaders.Apply(http.Response, total, paging, rows.Count);
+        PaginationHeaders.Apply(http.Response, total, paging, rows.Count, paged);
         return Results.Ok(new
         {
             month = billingMonth.ToString("yyyy-MM"),

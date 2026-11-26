@@ -75,7 +75,7 @@ public static class SupervisorRequestEndpoints
         }
         await reader.DisposeAsync();
         total = await PaginationHeaders.EnsureTotalAsync(command, total, 14, paged, ct);
-        PaginationHeaders.Apply(http.Response, total, paging, rows.Count);
+        PaginationHeaders.Apply(http.Response, total, paging, rows.Count, paged);
         return Results.Ok(new { count = rows.Count, requests = rows });
     }
 

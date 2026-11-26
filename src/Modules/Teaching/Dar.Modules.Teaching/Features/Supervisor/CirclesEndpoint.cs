@@ -122,7 +122,7 @@ public static class CirclesEndpoint
             };
         }).ToArray();
 
-        PaginationHeaders.Apply(http.Response, total, paging, result.Length);
+        PaginationHeaders.Apply(http.Response, total, paging, result.Length, paged);
         return Results.Ok(new { count = result.Length, circles = result });
     }
 

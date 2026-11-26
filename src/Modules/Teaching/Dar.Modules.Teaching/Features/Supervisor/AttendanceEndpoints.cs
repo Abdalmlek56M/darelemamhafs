@@ -85,7 +85,7 @@ public static class AttendanceEndpoints
         }
 
         total = await PaginationHeaders.EnsureTotalAsync(command, total, 14, paged, ct);
-        PaginationHeaders.Apply(http.Response, total, paging, rows.Count);
+        PaginationHeaders.Apply(http.Response, total, paging, rows.Count, paged);
         return Results.Ok(new { date = day, count = rows.Count, sessions = rows });
     }
 
@@ -163,7 +163,7 @@ public static class AttendanceEndpoints
         }
 
         total = await PaginationHeaders.EnsureTotalAsync(command, total, 10, paged, ct);
-        PaginationHeaders.Apply(http.Response, total, paging, rows.Count);
+        PaginationHeaders.Apply(http.Response, total, paging, rows.Count, paged);
         return Results.Ok(new { date = day, count = rows.Count, attendance = rows });
     }
 }

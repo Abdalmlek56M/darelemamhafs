@@ -15,11 +15,12 @@ public static class PaginationHeaders
         return await reader.ReadAsync(ct) ? reader.GetInt64(totalOrdinal) : 0;
     }
 
-    public static void Apply(HttpResponse response, long total, PageRequest page, int returned)
+    public static void Apply(HttpResponse response, long total, PageRequest page, int returned, bool paged)
     {
         response.Headers["X-Total-Count"] = total.ToString();
         response.Headers["X-Page"] = page.Page.ToString();
         response.Headers["X-Page-Size"] = page.PageSize.ToString();
-        response.Headers["X-Truncated"] = (returned < total).ToString().ToLowerInvariant();
+        var truncated = paged ? (long)page.Page * page.PageSize < total : returned < total;
+        response.Headers["X-Truncated"] = truncated.ToString().ToLowerInvariant();
     }
 }
