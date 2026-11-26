@@ -213,6 +213,13 @@ app.Use(async (context, next) =>
         // Never turn client disconnects/cancellations into a generic server error.
         throw;
     }
+    catch (PostgresException ex) when (ex.SqlState == "23505")
+    {
+        // FINAL 1.12: unique races that escape a handler must be a conflict, never a 500.
+        context.Response.StatusCode = StatusCodes.Status409Conflict;
+        context.Response.ContentType = "application/json; charset=utf-8";
+        await context.Response.WriteAsJsonAsync(new { message = "تم تعديل السجل من طلب آخر في الوقت نفسه. أعد المحاولة." });
+    }
     catch (Exception ex)
     {
         app.Logger.LogError(ex, "Unhandled exception for {Method} {Path}", context.Request.Method, context.Request.Path);
