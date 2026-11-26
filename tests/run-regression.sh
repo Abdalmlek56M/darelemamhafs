@@ -91,6 +91,7 @@ stop_apps() {
 }
 
 run_suite() {
+  if [ -n "${DAR_ONLY_SUITE:-}" ] && [ "$1" != "$DAR_ONLY_SUITE" ]; then return 0; fi
   local name="$1" file="$2" mode="$3" rc=0
   echo "== $name =="
   prepare_db "$name" || { FAILED=1; return; }
