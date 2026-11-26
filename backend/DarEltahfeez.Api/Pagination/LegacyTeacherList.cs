@@ -16,7 +16,8 @@ public static partial class DomainEndpoints
                    COALESCE((SELECT string_agg(c.name,'، ' ORDER BY c.name) FROM circles c WHERE c.teacher_id=t.id AND c.is_trashed=FALSE), '') AS circle_names,
                    (SELECT COUNT(*) FROM circles c WHERE c.teacher_id=t.id AND c.is_trashed=FALSE) AS circle_count,
                    COUNT(*) OVER() AS total
-            FROM teachers t WHERE t.is_trashed=FALSE ORDER BY CASE t.status WHEN 'active' THEN 0 WHEN 'inactive' THEN 1 ELSE 2 END,t.full_name
+            FROM teachers t WHERE t.is_trashed=FALSE
+            ORDER BY CASE t.status WHEN 'active' THEN 0 WHEN 'inactive' THEN 1 ELSE 2 END,t.full_name,t.id
             """;
         if (paged) query += " LIMIT @take OFFSET @skip";
         await using var command = db.CreateCommand(query);

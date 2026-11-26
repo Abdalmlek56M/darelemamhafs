@@ -45,7 +45,7 @@ public static class AttendanceEndpoints
               AND ss.day_of_week = EXTRACT(DOW FROM @date::date)::int
               AND (@all OR c.id = ANY(@circles))
               AND (@circle::uuid IS NULL OR c.id = @circle)
-            ORDER BY ss.starts_at, c.name
+            ORDER BY ss.starts_at, c.name, ss.id
             LIMIT @take OFFSET @skip;
             """, connection);
         command.Parameters.AddWithValue("date", day);
@@ -129,7 +129,7 @@ public static class AttendanceEndpoints
               AND (@all OR c.id = ANY(@circles))
               AND (@circle::uuid IS NULL OR c.id = @circle)
               AND (@search = '' OR s.full_name ILIKE @like OR s.student_code ILIKE @like)
-            ORDER BY c.name, s.full_name
+            ORDER BY c.name, s.full_name, sa.id
             LIMIT @take OFFSET @skip;
             """, connection);
         command.Parameters.AddWithValue("date", day);

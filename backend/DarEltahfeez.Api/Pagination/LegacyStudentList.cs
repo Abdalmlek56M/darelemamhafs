@@ -10,13 +10,11 @@ public static partial class DomainEndpoints
         ClaimsPrincipal principal, int? page, int? pageSize, HttpContext http,
         NpgsqlDataSource db, CancellationToken ct)
     {
-        var paging = new PageRequest(page, pageSize);
-        var paged = page is not null || pageSize is not null;
+        var paging = LegacyPaging(page, pageSize, out var paged);
         var finance = CanReadFinance(principal);
-        var sql = StudentProjection.Replace(
-            "FROM students s", ", COUNT(*) OVER() AS total FROM students s")
+        var sql = StudentProjectionWithTotal
             + " WHERE s.is_trashed=FALSE ORDER BY CASE s.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1"
-            + " WHEN 'withdrawn' THEN 2 ELSE 3 END, s.full_name";
+            + " WHEN 'withdrawn' THEN 2 ELSE 3 END, s.full_name, s.id";
         if (paged) sql += " LIMIT @take OFFSET @skip";
         await using var cmd = db.CreateCommand(sql);
         if (paged)
@@ -33,14 +31,8 @@ public static partial class DomainEndpoints
             rows.Add(ReadStudent(reader, finance));
         }
         await reader.DisposeAsync();
-        if (paged && total == 0)
-        {
-            cmd.Parameters["skip"].Value = 0L;
-            cmd.Parameters["take"].Value = 1;
-            await using var fallback = await cmd.ExecuteReaderAsync(ct);
-            if (await fallback.ReadAsync(ct)) total = fallback.GetInt64(16);
-        }
-        PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
+        total = await LegacyTotalAsync(cmd, total, 16, paged, ct);
+        LegacyHeaders(http, total, paging, rows.Count, paged);
         return Results.Ok(rows);
     }
 }

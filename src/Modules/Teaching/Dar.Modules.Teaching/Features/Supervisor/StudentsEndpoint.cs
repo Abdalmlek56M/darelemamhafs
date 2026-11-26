@@ -57,7 +57,7 @@ public static class StudentsEndpoint
                    OR COALESCE(s.phone, '') ILIKE @like OR COALESCE(s.guardian_phone, '') ILIKE @like)
               AND (@circle::uuid IS NULL OR c.id = @circle)
             GROUP BY s.id
-            ORDER BY s.full_name
+            ORDER BY s.full_name, s.id
             LIMIT @take OFFSET @skip;
             """, connection);
         command.Parameters.AddWithValue("all", scope.All);

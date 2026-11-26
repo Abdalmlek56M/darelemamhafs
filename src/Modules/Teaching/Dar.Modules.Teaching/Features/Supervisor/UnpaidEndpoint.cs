@@ -48,7 +48,7 @@ public static class UnpaidEndpoint
               AND (@all OR c.id = ANY(@circles))
               AND (@today >= (mc.billing_month + INTERVAL '1 month - 1 day')
                    OR @today >= (s.joined_on + INTERVAL '1 month'))
-            ORDER BY s.full_name
+            ORDER BY s.full_name, mc.id
             LIMIT @take OFFSET @skip;
             """, connection))
         {

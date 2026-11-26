@@ -47,7 +47,7 @@ public static class CirclesEndpoint
             WHERE c.is_trashed = FALSE
               AND (@all OR c.id = ANY(@circles))
               AND (@search = '' OR c.name ILIKE @like OR COALESCE(t.full_name, '') ILIKE @like)
-            ORDER BY c.name
+            ORDER BY c.name, c.id
             LIMIT @take OFFSET @skip;
             """, connection))
         {

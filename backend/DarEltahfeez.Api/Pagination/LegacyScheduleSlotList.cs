@@ -19,7 +19,7 @@ public static partial class DomainEndpoints
             WHERE ss.is_trashed=FALSE AND c.is_trashed=FALSE
               AND (ss.is_active=TRUE OR EXISTS(SELECT 1 FROM teacher_attendance ta WHERE ta.schedule_slot_id=ss.id AND ta.is_trashed=FALSE)
                 OR EXISTS(SELECT 1 FROM student_attendance sa WHERE sa.schedule_slot_id=ss.id AND sa.is_trashed=FALSE))
-            ORDER BY ss.is_active DESC,ss.day_of_week,ss.starts_at,c.name
+            ORDER BY ss.is_active DESC,ss.day_of_week,ss.starts_at,c.name,ss.id
             """;
         if (paged) query += " LIMIT @take OFFSET @skip";
         await using var command = db.CreateCommand(query);

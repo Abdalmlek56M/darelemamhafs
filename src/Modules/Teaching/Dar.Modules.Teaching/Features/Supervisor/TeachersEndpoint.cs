@@ -50,7 +50,7 @@ public static class TeachersEndpoint
             WHERE t.is_trashed = FALSE
               AND (@all OR t.id = ANY(@teachers))
               AND (@search = '' OR t.full_name ILIKE @like OR COALESCE(t.phone, '') ILIKE @like)
-            ORDER BY t.full_name
+            ORDER BY t.full_name, t.id
             LIMIT @take OFFSET @skip;
             """, connection);
         command.Parameters.AddWithValue("finance", canFinance);

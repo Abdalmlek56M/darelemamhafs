@@ -42,7 +42,7 @@ public static class AbsencesEndpoint
             WHERE sa.session_date = @date AND sa.is_trashed = FALSE
               AND sa.status IN ('absent', 'excused')
               AND (@all OR c.id = ANY(@circles))
-            ORDER BY c.name, s.full_name
+            ORDER BY c.name, s.full_name, s.id
             LIMIT @take OFFSET @skip;
             """, connection))
         {
