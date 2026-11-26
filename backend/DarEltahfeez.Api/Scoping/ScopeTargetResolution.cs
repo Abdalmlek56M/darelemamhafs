@@ -32,6 +32,8 @@ internal static class ScopeTargetResolution
             return await AuditTrashScopeResolver.EntityTargetAsync(connection, "monthly-charge", id.Value);
         if (path == "/api/payments" && http.Request.Method == "POST")
             return await FinanceScopeResolver.ResolvePaymentWriteAsync(connection, context);
+        if (path == "/api/payments/with-receipt" && http.Request.Method == "POST")
+            return await ResolveReceiptPaymentAsync(connection, context, ct);
         if (path.StartsWith("/api/payments/") && path.EndsWith("/void") && id is not null)
             return await AuditTrashScopeResolver.EntityTargetAsync(connection, "payment", id.Value);
         if (path == "/api/advertising-expenses" && http.Request.Method == "POST")
@@ -65,4 +67,20 @@ internal static class ScopeTargetResolution
     }
 
     private static Guid? RouteGuid(HttpContext http, string key) => Guid.TryParse(http.Request.RouteValues[key]?.ToString(), out var id) ? id : null;
+
+    /// <summary>
+    /// Receipt uploads carry the charge id in the multipart form, not the route. The filter runs
+    /// before binding, so the resolver reads (and caches) the form itself; a scoped user without a
+    /// resolvable charge target is denied by the caller's fail-closed branch.
+    /// </summary>
+    private static async Task<ScopeTarget?> ResolveReceiptPaymentAsync(
+        NpgsqlConnection connection, EndpointFilterInvocationContext context, CancellationToken ct)
+    {
+        var request = context.Arguments.OfType<HttpRequest>().FirstOrDefault();
+        if (request is null || !request.HasFormContentType) return null;
+        var form = await request.ReadFormAsync(ct);
+        return Guid.TryParse(form["monthlyChargeId"], out var chargeId) && chargeId != Guid.Empty
+            ? await AuditTrashScopeResolver.EntityTargetAsync(connection, "monthly-charge", chargeId)
+            : null;
+    }
 }
