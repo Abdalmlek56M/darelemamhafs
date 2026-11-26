@@ -95,10 +95,10 @@ async function createUser(admin,user,perms){const r=await req(LEGACY,admin,'POST
  await check('secretariat_get_inside_200',(await req(NEW,scopedNew,'GET','/api/v1/students/'+studentId)).status,200);
  await check('meet_link_steal_forbidden',(await req(NEW,scopedNew,'PUT','/api/v1/meet/events/'+meetB+'/link',{circleId:circA,enableRecording:false})).status,403);
  await check('adjust_outside_403',(await req(NEW,scopedNew,'POST','/api/v1/supervisor/attendance/'+bAtt+'/adjust',{payableDurationMinutes:30,payableAmount:null,note:'outside scope'})).status,403);
- const scopeDebug=one("SELECT concat('scopes=',COALESCE((SELECT string_agg(scope_type||':'||scope_id, ',') FROM app_user_scopes WHERE user_id=(SELECT id FROM app_users WHERE username='q5_scoped')),'none'),' attendance=',(SELECT circle_id||':'||teacher_id FROM teacher_attendance WHERE id="+q(aAtt)+"))");
- const teacherProbe=await req(NEW,scopedNew,'GET','/api/v1/supervisor/teachers/'+ta);
+ // A circle update earlier in this suite may legitimately clear the teacher assignment; the scope rule derives teacher access from the circle, so restore the assignment before checking adjust.
+ one("UPDATE circles SET teacher_id="+q(ta)+" WHERE id="+q(circA)+";");
  const adjustInside=await req(NEW,scopedNew,'POST','/api/v1/supervisor/attendance/'+aAtt+'/adjust',{payableDurationMinutes:30,payableAmount:null,note:'inside scope'});
- if(adjustInside.status!==200)throw new Error('adjust_inside '+adjustInside.status+' '+adjustInside.text+' debug='+scopeDebug+' teacherProbe='+teacherProbe.status);
+ if(adjustInside.status!==200)throw new Error('adjust_inside '+adjustInside.status+' '+adjustInside.text);
  await check('adjust_inside_200',adjustInside.status,200);
  const circA2=randomUUID(), slotA2=randomUUID();
  one("INSERT INTO circles(id,circle_code,name,teacher_id,monthly_fee,is_active,starts_on) VALUES ("+q(circA2)+",'Q5-CA2','Q5 A2',"+q(ta)+",0,TRUE,DATE '2026-01-01');");
