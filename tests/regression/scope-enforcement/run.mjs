@@ -51,6 +51,7 @@ async function createUser(admin,user,perms){const r=await req(LEGACY,admin,'POST
  const linkedAudit=one("SELECT id FROM audit_log WHERE entity_type='teacher_attendance' AND entity_id="+q(bAtt)+' ORDER BY id DESC LIMIT 1;');
  await check('audit_linked_outside_403',(await req(LEGACY,scopedLegacy,'POST','/api/admin/audit-log/'+linkedAudit+'/restore-before')).status,403);
  await check('audit_unlinked_403',(await req(LEGACY,scopedLegacy,'POST','/api/admin/audit-log/'+unlinkedAudit+'/restore-before')).status,403);
+ await check('unresolved_restore_target_403',(await req(LEGACY,scopedLegacy,'POST','/api/admin/trash/'+randomUUID()+'/restore')).status,403);
  await check('trash_linked_outside_403',(await req(LEGACY,scopedLegacy,'POST','/api/admin/trash',{entityType:'teacher-attendance',entityId:bAtt})).status,403);
  await check('trash_unlinked_403',(await req(LEGACY,scopedLegacy,'POST','/api/admin/trash',{entityType:'school_settings',entityId:randomUUID()})).status,403);
  const brokenDate='2026-11-09'; seedBrokenReMark(B,brokenDate); const broken=await req(LEGACY,unscopedLegacy,'POST','/api/teacher-attendance',{scheduleSlotId:slotB,sessionDate:brokenDate,status:'present'}); await check('remark_pay_failure_is_rejected',broken.status,400); if(!broken.text.includes('المستحق المحسوب')) throw new Error('remark failure message changed: '+broken.text.slice(0,300));

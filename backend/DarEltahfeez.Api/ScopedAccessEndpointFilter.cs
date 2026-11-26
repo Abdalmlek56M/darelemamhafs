@@ -21,7 +21,10 @@ public sealed class ScopedAccessEndpointFilter : IEndpointFilter
         if (scope.All) return await next(context);
 
         var target = await ScopeTargetResolution.ResolveAsync(connection, context);
-        if (target is null) return await next(context);
+        // FINAL 0.6: unresolved targets fail closed. A scoped user never reaches a filtered
+        // endpoint whose resource cannot be resolved into their circle/teacher scope.
+        if (target is null)
+            return Results.Json(new { message = "هذا السجل خارج نطاقك." }, statusCode: StatusCodes.Status403Forbidden);
         if (ScopedEntityRules.Allows(scope, target.Value)) return await next(context);
         return Results.Json(new { message = "هذا السجل خارج نطاقك." }, statusCode: StatusCodes.Status403Forbidden);
     }
