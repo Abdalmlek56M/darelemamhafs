@@ -70,7 +70,8 @@ public static class AppPermissions
         ("meet.manage", "إدارة التسجيل وربط الحلقات"),
         ("meet.calendar.manage", "ربط ومزامنة تقويم Google"),
         ("meet.media.view", "مشاهدة تسجيلات الحلقات"),
-        ("meet.media.delete", "حذف ملفات التسجيل يدويًا")
+        ("meet.media.delete", "حذف ملفات التسجيل يدويًا"),
+        ("meet.bot.control", "التحكم في بوت التسجيل")
     ];
 
     public static bool IsKnown(string? code) => All.Any(x => x.Code == code);

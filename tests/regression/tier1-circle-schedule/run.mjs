@@ -6,6 +6,7 @@ const c = await setup();
 // FINAL 1.5: PUT /circles/{id}/with-schedule must replace the weekly plan, not append slots.
 const createBody = {
   name: 'T1 Schedule Circle', circleCode: 'T1-SCH', isActive: true, startsOn: '2026-01-01', monthlyFee: 0,
+  teacherId: c.teacherId,
   slots: [{ dayOfWeek: 1, startsAt: '10:00', durationMinutes: 60 }],
 };
 const created = await req(OLD, c.admin, 'POST', '/api/circles/with-schedule', createBody);
