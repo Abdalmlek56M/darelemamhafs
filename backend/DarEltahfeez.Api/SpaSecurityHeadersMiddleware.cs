@@ -1,12 +1,13 @@
 namespace DarEltahfeez.Api;
 
 /// <summary>
-/// P1-3: baseline security headers for the admin SPA page only (/management).
-/// The CSP is deployed as Report-Only first so violations can be observed before enforcement.
-/// The teacher portal (/teacher) is deliberately excluded: it needs camera/microphone policies,
-/// and the API (/api) already has its own headers.
+/// P0-13: one security-header policy for every SPA response (/, /teacher, /supervisor, /management
+/// and static assets). The API has its own headers in Program.cs. The Report-Only CSP was removed
+/// because the enforced policy already covers the same directives.
+/// style-src keeps 'unsafe-inline': the React UI uses inline style attributes for layout, and a
+/// nonce-based rollout would need a separate migration. Revisit when styles move to classes.
 /// </summary>
-public sealed class ManagementSecurityHeadersMiddleware(RequestDelegate next)
+public sealed class SpaSecurityHeadersMiddleware(RequestDelegate next)
 {
     public static readonly string ContentSecurityPolicy = string.Join(' ',
         "default-src 'self';",
@@ -24,18 +25,31 @@ public sealed class ManagementSecurityHeadersMiddleware(RequestDelegate next)
         "frame-ancestors 'none';",
         "form-action 'self';");
 
+    private static readonly HashSet<string> SpaEntryPaths = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "/",
+        "/index.html",
+        "/teacher",
+        "/teacher/",
+        "/supervisor",
+        "/supervisor/",
+        "/management",
+        "/management/",
+    };
+
+    /// <summary>The only client routes that may receive the SPA shell; everything else is a real 404.</summary>
+    public static bool IsSpaEntry(PathString path) => SpaEntryPaths.Contains(path.Value ?? string.Empty);
+
     public async Task InvokeAsync(HttpContext context)
     {
-        if (context.Request.Path.StartsWithSegments("/management"))
+        if (!context.Request.Path.StartsWithSegments("/api"))
         {
             var headers = context.Response.Headers;
             headers["X-Content-Type-Options"] = "nosniff";
             headers["X-Frame-Options"] = "DENY";
             headers["Referrer-Policy"] = "no-referrer";
             headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
-            // Enforce now; keep Report-Only alongside so violations remain visible in the console.
             headers["Content-Security-Policy"] = ContentSecurityPolicy;
-            headers["Content-Security-Policy-Report-Only"] = ContentSecurityPolicy;
             if (context.Request.IsHttps)
                 headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
         }

@@ -200,7 +200,7 @@ app.Use(async (context, next) =>
     }
     await next();
 });
-app.UseMiddleware<ManagementSecurityHeadersMiddleware>();
+app.UseMiddleware<SpaSecurityHeadersMiddleware>();
 app.Use(async (context, next) =>
 {
     try
@@ -296,7 +296,7 @@ SystemAdminEndpoints.MapPayroll(app);
 // Serve the React single-page app in release/desktop hosting. Unknown /api routes stay 404.
 app.MapFallback(async context =>
 {
-    if (context.Request.Path.StartsWithSegments("/api"))
+    if (context.Request.Path.StartsWithSegments("/api") || !SpaSecurityHeadersMiddleware.IsSpaEntry(context.Request.Path))
     {
         context.Response.StatusCode = StatusCodes.Status404NotFound;
         return;

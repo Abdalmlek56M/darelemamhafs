@@ -17,6 +17,23 @@ const details = await req(OLD, c.admin, 'GET', '/api/health/details');
 assert.equal(details.status, 200, 'health details auth status');
 assert.equal(JSON.parse(details.text).database, 'connected');
 
+// FINAL 0.13: every SPA response gets headers and unknown paths are real 404s.
+async function raw(path) {
+  const response = await fetch(OLD + path);
+  return { status: response.status, headers: response.headers, text: await response.text() };
+}
+for (const path of ['/.git/config', '/swagger', '/metrics']) {
+  const probe = await raw(path);
+  assert.equal(probe.status, 404, path + ' must be a real 404, got ' + probe.status);
+  assert.equal(probe.headers.get('x-frame-options'), 'DENY', path + ' missing X-Frame-Options');
+  assert.equal(probe.headers.get('x-content-type-options'), 'nosniff', path + ' missing nosniff');
+  assert.ok(probe.headers.get('content-security-policy'), path + ' missing CSP');
+  assert.equal(probe.headers.get('content-security-policy-report-only'), null, path + ' still sends Report-Only CSP');
+}
+const spaRoot = await raw('/');
+assert.ok([200, 404].includes(spaRoot.status), 'root status ' + spaRoot.status);
+assert.equal(spaRoot.headers.get('x-frame-options'), 'DENY', 'SPA root missing X-Frame-Options');
+
 // FINAL 0.2: the server owns payments.paid_at and ignores the browser clock.
 one(`INSERT INTO students(id,student_code,full_name,status,joined_on)
   VALUES (gen_random_uuid(),'T0-1','Tier0 Student','active',DATE '2026-01-01');`);
@@ -47,4 +64,4 @@ one("UPDATE payroll_locks SET is_locked=FALSE, unlocked_at=now() WHERE billing_m
 const reopened = await req(OLD, c.admin, 'POST', `/api/admin/requests/${requestId}/reopen`);
 assert.equal(reopened.status, 200, 'unlocked reopen must pass, got ' + reopened.status + ' ' + reopened.text.slice(0, 160));
 
-console.log(JSON.stringify({ suite: 'tier0-money', ok: true, cases: 3 }));
+console.log(JSON.stringify({ suite: 'tier0-money', ok: true, cases: 4 }));
