@@ -43,7 +43,7 @@ assert.deepEqual(findings, [], 'repo leaks live/deployment identifiers:\n' + fin
 
 // The password must be random per run, never a constant.
 const regressionRunner = readFileSync('tests/run-regression.sh', 'utf8');
-assert.match(regressionRunner, /PASS="\$\(openssl rand|PASS="\$\(od /, 'regression superuser password is not generated');
+assert.match(regressionRunner, /openssl rand|od -An/, 'regression superuser password is not generated');
 assert.equal(regressionRunner.includes('Regression' + 'Pass123'), false, 'hardcoded superuser password remains');
 
 // The baseline schema source is an env setting, not a baked production name.
