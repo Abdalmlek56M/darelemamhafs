@@ -30,7 +30,7 @@ Last verified main: `4f65a76` (full regression PASS, unit 51/51, frontend 68 tes
 |---|---|---|---|---|
 | 1.1 trash auto-purge never runs | done | `a28756f` | `tier1-trash-purge` (scheduled worker registration + manual trigger purges expired non-financial row) | live systemd timer not observed |
 | 1.2 backup download broken on Linux | done | `2e3b8e4` | `tier1-backup-download` (create backup through API then download 200 with bytes) | real browser download not observed |
-| 1.3 permission catalog single source | in progress | pending | `tier1-permission-catalog` (legacy/modular/frontend/served code sets equal; meet.bot.control grantable) | SQL seed list vs code catalog still separate |
+| 1.3 permission catalog single source | done | `17f723a` | `tier1-permission-catalog` (legacy/modular/frontend/served code sets equal; meet.bot.control grantable) | SQL seed list vs code catalog still separate |
 | 1.4 attendance non-partial unique | in progress | pending | `tier1-attendance-unique` (trashed + live row coexist; live duplicate rejected) | migration not applied to production |
 
 ## Remaining
