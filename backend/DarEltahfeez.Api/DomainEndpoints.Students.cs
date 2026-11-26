@@ -10,15 +10,7 @@ public static partial class DomainEndpoints
     private static void MapStudents(WebApplication app)
     {
         var route = app.MapGroup("/api/students");
-        route.MapGet("", async Task<IResult> (ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            var financeVisible = CanReadFinance(principal);
-            var rows = new List<StudentResponse>();
-            await using var cmd = db.CreateCommand(StudentProjection + " WHERE s.is_trashed=FALSE ORDER BY CASE s.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 WHEN 'withdrawn' THEN 2 ELSE 3 END, s.full_name;");
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct)) rows.Add(ReadStudent(reader, financeVisible));
-            return Results.Ok(rows);
-        }).RequireAuthorization("students.read");
+        route.MapGet("", (ClaimsPrincipal principal, int? page, int? pageSize, HttpContext http, NpgsqlDataSource db, CancellationToken ct) => LoadLegacyStudentListAsync(principal, page, pageSize, http, db, ct)).RequireAuthorization("students.read");
 
         route.MapGet("/{id:guid}", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {

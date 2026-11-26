@@ -61,4 +61,35 @@ for (const [name, path, key, total] of suites) {
   assert.equal(header(capped.headers, 'X-Page-Size'), '100', name + ' cap header');
   assert.equal(header(capped.headers, 'X-Truncated'), String(100 < total), name + ' capped truncated');
 }
+
+const LEGACY = process.env.Q6_LEGACY_URL;
+async function legacyStudents(page, size) {
+  let url = LEGACY + '/api/students';
+  const params = [];
+  if (page != null) params.push('page=' + page);
+  if (size != null) params.push('pageSize=' + size);
+  if (params.length) url += '?' + params.join('&');
+  const r = await fetch(url, { headers: { cookie: c.admin } });
+  return { status: r.status, headers: r.headers, body: await r.json() };
+}
+const plain = await legacyStudents();
+assert.equal(plain.status, 200, 'legacy students no-page status');
+assert.equal(plain.body.length, 501, 'legacy students old shape length');
+assert.equal(header(plain.headers, 'X-Total-Count'), '501');
+assert.equal(header(plain.headers, 'X-Truncated'), 'false');
+const paged = await legacyStudents(1, 10);
+assert.equal(paged.body.length, 10, 'legacy students page length');
+assert.equal(header(paged.headers, 'X-Page'), '1');
+assert.equal(header(paged.headers, 'X-Page-Size'), '10');
+assert.equal(header(paged.headers, 'X-Total-Count'), '501');
+assert.equal(header(paged.headers, 'X-Truncated'), 'true');
+const huge = await legacyStudents(999, 25);
+assert.equal(huge.body.length, 0, 'legacy students huge empty');
+assert.equal(header(huge.headers, 'X-Total-Count'), '501');
+assert.equal(header(huge.headers, 'X-Truncated'), 'false');
+const capped = await legacyStudents(1, 1000);
+assert.equal(capped.body.length, 100, 'legacy students cap length');
+assert.equal(header(capped.headers, 'X-Page-Size'), '100');
+assert.equal(header(capped.headers, 'X-Truncated'), 'true');
+
 console.log(JSON.stringify({ suite: 'supervisor-pagination', ok: true, cases: suites.length }));
