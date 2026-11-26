@@ -34,7 +34,8 @@ async function login(base, path, user) {
   return c.filter(Boolean).map(x => x.split(';')[0]).join('; ');
 }
 async function req(base, cookie, method, path, body) {
-  const r = await fetch(base + path, { method, headers: { ...(body ? { 'content-type': 'application/json' } : {}), cookie }, body: body ? JSON.stringify(body) : undefined });
+  const sameOrigin = base === NEW ? { origin: NEW } : {};
+  const r = await fetch(base + path, { method, headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...sameOrigin, cookie }, body: body ? JSON.stringify(body) : undefined });
   return { status: r.status, text: await r.text() };
 }
 async function createUser(adminCookie, username, perms) {
