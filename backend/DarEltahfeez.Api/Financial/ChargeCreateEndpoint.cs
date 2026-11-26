@@ -54,6 +54,16 @@ public static partial class DomainEndpoints
                 return Results.NotFound(new { message = "سجل الالتحاق غير موجود أو موجود في سلة المهملات." });
             }
             var id = (Guid)chargeValue;
+            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'charge.create','monthly_charge',@id,jsonb_build_object('enrollmentId',@enrollment,'billingMonth',@month,'amountDue',@amount,'idempotencyKey',@key));", connection, transaction))
+            {
+                audit.Parameters.AddWithValue("actor", ActorId(principal));
+                audit.Parameters.AddWithValue("id", id);
+                audit.Parameters.AddWithValue("enrollment", request.EnrollmentId);
+                audit.Parameters.AddWithValue("month", month);
+                audit.Parameters.AddWithValue("amount", amountDue);
+                AddNullable(audit, "key", key);
+                await audit.ExecuteNonQueryAsync(ct);
+            }
             await transaction.CommitAsync(ct);
             return Results.Created($"/api/charges/{id}", new
             {

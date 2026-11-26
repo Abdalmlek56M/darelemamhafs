@@ -66,6 +66,15 @@ public static partial class DomainEndpoints
                 AddNullable(insert, "key", key);
                 await insert.ExecuteNonQueryAsync(ct);
             }
+            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'payment.create','payment',@id,jsonb_build_object('monthlyChargeId',@charge,'amount',@amount,'idempotencyKey',@key));", connection, transaction))
+            {
+                audit.Parameters.AddWithValue("actor", ActorId(principal));
+                audit.Parameters.AddWithValue("id", paymentId);
+                audit.Parameters.AddWithValue("charge", request.MonthlyChargeId);
+                audit.Parameters.AddWithValue("amount", paymentAmount);
+                AddNullable(audit, "key", key);
+                await audit.ExecuteNonQueryAsync(ct);
+            }
             await transaction.CommitAsync(ct);
             return Results.Created($"/api/payments/{paymentId}", new
             {
