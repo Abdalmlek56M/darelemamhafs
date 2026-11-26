@@ -1,7 +1,21 @@
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { setup, insertRequest, req, one, q, OLD } from '../request-workflow/common.mjs';
 
 const c = await setup();
+
+// FINAL 0.11: real client IP is a single nginx setting; Cloudflare ranges are trusted explicitly.
+const setupNginx = readFileSync('deploy/setup-nginx.sh', 'utf8');
+const cloudflareRanges = readFileSync('deploy/nginx/cloudflare-realip.conf', 'utf8');
+const nginxReference = readFileSync('deploy/nginx/dar-elemam-hafs.conf', 'utf8');
+assert.match(setupNginx, /DAR_REAL_IP_MODE/, 'nginx generator has no DAR_REAL_IP_MODE');
+assert.match(setupNginx, /cloudflare-realip\.conf/, 'nginx generator does not install the CF ranges snippet');
+assert.match(setupNginx, /proxy_set_header X-Forwarded-For \$remote_addr;/, 'nginx does not forward only $remote_addr');
+assert.equal(setupNginx.includes('$proxy_add_x_forwarded_for'), false, 'nginx still appends client X-Forwarded-For');
+assert.match(cloudflareRanges, /real_ip_header CF-Connecting-IP;/, 'CF snippet has no CF-Connecting-IP header');
+assert.match(cloudflareRanges, /set_real_ip_from \d/, 'CF snippet has no trusted ranges');
+assert.match(nginxReference, /DAR_REAL_IP_MODE/, 'reference vhost does not document the mode');
+assert.match(nginxReference, /proxy_set_header X-Forwarded-For \$remote_addr;/, 'reference vhost forwards client XFF');
 
 // FINAL 0.14: public health answers are status-only; details stay behind auth.
 const health = await req(OLD, '', 'GET', '/health');
@@ -64,4 +78,4 @@ one("UPDATE payroll_locks SET is_locked=FALSE, unlocked_at=now() WHERE billing_m
 const reopened = await req(OLD, c.admin, 'POST', `/api/admin/requests/${requestId}/reopen`);
 assert.equal(reopened.status, 200, 'unlocked reopen must pass, got ' + reopened.status + ' ' + reopened.text.slice(0, 160));
 
-console.log(JSON.stringify({ suite: 'tier0-money', ok: true, cases: 4 }));
+console.log(JSON.stringify({ suite: 'tier0-money', ok: true, cases: 5 }));

@@ -33,13 +33,17 @@ BACKUP_STAMP="$(date +%Y%m%d-%H%M%S)"
 CONFIG_BACKUP_DIR="/var/backups/dar-config/$BACKUP_STAMP"
 DOMAIN=""
 SKIP_SMOKE=0
+REAL_IP_MODE=${DAR_REAL_IP_MODE:-cloudflare}
 
 usage() {
   cat <<'USAGE'
-Usage: setup-nginx.sh [--domain HOST] [--skip-smoke]
+Usage: setup-nginx.sh [--domain HOST] [--skip-smoke] [--real-ip-mode direct|cloudflare]
 
   --domain HOST  Domain to configure (default: DAR_DOMAIN from deploy/.env).
   --skip-smoke   Skip the local health/SPA smoke requests after reload.
+  --real-ip-mode cloudflare|direct  Default from DAR_REAL_IP_MODE (cloudflare). cloudflare installs
+                 deploy/nginx/cloudflare-realip.conf (CF ranges + CF-Connecting-IP) so nginx's
+                 $remote_addr is the real client; direct trusts no proxy header.
   --help         Show this help.
 USAGE
 }
@@ -53,6 +57,8 @@ while [ "$#" -gt 0 ]; do
     }
     DOMAIN="$2"
     shift 2
+    ;;
+  --real-ip-mode)  [ $# -ge 2 ] || { echo '--real-ip-mode requires direct|cloudflare' >&2; exit 2; }; REAL_IP_MODE=$2; shift 2
     ;;
   --skip-smoke)
     SKIP_SMOKE=1
@@ -86,6 +92,10 @@ fi
 if [ -z "$DOMAIN" ]; then
   DOMAIN="dar-elemam-hafs.rigxhardware.com"
 fi
+if [ "$REAL_IP_MODE" != "cloudflare" ] && [ "$REAL_IP_MODE" != "direct" ]; then
+  echo "REAL_IP_MODE must be direct or cloudflare (got $REAL_IP_MODE)" >&2
+  exit 2
+fi
 CERT_FILE="$CERT_ROOT/$DOMAIN/fullchain.pem"
 
 render_tls_config() {
@@ -114,7 +124,7 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-Host $host;
         proxy_buffer_size 32k;
@@ -128,7 +138,7 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-Host $host;
         proxy_buffer_size 32k;
@@ -185,7 +195,7 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-Host $host;
         proxy_buffer_size 32k;
@@ -199,7 +209,7 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-Host $host;
         proxy_buffer_size 32k;
@@ -250,6 +260,16 @@ fi
 $SUDO install -m 0644 -o root -g root "$TMP_FILE" "$SITE_FILE"
 $SUDO ln -sfn "$SITE_FILE" "$SITE_LINK"
 $SUDO rm -f /etc/nginx/sites-enabled/default
+
+# Cloudflare mode is a single setting: install the published-CF-range snippet so CF-Connecting-IP
+# is accepted only from Cloudflare peers and $remote_addr becomes the real client IP.
+if [ "$REAL_IP_MODE" = "cloudflare" ]; then
+  echo "==> real-ip mode=cloudflare: install Cloudflare ranges snippet"
+  $SUDO install -m 0644 -o root -g root "$SCRIPT_DIR/nginx/cloudflare-realip.conf" /etc/nginx/conf.d/00-dar-cloudflare-realip.conf
+else
+  echo "==> real-ip mode=direct: remove Cloudflare snippet (no proxy headers trusted)"
+  $SUDO rm -f /etc/nginx/conf.d/00-dar-cloudflare-realip.conf
+fi
 
 echo "==> nginx -t"
 if ! $SUDO nginx -t; then
