@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, Clock3, Plus, Search, UserRound } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorTeacher, SupervisorTeacherDetailResponse } from './teacherTypes'
+import Pager from '../components/common/Pager'
+import { usePagedResource, type PagedPage } from '../hooks/usePagedResource'
+import { defaultMeta } from '../lib/pagination'
 import { dateLabel, percent, statusLabel, statusTone, formatTime12 } from './supervisorFormat'
 import { money } from './teacherFormat'
 import { demoTeacherDetail, demoTeachers } from './supervisorDemo'
@@ -10,35 +13,23 @@ import WhatsAppButton from './WhatsAppButton'
 type Props = { canNote: boolean; demo?: boolean; onOpenCircle?: (id: string) => void; focusId?: string; onFocusConsumed?: () => void; canCommunicate?: boolean }
 
 export default function SupervisorTeachers({ canNote, demo = false, onOpenCircle, focusId, onFocusConsumed, canCommunicate = false }: Props) {
-  const [teachers, setTeachers] = useState<SupervisorTeacher[]>([])
   const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [appliedSearch, setAppliedSearch] = useState('')
   const [selected, setSelected] = useState<SupervisorTeacher | null>(null)
 
-  const load = useCallback(async (term = '') => {
+  const fetchTeachers = useCallback(async (page: number, pageSize: number): Promise<PagedPage<SupervisorTeacher>> => {
     if (demo) {
-      const needle = term.trim().toLowerCase()
-      setTeachers(demoTeachers.filter((teacher) => !needle
+      const needle = appliedSearch.trim().toLowerCase()
+      const rows = demoTeachers.filter((teacher) => !needle
         || teacher.fullName.toLowerCase().includes(needle)
-        || (teacher.phone ?? '').includes(needle)))
-      setLoading(false)
-      setError(null)
-      return
+        || (teacher.phone ?? '').includes(needle))
+      return { items: rows, meta: defaultMeta(rows.length, 1, pageSize) }
     }
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await teacherApi.supervisorTeachers(term)
-      setTeachers(data.teachers)
-    } catch (err) {
-      setError(err instanceof TeacherApiError ? err.message : 'تعذر تحميل المعلمات.')
-    } finally {
-      setLoading(false)
-    }
-  }, [demo])
-
-  useEffect(() => { void load() }, [load])
+    const response = await teacherApi.supervisorTeachersPage({ search: appliedSearch, page, pageSize })
+    return { items: response.data.teachers, meta: response.meta }
+  }, [demo, appliedSearch])
+  const teachersPage = usePagedResource({ fetcher: fetchTeachers, deps: [demo, appliedSearch] })
+  const teachers = teachersPage.items
 
   useEffect(() => {
     if (!focusId || selected) return
@@ -48,7 +39,7 @@ export default function SupervisorTeachers({ canNote, demo = false, onOpenCircle
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    void load(search)
+    setAppliedSearch(search.trim())
   }
 
   if (selected) {
@@ -63,9 +54,9 @@ export default function SupervisorTeachers({ canNote, demo = false, onOpenCircle
         <button className="t-text-button" type="submit">بحث</button>
       </form>
 
-      {error && <div className="t-error-card"><p>{error}</p><button className="t-secondary" onClick={() => void load(search)}>إعادة المحاولة</button></div>}
-      {loading && teachers.length === 0 && <div className="t-empty">جارٍ تحميل المعلمات…</div>}
-      {!loading && !error && teachers.length === 0 && <div className="t-empty">لا توجد معلمات في نطاقك.</div>}
+      {teachersPage.error && <div className="t-error-card"><p>{teachersPage.error}</p><button className="t-secondary" onClick={teachersPage.reload}>إعادة المحاولة</button></div>}
+      {teachersPage.loading && teachers.length === 0 && <div className="t-empty">جارٍ تحميل المعلمات…</div>}
+      {!teachersPage.loading && !teachersPage.error && teachers.length === 0 && <div className="t-empty">لا توجد معلمات في نطاقك.</div>}
 
       <div className="sup-table-wrap">
         <table className="sup-table">
@@ -99,6 +90,15 @@ export default function SupervisorTeachers({ canNote, demo = false, onOpenCircle
           </button>
         ))}
       </div>
+
+      <Pager
+        page={teachersPage.page}
+        pageSize={teachersPage.pageSize}
+        total={teachersPage.meta.total}
+        onPageChange={teachersPage.setPage}
+        buttonClassName="t-secondary"
+        label="معلمة"
+      />
 
       <p className="t-footnote">تظهر المعلمات المرتبطات بالحلقات المسندة إليك.</p>
     </div>

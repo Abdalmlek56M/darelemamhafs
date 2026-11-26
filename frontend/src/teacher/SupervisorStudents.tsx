@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, GraduationCap, Phone, Plus, Search, UserRound } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorStudent, SupervisorStudentDetailResponse } from './teacherTypes'
+import Pager from '../components/common/Pager'
+import { usePagedResource, type PagedPage } from '../hooks/usePagedResource'
+import { defaultMeta } from '../lib/pagination'
 import { dateLabel, percent, statusLabel, statusTone, formatTime12 } from './supervisorFormat'
 import { money } from './teacherFormat'
 import { demoStudentDetail, demoStudents } from './supervisorDemo'
@@ -13,40 +16,28 @@ const subscriptionLabels: Record<string, string> = { paid: 'مسدد', partial: 
 const subscriptionTones: Record<string, string> = { paid: 't-badge-ok', partial: 't-badge-gold', unpaid: 't-badge-bad', 'not-set': 't-badge-muted' }
 
 export default function SupervisorStudents({ canNote, demo = false, onOpenCircle, canCommunicate = false }: Props) {
-  const [students, setStudents] = useState<SupervisorStudent[]>([])
   const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [appliedSearch, setAppliedSearch] = useState('')
   const [selected, setSelected] = useState<SupervisorStudent | null>(null)
 
-  const load = useCallback(async (term = '') => {
+  const fetchStudents = useCallback(async (page: number, pageSize: number): Promise<PagedPage<SupervisorStudent>> => {
     if (demo) {
-      const needle = term.trim().toLowerCase()
-      setStudents(demoStudents.filter((student) => !needle
+      const needle = appliedSearch.trim().toLowerCase()
+      const rows = demoStudents.filter((student) => !needle
         || student.fullName.toLowerCase().includes(needle)
         || student.studentCode.toLowerCase().includes(needle)
-        || (student.guardianPhone ?? '').includes(needle)))
-      setLoading(false)
-      setError(null)
-      return
+        || (student.guardianPhone ?? '').includes(needle))
+      return { items: rows, meta: defaultMeta(rows.length, 1, pageSize) }
     }
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await teacherApi.supervisorStudents(term)
-      setStudents(data.students)
-    } catch (err) {
-      setError(err instanceof TeacherApiError ? err.message : 'تعذر تحميل الطالبات.')
-    } finally {
-      setLoading(false)
-    }
-  }, [demo])
-
-  useEffect(() => { void load() }, [load])
+    const response = await teacherApi.supervisorStudentsPage({ search: appliedSearch, page, pageSize })
+    return { items: response.data.students, meta: response.meta }
+  }, [demo, appliedSearch])
+  const studentsPage = usePagedResource({ fetcher: fetchStudents, deps: [demo, appliedSearch] })
+  const students = studentsPage.items
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    void load(search)
+    setAppliedSearch(search.trim())
   }
 
   if (selected) {
@@ -66,9 +57,9 @@ export default function SupervisorStudents({ canNote, demo = false, onOpenCircle
         <button className="t-text-button" type="submit">بحث</button>
       </form>
 
-      {error && <div className="t-error-card"><p>{error}</p><button className="t-secondary" onClick={() => void load(search)}>إعادة المحاولة</button></div>}
-      {loading && students.length === 0 && <div className="t-empty">جارٍ تحميل الطالبات…</div>}
-      {!loading && !error && students.length === 0 && <div className="t-empty">لا توجد طالبات في نطاقك.</div>}
+      {studentsPage.error && <div className="t-error-card"><p>{studentsPage.error}</p><button className="t-secondary" onClick={studentsPage.reload}>إعادة المحاولة</button></div>}
+      {studentsPage.loading && students.length === 0 && <div className="t-empty">جارٍ تحميل الطالبات…</div>}
+      {!studentsPage.loading && !studentsPage.error && students.length === 0 && <div className="t-empty">لا توجد طالبات في نطاقك.</div>}
 
       <div className="sup-table-wrap">
         <table className="sup-table">
@@ -103,6 +94,15 @@ export default function SupervisorStudents({ canNote, demo = false, onOpenCircle
           </button>
         ))}
       </div>
+
+      <Pager
+        page={studentsPage.page}
+        pageSize={studentsPage.pageSize}
+        total={studentsPage.meta.total}
+        onPageChange={studentsPage.setPage}
+        buttonClassName="t-secondary"
+        label="طالبة"
+      />
 
       <p className="t-footnote">تظهر الطالبات داخل الحلقات المسندة إليك فقط.</p>
     </div>

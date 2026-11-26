@@ -1,36 +1,27 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { CalendarDays, Phone, RefreshCw, UserRound, Users } from 'lucide-react'
-import { teacherApi, TeacherApiError } from './teacherApi'
+import { teacherApi } from './teacherApi'
 import type { SupervisorAbsencesResponse } from './teacherTypes'
 import { dateLabel, statusLabel, statusTone, todayCairo, formatTime12 } from './supervisorFormat'
 import { demoAbsences } from './supervisorDemo'
+import Pager from '../components/common/Pager'
+import { usePagedResource, type PagedPage } from '../hooks/usePagedResource'
+import { defaultMeta } from '../lib/pagination'
 import WhatsAppButton from './WhatsAppButton'
 
 type Props = { demo: boolean; onOpenTeacher?: (id: string) => void; onOpenCircle?: (id: string) => void; canCommunicate?: boolean }
 
 export default function SupervisorAbsences({ demo, onOpenTeacher, onOpenCircle, canCommunicate = false }: Props) {
   const [date, setDate] = useState(todayCairo())
-  const [data, setData] = useState<SupervisorAbsencesResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async (day: string) => {
-    if (demo) { setData(demoAbsences); setLoading(false); setError(null); return }
-    setLoading(true)
-    setError(null)
-    try {
-      setData(await teacherApi.supervisorAbsences(day))
-    } catch (err) {
-      setError(err instanceof TeacherApiError ? err.message : 'تعذر تحميل الغياب.')
-    } finally {
-      setLoading(false)
-    }
-  }, [demo])
-
-  useEffect(() => { void load(date) }, [date, load])
-
+  const fetchAbsences = useCallback(async (page: number, pageSize: number): Promise<PagedPage<SupervisorAbsencesResponse>> => {
+    if (demo) return { items: [demoAbsences], meta: defaultMeta(demoAbsences.absences.length, 1, pageSize) }
+    const response = await teacherApi.supervisorAbsencesPage({ date, page, pageSize }); return { items: [response.data], meta: response.meta }
+  }, [demo, date])
+  const absencesPage = usePagedResource({ fetcher: fetchAbsences, deps: [demo, date] })
+  const data = absencesPage.items[0] ?? null
   const teachers = data?.teachers ?? []
-  const students = data?.students ?? []
+  const students = data?.absences ?? []
 
   return (
     <div className="sup-page">
@@ -38,22 +29,22 @@ export default function SupervisorAbsences({ demo, onOpenTeacher, onOpenCircle, 
         <div><span className="sup-eyebrow">متابعة يومية</span><h1>الغياب</h1><p>المعلمات التي لم تسجل والطالبات الغائبات في يوم واحد.</p></div>
         <div className="sup-head-actions">
           <label className="sup-date"><CalendarDays size={16} /><input type="date" value={date} max={todayCairo()} onChange={(event) => setDate(event.target.value || todayCairo())} /></label>
-          <button className="sup-icon-button" onClick={() => void load(date)} disabled={loading} aria-label="تحديث"><RefreshCw size={18} /></button>
+          <button className="sup-icon-button" onClick={absencesPage.reload} disabled={absencesPage.loading} aria-label="تحديث"><RefreshCw size={18} /></button>
         </div>
       </div>
 
-      {error && <div className="t-error-card"><p>{error}</p><button className="t-secondary" onClick={() => void load(date)}>إعادة المحاولة</button></div>}
+      {absencesPage.error && <div className="t-error-card"><p>{absencesPage.error}</p><button className="t-secondary" onClick={absencesPage.reload}>إعادة المحاولة</button></div>}
 
       <div className="sup-kpi-grid sup-kpi-grid-three">
         <div className="sup-kpi"><span className="sup-kpi-icon is-warn"><Users size={18} /></span><span>معلمات لم يسجلن</span><strong>{teachers.length}</strong><small>{dateLabel(date)}</small></div>
-        <div className="sup-kpi"><span className="sup-kpi-icon"><UserRound size={18} /></span><span>طالبات غائبات</span><strong>{students.length}</strong><small>{students.filter((item) => item.status === 'excused').length} بعذر</small></div>
-        <div className="sup-kpi"><span className="sup-kpi-icon"><CalendarDays size={18} /></span><span>إجمالي المتابعات</span><strong>{teachers.length + students.length}</strong><small>تحتاج إجراء</small></div>
+        <div className="sup-kpi"><span className="sup-kpi-icon"><UserRound size={18} /></span><span>طالبات غائبات</span><strong>{absencesPage.meta.total}</strong><small>{students.filter((item) => item.status === 'excused').length} بعذر في هذه الصفحة</small></div>
+        <div className="sup-kpi"><span className="sup-kpi-icon"><CalendarDays size={18} /></span><span>إجمالي المتابعات</span><strong>{teachers.length + absencesPage.meta.total}</strong><small>تحتاج إجراء</small></div>
       </div>
 
       <section className="sup-panel">
         <div className="sup-panel-head"><div><h2>معلمات لم يسجلن</h2><span>{teachers.length}</span></div></div>
-        {loading && teachers.length === 0 && <p className="sup-muted">جارٍ التحميل…</p>}
-        {!loading && teachers.length === 0 && <p className="sup-muted">لا توجد معلمات متأخرات عن التسجيل.</p>}
+        {absencesPage.loading && teachers.length === 0 && <p className="sup-muted">جارٍ التحميل…</p>}
+        {!absencesPage.loading && teachers.length === 0 && <p className="sup-muted">لا توجد معلمات متأخرات عن التسجيل.</p>}
         <div className="sup-list">
           {teachers.map((item) => (
             <div className="sup-row" key={`${item.scheduleSlotId}-${formatTime12(item.startsAt)}`}>
@@ -68,9 +59,9 @@ export default function SupervisorAbsences({ demo, onOpenTeacher, onOpenCircle, 
       </section>
 
       <section className="sup-panel">
-        <div className="sup-panel-head"><div><h2>طالبات غائبات</h2><span>{students.length}</span></div></div>
-        {loading && students.length === 0 && <p className="sup-muted">جارٍ التحميل…</p>}
-        {!loading && students.length === 0 && <p className="sup-muted">لا يوجد غياب مسجل في هذا اليوم.</p>}
+        <div className="sup-panel-head"><div><h2>طالبات غائبات</h2><span>{absencesPage.meta.total}</span></div></div>
+        {absencesPage.loading && students.length === 0 && <p className="sup-muted">جارٍ التحميل…</p>}
+        {!absencesPage.loading && students.length === 0 && <p className="sup-muted">لا يوجد غياب مسجل في هذا اليوم.</p>}
         <div className="sup-list">
           {students.map((item) => (
             <div className="sup-row" key={item.attendanceId}>
@@ -82,6 +73,14 @@ export default function SupervisorAbsences({ demo, onOpenTeacher, onOpenCircle, 
             </div>
           ))}
         </div>
+        <Pager
+          page={absencesPage.page}
+          pageSize={absencesPage.pageSize}
+          total={absencesPage.meta.total}
+          onPageChange={absencesPage.setPage}
+          buttonClassName="t-secondary"
+          label="غياب"
+        />
       </section>
 
       <p className="sup-footnote">الغياب يظهر بعد انتهاء وقت الحلقة. النطاق يحدد المعلمات والطالبات الظاهرة.</p>

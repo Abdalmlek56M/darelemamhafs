@@ -7,6 +7,7 @@ import type {
 } from './teacherTypes'
 import type { TeacherCalendarResponse, TeacherHistoryResponse } from './teacherCalendarTypes'
 import { isArabicUserMessage, normalizeUserMessage } from '../lib/userMessages'
+import { PORTAL_PAGE_SIZE, parsePageMeta, type PagedResponse } from '../lib/pagination'
 
 export class TeacherApiError extends Error {
   status: number
@@ -40,7 +41,7 @@ async function readError(response: Response): Promise<ParsedError> {
   return { message: normalizeUserMessage(messages.join(' '), response.status), serverMessage: null }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function send(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers)
   // P1-2: the teacher portal must never fall back to the admin bridge cookie.
   headers.set('X-Dar-Portal', 'teacher')
@@ -56,8 +57,28 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const parsed = await readError(response)
     throw new TeacherApiError(parsed.message, response.status, parsed.serverMessage ?? undefined)
   }
+  return response
+}
+
+async function decode<T>(response: Response): Promise<T> {
   if (response.status === 204) return undefined as T
   return await response.json() as T
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  return await decode<T>(await send(path, init))
+}
+
+async function requestPage<T>(path: string, init?: RequestInit, fallbackPageSize = PORTAL_PAGE_SIZE): Promise<PagedResponse<T>> {
+  const response = await send(path, init)
+  const data = await decode<T>(response)
+  const record = data as unknown as Record<string, unknown> | null
+  const returned = Array.isArray(data)
+    ? data.length
+    : record && typeof record.count === 'number'
+      ? record.count
+      : 0
+  return { data, meta: parsePageMeta(response.headers, returned, fallbackPageSize) }
 }
 
 export const teacherApi = {
@@ -156,6 +177,25 @@ export const teacherApi = {
     const query = params.size ? `?${params.toString()}` : ''
     return request<SupervisorTeacherNotesResponse>(`/api/v1/supervisor/teacher-notes${query}`)
   },
+  supervisorStudentsPage: (params: { search?: string; circleId?: string; page: number; pageSize: number }) => {
+    const query = new URLSearchParams({ page: String(params.page), pageSize: String(params.pageSize) })
+    if (params.search?.trim()) query.set('search', params.search.trim())
+    if (params.circleId) query.set('circleId', params.circleId)
+    return requestPage<SupervisorStudentsResponse>(`/api/v1/supervisor/students?${query.toString()}`)
+  },
+  supervisorCirclesPage: (params: { search?: string; page: number; pageSize: number }) => {
+    const query = new URLSearchParams({ page: String(params.page), pageSize: String(params.pageSize) })
+    if (params.search?.trim()) query.set('search', params.search.trim())
+    return requestPage<SupervisorCirclesResponse>(`/api/v1/supervisor/circles?${query.toString()}`)
+  },
+  supervisorTeachersPage: (params: { search?: string; page: number; pageSize: number }) => {
+    const query = new URLSearchParams({ page: String(params.page), pageSize: String(params.pageSize) })
+    if (params.search?.trim()) query.set('search', params.search.trim())
+    return requestPage<SupervisorTeachersResponse>(`/api/v1/supervisor/teachers?${query.toString()}`)
+  },
+  supervisorAbsencesPage: (params: { date: string; page: number; pageSize: number }) =>
+    requestPage<SupervisorAbsencesResponse>(
+      `/api/v1/supervisor/absences?date=${encodeURIComponent(params.date)}&page=${params.page}&pageSize=${params.pageSize}`),
   teacherCalendar: (from?: string, days = 7) => {
     const params = new URLSearchParams({ days: String(days) })
     if (from) params.set('from', from)

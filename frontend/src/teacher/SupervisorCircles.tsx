@@ -2,41 +2,32 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, BookOpen, Plus, Search, Users } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorCircle, SupervisorCircleDetailResponse, SupervisorStudent } from './teacherTypes'
+import Pager from '../components/common/Pager'
+import { usePagedResource, type PagedPage } from '../hooks/usePagedResource'
+import { defaultMeta } from '../lib/pagination'
 import { dateLabel, dayNames, statusLabel, statusTone, formatTime12 } from './supervisorFormat'
 import { demoCircleDetail, demoCircles, demoStudents } from './supervisorDemo'
 
 type Props = { demo?: boolean; onOpenTeacher?: (id: string) => void; focusId?: string; onFocusConsumed?: () => void; canAddStudents?: boolean }
 
 export default function SupervisorCircles({ demo = false, onOpenTeacher, focusId, onFocusConsumed, canAddStudents = false }: Props) {
-  const [circles, setCircles] = useState<SupervisorCircle[]>([])
   const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [appliedSearch, setAppliedSearch] = useState('')
   const [selected, setSelected] = useState<SupervisorCircle | null>(null)
 
-  const load = useCallback(async (term = '') => {
+  const fetchCircles = useCallback(async (page: number, pageSize: number): Promise<PagedPage<SupervisorCircle>> => {
     if (demo) {
-      const needle = term.trim().toLowerCase()
-      setCircles(demoCircles.filter((circle) => !needle
+      const needle = appliedSearch.trim().toLowerCase()
+      const rows = demoCircles.filter((circle) => !needle
         || circle.name.toLowerCase().includes(needle)
-        || (circle.teacherName ?? '').toLowerCase().includes(needle)))
-      setLoading(false)
-      setError(null)
-      return
+        || (circle.teacherName ?? '').toLowerCase().includes(needle))
+      return { items: rows, meta: defaultMeta(rows.length, 1, pageSize) }
     }
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await teacherApi.supervisorCircles(term)
-      setCircles(data.circles)
-    } catch (err) {
-      setError(err instanceof TeacherApiError ? err.message : 'تعذر تحميل الحلقات.')
-    } finally {
-      setLoading(false)
-    }
-  }, [demo])
-
-  useEffect(() => { void load() }, [load])
+    const response = await teacherApi.supervisorCirclesPage({ search: appliedSearch, page, pageSize })
+    return { items: response.data.circles, meta: response.meta }
+  }, [demo, appliedSearch])
+  const circlesPage = usePagedResource({ fetcher: fetchCircles, deps: [demo, appliedSearch] })
+  const circles = circlesPage.items
 
   useEffect(() => {
     if (!focusId || selected) return
@@ -46,7 +37,7 @@ export default function SupervisorCircles({ demo = false, onOpenTeacher, focusId
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    void load(search)
+    setAppliedSearch(search.trim())
   }
 
   if (selected) {
@@ -61,9 +52,9 @@ export default function SupervisorCircles({ demo = false, onOpenTeacher, focusId
         <button className="t-text-button" type="submit">بحث</button>
       </form>
 
-      {error && <div className="t-error-card"><p>{error}</p><button className="t-secondary" onClick={() => void load(search)}>إعادة المحاولة</button></div>}
-      {loading && circles.length === 0 && <div className="t-empty">جارٍ تحميل الحلقات…</div>}
-      {!loading && !error && circles.length === 0 && <div className="t-empty">لا توجد حلقات في نطاقك.</div>}
+      {circlesPage.error && <div className="t-error-card"><p>{circlesPage.error}</p><button className="t-secondary" onClick={circlesPage.reload}>إعادة المحاولة</button></div>}
+      {circlesPage.loading && circles.length === 0 && <div className="t-empty">جارٍ تحميل الحلقات…</div>}
+      {!circlesPage.loading && !circlesPage.error && circles.length === 0 && <div className="t-empty">لا توجد حلقات في نطاقك.</div>}
 
       <div className="sup-table-wrap">
         <table className="sup-table">
@@ -96,6 +87,15 @@ export default function SupervisorCircles({ demo = false, onOpenTeacher, focusId
           </button>
         ))}
       </div>
+
+      <Pager
+        page={circlesPage.page}
+        pageSize={circlesPage.pageSize}
+        total={circlesPage.meta.total}
+        onPageChange={circlesPage.setPage}
+        buttonClassName="t-secondary"
+        label="حلقة"
+      />
 
       <p className="t-footnote">تظهر الحلقات التي تشرفين عليها فقط. المبالغ تظهر بصلاحية المالية.</p>
     </div>
