@@ -44,9 +44,8 @@ public sealed class CreateStudentHandler(IStudentRepository repository)
             Phone = Normalize(request.Phone),
             GuardianName = Normalize(request.GuardianName),
             GuardianPhone = Normalize(request.GuardianPhone),
-            // The Dar operates in Africa/Cairo; DateTime.Today avoids the UTC date rolling
-            // back to "yesterday" for students created between midnight and 02:00 local time.
-            JoinedOn = request.JoinedOn == default ? DateOnly.FromDateTime(DateTime.Today) : request.JoinedOn,
+            // FINAL 1.11: the server owns the joined date in Africa/Cairo; a browser clock is not trusted.
+            JoinedOn = Dar.Common.Domain.CairoTime.Today(),
             Status = request.Status,
             Notes = Normalize(request.Notes)
         };

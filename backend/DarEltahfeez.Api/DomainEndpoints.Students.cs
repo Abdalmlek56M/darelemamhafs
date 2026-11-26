@@ -34,6 +34,8 @@ public static partial class DomainEndpoints
                     RETURNING id;
                     """);
                 AddStudentParams(cmd, request, code);
+                // FINAL 1.11: new students get the server's Africa/Cairo day, not the browser date.
+                cmd.Parameters["joined"].Value = CairoTime.Today();
                 var id = (Guid)(await cmd.ExecuteScalarAsync(ct) ?? throw new InvalidOperationException("لم يرجع سجل الطالب بعد الحفظ."));
                 var saved = await LoadStudent(db, id, CanReadFinance(principal), ct);
                 return Results.Created($"/api/students/{id}", saved);
