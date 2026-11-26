@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Dar.Common.Pagination;
 using Npgsql;
 
 namespace Dar.Modules.Teaching.Features.Teacher;
@@ -29,6 +30,9 @@ public static class RosterEndpoints
 
     public static async Task<IResult> Roster(
         Guid id,
+        int? page,
+        int? pageSize,
+        HttpContext http,
         ClaimsPrincipal principal,
         NpgsqlDataSource dataSource,
         CancellationToken ct)
@@ -41,8 +45,10 @@ public static class RosterEndpoints
         var session = await LoadSessionAsync(connection, null, id, teacherId, ct);
         if (session is null) return Results.NotFound(new { message = "الحلقة غير موجودة." });
 
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
         var rows = new List<object>();
-        await using var command = new NpgsqlCommand("""
+        var query = """
             WITH candidates AS (
                 SELECT ce.id AS enrollment_id, s.id AS student_id, s.student_code, s.full_name,
                        sa.status, sa.note,
@@ -73,16 +79,26 @@ public static class RosterEndpoints
                 LEFT JOIN LATERAL (SELECT public.dar_enrollment_status_at_date(ce.id,@date) AS status_at_date) lifecycle ON TRUE
                 WHERE ss.id=@slot AND ss.is_trashed=FALSE
             )
-            SELECT enrollment_id,student_id,student_code,full_name,status,note,eligible_for_date,eligibility_reason,starts_on,ends_on,enrollment_status_at_date
+            SELECT enrollment_id,student_id,student_code,full_name,status,note,eligible_for_date,eligibility_reason,starts_on,ends_on,enrollment_status_at_date,
+                   COUNT(*) OVER() AS total
             FROM candidates WHERE student_row=1
-            ORDER BY eligible_for_date DESC,full_name;
-            """, connection);
+            ORDER BY eligible_for_date DESC,full_name,student_id
+            """;
+        if (paged) query += " LIMIT @take OFFSET @skip";
+        await using var command = new NpgsqlCommand(query, connection);
         command.Parameters.AddWithValue("slot", session.SlotId);
         command.Parameters.AddWithValue("date", session.Date);
+        if (paged)
+        {
+            command.Parameters.AddWithValue("take", paging.PageSize);
+            command.Parameters.AddWithValue("skip", paging.Offset);
+        }
+        long total = 0;
         await using (var reader = await command.ExecuteReaderAsync(ct))
         {
             while (await reader.ReadAsync(ct))
             {
+                total = reader.ReadTotal();
                 rows.Add(new
                 {
                     enrollmentId = reader.GetGuid(0),
@@ -100,7 +116,9 @@ public static class RosterEndpoints
             }
         }
 
-        return Results.Ok(new { sessionId = id, date = session.Date, slotId = session.SlotId, students = rows });
+        total = await PaginationRules.EnsureTotalAsync(command, total, paged, ct);
+        PaginationHeaderWriter.Write(http.Response, total, paging, rows.Count, paged);
+        return Results.Ok(new { sessionId = id, date = session.Date, slotId = session.SlotId, students = rows, total });
     }
 
     public static async Task<IResult> Submit(

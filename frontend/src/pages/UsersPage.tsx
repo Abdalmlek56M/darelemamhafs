@@ -1,19 +1,31 @@
+import { useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { LockKeyhole, Pencil, Plus, ShieldCheck } from 'lucide-react'
 import { knownPermissionNames } from '../domain/permissions'
 import { formatDate } from '../lib/formatters'
+import type { AdminUser } from '../domain/types'
+import Pager from '../components/common/Pager'
 import ResponsiveTable, { type ResponsiveColumn } from '../components/common/ResponsiveTable'
+import { requestPage } from '../services/apiClient'
+import { usePagedResource } from '../hooks/usePagedResource'
+import { ADMIN_PAGE_SIZE } from '../lib/pagination'
+import { buildListQuery } from '../lib/listQuery'
 import type { DarApplicationContext } from '../application/useDarApplication'
-
 
 type Props = { ctx: DarApplicationContext }
 
 export default function UsersPage({ ctx }: Props) {
   const session = ctx.session
   if (!session) return null
-  type User = (typeof ctx.users)[number]
 
-  const columns: ResponsiveColumn<User>[] = [
+  const fetchUsers = useCallback(async (page: number, pageSize: number) => {
+    const response = await requestPage<AdminUser[]>(`/api/admin/users${buildListQuery({ page, pageSize })}`, undefined, ADMIN_PAGE_SIZE)
+    return { items: response.data, meta: response.meta }
+  }, [])
+  const usersPage = usePagedResource<AdminUser>({ fetcher: fetchUsers, deps: [], pageSize: ADMIN_PAGE_SIZE })
+  const rows = usersPage.items
+
+  const columns: ResponsiveColumn<AdminUser>[] = [
     {
       key: 'account', header: 'الحساب', primary: true,
       render: (user) => <div className="student-name-cell">
@@ -43,10 +55,10 @@ export default function UsersPage({ ctx }: Props) {
       <div><strong>الصلاحيات تُفرض على الخادم</strong><p>إخفاء القسم أو الزر في الواجهة ليس الحماية الوحيدة؛ كل عملية API تتحقق من صلاحية الحساب الحالي. يمكن تحديد الصلاحيات لكل حساب منفردًا.</p></div>
     </div>
     <div className="table-card glass">
-      <div className="table-heading"><div><h3>حسابات لوحة الإدارة</h3><span>{ctx.users.length} حساب</span></div></div>
+      <div className="table-heading"><div><h3>حسابات لوحة الإدارة</h3><span>{usersPage.meta.total} حساب</span></div></div>
       <ResponsiveTable
         caption="قائمة حسابات لوحة الإدارة"
-        rows={ctx.users}
+        rows={rows}
         columns={columns}
         rowKey={(user) => user.id}
         empty={<div className="empty-inline">لا توجد حسابات حتى الآن.</div>}
@@ -54,6 +66,13 @@ export default function UsersPage({ ctx }: Props) {
           <button className="small-icon-button" title="تعديل الحساب والصلاحيات" onClick={() => ctx.openUserEdit(user)}><Pencil size={15}/></button>
           {user.isActive && user.id !== session.id && <button className="small-icon-button danger-action" title="تعطيل الحساب" onClick={() => void ctx.deactivateUser(user)}><LockKeyhole size={15}/></button>}
         </>}
+      />
+      <Pager
+        page={usersPage.page}
+        pageSize={usersPage.pageSize}
+        total={usersPage.meta.total}
+        onPageChange={usersPage.setPage}
+        label="حساب"
       />
     </div>
   </motion.section>

@@ -1,17 +1,41 @@
+import { useCallback, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Clock3, GraduationCap, LockKeyhole, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { money } from '../lib/formatters'
 import { teacherStatusLabels } from '../domain/labels'
+import type { Teacher, TeacherStatus } from '../domain/types'
 import Empty from '../components/common/EmptyState'
+import Pager from '../components/common/Pager'
 import ResponsiveTable, { type ResponsiveColumn } from '../components/common/ResponsiveTable'
+import { requestPage } from '../services/apiClient'
+import { usePagedResource } from '../hooks/usePagedResource'
+import { ADMIN_PAGE_SIZE } from '../lib/pagination'
+import { buildListQuery } from '../lib/listQuery'
 import type { DarApplicationContext } from '../application/useDarApplication'
-
 
 type Props = { ctx: DarApplicationContext }
 
 export default function TeachersPage({ ctx }: Props) {
-  const rows = ctx.has('teachers.read') ? ctx.filteredTeachers : []
-  type Teacher = (typeof rows)[number]
+  const [search, setSearch] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | TeacherStatus>('all')
+
+  const fetchTeachers = useCallback(async (page: number, pageSize: number) => {
+    const query = buildListQuery({
+      page,
+      pageSize,
+      search: appliedSearch,
+      status: statusFilter === 'all' ? '' : statusFilter,
+    })
+    const response = await requestPage<Teacher[]>(`/api/teachers${query}`, undefined, ADMIN_PAGE_SIZE)
+    return { items: response.data, meta: response.meta }
+  }, [appliedSearch, statusFilter])
+  const teachersPage = usePagedResource<Teacher>({
+    fetcher: fetchTeachers,
+    deps: [appliedSearch, statusFilter],
+    pageSize: ADMIN_PAGE_SIZE,
+  })
+  const rows = ctx.has('teachers.read') ? teachersPage.items : []
 
   const columns: ResponsiveColumn<Teacher>[] = [
     {
@@ -28,16 +52,7 @@ export default function TeachersPage({ ctx }: Props) {
     }] : []),
     {
       key: 'circles', header: 'الحلقات المسندة',
-      render: (teacher) => teacher.circleNames
-        ? <>{teacher.circleNames.split('، ').map((name, index) => {
-          const linked = ctx.circles.find((circle) => circle.name === name)
-          return <span key={teacher.id + '-' + name} className="teacher-circle-item">
-            {ctx.has('circles.read') && linked ? <button className="text-link" onClick={() => void ctx.openCircleDetails(linked)}>{name}</button> : name}
-            {linked && !linked.isActive && <small className="sub-cell">متوقفة</small>}
-            {index < teacher.circleNames.split('، ').length - 1 ? '، ' : ''}
-          </span>
-        })}<small className="sub-cell">{teacher.circleCount} حلقة مسندة</small></>
-        : 'غير مسندة لحلقات',
+      render: (teacher) => <><span>{teacher.circleNames || 'غير مسندة لحلقات'}</span><small className="sub-cell">{teacher.circleCount} حلقة مسندة</small></>,
     },
     {
       key: 'status', header: 'الحالة',
@@ -56,16 +71,17 @@ export default function TeachersPage({ ctx }: Props) {
     <div className="student-filters glass">
       <label className="search-field">
         <Search size={17}/>
-        <input value={ctx.query} onChange={(event) => ctx.setQuery(event.target.value)} placeholder="ابحث باسم المعلمة أو الهاتف أو الحلقة…"/>
+        <input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') setAppliedSearch(search.trim()) }} placeholder="ابحث باسم المعلمة أو الهاتف…"/>
       </label>
+      <button type="button" className="secondary-button" onClick={() => setAppliedSearch(search.trim())}>بحث</button>
       <div className="status-filters">
         {([{ value: 'all', label: 'الكل' }, { value: 'active', label: 'نشطة' }, { value: 'inactive', label: 'غير نشطة' }, { value: 'archived', label: 'مؤرشفة' }] as const).map((filter) =>
-          <button key={filter.value} className={ctx.teacherFilter === filter.value ? 'filter-chip selected' : 'filter-chip'} onClick={() => ctx.setTeacherFilter(filter.value)}>{filter.label}</button>)}
+          <button key={filter.value} className={statusFilter === filter.value ? 'filter-chip selected' : 'filter-chip'} onClick={() => setStatusFilter(filter.value)}>{filter.label}</button>)}
       </div>
     </div>
     <div className="table-card glass">
       <div className="table-heading">
-        <div><h3>سجل المعلمات</h3><span>{ctx.filteredTeachers.length} معلمة</span></div>
+        <div><h3>سجل المعلمات</h3><span>{teachersPage.meta.total} معلمة</span></div>
       </div>
       <ResponsiveTable
         caption="قائمة المعلمات"
@@ -80,7 +96,14 @@ export default function TeachersPage({ ctx }: Props) {
           {ctx.has('teachers.delete') && ctx.has('trash.manage') && <button className="small-icon-button danger-action" title="نقل المعلمة إلى سلة المهملات" onClick={() => void ctx.deleteTeacher(teacher)}><Trash2 size={15}/></button>}
         </>}
       />
+      <Pager
+        page={teachersPage.page}
+        pageSize={teachersPage.pageSize}
+        total={teachersPage.meta.total}
+        onPageChange={teachersPage.setPage}
+        label="معلمة"
+      />
     </div>
-    <p className="page-footnote"><Clock3 size={14}/> أجر الساعة مسجل لكل معلمة. حساب المستحق الفعلي يحتاج تسجيل ساعات التدريس أو جدول حصص معتمد لاحقًا.</p>
+    <p className="page-footnote"><Clock3 size={14}/> أجر الساعة مسجل لكل معلمة. البحث والفلترة يطبقان على السيرفر قبل العدّ.</p>
   </motion.section>
 }

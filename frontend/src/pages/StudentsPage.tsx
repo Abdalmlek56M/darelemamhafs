@@ -1,32 +1,43 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { motion } from 'framer-motion'
 import { BookOpen, Copy, Database, LockKeyhole, Pencil, Plus, Search, Trash2, UserRound, Users } from 'lucide-react'
 import { formatDate, money } from '../lib/formatters'
 import { statusLabels } from '../domain/labels'
-import type { StudentStatus } from '../domain/types'
+import type { Student, StudentStatus } from '../domain/types'
 import Empty from '../components/common/EmptyState'
+import Pager from '../components/common/Pager'
 import ResponsiveTable, { type ResponsiveColumn } from '../components/common/ResponsiveTable'
+import { requestPage } from '../services/apiClient'
+import { usePagedResource } from '../hooks/usePagedResource'
+import { ADMIN_PAGE_SIZE } from '../lib/pagination'
+import { buildListQuery } from '../lib/listQuery'
 import type { DarApplicationContext } from '../application/useDarApplication'
-
 
 type Props = { ctx: DarApplicationContext }
 
-const PAGE_SIZE = 25
-
 export default function StudentsPage({ ctx }: Props) {
-  const [page, setPage] = useState(1)
-  const rows = ctx.has('students.read') ? ctx.filteredStudents : []
-  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
-  const safePage = Math.min(page, pageCount)
-  const pageRows = useMemo(
-    () => rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
-    [rows, safePage],
-  )
+  const [search, setSearch] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | StudentStatus>('all')
 
-  useEffect(() => { setPage(1) }, [ctx.query, ctx.statusFilter])
-  useEffect(() => { setPage((current) => Math.min(current, pageCount)) }, [pageCount])
+  const fetchStudents = useCallback(async (page: number, pageSize: number) => {
+    const query = buildListQuery({
+      page,
+      pageSize,
+      search: appliedSearch,
+      status: statusFilter === 'all' ? '' : statusFilter,
+    })
+    const response = await requestPage<Student[]>(`/api/students${query}`, undefined, ADMIN_PAGE_SIZE)
+    return { items: response.data, meta: response.meta }
+  }, [appliedSearch, statusFilter])
+  const studentsPage = usePagedResource<Student>({
+    fetcher: fetchStudents,
+    deps: [appliedSearch, statusFilter],
+    pageSize: ADMIN_PAGE_SIZE,
+  })
+  const rows = ctx.has('students.read') ? studentsPage.items : []
 
-  const columns: ResponsiveColumn<(typeof rows)[number]>[] = [
+  const columns: ResponsiveColumn<Student>[] = [
     {
       key: 'student', header: 'الطالب', primary: true,
       render: (student) => <button className="text-link student-name-link" onClick={() => void ctx.openHistory(student.id)}>
@@ -42,9 +53,7 @@ export default function StudentsPage({ ctx }: Props) {
     {
       key: 'circle', header: 'الحلقة',
       render: (student) => student.circleNames
-        ? (ctx.has('circles.read')
-          ? <button className="text-link circle-link" onClick={() => { const first = student.circleNames.split('، ')[0]; const match = ctx.circles.find((item) => item.name === first); if (match) void ctx.openCircleDetails(match); else ctx.changePage('circles') }}>{student.circleNames}</button>
-          : <span>{student.circleNames}</span>)
+        ? <span>{student.circleNames}</span>
         : <span className="muted-text">غير ملتحق</span>,
     },
     {
@@ -69,28 +78,29 @@ export default function StudentsPage({ ctx }: Props) {
     <div className="student-filters glass">
       <label className="search-field">
         <Search size={17}/>
-        <input value={ctx.query} onChange={(event) => { ctx.setQuery(event.target.value); setPage(1) }} placeholder="ابحث بالاسم أو الكود أو الهاتف أو الحلقة…"/>
+        <input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') setAppliedSearch(search.trim()) }} placeholder="ابحث بالاسم أو الكود أو الهاتف…"/>
       </label>
+      <button type="button" className="secondary-button" onClick={() => setAppliedSearch(search.trim())}>بحث</button>
       <div className="status-filters">
-        {([{ value: 'all', label: 'الكل' }, { value: 'active', label: 'نشط' }, { value: 'paused', label: 'متوقف' }, { value: 'withdrawn', label: 'منسحب' }, { value: 'archived', label: 'مؤرشف' }] as const).map((filter) =>
-          <button key={filter.value} className={ctx.statusFilter === filter.value ? 'filter-chip selected' : 'filter-chip'} onClick={() => { ctx.setStatusFilter(filter.value); setPage(1) }}>{filter.label}</button>)}
+        {([{ value: 'all', label: 'الكل' }, { value: 'active', label: 'نشط' }, { value: 'paused', label: 'متوقف' }, { value: 'withdrawn', label: 'منسحب' }] as const).map((filter) =>
+          <button key={filter.value} className={statusFilter === filter.value ? 'filter-chip selected' : 'filter-chip'} onClick={() => setStatusFilter(filter.value)}>{filter.label}</button>)}
       </div>
     </div>
     <div className="table-card glass">
       <div className="table-heading">
         <div>
           <h3>الطلاب المسجلون</h3>
-          <span>{ctx.has('students.read') ? rows.length + ' سجل · حالة تحصيل الشهر الحالي' : 'لا تملك صلاحية عرض قائمة الطلاب'}</span>
+          <span>{ctx.has('students.read') ? studentsPage.meta.total + ' سجل · حالة تحصيل الشهر الحالي' : 'لا تملك صلاحية عرض قائمة الطلاب'}</span>
         </div>
-        <span className="table-heading-note"><Database size={14}/> حفظ مباشر</span>
+        <span className="table-heading-note"><Database size={14}/> تحميل بصفحات</span>
       </div>
       <ResponsiveTable
         caption="قائمة الطلاب"
-        rows={pageRows}
+        rows={rows}
         columns={columns}
         rowKey={(student) => student.id}
         empty={ctx.has('students.read')
-          ? <Empty icon={<Users size={25}/>} title={ctx.students.length ? 'لا توجد نتائج مطابقة' : 'لا يوجد طلاب حتى الآن'} text={ctx.students.length ? 'غيّر البحث أو فلتر الحالة.' : 'ابدأ بإضافة الطلاب وربطهم بالحلقات عند الحاجة.'}/>
+          ? <Empty icon={<Users size={25}/>} title={studentsPage.meta.total ? 'لا توجد نتائج مطابقة' : 'لا يوجد طلاب حتى الآن'} text={studentsPage.meta.total ? 'غيّر البحث أو فلتر الحالة.' : 'ابدأ بإضافة الطلاب وربطهم بالحلقات عند الحاجة.'}/>
           : <Empty icon={<LockKeyhole size={22}/>} title="عرض السجلات غير مسموح" text="يمكنك تنفيذ العمليات التي منحك المدير صلاحيتها، لكن لا يمكنك تصفح سجل الطلاب."/>}
         actions={(student) => <>
           {ctx.has('students.edit') && <button className="small-icon-button" title="تعديل" onClick={() => ctx.openStudentEdit(student)}><Pencil size={15}/></button>}
@@ -102,13 +112,14 @@ export default function StudentsPage({ ctx }: Props) {
           </select>
         </>}
       />
-      {rows.length > PAGE_SIZE && (
-        <div className="student-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', padding: '12px 14px', borderTop: '1px solid var(--line)' }}>
-          <button type="button" className="secondary-button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={safePage <= 1} aria-label="الصفحة السابقة">السابق</button>
-          <span style={{ color: 'var(--muted)', fontSize: 12 }} aria-live="polite">صفحة {safePage} من {pageCount} · {rows.length} سجل</span>
-          <button type="button" className="secondary-button" onClick={() => setPage((current) => Math.min(pageCount, current + 1))} disabled={safePage >= pageCount} aria-label="الصفحة التالية">التالي</button>
-        </div>
-      )}
+      <Pager
+        page={studentsPage.page}
+        pageSize={studentsPage.pageSize}
+        total={studentsPage.meta.total}
+        onPageChange={studentsPage.setPage}
+        label="سجل"
+      />
     </div>
+    <p className="page-footnote"><Database size={14}/> يتم تحميل صفحة واحدة من السيرفر؛ البحث والفلترة يطبقان قبل العدّ.</p>
   </motion.section>
 }
