@@ -317,3 +317,16 @@ In both modes the app trusts only a header named X-Real-IP arriving from Forward
 - New regression suite `tests/regression/repo-secrets` scans backend/src/frontend/tests/deploy/services/packages/database for the live identifiers, the hardcoded superuser password and the non-configurable baseline DB, and fails the regression if any reappear.
 - **Secrets to rotate (owner action):** the old regression superuser password (`RegressionPass123`, previously committed test-only), the Cloudflare API token mentioned in old checkpoint docs, the server SSH access used for deployments, and any `deploy/.env` value that previously appeared in docs. No live credential was changed by this commit.
 - **NOT VERIFIED:** production hostnames/IPs/DNS in the live deployment, firewall/Cloudflare rules, and whether the live `deploy/.env` contains the placeholders. Docs that describe historic deployments were rewritten with placeholders; live runbooks must be re-generated from `deploy/.env`.
+## 20. Backup coverage and verified retention (FINAL 0.9)
+
+`deploy/scripts/dar-backup.sh` now produces a per-run backup set:
+
+- `dar-<stamp>.dump` — database custom-format dump, `pg_restore --list` checked and SHA-256 hashed.
+- `globals-<stamp>.sql` — `pg_dumpall --globals-only` (roles/grants/tablespaces), hashed in the manifest.
+- `config-<stamp>.tar.gz` — the configured env files and encryption/Data Protection key directories (`BACKUP_CONFIG_FILES`, `BACKUP_KEY_DIRS`), mode 600.
+- `media-<stamp>-*.tar.gz` — optional recording/media archives (`BACKUP_MEDIA_ENABLED=1`).
+- Off-site copies include those extra files; the script inspects the rclone remote type and records `offsite.encrypted` in the manifest, warning (not silently passing) when the remote is not `crypt`.
+- **Retention keeps the last `BACKUP_KEEP_COUNT` VERIFIED backups** (default 30). A verified dump is deleted only when enough newer verified backups exist; failed/unverified dumps are kept for investigation. Off-site retention uses the same keep set, never age-only deletion.
+- Regression: `tests/regression/backup-source` checks the source contract (globals/config/keys/media, crypt inspection, count-based retention, no `-mtime … -delete`) and runs `bash -n`.
+
+**NOT VERIFIED (needs the live host):** whether the production rclone remote is actually `crypt`, the live `BACKUP_CONFIG_FILES`/key paths, the media directory size/retention, the systemd timer run, and an actual off-site restore. The owner must confirm the rclone remote type; if it is not `crypt`, the manifest warning will show `offsite.encrypted=false`.

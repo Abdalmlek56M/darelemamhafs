@@ -90,6 +90,20 @@ case "$VERIFY_RESTORE_LIST" in
   *) fail "VERIFY_RESTORE_LIST must be 0 or 1 (got '$VERIFY_RESTORE_LIST')" ;;
 esac
 
+# FINAL 0.9: backups cover more than table data, and retention keeps verified copies only.
+BACKUP_KEEP_COUNT="${BACKUP_KEEP_COUNT:-30}"
+BACKUP_GLOBALS_ENABLED="${BACKUP_GLOBALS_ENABLED:-1}"
+BACKUP_CONFIG_FILES="${BACKUP_CONFIG_FILES:-/etc/dar/backup.env /etc/dar/healthcheck.env /opt/dar/deploy/.env}"
+BACKUP_KEY_DIRS="${BACKUP_KEY_DIRS:-/var/lib/dar/keys}"
+BACKUP_MEDIA_ENABLED="${BACKUP_MEDIA_ENABLED:-0}"
+BACKUP_MEDIA_DIRS="${BACKUP_MEDIA_DIRS:-/var/lib/dar/media}"
+case "$BACKUP_KEEP_COUNT" in
+  ''|*[!0-9]*) fail "BACKUP_KEEP_COUNT must be a positive integer (got '$BACKUP_KEEP_COUNT')" ;;
+esac
+if [ "$BACKUP_KEEP_COUNT" -lt 1 ]; then
+  fail "BACKUP_KEEP_COUNT must be at least 1"
+fi
+
 mkdir -p -- "$DIR" 2>/dev/null || fail "cannot create backup directory: $DIR"
 
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/dar-backup.XXXXXX")" || fail "cannot create a temporary directory"
@@ -176,6 +190,76 @@ if [ "${#SHA256}" -ne 64 ]; then
 fi
 log "INFO: dump verified size=${SIZE_BYTES}B sha256=$SHA256"
 
+# ---- globals, config/encryption material and media (FINAL 0.9) ----
+GLOBALS_FILE=""
+GLOBALS_SHA=""
+GLOBALS_SIZE=""
+CONFIG_FILES_JSON=""
+MEDIA_FILES_JSON=""
+EXTRA_FILES=()
+if [ "$BACKUP_GLOBALS_ENABLED" = "1" ]; then
+  GLOBALS_FILE="$DIR/globals-$STAMP.sql"
+  if ! pg_dumpall --globals-only -f "$GLOBALS_FILE" 2>"$TMP_DIR/globals.err"; then
+    rm -f -- "$GLOBALS_FILE" 2>/dev/null || true
+    tail -n 3 "$TMP_DIR/globals.err" 2>/dev/null || true
+    fail "pg_dumpall --globals-only failed."
+  fi
+  GLOBALS_SIZE="$(stat -c %s "$GLOBALS_FILE" 2>/dev/null || printf '')"
+  case "$GLOBALS_SIZE" in
+    ''|*[!0-9]*) fail "cannot read globals size: $GLOBALS_FILE" ;;
+  esac
+  GLOBALS_SHA="$(sha256sum "$GLOBALS_FILE" 2>/dev/null | awk '{print $1}' || true)"
+  EXTRA_FILES+=("$GLOBALS_FILE")
+  log "INFO: globals written: $GLOBALS_FILE (${GLOBALS_SIZE}B)"
+fi
+
+CONFIG_STAGING="$TMP_DIR/config"
+mkdir -p -- "$CONFIG_STAGING" || fail "cannot create the config staging directory"
+CONFIG_STAGED=0
+for source_file in $BACKUP_CONFIG_FILES; do
+  [ -f "$source_file" ] || continue
+  target="$CONFIG_STAGING/$(printf '%s' "$source_file" | sed 's|/|_|g')"
+  if ! cp -p -- "$source_file" "$target" 2>/dev/null; then
+    fail "cannot copy config file: $source_file"
+  fi
+  chmod 600 -- "$target" 2>/dev/null || true
+  CONFIG_STAGED=$((CONFIG_STAGED + 1))
+  [ -n "$CONFIG_FILES_JSON" ] && CONFIG_FILES_JSON="$CONFIG_FILES_JSON, "
+  CONFIG_FILES_JSON="${CONFIG_FILES_JSON}{$(json_string_or_null "$source_file")}"
+done
+for key_dir in $BACKUP_KEY_DIRS; do
+  [ -d "$key_dir" ] || continue
+  key_target="$CONFIG_STAGING/keys_$(printf '%s' "$key_dir" | sed 's|/|_|g')"
+  if ! cp -a -- "$key_dir" "$key_target" 2>/dev/null; then
+    fail "cannot copy encryption key directory: $key_dir"
+  fi
+  CONFIG_STAGED=$((CONFIG_STAGED + 1))
+done
+if [ "$CONFIG_STAGED" -gt 0 ]; then
+  CONFIG_TAR="$DIR/config-$STAMP.tar.gz"
+  if ! tar -C "$CONFIG_STAGING" -czf "$CONFIG_TAR" . 2>"$TMP_DIR/config-tar.err"; then
+    fail "cannot archive config files."
+  fi
+  chmod 600 -- "$CONFIG_TAR" 2>/dev/null || true
+  EXTRA_FILES+=("$CONFIG_TAR")
+  log "INFO: config/keys archived: $CONFIG_TAR"
+fi
+
+if [ "$BACKUP_MEDIA_ENABLED" = "1" ]; then
+  for media_dir in $BACKUP_MEDIA_DIRS; do
+    [ -d "$media_dir" ] || continue
+    media_name="$(printf '%s' "$media_dir" | sed 's|/|_|g')"
+    MEDIA_TAR="$DIR/media-$STAMP-$media_name.tar.gz"
+    if ! tar -C "$(dirname -- "$media_dir")" -czf "$MEDIA_TAR" "$(basename -- "$media_dir")" 2>"$TMP_DIR/media-tar.err"; then
+      fail "cannot archive media directory: $media_dir"
+    fi
+    EXTRA_FILES+=("$MEDIA_TAR")
+    [ -n "$MEDIA_FILES_JSON" ] && MEDIA_FILES_JSON="$MEDIA_FILES_JSON, "
+    MEDIA_FILES_JSON="${MEDIA_FILES_JSON}{$(json_string_or_null "$media_dir")}"
+    log "INFO: media archived: $MEDIA_TAR"
+  done
+fi
+
 # ---- database metadata (best effort; never invalidates a verified dump) ----
 SERVER_VERSION=""
 MIGRATIONS_COUNT=""
@@ -204,6 +288,7 @@ FINAL_STATUS="success"
 OFFSITE_STATUS="disabled"
 OFFSITE_UPLOADED=0
 OFFSITE_VERIFY_MODE="none"
+OFFSITE_ENCRYPTED="not-checked"
 REMOTE_SIZE=""
 REMOTE_SHA=""
 OFFSITE_ERROR=""
@@ -244,10 +329,17 @@ write_manifest() {
     printf '  "web_schema_migrations": %s,\n' "$(json_number_or_null "$MIGRATIONS_COUNT")"
     printf '  "verify_restore_list": %s,\n' "$([ "$VERIFY_RESTORE_LIST" = "1" ] && printf true || printf false)"
     printf '  "retention_days": %s,\n' "$RETENTION_DAYS"
+    printf '  "keep_count": %s,\n' "$BACKUP_KEEP_COUNT"
+    printf '  "globals_file": %s,\n' "$(json_string_or_null "$(basename -- "${GLOBALS_FILE:-}")")"
+    printf '  "globals_size_bytes": %s,\n' "$(json_number_or_null "$GLOBALS_SIZE")"
+    printf '  "globals_sha256": %s,\n' "$(json_string_or_null "$GLOBALS_SHA")"
+    printf '  "config_files": [%s],\n' "$CONFIG_FILES_JSON"
+    printf '  "media_dirs": [%s],\n' "$MEDIA_FILES_JSON"
     printf '  "rclone_remote": %s,\n' "$(json_string_or_null "${RCLONE_REMOTE:-}")"
     printf '  "offsite": {\n'
     printf '    "status": %s,\n' "$(json_string_or_null "$OFFSITE_STATUS")"
     printf '    "uploaded": %s,\n' "$([ "$OFFSITE_UPLOADED" = "1" ] && printf true || printf false)"
+    printf '    "encrypted": %s,\n' "$(json_string_or_null "$OFFSITE_ENCRYPTED")"
     printf '    "verified": %s,\n' "$(json_string_or_null "$OFFSITE_VERIFY_MODE")"
     printf '    "size_bytes": %s,\n' "$(json_number_or_null "$REMOTE_SIZE")"
     printf '    "sha256": %s,\n' "$(json_string_or_null "$REMOTE_SHA")"
@@ -272,6 +364,15 @@ if [ -n "${RCLONE_REMOTE:-}" ]; then
   else
     REMOTE_ROOT="${RCLONE_REMOTE%/}"
     REMOTE_PATH="${REMOTE_ROOT}/${RCLONE_DEST_SUBDIR#/}"
+    REMOTE_NAME="${RCLONE_REMOTE%%:*}"
+    RCLONE_REMOTE_TYPE="$(rclone --config "$RCLONE_CONFIG_FILE" config show "$REMOTE_NAME" 2>/dev/null | sed -n 's/^type = //p' | head -n 1 | tr -d '[:space:]' || true)"
+    if [ "$RCLONE_REMOTE_TYPE" = "crypt" ]; then
+      OFFSITE_ENCRYPTED="true"
+    else
+      OFFSITE_ENCRYPTED="false"
+      add_warning "off-site remote '$REMOTE_NAME' is not rclone crypt (type=${RCLONE_REMOTE_TYPE:-unknown}); the owner must enable an encrypted remote"
+      log "WARN: off-site remote is NOT rclone crypt; files are not end-to-end encrypted."
+    fi
     REMOTE_DUMP="${REMOTE_PATH}/$(basename -- "$FILE")"
     log "INFO: copying dump offsite: $REMOTE_DUMP"
     if rclone --config "$RCLONE_CONFIG_FILE" copy "$FILE" "${REMOTE_PATH}/" --include "$(basename -- "$FILE")" 2>"$TMP_DIR/rclone-copy.err"; then
@@ -304,6 +405,16 @@ if [ -n "${RCLONE_REMOTE:-}" ]; then
         OFFSITE_VERIFY_MODE="size"
       fi
       log "INFO: offsite dump status=$OFFSITE_STATUS verification=$OFFSITE_VERIFY_MODE size=${REMOTE_SIZE:-unknown}"
+      if [ "$OFFSITE_STATUS" = "verified" ] && [ "${#EXTRA_FILES[@]}" -gt 0 ]; then
+        for extra_file in "${EXTRA_FILES[@]}"; do
+          [ -n "$extra_file" ] || continue
+          if ! rclone --config "$RCLONE_CONFIG_FILE" copy "$extra_file" "${REMOTE_PATH}/" --include "$(basename -- "$extra_file")" 2>"$TMP_DIR/rclone-extra.err"; then
+            OFFSITE_STATUS="failed"
+            OFFSITE_ERROR="rclone copy failed for $(basename -- "$extra_file")"
+            break
+          fi
+        done
+      fi
     else
       OFFSITE_STATUS="failed"
       OFFSITE_ERROR="rclone copy failed for the dump"
@@ -338,14 +449,48 @@ if [ -n "$REMOTE_PATH" ] && [ "$OFFSITE_STATUS" = "verified" ]; then
   fi
 fi
 
-# ---- retention (local always, even when offsite failed: previous behaviour) ----
-find "$DIR" -maxdepth 1 -type f -name 'dar-*.dump' -mtime "+$RETENTION_DAYS" -delete 2>/dev/null || true
-find "$DIR" -maxdepth 1 -type f -name 'dar-*.manifest.json' -mtime "+$RETENTION_DAYS" -delete 2>/dev/null || true
+# ---- retention: keep the last N VERIFIED backups, never delete by age alone ----
+# Failed/unverified dumps are kept for investigation; a verified dump is deleted only
+# when at least BACKUP_KEEP_COUNT newer verified backups exist.
+declare -A KEEP_MAP=()
+prune_local_backups() {
+  local kept=0 manifest stamp
+  while IFS= read -r manifest; do
+    [ -f "$manifest" ] || continue
+    stamp="${manifest##*/dar-}"
+    stamp="${stamp%.manifest.json}"
+    if grep -q '"status": "success"' "$manifest" 2>/dev/null; then
+      kept=$((kept + 1))
+      if [ "$kept" -gt "$BACKUP_KEEP_COUNT" ]; then
+        rm -f -- "$DIR/dar-$stamp.dump" "$manifest" "$DIR/globals-$stamp.sql" "$DIR/config-$stamp.tar.gz" 2>/dev/null || true
+        rm -f -- "$DIR"/media-"$stamp"-*.tar.gz 2>/dev/null || true
+        log "INFO: retention deleted verified backup $stamp (newer verified count=$((kept - 1)))"
+        continue
+      fi
+    fi
+    KEEP_MAP["$stamp"]=1
+  done < <(ls -1 "$DIR"/dar-*.manifest.json 2>/dev/null | sort -r)
+}
+prune_local_backups
 
 if [ -n "$REMOTE_PATH" ] && command -v rclone >/dev/null 2>&1 && [ -f "$RCLONE_CONFIG_FILE" ]; then
-  rclone --config "$RCLONE_CONFIG_FILE" delete "${REMOTE_PATH}/" --min-age "${RETENTION_DAYS}d" \
-    --include 'dar-*.dump' --include 'dar-*.manifest.json' \
-    || log "WARN: offsite retention cleanup failed."
+  if rclone --config "$RCLONE_CONFIG_FILE" lsf "${REMOTE_PATH}/" --files-only >"$TMP_DIR/remote-files.txt" 2>/dev/null; then
+    while IFS= read -r remote_file; do
+      case "$remote_file" in
+        dar-*.dump|dar-*.manifest.json|globals-*.sql|config-*.tar.gz|media-*.tar.gz) ;;
+        *) continue ;;
+      esac
+      remote_stamp="$(printf '%s' "$remote_file" | sed -n 's/^dar-\([0-9-]*\)\..*/\1/p; s/^globals-\([0-9-]*\)\.sql/\1/p; s/^config-\([0-9-]*\)\.tar\.gz/\1/p; s/^media-\([0-9-]*\)-.*/\1/p' | head -n 1)"
+      [ -n "$remote_stamp" ] || continue
+      if [ -z "${KEEP_MAP[$remote_stamp]:-}" ]; then
+        rclone --config "$RCLONE_CONFIG_FILE" deletefile "${REMOTE_PATH}/${remote_file}" 2>/dev/null \
+          && log "INFO: offsite retention deleted $remote_file" \
+          || log "WARN: offsite retention could not delete $remote_file"
+      fi
+    done <"$TMP_DIR/remote-files.txt"
+  else
+    log "WARN: offsite retention could not list remote files."
+  fi
 fi
 
 if [ "$FINAL_STATUS" = "success" ]; then

@@ -144,5 +144,6 @@ run_suite tier0-idempotency tests/regression/tier0-idempotency/run.mjs q6
 run_suite tier0-profit tests/regression/tier0-profit/run.mjs q6
 run_suite tier0-meet-settings tests/regression/tier0-meet-settings/run.mjs q6
 run_suite repo-secrets tests/regression/repo-secrets/run.mjs q6
+run_suite backup-source tests/regression/backup-source/run.mjs generic
 echo "RESULT=$([ "$FAILED" -eq 0 ] && echo PASS || echo FAIL)"
 exit "$FAILED"
