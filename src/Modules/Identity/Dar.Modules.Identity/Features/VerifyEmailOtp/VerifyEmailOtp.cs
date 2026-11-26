@@ -42,7 +42,10 @@ public sealed class VerifyEmailOtpHandler(
         var user = await repository.FindByEmailAsync(email, cancellationToken)
                    ?? throw AppException.Unauthorized("الحساب غير متاح.");
 
-        await repository.ConsumeOtpAsync(otp.Id, cancellationToken);
+        // FINAL 1.15: atomically consume the OTP; two concurrent verifications with the same
+        // code must not both succeed.
+        if (!await repository.TryConsumeOtpAsync(otp.Id, cancellationToken))
+            throw AppException.Validation("code", "الكود غير صحيح أو منتهي.");
         await AuthSession.SignInAsync(httpContext, user, request.RememberMe, cancellationToken);
 
         return AuthSession.FromUser(user);

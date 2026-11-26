@@ -23,5 +23,6 @@ public interface IIdentityRepository
     Task<bool> IsOtpRequestThrottledAsync(string email, CancellationToken ct);
     Task<OtpRecord?> GetLatestOtpAsync(string email, CancellationToken ct);
     Task ConsumeOtpAsync(Guid otpId, CancellationToken ct);
+    Task<bool> TryConsumeOtpAsync(Guid otpId, CancellationToken ct);
     Task IncrementOtpAttemptsAsync(Guid otpId, CancellationToken ct);
 }

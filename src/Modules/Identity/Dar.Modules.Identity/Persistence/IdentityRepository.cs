@@ -310,6 +310,17 @@ public sealed class IdentityRepository(NpgsqlDataSource dataSource) : IIdentityR
             """, new { otpId });
     }
 
+    public async Task<bool> TryConsumeOtpAsync(Guid otpId, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        var consumed = await connection.ExecuteScalarAsync<Guid?>("""
+            UPDATE auth_email_otps SET consumed_at=now()
+            WHERE id=@otpId AND consumed_at IS NULL AND expires_at>now() AND attempts<max_attempts
+            RETURNING id;
+            """, new { otpId });
+        return consumed is not null;
+    }
+
     public async Task IncrementOtpAttemptsAsync(Guid otpId, CancellationToken ct)
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);

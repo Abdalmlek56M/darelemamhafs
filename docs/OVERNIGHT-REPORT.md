@@ -37,7 +37,7 @@ Last verified main: `4f65a76` (full regression PASS, unit 51/51, frontend 68 tes
 | 1.16 migration checksum CRLF | done | `08ef3c8` | `MigrationChecksumTests` | production ledger not re-checked |
 | 1.17 pagination determinism/unify envelopes | partial | `e2b47bc` | Deterministic tie-break in Secretariat students | **BLOCKED** full envelope unify: requires contract-wide change; not attempted tonight |
 `n| 1.6 audit not in money transaction | done | `4063425` | `tier1-money-audit` | not re-run on production data |
-| 1.8 duplicate trigger defs/global lock cleanup | in progress | pending | `tier1-migration-cleanup` | production migration still pending |
+| 1.8 duplicate trigger defs/global lock cleanup | done | `94b17b2` | `tier1-migration-cleanup` | production migration still pending |
 | 1.15 OTP consume race (other 1.15 items blocked) | in progress | pending | none (identity API not HTTP-testable offline) | **PARTIAL:** OAuth revoke/state replay + SMTP queue blocked |
 `n## Remaining
 
