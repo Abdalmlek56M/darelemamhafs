@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using Npgsql;
+using Dar.Common.Pagination;
+using Dar.Modules.Teaching.Features.Shared;
 
 namespace Dar.Modules.Teaching.Features.Supervisor;
 
@@ -7,6 +9,9 @@ public static class AbsencesEndpoint
 {
     public static async Task<IResult> Handle(
         string? date,
+        int? page,
+        int? pageSize,
+        HttpContext http,
         ClaimsPrincipal principal,
         NpgsqlDataSource dataSource,
         CancellationToken ct)
@@ -20,11 +25,15 @@ public static class AbsencesEndpoint
 
         await using var connection = await dataSource.OpenConnectionAsync(ct);
         var scope = await SupervisionScope.LoadAsync(connection, principal, ct);
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
 
         var students = new List<object>();
+        long total = 0;
         await using (var command = new NpgsqlCommand("""
             SELECT sa.id, sa.session_date, s.full_name, s.student_code, s.guardian_phone,
-                   c.name, COALESCE(t.full_name, ''), sa.status, sa.note, sa.marked_at, s.id
+                   c.name, COALESCE(t.full_name, ''), sa.status, sa.note, sa.marked_at, s.id,
+                   COUNT(*) OVER() AS total
             FROM student_attendance sa
             JOIN circle_enrollments ce ON ce.id = sa.enrollment_id
             JOIN students s ON s.id = ce.student_id AND s.is_trashed = FALSE
@@ -34,15 +43,18 @@ public static class AbsencesEndpoint
               AND sa.status IN ('absent', 'excused')
               AND (@all OR c.id = ANY(@circles))
             ORDER BY c.name, s.full_name
-            LIMIT 500;
+            LIMIT @take OFFSET @skip;
             """, connection))
         {
             command.Parameters.AddWithValue("date", day);
             command.Parameters.AddWithValue("all", scope.All);
             command.Parameters.AddWithValue("circles", scope.CircleIds);
+            command.Parameters.AddWithValue("take", paged ? paging.PageSize : 500);
+            command.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
             await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
+                total = reader.GetInt64(11);
                 students.Add(new
                 {
                     attendanceId = reader.GetGuid(0),
@@ -102,6 +114,7 @@ public static class AbsencesEndpoint
             }
         }
 
+        PaginationHeaders.Apply(http.Response, total, paging, students.Count);
         return Results.Ok(new
         {
             date = day,

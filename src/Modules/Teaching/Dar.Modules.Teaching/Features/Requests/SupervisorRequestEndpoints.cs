@@ -5,6 +5,8 @@ using Dar.Common.Domain;
 using Npgsql;
 using NpgsqlTypes;
 using Dar.Modules.Teaching.Features.Supervisor;
+using Dar.Common.Pagination;
+using Dar.Modules.Teaching.Features.Shared;
 
 namespace Dar.Modules.Teaching.Features.Requests;
 
@@ -12,10 +14,15 @@ public static class SupervisorRequestEndpoints
 {
     public static async Task<IResult> List(
         string? status,
+        int? page,
+        int? pageSize,
+        HttpContext http,
         ClaimsPrincipal principal,
         NpgsqlDataSource dataSource,
         CancellationToken ct)
     {
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
         var filter = string.IsNullOrWhiteSpace(status) ? "pending" : status.Trim().ToLowerInvariant();
         if (filter is not ("pending" or "approved" or "rejected" or "cancelled" or "all"))
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["status"] = ["حالة غير صحيحة."] });
@@ -26,7 +33,7 @@ public static class SupervisorRequestEndpoints
         await using var command = new NpgsqlCommand("""
             SELECT r.id, r.request_type, t.full_name, r.teacher_id, c.name, r.circle_id,
                    r.request_date, r.reason, r.status, r.created_at, r.requested_payload::text,
-                   r.review_note, r.reviewed_at, ta.id
+                   r.review_note, r.reviewed_at, ta.id, COUNT(*) OVER() AS total
             FROM attendance_requests r
             JOIN teachers t ON t.id = r.teacher_id
             JOIN circles c ON c.id = r.circle_id
@@ -34,16 +41,20 @@ public static class SupervisorRequestEndpoints
             WHERE (@all OR r.circle_id = ANY(@circles))
               AND (@status = 'all' OR r.status = @status)
             ORDER BY (r.status = 'pending') DESC, r.created_at DESC
-            LIMIT 200;
+            LIMIT @take OFFSET @skip;
             """, connection);
         command.Parameters.AddWithValue("all", scope.All);
         command.Parameters.AddWithValue("circles", scope.CircleIds);
         command.Parameters.AddWithValue("status", filter);
+        command.Parameters.AddWithValue("take", paged ? paging.PageSize : 200);
+        command.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
 
+        long total = 0;
         var rows = new List<object>();
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
+            total = reader.GetInt64(14);
             rows.Add(new
             {
                 id = reader.GetGuid(0),
@@ -62,6 +73,7 @@ public static class SupervisorRequestEndpoints
                 attendanceId = reader.IsDBNull(13) ? (Guid?)null : reader.GetGuid(13)
             });
         }
+        PaginationHeaders.Apply(http.Response, total, paging, rows.Count);
         return Results.Ok(new { count = rows.Count, requests = rows });
     }
 

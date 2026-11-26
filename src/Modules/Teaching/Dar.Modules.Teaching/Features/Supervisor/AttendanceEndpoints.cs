@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using Npgsql;
+using Dar.Common.Pagination;
+using Dar.Modules.Teaching.Features.Shared;
 
 namespace Dar.Modules.Teaching.Features.Supervisor;
 
@@ -8,6 +10,9 @@ public static class AttendanceEndpoints
     public static async Task<IResult> TeacherAttendance(
         string? date,
         Guid? circleId,
+        int? page,
+        int? pageSize,
+        HttpContext http,
         ClaimsPrincipal principal,
         NpgsqlDataSource dataSource,
         CancellationToken ct)
@@ -23,11 +28,14 @@ public static class AttendanceEndpoints
         if (circleId is not null && !scope.AllowsCircle(circleId.Value))
             return Results.Json(new { message = "هذه الحلقة خارج نطاقك." }, statusCode: StatusCodes.Status403Forbidden);
 
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
         var rows = new List<object>();
+        long total = 0;
         await using var command = new NpgsqlCommand("""
             SELECT ss.id, c.id, c.name, t.id, t.full_name, ss.starts_at, ss.duration_minutes,
                    ta.id, ta.status, ta.duration_minutes, ta.actual_duration_minutes,
-                   ta.overtime_minutes, ta.undertime_minutes, ta.note
+                   ta.overtime_minutes, ta.undertime_minutes, ta.note, COUNT(*) OVER() AS total
             FROM circle_schedule_slots ss
             JOIN circles c ON c.id = ss.circle_id AND c.is_trashed = FALSE AND c.is_active = TRUE
             JOIN teachers t ON t.id = c.teacher_id AND t.is_trashed = FALSE
@@ -38,18 +46,21 @@ public static class AttendanceEndpoints
               AND (@all OR c.id = ANY(@circles))
               AND (@circle::uuid IS NULL OR c.id = @circle)
             ORDER BY ss.starts_at, c.name
-            LIMIT 500;
+            LIMIT @take OFFSET @skip;
             """, connection);
         command.Parameters.AddWithValue("date", day);
         command.Parameters.AddWithValue("all", scope.All);
         command.Parameters.AddWithValue("circles", scope.CircleIds);
         command.Parameters.AddWithValue("circle", (object?)circleId ?? DBNull.Value);
+        command.Parameters.AddWithValue("take", paged ? paging.PageSize : 500);
+        command.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
 
         var now = CairoTime.NowTime();
         await using (var reader = await command.ExecuteReaderAsync(ct))
         {
             while (await reader.ReadAsync(ct))
             {
+                total = reader.GetInt64(14);
                 var startsAt = reader.GetFieldValue<TimeOnly>(5);
                 var duration = reader.GetInt32(6);
                 var isPast = day < today || (day == today && now >= startsAt.AddMinutes(duration));
@@ -73,6 +84,7 @@ public static class AttendanceEndpoints
             }
         }
 
+        PaginationHeaders.Apply(http.Response, total, paging, rows.Count);
         return Results.Ok(new { date = day, count = rows.Count, sessions = rows });
     }
 
@@ -80,6 +92,9 @@ public static class AttendanceEndpoints
         string? date,
         Guid? circleId,
         string? search,
+        int? page,
+        int? pageSize,
+        HttpContext http,
         ClaimsPrincipal principal,
         NpgsqlDataSource dataSource,
         CancellationToken ct)
@@ -96,10 +111,14 @@ public static class AttendanceEndpoints
             return Results.Json(new { message = "هذه الحلقة خارج نطاقك." }, statusCode: StatusCodes.Status403Forbidden);
 
         var term = (search ?? string.Empty).Trim();
+        var paging = new PageRequest(page, pageSize);
+        var paged = page is not null || pageSize is not null;
         var rows = new List<object>();
+        long total = 0;
         await using var command = new NpgsqlCommand("""
             SELECT sa.id, sa.session_date, s.id, s.student_code, s.full_name,
-                   c.id, c.name, COALESCE(ss.starts_at, '00:00'::time), sa.status, sa.note
+                   c.id, c.name, COALESCE(ss.starts_at, '00:00'::time), sa.status, sa.note,
+                   COUNT(*) OVER() AS total
             FROM student_attendance sa
             JOIN circle_enrollments ce ON ce.id = sa.enrollment_id
             JOIN students s ON s.id = ce.student_id AND s.is_trashed = FALSE
@@ -110,7 +129,7 @@ public static class AttendanceEndpoints
               AND (@circle::uuid IS NULL OR c.id = @circle)
               AND (@search = '' OR s.full_name ILIKE @like OR s.student_code ILIKE @like)
             ORDER BY c.name, s.full_name
-            LIMIT 1000;
+            LIMIT @take OFFSET @skip;
             """, connection);
         command.Parameters.AddWithValue("date", day);
         command.Parameters.AddWithValue("all", scope.All);
@@ -118,11 +137,14 @@ public static class AttendanceEndpoints
         command.Parameters.AddWithValue("circle", (object?)circleId ?? DBNull.Value);
         command.Parameters.AddWithValue("search", term);
         command.Parameters.AddWithValue("like", $"%{term}%");
+        command.Parameters.AddWithValue("take", paged ? paging.PageSize : 1000);
+        command.Parameters.AddWithValue("skip", paged ? paging.Offset : 0L);
 
         await using (var reader = await command.ExecuteReaderAsync(ct))
         {
             while (await reader.ReadAsync(ct))
             {
+                total = reader.GetInt64(10);
                 rows.Add(new
                 {
                     attendanceId = reader.GetGuid(0),
@@ -139,6 +161,7 @@ public static class AttendanceEndpoints
             }
         }
 
+        PaginationHeaders.Apply(http.Response, total, paging, rows.Count);
         return Results.Ok(new { date = day, count = rows.Count, attendance = rows });
     }
 }
