@@ -1,5 +1,4 @@
-using System.Security.Cryptography;
-using System.Text;
+using Dar.Common.Migrations;
 using Npgsql;
 
 namespace Dar.Api.Features.System.MigrateDatabase;
@@ -57,7 +56,7 @@ public static class MigrationRunner
             {
                 var version = Path.GetFileNameWithoutExtension(file);
                 var sql = await File.ReadAllTextAsync(file, ct);
-                var checksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sql))).ToLowerInvariant();
+                var checksum = MigrationChecksum.Compute(sql);
 
                 var existingChecksum = await GetAppliedChecksumAsync(connection, version, ct);
                 if (existingChecksum is not null)
@@ -146,7 +145,7 @@ public static class MigrationRunner
                     $"Legacy migration ledger contains '{version}', but no matching SQL file exists. Refusing to guess.");
 
             var sql = await File.ReadAllTextAsync(file, ct);
-            var checksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sql))).ToLowerInvariant();
+            var checksum = MigrationChecksum.Compute(sql);
             await using var insert = new NpgsqlCommand(
                 "INSERT INTO web_schema_migrations(version, checksum) VALUES(@version,@checksum) ON CONFLICT (version) DO NOTHING;",
                 connection);
