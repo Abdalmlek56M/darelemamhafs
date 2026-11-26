@@ -71,10 +71,14 @@ public sealed class MeetAlertNotifier(
         }
     }
 
+    /// <summary>FINAL 1.10: alert text is HTML mode; escape user/DB values so a title or body cannot inject tags.</summary>
+    public static string EscapeTelegramHtml(string? value) =>
+        (value ?? string.Empty).Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+
     private async Task<bool> SendAsync(string token, string chatId, MeetAlertRow alert, CancellationToken ct)
     {
         const string severity = "warning";
-        var text = $"{(severity == "warning" ? "⚠️" : "ℹ️")} <b>{alert.Title}</b>\n{alert.Body}\n<i>{alert.Code}</i>";
+        var text = $"{(severity == "warning" ? "⚠️" : "ℹ️")} <b>{EscapeTelegramHtml(alert.Title)}</b>\n{EscapeTelegramHtml(alert.Body)}\n<i>{EscapeTelegramHtml(alert.Code)}</i>";
         try
         {
             var client = httpClientFactory.CreateClient("meet-telegram");
