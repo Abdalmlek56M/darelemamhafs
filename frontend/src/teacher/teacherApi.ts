@@ -196,6 +196,28 @@ export const teacherApi = {
   supervisorAbsencesPage: (params: { date: string; page: number; pageSize: number }) =>
     requestPage<SupervisorAbsencesResponse>(
       `/api/v1/supervisor/absences?date=${encodeURIComponent(params.date)}&page=${params.page}&pageSize=${params.pageSize}`),
+  supervisorTeacherAttendancePage: (params: { date?: string; circleId?: string; page: number; pageSize: number }) => {
+    const query = new URLSearchParams({ page: String(params.page), pageSize: String(params.pageSize) })
+    if (params.date) query.set('date', params.date)
+    if (params.circleId) query.set('circleId', params.circleId)
+    return requestPage<{ date: string; count: number; sessions: SupervisorTeacherAttendanceRow[] }>(
+      `/api/v1/supervisor/attendance/teachers?${query.toString()}`)
+  },
+  supervisorStudentAttendancePage: (params: { date?: string; circleId?: string; page: number; pageSize: number }) => {
+    const query = new URLSearchParams({ page: String(params.page), pageSize: String(params.pageSize) })
+    if (params.date) query.set('date', params.date)
+    if (params.circleId) query.set('circleId', params.circleId)
+    return requestPage<{ date: string; count: number; attendance: SupervisorStudentAttendanceRow[] }>(
+      `/api/v1/supervisor/attendance/students?${query.toString()}`)
+  },
+  supervisorUnpaidPage: (params: { month?: string; page: number; pageSize: number }) => {
+    const query = new URLSearchParams({ page: String(params.page), pageSize: String(params.pageSize) })
+    if (params.month) query.set('month', params.month)
+    return requestPage<SupervisorUnpaidResponse>(`/api/v1/supervisor/unpaid?${query.toString()}`)
+  },
+  supervisorRequestsPage: (params: { status: string; page: number; pageSize: number }) =>
+    requestPage<{ count: number; requests: SupervisorAttendanceRequest[] }>(
+      `/api/v1/supervisor/requests?status=${encodeURIComponent(params.status)}&page=${params.page}&pageSize=${params.pageSize}`),
   teacherCalendar: (from?: string, days = 7) => {
     const params = new URLSearchParams({ days: String(days) })
     if (from) params.set('from', from)

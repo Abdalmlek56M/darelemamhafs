@@ -1,50 +1,51 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { CheckCircle2, RefreshCw, XCircle } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
 import type { SupervisorAttendanceRequest } from './teacherTypes'
 import { dateLabel } from './supervisorFormat'
 import { demoRequests } from './supervisorDemo'
+import Pager from '../components/common/Pager'
+import { usePagedResource } from '../hooks/usePagedResource'
+import { defaultMeta } from '../lib/pagination'
 
 type Props = { demo: boolean; onReviewed?: () => void }
 type Status = 'pending' | 'all'
 
 export default function SupervisorRequests({ demo, onReviewed }: Props) {
-  const [requests, setRequests] = useState<SupervisorAttendanceRequest[]>([])
   const [status, setStatus] = useState<Status>('pending')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [appliedStatus, setAppliedStatus] = useState<Status>('pending')
   const [busy, setBusy] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
-  const load = useCallback(async (filter: Status) => {
+  const fetchRequests = useCallback(async (page: number, pageSize: number) => {
     if (demo) {
-      setRequests(filter === 'pending' ? demoRequests.filter((item) => item.status === 'pending') : demoRequests)
-      setLoading(false)
-      setError(null)
-      return
+      const rows = appliedStatus === 'pending'
+        ? demoRequests.filter((item) => item.status === 'pending')
+        : demoRequests
+      return { items: rows, meta: defaultMeta(rows.length, 1, pageSize) }
     }
-    setLoading(true)
-    setError(null)
-    try {
-      setRequests((await teacherApi.supervisorRequests(filter)).requests)
-    } catch (err) {
-      setError(err instanceof TeacherApiError ? err.message : 'تعذر تحميل الطلبات.')
-    } finally {
-      setLoading(false)
-    }
-  }, [demo])
+    const response = await teacherApi.supervisorRequestsPage({ status: appliedStatus, page, pageSize })
+    return { items: response.data.requests, meta: response.meta }
+  }, [demo, appliedStatus])
+  const requestsPage = usePagedResource<SupervisorAttendanceRequest>({ fetcher: fetchRequests, deps: [demo, appliedStatus] })
+  const requests = requestsPage.items
+  const error = actionError ?? requestsPage.error
 
-  useEffect(() => { void load(status) }, [status, load])
+  const changeStatus = (next: Status) => {
+    setStatus(next)
+    setAppliedStatus(next)
+  }
 
   const review = async (request: SupervisorAttendanceRequest, approve: boolean) => {
-    if (demo) { setError('الوضع التجريبي للعرض فقط — المراجعة معطلة.'); return }
+    if (demo) { setActionError('الوضع التجريبي للعرض فقط — المراجعة معطلة.'); return }
     setBusy(request.id)
-    setError(null)
+    setActionError(null)
     try {
       await teacherApi.reviewRequest(request.id, approve, approve ? 'تمت المراجعة والاعتماد.' : 'تم رفض الطلب.')
-      await load(status)
+      requestsPage.reload()
       onReviewed?.()
     } catch (err) {
-      setError(err instanceof TeacherApiError ? err.message : 'تعذر مراجعة الطلب.')
+      setActionError(err instanceof TeacherApiError ? err.message : 'تعذر مراجعة الطلب.')
     } finally {
       setBusy(null)
     }
@@ -54,17 +55,17 @@ export default function SupervisorRequests({ demo, onReviewed }: Props) {
     <div className="sup-page">
       <div className="sup-page-head">
         <div><span className="sup-eyebrow">متابعة الطلبات</span><h1>طلبات المعلمات</h1><p>طلبات الغياب والإلغاء وتصحيح الحضور، مع الاعتماد أو الرفض.</p></div>
-        <button className="sup-icon-button" onClick={() => void load(status)} disabled={loading} aria-label="تحديث"><RefreshCw size={18} /></button>
+        <button className="sup-icon-button" onClick={requestsPage.reload} disabled={requestsPage.loading} aria-label="تحديث"><RefreshCw size={18} /></button>
       </div>
 
       <div className="sup-segment">
-        <button className={status === 'pending' ? 'active' : ''} onClick={() => setStatus('pending')}>قيد المراجعة ({demo ? demoRequests.filter((item) => item.status === 'pending').length : requests.length})</button>
-        <button className={status === 'all' ? 'active' : ''} onClick={() => setStatus('all')}>الكل</button>
+        <button className={status === 'pending' ? 'active' : ''} onClick={() => changeStatus('pending')}>قيد المراجعة ({appliedStatus === 'pending' ? requestsPage.meta.total : '—'})</button>
+        <button className={status === 'all' ? 'active' : ''} onClick={() => changeStatus('all')}>الكل</button>
       </div>
 
-      {error && <div className="t-error-card"><p>{error}</p><button className="t-secondary" onClick={() => void load(status)}>إعادة المحاولة</button></div>}
-      {loading && requests.length === 0 && <div className="t-empty">جارٍ تحميل الطلبات…</div>}
-      {!loading && requests.length === 0 && <div className="t-empty">لا توجد طلبات في هذا التصنيف.</div>}
+      {error && <div className="t-error-card"><p>{error}</p><button className="t-secondary" onClick={requestsPage.reload}>إعادة المحاولة</button></div>}
+      {requestsPage.loading && requests.length === 0 && <div className="t-empty">جارٍ تحميل الطلبات…</div>}
+      {!requestsPage.loading && requests.length === 0 && <div className="t-empty">لا توجد طلبات في هذا التصنيف.</div>}
 
       <div className="sup-list">
         {requests.map((request) => (
@@ -87,6 +88,15 @@ export default function SupervisorRequests({ demo, onReviewed }: Props) {
           </article>
         ))}
       </div>
+
+      <Pager
+        page={requestsPage.page}
+        pageSize={requestsPage.pageSize}
+        total={requestsPage.meta.total}
+        onPageChange={requestsPage.setPage}
+        buttonClassName="t-secondary"
+        label="طلب"
+      />
     </div>
   )
 }

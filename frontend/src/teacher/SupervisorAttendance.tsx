@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { CalendarDays, Users } from 'lucide-react'
-import { teacherApi, TeacherApiError } from './teacherApi'
+import { teacherApi } from './teacherApi'
 import type { SupervisorStudentAttendanceRow, SupervisorTeacherAttendanceRow } from './teacherTypes'
 import { dateLabel, statusLabel, statusTone, todayCairo, formatTime12 } from './supervisorFormat'
 import { demoStudentAttendance, demoTeacherAttendance } from './supervisorDemo'
+import Pager from '../components/common/Pager'
+import { usePagedResource } from '../hooks/usePagedResource'
+import { defaultMeta } from '../lib/pagination'
 
 type Tab = 'teachers' | 'students'
 type Props = { demo?: boolean; onOpenTeacher?: (id: string) => void; onOpenCircle?: (id: string) => void }
@@ -11,36 +14,30 @@ type Props = { demo?: boolean; onOpenTeacher?: (id: string) => void; onOpenCircl
 export default function SupervisorAttendance({ demo = false, onOpenTeacher, onOpenCircle }: Props) {
   const [date, setDate] = useState(todayCairo())
   const [tab, setTab] = useState<Tab>('teachers')
-  const [teachers, setTeachers] = useState<SupervisorTeacherAttendanceRow[]>([])
-  const [students, setStudents] = useState<SupervisorStudentAttendanceRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async (day: string) => {
+  const fetchTeachers = useCallback(async (page: number, pageSize: number) => {
     if (demo) {
-      setTeachers(demoTeacherAttendance)
-      setStudents(demoStudentAttendance)
-      setLoading(false)
-      setError(null)
-      return
+      return { items: demoTeacherAttendance, meta: defaultMeta(demoTeacherAttendance.length, 1, pageSize) }
     }
-    setLoading(true)
-    setError(null)
-    try {
-      const [teacherData, studentData] = await Promise.all([
-        teacherApi.supervisorTeacherAttendance(day),
-        teacherApi.supervisorStudentAttendance(day),
-      ])
-      setTeachers(teacherData.sessions)
-      setStudents(studentData.attendance)
-    } catch (err) {
-      setError(err instanceof TeacherApiError ? err.message : 'تعذر تحميل الحضور.')
-    } finally {
-      setLoading(false)
-    }
-  }, [demo])
+    const response = await teacherApi.supervisorTeacherAttendancePage({ date, page, pageSize })
+    return { items: response.data.sessions, meta: response.meta }
+  }, [demo, date])
 
-  useEffect(() => { void load(date) }, [date, load])
+  const fetchStudents = useCallback(async (page: number, pageSize: number) => {
+    if (demo) {
+      return { items: demoStudentAttendance, meta: defaultMeta(demoStudentAttendance.length, 1, pageSize) }
+    }
+    const response = await teacherApi.supervisorStudentAttendancePage({ date, page, pageSize })
+    return { items: response.data.attendance, meta: response.meta }
+  }, [demo, date])
+
+  const teachersPage = usePagedResource<SupervisorTeacherAttendanceRow>({ fetcher: fetchTeachers, deps: [demo, date] })
+  const studentsPage = usePagedResource<SupervisorStudentAttendanceRow>({ fetcher: fetchStudents, deps: [demo, date] })
+  const teachers = teachersPage.items
+  const students = studentsPage.items
+  const loading = teachersPage.loading || studentsPage.loading
+  const error = teachersPage.error ?? studentsPage.error
+  const reload = () => { teachersPage.reload(); studentsPage.reload() }
 
   const teacherPresent = teachers.filter((row) => row.status === 'present').length
   const teacherMissing = teachers.filter((row) => row.status === 'missing').length
@@ -53,19 +50,19 @@ export default function SupervisorAttendance({ demo = false, onOpenTeacher, onOp
       <div className="sup-toolbar">
         <label className="sup-date"><CalendarDays size={16} /><input type="date" value={date} max={todayCairo()} onChange={(event) => setDate(event.target.value || todayCairo())} aria-label="تاريخ الحضور" /></label>
         <div className="sup-segment">
-          <button className={tab === 'teachers' ? 'active' : ''} onClick={() => setTab('teachers')}>المعلمات ({teachers.length})</button>
-          <button className={tab === 'students' ? 'active' : ''} onClick={() => setTab('students')}>الطالبات ({students.length})</button>
+          <button className={tab === 'teachers' ? 'active' : ''} onClick={() => setTab('teachers')}>المعلمات ({teachersPage.meta.total})</button>
+          <button className={tab === 'students' ? 'active' : ''} onClick={() => setTab('students')}>الطالبات ({studentsPage.meta.total})</button>
         </div>
       </div>
 
-      {error && <div className="t-error-card"><p>{error}</p><button className="t-secondary" onClick={() => void load(date)}>إعادة المحاولة</button></div>}
+      {error && <div className="t-error-card"><p>{error}</p><button className="t-secondary" onClick={reload}>إعادة المحاولة</button></div>}
 
       {tab === 'teachers' && (
         <>
           <div className="sup-kpi-grid sup-kpi-grid-three">
-            <div className="sup-kpi"><span className="sup-kpi-icon"><Users size={18} /></span><span>حاضرات</span><strong>{teacherPresent}</strong><small>من {teachers.length}</small></div>
+            <div className="sup-kpi"><span className="sup-kpi-icon"><Users size={18} /></span><span>حاضرات</span><strong>{teacherPresent}</strong><small>من {teachers.length} في الصفحة</small></div>
             <div className="sup-kpi"><span className="sup-kpi-icon is-warn"><Users size={18} /></span><span>لم تسجل</span><strong>{teacherMissing}</strong><small>تحتاج متابعة</small></div>
-            <div className="sup-kpi"><span className="sup-kpi-icon"><CalendarDays size={18} /></span><span>إجمالي الحصص</span><strong>{teachers.length}</strong><small>{dateLabel(date)}</small></div>
+            <div className="sup-kpi"><span className="sup-kpi-icon"><CalendarDays size={18} /></span><span>إجمالي الحصص</span><strong>{teachersPage.meta.total}</strong><small>{dateLabel(date)}</small></div>
           </div>
           {loading && teachers.length === 0 && <div className="t-empty">جارٍ تحميل حضور المعلمات…</div>}
           <div className="sup-table-wrap">
@@ -93,13 +90,21 @@ export default function SupervisorAttendance({ demo = false, onOpenTeacher, onOp
               </div>
             ))}
           </div>
+          <Pager
+            page={teachersPage.page}
+            pageSize={teachersPage.pageSize}
+            total={teachersPage.meta.total}
+            onPageChange={teachersPage.setPage}
+            buttonClassName="t-secondary"
+            label="حصة"
+          />
         </>
       )}
 
       {tab === 'students' && (
         <>
           <div className="sup-kpi-grid sup-kpi-grid-three">
-            <div className="sup-kpi"><span className="sup-kpi-icon"><Users size={18} /></span><span>حاضرات</span><strong>{studentPresent}</strong><small>من {students.length}</small></div>
+            <div className="sup-kpi"><span className="sup-kpi-icon"><Users size={18} /></span><span>حاضرات</span><strong>{studentPresent}</strong><small>من {students.length} في الصفحة</small></div>
             <div className="sup-kpi"><span className="sup-kpi-icon is-warn"><Users size={18} /></span><span>غائبات</span><strong>{studentAbsent}</strong><small>بدون عذر</small></div>
             <div className="sup-kpi"><span className="sup-kpi-icon"><CalendarDays size={18} /></span><span>بعذر</span><strong>{studentExcused}</strong><small>{dateLabel(date)}</small></div>
           </div>
@@ -129,6 +134,14 @@ export default function SupervisorAttendance({ demo = false, onOpenTeacher, onOp
               </div>
             ))}
           </div>
+          <Pager
+            page={studentsPage.page}
+            pageSize={studentsPage.pageSize}
+            total={studentsPage.meta.total}
+            onPageChange={studentsPage.setPage}
+            buttonClassName="t-secondary"
+            label="طالبة"
+          />
         </>
       )}
 

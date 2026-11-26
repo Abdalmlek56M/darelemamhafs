@@ -49,4 +49,30 @@ describe('teacher portal pagination', () => {
     expect(url).toContain('pageSize=25')
     expect(page.meta.total).toBe(9)
   })
+
+  it('requests attendance, unpaid and request pages', async () => {
+    mockFetch({ date: '2026-11-30', count: 1, sessions: [{ scheduleSlotId: 's1' }] }, {
+      'X-Total-Count': '3', 'X-Page': '2', 'X-Page-Size': '25',
+    })
+    const teachers = await teacherApi.supervisorTeacherAttendancePage({ date: '2026-11-30', page: 2, pageSize: 25 })
+    expect(teachers.data.sessions).toHaveLength(1)
+    expect(teachers.meta).toEqual({ page: 2, pageSize: 25, total: 3, truncated: false })
+
+    mockFetch({ date: '2026-11-30', count: 1, attendance: [{ attendanceId: 'a1' }] }, { 'X-Total-Count': '4' })
+    const students = await teacherApi.supervisorStudentAttendancePage({ date: '2026-11-30', page: 1, pageSize: 25 })
+    expect(students.data.attendance).toHaveLength(1)
+    expect(students.meta.total).toBe(4)
+
+    mockFetch({ month: '2026-11', today: '2026-11-30', canViewAmounts: true, count: 1, unpaid: [{ chargeId: 'c1' }] }, {
+      'X-Total-Count': '5', 'X-Page': '1', 'X-Page-Size': '25',
+    })
+    const unpaid = await teacherApi.supervisorUnpaidPage({ month: '2026-11', page: 1, pageSize: 25 })
+    expect(unpaid.data.unpaid).toHaveLength(1)
+    expect(unpaid.meta.total).toBe(5)
+
+    mockFetch({ count: 1, requests: [{ id: 'r1' }] }, { 'X-Total-Count': '6' })
+    const requests = await teacherApi.supervisorRequestsPage({ status: 'pending', page: 1, pageSize: 25 })
+    expect(requests.data.requests).toHaveLength(1)
+    expect(requests.meta.total).toBe(6)
+  })
 })
