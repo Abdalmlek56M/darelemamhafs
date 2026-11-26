@@ -85,7 +85,7 @@ autovacuum_settings AS (
         'vacuum_scale_factor', current_setting('autovacuum_vacuum_scale_factor')::numeric,
         'freeze_max_age', current_setting('autovacuum_freeze_max_age')::bigint,
         'active_workers', (SELECT count(*) FROM pg_stat_activity WHERE backend_type='autovacuum worker'),
-        'max_dead_tuple_percent', COALESCE((SELECT max(dead_tuple_percent) FROM pg_stat_user_tables WHERE n_live_tup+n_dead_tup>0),0)
+        'max_dead_tuple_percent', COALESCE((SELECT max(CASE WHEN COALESCE(n_live_tup,0)+COALESCE(n_dead_tup,0)>0 THEN round(100.0*n_dead_tup::numeric/(n_live_tup+n_dead_tup),2) ELSE 0 END) FROM pg_stat_user_tables),0)
     ) AS value
 )
 SELECT json_build_object(

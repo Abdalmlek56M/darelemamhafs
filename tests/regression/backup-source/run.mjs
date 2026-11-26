@@ -25,7 +25,7 @@ const drill = readFileSync('deploy/scripts/restore-drill.sh', 'utf8');
 assert.match(drill, /RESTORE_DRILL_PROD_DB/, 'restore drill has no configurable database name');
 assert.equal(drill.includes('gdrive:dar-backups'), false, 'restore drill hardcodes the off-site remote');
 assert.ok(existsSync('deploy/systemd/dar-restore-drill.timer'), 'restore drill timer is missing');
-assert.match(readFileSync('deploy/setup-host-backup.sh', 'utf8'), /dar-restore-drill\\.timer/, 'installer does not enable the restore drill timer');
+assert.match(readFileSync('deploy/setup-host-backup.sh', 'utf8'), /dar-restore-drill\.timer/, 'installer does not enable the restore drill timer');
 assert.match(readFileSync('deploy/scripts/dar-healthcheck.sh', 'utf8'), /check_integrity/, 'healthcheck does not run the integrity SQL');
 assert.ok(existsSync('deploy/sql/integrity-checks.sql'), 'shared integrity SQL is missing');
 const syntax = spawnSync('bash', ['-n', 'deploy/scripts/dar-backup.sh'], { encoding: 'utf8' });
