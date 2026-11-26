@@ -29,6 +29,8 @@ public sealed class StudentRepository(NpgsqlDataSource dataSource) : IStudentRep
         string? status,
         int page,
         int pageSize,
+        bool allScopes,
+        Guid[] scopeCircles,
         CancellationToken ct)
     {
         page = Math.Max(1, page);
@@ -38,9 +40,14 @@ public sealed class StudentRepository(NpgsqlDataSource dataSource) : IStudentRep
         var normalizedStatus = string.IsNullOrWhiteSpace(status) ? null : status.Trim();
 
         var filter = "WHERE is_trashed=FALSE";
+        if (!allScopes)
+        {
+            filter += " AND EXISTS (SELECT 1 FROM circle_enrollments ce JOIN circles scope_circle ON scope_circle.id = ce.circle_id AND scope_circle.is_trashed = FALSE WHERE ce.student_id = students.id AND ce.is_trashed = FALSE AND ce.circle_id = ANY(@circles))";
+        }
         var parameters = new DynamicParameters();
         parameters.Add("pageSize", pageSize);
         parameters.Add("offset", offset);
+        if (!allScopes) parameters.Add("circles", scopeCircles);
 
         if (normalizedStatus is not null)
         {
@@ -74,11 +81,14 @@ public sealed class StudentRepository(NpgsqlDataSource dataSource) : IStudentRep
         return new PagedResult<Student>(items, page, pageSize, total);
     }
 
-    public async Task<Student?> GetByIdAsync(Guid id, CancellationToken ct)
+    public async Task<Student?> GetByIdAsync(Guid id, bool allScopes, Guid[] scopeCircles, CancellationToken ct)
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);
+        var scopeFilter = allScopes
+            ? ""
+            : " AND EXISTS (SELECT 1 FROM circle_enrollments ce JOIN circles scope_circle ON scope_circle.id = ce.circle_id AND scope_circle.is_trashed = FALSE WHERE ce.student_id = students.id AND ce.is_trashed = FALSE AND ce.circle_id = ANY(@circles))";
         return await connection.QuerySingleOrDefaultAsync<Student>(
-            Select + " WHERE id=@id AND is_trashed=FALSE;", new { id });
+            Select + " WHERE id=@id AND is_trashed=FALSE" + scopeFilter + ";", new { id, circles = scopeCircles });
     }
 
     public async Task<bool> CodeExistsAsync(string code, CancellationToken ct)

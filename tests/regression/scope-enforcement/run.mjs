@@ -88,6 +88,21 @@ async function createUser(admin,user,perms){const r=await req(LEGACY,admin,'POST
  const chargeR=randomUUID(); one("INSERT INTO monthly_charges(id,enrollment_id,billing_month,amount_due) VALUES ("+q(chargeR)+","+q(enrollmentId)+",DATE '2027-01-01',10);"); const receiptInside=await reqReceipt(LEGACY,scopedLegacy,chargeR,1); await check('with_receipt_inside_allowed',[200,201].includes(receiptInside.status),true);
  const pause=await req(LEGACY,scopedLegacy,'PATCH','/api/enrollments/'+enrollmentId+'/pause',{effectiveOn:'2026-11-01',reason:'q5'}); const resume=await req(LEGACY,scopedLegacy,'PATCH','/api/enrollments/'+enrollmentId+'/resume',{effectiveOn:'2026-11-02',reason:'q5'}); const end=await req(LEGACY,scopedLegacy,'PATCH','/api/enrollments/'+enrollmentId+'/end',{endsOn:'2026-11-03'}); await check('enrollment_pause_200',pause.status,200); await check('enrollment_resume_200',resume.status,200); await check('enrollment_end_200',end.status,200);
  const studentC=randomUUID(); one("INSERT INTO students(id,student_code,full_name,status,joined_on) VALUES ("+q(studentC)+",'Q5-SC','Q5 Student C','active',DATE '2026-01-01');"); const bulk=await req(LEGACY,scopedLegacy,'POST','/api/circle-enrollments/bulk',{circleId:circA,startsOn:'2026-12-01',studentIds:[studentC]}); await check('enrollment_bulk_inside_200',bulk.status,200);
+ // FINAL 0.7: new backend scope holes.
+ const studentsList=await req(NEW,scopedNew,'GET','/api/v1/students'); const listed=JSON.parse(studentsList.text).items.map(item=>item.id);
+ await check('secretariat_list_scoped',listed.includes(studentId)&&!listed.includes(studentB),true);
+ await check('secretariat_get_outside_404',(await req(NEW,scopedNew,'GET','/api/v1/students/'+studentB)).status,404);
+ await check('secretariat_get_inside_200',(await req(NEW,scopedNew,'GET','/api/v1/students/'+studentId)).status,200);
+ await check('meet_link_steal_forbidden',(await req(NEW,scopedNew,'PUT','/api/v1/meet/events/'+meetB+'/link',{circleId:circA,enableRecording:false})).status,403);
+ await check('adjust_outside_403',(await req(NEW,scopedNew,'POST','/api/v1/supervisor/attendance/'+bAtt+'/adjust',{payableDurationMinutes:30,payableAmount:null,note:'outside scope'})).status,403);
+ await check('adjust_inside_200',(await req(NEW,scopedNew,'POST','/api/v1/supervisor/attendance/'+aAtt+'/adjust',{payableDurationMinutes:30,payableAmount:null,note:'inside scope'})).status,200);
+ const circA2=randomUUID(), slotA2=randomUUID();
+ one("INSERT INTO circles(id,circle_code,name,teacher_id,monthly_fee,is_active,starts_on) VALUES ("+q(circA2)+",'Q5-CA2','Q5 A2',"+q(ta)+",0,TRUE,DATE '2026-01-01');");
+ one("INSERT INTO circle_schedule_slots(id,circle_id,day_of_week,starts_at,duration_minutes,is_active) VALUES ("+q(slotA2)+","+q(circA2)+",1,'12:00',60,TRUE);");
+ one("INSERT INTO teacher_attendance(id,schedule_slot_id,circle_id,teacher_id,session_date,scheduled_start,duration_minutes,status,hourly_rate_snapshot,payable_amount,marked_by,actual_duration_minutes,pay_basis) VALUES ("+q(randomUUID())+","+q(slotA2)+","+q(circA2)+","+q(ta)+",DATE '2026-11-04','12:00',60,'present',60,60,"+q(adminId)+",60,'manual');");
+ await check('teacher_detail_outside_404',(await req(NEW,scopedNew,'GET','/api/v1/supervisor/teachers/'+tb)).status,404);
+ const teacherDetail=await req(NEW,scopedNew,'GET','/api/v1/supervisor/teachers/'+ta+'?from=2026-11-01&to=2026-11-30'); const teacherBody=JSON.parse(teacherDetail.text);
+ await check('teacher_detail_summary_scoped',teacherBody.attendance.present===1,true);
  const live=await req(NEW,scopedNew,'GET','/api/v1/supervisor/live');if(live.status!==200)throw new Error('live '+live.status);const liveBody=JSON.parse(live.text);const names=liveBody.sessions.map(s=>s.circleName);await check('live_only_scope',names.length===1&&names[0]==='Q5 A',true);
  console.log(JSON.stringify({ok:true,scenarioCount:results.length,results},null,2));console.log('Q5_SCOPE_PASS');
 })().catch(e=>{console.error('Q5_SCOPE_FAIL '+String(e&&e.stack||e));process.exit(1)});

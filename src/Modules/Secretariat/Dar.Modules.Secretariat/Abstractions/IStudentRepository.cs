@@ -10,9 +10,11 @@ public interface IStudentRepository
         string? status,
         int page,
         int pageSize,
+        bool allScopes,
+        Guid[] scopeCircles,
         CancellationToken ct);
 
-    Task<Student?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<Student?> GetByIdAsync(Guid id, bool allScopes, Guid[] scopeCircles, CancellationToken ct);
     Task<bool> CodeExistsAsync(string code, CancellationToken ct);
     Task<Student> CreateAsync(Student student, Guid actorId, CancellationToken ct);
 }

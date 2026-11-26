@@ -1,4 +1,7 @@
+using System.Security.Claims;
 using Dar.Common.Domain;
+using Dar.Common.Permissions;
+using Npgsql;
 using Dar.Modules.Secretariat.Abstractions;
 using Dar.Modules.Secretariat.Domain;
 
@@ -10,6 +13,8 @@ public sealed class ListStudentsHandler(IStudentRepository repository)
 {
     public async Task<PagedResult<StudentResponse>> HandleAsync(
         ListStudentsQuery query,
+        bool allScopes,
+        Guid[] scopeCircles,
         CancellationToken cancellationToken)
     {
         var result = await repository.ListAsync(
@@ -17,6 +22,8 @@ public sealed class ListStudentsHandler(IStudentRepository repository)
             query.Status,
             query.Page,
             query.PageSize,
+            allScopes,
+            scopeCircles,
             cancellationToken);
 
         var items = result.Items.Select(StudentResponse.From).ToArray();
@@ -33,11 +40,17 @@ public static class ListStudentsEndpoint
                 string? status,
                 int? page,
                 int? pageSize,
+                ClaimsPrincipal principal,
+                NpgsqlDataSource dataSource,
                 ListStudentsHandler handler,
                 CancellationToken cancellationToken) =>
             {
+                await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+                var scope = await ScopeLoader.LoadAsync(connection, principal, cancellationToken);
                 var result = await handler.HandleAsync(
                     new ListStudentsQuery(search, status, page ?? 1, pageSize ?? 25),
+                    scope.All,
+                    scope.CircleIds,
                     cancellationToken);
                 return Results.Ok(result);
             })

@@ -174,12 +174,15 @@ public static class TeachersEndpoint
                    COALESCE(SUM(ta.undertime_minutes) FILTER (WHERE ta.status = 'present'), 0)
             FROM teacher_attendance ta
             WHERE ta.teacher_id = @id AND ta.is_trashed = FALSE
-              AND ta.session_date BETWEEN @from AND @to;
+              AND ta.session_date BETWEEN @from AND @to
+              AND (@all OR ta.circle_id = ANY(@circles));
             """, connection))
         {
             summary.Parameters.AddWithValue("id", id);
             summary.Parameters.AddWithValue("from", start);
             summary.Parameters.AddWithValue("to", end);
+            summary.Parameters.AddWithValue("all", scope.All);
+            summary.Parameters.AddWithValue("circles", scope.CircleIds);
             await using var reader = await summary.ExecuteReaderAsync(ct);
             await reader.ReadAsync(ct);
             present = (int)reader.GetInt64(0);
@@ -199,13 +202,16 @@ public static class TeachersEndpoint
               AND ss.is_active = TRUE AND ss.is_trashed = FALSE
               AND ss.day_of_week = EXTRACT(DOW FROM d.day)::int
               AND d.day::date >= c.starts_on
-              AND d.day::date <= @today;
+              AND d.day::date <= @today
+              AND (@all OR c.id = ANY(@circles));
             """, connection))
         {
             scheduledCommand.Parameters.AddWithValue("id", id);
             scheduledCommand.Parameters.AddWithValue("from", start);
             scheduledCommand.Parameters.AddWithValue("to", end);
             scheduledCommand.Parameters.AddWithValue("today", today);
+            scheduledCommand.Parameters.AddWithValue("all", scope.All);
+            scheduledCommand.Parameters.AddWithValue("circles", scope.CircleIds);
             scheduled = Convert.ToInt32(await scheduledCommand.ExecuteScalarAsync(ct) ?? 0);
         }
 
@@ -228,6 +234,7 @@ public static class TeachersEndpoint
             LEFT JOIN circle_schedule_slots ss ON ss.id = ta.schedule_slot_id
             WHERE ta.teacher_id = @id AND ta.is_trashed = FALSE
               AND ta.session_date BETWEEN @from AND @to
+              AND (@all OR c.id = ANY(@circles))
             ORDER BY ta.session_date DESC, ss.starts_at DESC, ta.id
             """;
         if (paged) historyQuery += " LIMIT @take OFFSET @skip";
@@ -237,6 +244,8 @@ public static class TeachersEndpoint
             historyCommand.Parameters.AddWithValue("finance", canFinance);
             historyCommand.Parameters.AddWithValue("from", start);
             historyCommand.Parameters.AddWithValue("to", end);
+            historyCommand.Parameters.AddWithValue("all", scope.All);
+            historyCommand.Parameters.AddWithValue("circles", scope.CircleIds);
             if (paged) { historyCommand.Parameters.AddWithValue("take", paging.PageSize); historyCommand.Parameters.AddWithValue("skip", paging.Offset); }
             await using (var reader = await historyCommand.ExecuteReaderAsync(ct))
             {

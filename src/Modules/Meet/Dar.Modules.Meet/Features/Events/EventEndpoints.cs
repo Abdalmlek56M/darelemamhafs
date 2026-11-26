@@ -88,6 +88,9 @@ public static class EventEndpoints
         var account = await RequireAccountAsync(repository, ct);
         var row = await repository.GetEventAsync(account.Id, id, ct)
                   ?? throw AppException.NotFound("الحدث غير موجود أو خارج نطاق المزامنة.");
+        // FINAL 0.7: a scoped user cannot re-link an event that currently belongs to another scope.
+        if (!scope.All && row.LinkedCircleId is { } currentCircle && !scope.AllowsCircle(currentCircle))
+            throw AppException.Forbidden("الحدث مرتبط بحلقة خارج نطاق صلاحيتك.");
         if (!await scopeRepository.CircleExistsAsync(request.CircleId, ct))
             throw AppException.Validation("circleId", "الحلقة غير موجودة أو تمت أرشفتها.");
 
