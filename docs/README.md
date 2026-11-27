@@ -75,7 +75,7 @@
 
 - **الإنتاج:** `https://<deployment-host>` (Nginx + systemd + PostgreSQL 17) — آخر نشر مسجل 22 Nov 2026 على ledger **26/26**؛ جلسات التحصين لم تنشر.
 - **`main`:** دفعات التحصين (Tier 0/1، Z1 splits، Z2، Tier 2، B7/B10/UI) مدموجة؛ التفاصيل في `docs/OVERNIGHT-REPORT.md`.
-- **الواجهة:** React 19 + Vite (نهائي) — `/`، `/management`، `/teacher`، `/supervisor`؛ **31 ملف / 89 اختبار Vitest** (Testing Library + jsdom).
+- **الواجهة:** React 19 + Vite (نهائي) — `/`، `/management`، `/teacher`، `/supervisor`؛ **46 ملف / 154 اختبار Vitest** (Testing Library + jsdom).
 - **Backend:** legacy API (كل الدومين) + new API `/api/v1` (Identity + Secretariat + Teaching + Meet)؛ unit + integration (Testcontainers).
 - **الترحيلات:** **43** في المستودع (001→042؛ 039 مقسمة 039a/039b؛ 042 أحدث ملف)؛ الإنتاج على 26 حتى النشر القادم.
 - **staging:** موجود على نفس الـhost (منفصل DB/مجلدات/منافذ/vhost + IP allow-list؛ تفاصيل في `staging-environment.md`).

@@ -12,7 +12,7 @@
 |---|---|---|
 | Unit (.NET) | `tests/Dar.UnitTests` — Money، PasswordHasher، Pagination، MigrationChecksum، Meet (Crypto/Rules/Matcher/Revoke/Telegram)، EmailQueue | ✅ في CI |
 | Integration (.NET) | `tests/Dar.IntegrationTests` — Health، SameOriginGuard، Supervision، LoginLockout، TurnstileLogin، MeetMediaScope، PayrollLockReview، ReviewCorrectionStatus، ReviewOptionalNote، ScheduleOverlapConcurrency عبر Testcontainers `postgres:17` | ✅ في CI (يحتاج Docker) |
-| Frontend | **31 ملف Vitest / 89 اختبارًا** (`frontend/src/**/*.test.ts(x)`) — selectors/money/formatters/pagination/apiClient/outbox + Testing Library/jsdom لمكوّنات وهوكات (TeacherApp، useDarApplication، Supervisor…) | ✅ |
+| Frontend | **46 ملف Vitest / 154 اختبارًا** (`frontend/src/**/*.test.ts(x)`) — selectors/money/formatters/pagination/apiClient/outbox + Testing Library/jsdom لمكوّنات وهوكات (TeacherApp، TeacherRoster، useDarApplication، Supervisor…) | ✅ |
 | Contract | غير موجود — `packages/api-client/openapi.v1.json` ناقص (27 path مقابل 82 mapping في `src/`) وغير مستخدم في الواجهة | ❌ Phase 2.5 |
 | E2E / Playwright | غير موجود (staging موجود الآن لكن بلا suites) | ❌ 2.5 (smoke) / 2.9 (كامل) |
 | Visual / A11y | مراجعة يدوية فقط | ⚠️ |
@@ -162,7 +162,7 @@ tests/Unit/Attendance/AttendanceRulesTests.cs
 
 ### 6.1 Frontend — Vitest
 
-- `npm test` runs `vitest run` — **31 ملف / 89 اختبارًا** (آخر تحقق 27 Nov 2026).
+- `npm test` runs `vitest run` — **46 ملف / 154 اختبارًا** (آخر تحقق 27 Nov 2026).
 - `src/application/selectors.test.ts` يغطي: فلترة النص/الحالة للطلاب والمعلمات، مجاميع الشهر الحالي، **اقتراح الاستحقاق = `agreed_monthly_fee` بلا pro-rata** (ADR-0002)، ربح اللوحة، وصافي الحلقة.
 - اختبارات lib: `money`، `formatters`، `pagination`، `listQuery`، `phone`، `idempotency`، `apiClient`، `userMessages`، `turnstile`، `portalHeaders`.
 - اختبارات offline: `offlineOutbox.migration` / `offlineOutbox.legacy` / `outboxPolicy` / `portalRequestCoverage`.
@@ -264,7 +264,7 @@ Rules:
 - `backend`: build legacy + build `Dar.slnx` + `dotnet test Dar.slnx` + **`bash -n` لكل `deploy/*.sh` و`deploy/scripts/*.sh`** (يكشف أخطاء syntax قبل أي push).
 - `meet-recorder`: `npm ci` + `npm run typecheck` + `npm test` داخل `services/meet-recorder`.
 - `migrations`: تطبيق كل الـmigrations على PostgreSQL 17 service، ثم: (أ) تأكيد أن عدد `web_schema_migrations` = عدد ملفات `database/*.sql`، (ب) تأكيد schema الـReverse/Void، (ج) تأكيد حماية تداخل المواعيد، (د) تأكيد schema Meet، (هـ) تشغيل `tests/regression/sql/financial_void_verify.sql` و`schedule_overlap_verify.sql` و`schedule_overlap_hardening_verify.sql` وفشل عند أي `FAIL`.
-- `frontend`: `npm ci` + **`npm run typecheck` (`tsc -b --force`)** + `npm test` (31 ملف/89) + `npm run build`.
+- `frontend`: `npm ci` + **`npm run typecheck` (`tsc -b --force`)** + `npm test` (46 ملف/154) + `npm run build`.
 - `api-client`: `npm ci` + typecheck + **`npm run generate` ثم `git diff --exit-code -- src/schema.d.ts`** (no-drift للـgenerated types).
 - `security`: `dotnet list package --vulnerable` + `npm audit --omit=dev` (frontend + api-client) + built-in secret scan (git-grep regex، ليس gitleaks).
 - `regression.yml` / `guard-contract`: **`node tests/regression/docs-migration-count/run.mjs`** — يفشل إذا اختلف عدد الترحيلات المذكور في `README.md` أو `docs/00-current-state.md` عن عدد ملفات `database/*.sql` (أو نطاق `001→NNN`، أو تكرر رقم ترحيل). لا يحتاج قاعدة بيانات ولا شبكة.

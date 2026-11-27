@@ -20,48 +20,72 @@ type Props = {
 
 const statusLabel: Record<Status, string> = { present: 'حاضر', excused: 'بعذر', absent: 'غائب' }
 
+function ineligibilityReasonLabel(student: RosterStudent): string {
+  if (student.status) {
+    const label = student.status === 'present' ? 'حاضر' : student.status === 'absent' ? 'غائب' : 'غائب بعذر'
+    return `سجل محفوظ: ${label}`
+  }
+  if (student.eligibilityReason === 'paused') return 'لا يمكن تسجيل حضور خلال فترة الإيقاف'
+  if (student.eligibilityReason === 'before-circle-start') return 'الحلقة لم تبدأ في هذا التاريخ'
+  if (student.eligibilityReason === 'after-enrollment-end') return 'التاريخ بعد نهاية الالتحاق'
+  if (student.eligibilityReason === 'before-enrollment-start') return 'يتطلب تفعيل الإدخال التاريخي'
+  return 'الالتحاق لم يكن نشطًا في هذا التاريخ'
+}
+
 export default function TeacherRoster({ roster, slot, endResult, hourlyRate, loading, busy, error, canEarnings, onBack, onSubmit, onDone }: Props) {
   const [marks, setMarks] = useState<Record<string, Status>>({})
   const [query, setQuery] = useState('')
   const [success, setSuccess] = useState<{ present: number; excused: number; absent: number; total: number; queued?: boolean } | null>(null)
 
+  const students = roster?.students ?? []
+  const eligibleStudents = useMemo(() => students.filter((student) => student.eligibleForDate), [students])
+  const ineligibleStudents = useMemo(() => students.filter((student) => !student.eligibleForDate), [students])
+
   useEffect(() => {
     if (!roster) return
     const next: Record<string, Status> = {}
-    for (const student of roster.students) next[student.enrollmentId] = student.status ?? 'present'
+    for (const student of roster.students) {
+      if (student.eligibleForDate) next[student.enrollmentId] = student.status ?? 'present'
+    }
     setMarks(next)
   }, [roster])
 
-  const students = roster?.students ?? []
   const filtered = useMemo(() => {
     const value = query.trim()
-    if (!value) return students
-    return students.filter((student) => student.studentName.includes(value) || student.studentCode.includes(value))
-  }, [students, query])
+    if (!value) return eligibleStudents
+    return eligibleStudents.filter((student) => student.studentName.includes(value) || student.studentCode.includes(value))
+  }, [eligibleStudents, query])
+
+  const ineligibleFiltered = useMemo(() => {
+    const value = query.trim()
+    if (!value) return ineligibleStudents
+    return ineligibleStudents.filter((student) => student.studentName.includes(value) || student.studentCode.includes(value))
+  }, [ineligibleStudents, query])
 
   const counts = useMemo(() => {
     let present = 0, excused = 0, absent = 0
-    for (const student of students) {
+    for (const student of eligibleStudents) {
       const status = marks[student.enrollmentId] ?? 'present'
       if (status === 'present') present++
       else if (status === 'excused') excused++
       else absent++
     }
-    return { present, excused, absent, total: students.length }
-  }, [marks, students])
+    return { present, excused, absent, total: eligibleStudents.length }
+  }, [marks, eligibleStudents])
 
   const setStudent = (student: RosterStudent, status: Status) => {
+    if (!student.eligibleForDate) return
     setMarks((current) => ({ ...current, [student.enrollmentId]: status }))
   }
   const setAll = (status: Status) => {
     const next: Record<string, Status> = {}
-    for (const student of students) next[student.enrollmentId] = status
+    for (const student of eligibleStudents) next[student.enrollmentId] = status
     setMarks(next)
   }
 
   const submit = async () => {
     try {
-      const payload = students.map((student) => ({ enrollmentId: student.enrollmentId, status: marks[student.enrollmentId] ?? 'present' as Status }))
+      const payload = eligibleStudents.map((student) => ({ enrollmentId: student.enrollmentId, status: marks[student.enrollmentId] ?? 'present' as Status }))
       const result = await onSubmit(payload)
       setSuccess(result)
     } catch { /* the parent shows the error */ }
@@ -93,9 +117,9 @@ export default function TeacherRoster({ roster, slot, endResult, hourlyRate, loa
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ابحثي باسم الطالبة أو الكود" />
       </div>
       <div className="t-bulk">
-        <button onClick={() => setAll('present')}>الكل حاضر</button>
-        <button onClick={() => setAll('excused')}>الكل بعذر</button>
-        <button onClick={() => setAll('absent')}>الكل غائب</button>
+        <button onClick={() => setAll('present')} disabled={counts.total === 0}>الكل حاضر</button>
+        <button onClick={() => setAll('excused')} disabled={counts.total === 0}>الكل بعذر</button>
+        <button onClick={() => setAll('absent')} disabled={counts.total === 0}>الكل غائب</button>
       </div>
 
       <div className="t-roster">
@@ -117,7 +141,23 @@ export default function TeacherRoster({ roster, slot, endResult, hourlyRate, loa
         })}
       </div>
 
-      {filtered.length === 0 && <div className="t-empty">لا توجد نتائج.</div>}
+      {ineligibleFiltered.length > 0 && (
+        <section className="t-roster t-roster-ineligible" aria-label="طالبات خارج نطاق التسجيل">
+          <div className="t-section-label">خارج نطاق التسجيل ({ineligibleFiltered.length})</div>
+          {ineligibleFiltered.map((student) => (
+            <div className="t-student t-student-disabled" aria-disabled="true" key={student.enrollmentId}>
+              <span className="t-avatar">{student.studentName.slice(0, 1)}</span>
+              <div className="t-student-copy">
+                <strong>{student.studentName}</strong>
+                <small>{student.studentCode} · {enrollmentStatusLabel(student.enrollmentStatus)}</small>
+                <small className="t-ineligible-reason">{ineligibilityReasonLabel(student)}</small>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {filtered.length === 0 && ineligibleFiltered.length === 0 && <div className="t-empty">لا توجد نتائج.</div>}
       {error && <p className="t-error">{error}</p>}
 
       <div className="t-sticky">

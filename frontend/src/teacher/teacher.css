@@ -141,6 +141,9 @@
 .t-bulk button { flex: 1; border: 1px solid var(--line); border-radius: 11px; background: rgba(17, 27, 44, .55); color: var(--muted); padding: 8px 4px; font: inherit; font-size: 9px; font-weight: 800; }
 .t-roster { display: flex; flex-direction: column; gap: 6px; }
 .t-student { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 15px; background: rgba(17, 27, 44, .52); padding: 8px; }
+.t-roster-ineligible { margin-top: 12px; }
+.t-student-disabled { opacity: .68; background: rgba(17, 27, 44, .28); }
+.t-ineligible-reason { color: #f6c453 !important; margin-top: 2px !important; }
 .t-avatar { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 11px; background: linear-gradient(140deg, rgba(113, 213, 192, .2), rgba(140, 157, 255, .18)); color: var(--accent); font-size: 12px; font-weight: 800; }
 .t-student-copy { flex: 1; min-width: 0; }
 .t-student-copy strong { display: block; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
