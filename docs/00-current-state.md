@@ -21,7 +21,7 @@
 | الواجهة | **React 19 + Vite + TypeScript** + CSS tokens + framer-motion — **لا Next.js** (القرار ملغي نهائيًا، ADR-0001) |
 | Backend (قديم) | ASP.NET Core 10 Minimal API — `backend/DarEltahfeez.Api` على 5080 (يخدم الـSPA + كل الـdomain APIs) |
 | Backend (جديد) | `Dar.slnx`: `src/Host/Dar.Api` على 5081 — `/api/v1/*` (Identity + Secretariat + Teaching فقط) |
-| قاعدة البيانات | PostgreSQL 17 — `public` schema — **26 migration في المستودع (001→026)**؛ **الإنتاج على 26/26** (نُشرت 024 Void + 025 تحصين + 026 Meet في 22 Nov) |
+| قاعدة البيانات | PostgreSQL 17 — `public` schema — **38 migration في المستودع (001→038)**؛ الإنتاج المسجل في هذا المستند أقدم من ذلك حتى يُنفَّذ نشر جديد (نُشرت 024 Void + 025 تحصين + 026 Meet في 22 Nov) |
 | النشر | Ubuntu 24.04 + Nginx + Certbot + systemd + منافذ داخلية 5080/5081 |
 | الاختبارات | 16 unit سابقة + **22 unit جديدة لـMeet** + 20 integration (Testcontainers) + 6 Vitest |
 | اللغة | العربية فقط الآن — الإنجليزية مؤجلة (ADR-0004) |
@@ -51,7 +51,7 @@
 | `backend/DarEltahfeez.Api/` | 33 ملف C# — 91 endpoint — كل الإدارة/المالية/الحضور/التقارير | لا يزال مصدر معظم الوظائف |
 | `src/Host/Dar.Api/` + `src/Modules/*` | 94 ملف C# — Identity/Secretariat/Teaching/**Meet** (+12 endpoint) | هوست جديد + وحدات؛ Meet = تقويم Google + أحداث + نطاق تسجيل (3.1) |
 | `frontend/src/` | 120 ملف TS/TSX — SPA واحدة تحمل admin + teacher + supervisor + home | admin: `App.tsx`/`SystemAdminView.tsx`/`pages/` + `meet/` — teacher/supervisor: `teacher/` |
-| `database/` | 23 ملف SQL مرتّب + ledger في `web_schema_migrations` | legacy `schema_migrations` متوقف عند 16 |
+| `database/` | 38 ملف SQL مرتّب + ledger في `web_schema_migrations` | legacy `schema_migrations` متوقف عند 16 |
 | `tests/` | UnitTests + IntegrationTests (Testcontainers) + regression قديمة + 36 runner قديم | 11 runner يشير لـTestCenter المؤرشف |
 | `deploy/` | Nginx/systemd/backup/setup scripts + Docker stack قديم (متقاعد) | يُعاد تأمينها في Phase 2.1 |
 | `services/meet-recorder/` | بوت التسجيل (Node 24 + TypeScript) — 17 ملفًا | خدمة `dar-meet-bot` + `dar-meet.slice` (3.2) |

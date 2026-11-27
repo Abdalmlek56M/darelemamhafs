@@ -86,6 +86,15 @@ Batch commits also include suite wiring/report: `7d0d8eb`, `47a9674`, report com
 | Tier2 2.15 remove dead Docker/Caddy files | done (shared helper pending) | pending | CI shell checks | helper library still TODO |
 | Tier2 2.4 money-linked communication retention | done | `4d9df55` | `tier2-retention` | production retention not run |
 
+
+## Docs (Z3/Z5) and Z4 partial
+
+| Item | Status | Commit | Tests | NOT VERIFIED |
+|---|---|---|---|---|
+| Z3 current-state migration count + security section 26 | in progress | pending | docs review | full Z3 rewrite remaining |
+| Z5 recorder README networking/deps | in progress | pending | docs review | final recorder env docs remaining |
+| Z4 deepseek current hardening state + remove live IP/hostname | in progress | pending | `repo-secrets` still to run | full Z4 rewrite remaining; real-domain request conflicts with the 0.10 scrub decision |
+
 ## NOT VERIFIED (all Tier-1 work)
 
 - No deployment; production timers, systemd units, migration 034/035, real backups, real browser downloads and live Telegram/Google/recorder flows were not exercised.
