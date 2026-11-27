@@ -11,10 +11,9 @@ public static partial class SystemAdminEndpoints
 {
     private static async Task InsertAuditAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid? actor, string actorName, string action, string entityType, Guid entityId, string? before, string? after, string path, string method, bool canRestore, CancellationToken ct)
     {
-        await using var cmd = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,actor_display_name,action_code,entity_type,entity_id,details,before_data,after_data,request_path,http_method,can_restore) VALUES(@actor,@name,@action,@type,@id,'{}'::jsonb,@before::jsonb,@after::jsonb,@path,@method,@restore);", conn, tx);
-        cmd.Parameters.AddWithValue("actor", DbGuid(actor)); cmd.Parameters.AddWithValue("name", actorName); cmd.Parameters.AddWithValue("action", action); cmd.Parameters.AddWithValue("type", entityType); cmd.Parameters.AddWithValue("id", entityId);
-        cmd.Parameters.AddWithValue("before", (object?)before ?? DBNull.Value); cmd.Parameters.AddWithValue("after", (object?)after ?? DBNull.Value); cmd.Parameters.AddWithValue("path", path); cmd.Parameters.AddWithValue("method", method); cmd.Parameters.AddWithValue("restore", canRestore);
-        await cmd.ExecuteNonQueryAsync(ct);
+        await AuditLogWriter.WriteAsync(conn, tx, actor, actorName, action, entityType, entityId,
+            beforeJson: before, afterJson: after, requestPath: path, httpMethod: method, canRestore: canRestore,
+            cancellationToken: ct);
     }
 
     private static bool CanReadFinance(ClaimsPrincipal principal) => principal.HasClaim("permission", "finance.read");

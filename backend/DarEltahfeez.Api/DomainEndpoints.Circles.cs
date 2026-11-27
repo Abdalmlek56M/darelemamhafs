@@ -274,15 +274,15 @@ public static partial class DomainEndpoints
                 insert.Parameters.AddWithValue("duration", draft.DurationMinutes);
                 slotId = (Guid)(await insert.ExecuteScalarAsync(ct) ?? throw new InvalidOperationException("لم يرجع سجل الموعد."));
             }
-            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'schedule.create','circle_schedule_slot',@id,jsonb_build_object('dayOfWeek',@day,'startsAt',@time,'durationMinutes',@duration,'atomic',TRUE));", conn, tx))
-            {
-                audit.Parameters.AddWithValue("actor", ActorId(principal));
-                audit.Parameters.AddWithValue("id", slotId);
-                audit.Parameters.AddWithValue("day", draft.DayOfWeek);
-                audit.Parameters.AddWithValue("time", startsAt.ToString("HH:mm"));
-                audit.Parameters.AddWithValue("duration", draft.DurationMinutes);
-                await audit.ExecuteNonQueryAsync(ct);
-            }
+            await AuditLogWriter.WriteAsync(conn, tx, ActorId(principal), null, "schedule.create", "circle_schedule_slot", slotId,
+                detailsJson: JsonSerializer.Serialize(new
+                {
+                    dayOfWeek = draft.DayOfWeek,
+                    startsAt = startsAt.ToString("HH:mm"),
+                    durationMinutes = draft.DurationMinutes,
+                    atomic = true
+                }),
+                cancellationToken: ct);
             saved.Add(new { id = slotId, circleId, dayOfWeek = draft.DayOfWeek, startsAt = startsAt.ToString("HH:mm"), durationMinutes = draft.DurationMinutes });
         }
         return saved;
@@ -290,13 +290,14 @@ public static partial class DomainEndpoints
 
     private static async Task InsertCircleWriteAuditAsync(NpgsqlConnection conn, NpgsqlTransaction tx, ClaimsPrincipal principal, string actionCode, Guid circleId, string name, Guid? teacherId, int slotCount, CancellationToken ct)
     {
-        await using var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,@action,'circle',@id,jsonb_build_object('name',@name,'teacherId',@teacher,'scheduleSlots',@slots,'atomic',TRUE));", conn, tx);
-        audit.Parameters.AddWithValue("actor", ActorId(principal));
-        audit.Parameters.AddWithValue("action", actionCode);
-        audit.Parameters.AddWithValue("id", circleId);
-        audit.Parameters.AddWithValue("name", name.Trim());
-        AddNullableGuid(audit, "teacher", teacherId);
-        audit.Parameters.AddWithValue("slots", slotCount);
-        await audit.ExecuteNonQueryAsync(ct);
+        await AuditLogWriter.WriteAsync(conn, tx, ActorId(principal), null, actionCode, "circle", circleId,
+            detailsJson: JsonSerializer.Serialize(new
+            {
+                name = name.Trim(),
+                teacherId,
+                scheduleSlots = slotCount,
+                atomic = true
+            }),
+            cancellationToken: ct);
     }
 }

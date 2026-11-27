@@ -67,12 +67,9 @@ public static partial class AuthEndpoints
                     grant.Parameters.AddWithValue("permission", permission.Code);
                     await grant.ExecuteNonQueryAsync(ct);
                 }
-                await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id, action_code, entity_type, entity_id, details) VALUES (@id, 'setup.initial_admin', 'app_user', @id, jsonb_build_object('username', @username));", connection, transaction))
-                {
-                    audit.Parameters.AddWithValue("id", userId);
-                    audit.Parameters.AddWithValue("username", request.Username.Trim().ToLowerInvariant());
-                    await audit.ExecuteNonQueryAsync(ct);
-                }
+                await AuditLogWriter.WriteAsync(connection, transaction, userId, null, "setup.initial_admin", "app_user", userId,
+                    detailsJson: JsonSerializer.Serialize(new { username = request.Username.Trim().ToLowerInvariant() }),
+                    cancellationToken: ct);
                 await transaction.CommitAsync(ct);
                 await SignInAsync(context, userId, request.Username.Trim().ToLowerInvariant(), request.DisplayName.Trim(), AppPermissions.All.Select(p => p.Code), sessionVersion: 0);
                 return Results.Ok(new UserSessionResponse(userId, request.Username.Trim().ToLowerInvariant(), request.DisplayName.Trim(), AppPermissions.All.Select(p => p.Code).ToArray()));

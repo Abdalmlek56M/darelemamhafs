@@ -141,15 +141,14 @@ public static partial class DomainEndpoints
                     updateStudent.Parameters.AddWithValue("status", request.Status);
                     await updateStudent.ExecuteNonQueryAsync(ct);
                 }
-                await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'student.status.change','student',@id,jsonb_build_object('status',@status,'effectiveOn',@effectiveOn,'endedEnrollments',@endedCount));", conn, tx))
-                {
-                    audit.Parameters.AddWithValue("actor", ActorId(principal));
-                    audit.Parameters.AddWithValue("id", id);
-                    audit.Parameters.AddWithValue("status", request.Status);
-                    audit.Parameters.AddWithValue("effectiveOn", effectiveOn);
-                    audit.Parameters.AddWithValue("endedCount", endedEnrollments.Count);
-                    await audit.ExecuteNonQueryAsync(ct);
-                }
+                await AuditLogWriter.WriteAsync(conn, tx, ActorId(principal), null, "student.status.change", "student", id,
+                    detailsJson: JsonSerializer.Serialize(new
+                    {
+                        status = request.Status,
+                        effectiveOn,
+                        endedEnrollments = endedEnrollments.Count
+                    }),
+                    cancellationToken: ct);
                 await tx.CommitAsync(ct);
                 return Results.Ok(await LoadStudent(db, id, CanReadFinance(principal), ct));
             }

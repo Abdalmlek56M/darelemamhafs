@@ -98,18 +98,9 @@ public static partial class SystemAdminEndpoints
     private static async Task InsertRequestAuditAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         Guid? actor, string? actorName, string action, string entityType, Guid entityId, string details, Guid requestId, CancellationToken ct)
     {
-        await using var audit = new NpgsqlCommand("""
-            INSERT INTO audit_log(actor_user_id,actor_display_name,action_code,entity_type,entity_id,details,request_path,http_method,can_restore)
-            VALUES(@actor,@name,@action,@type,@id,@details::jsonb,@path,'POST',FALSE);
-            """, connection, transaction);
-        audit.Parameters.AddWithValue("actor", DbGuid(actor));
-        audit.Parameters.AddWithValue("name", (object?)actorName ?? DBNull.Value);
-        audit.Parameters.AddWithValue("action", action);
-        audit.Parameters.AddWithValue("type", entityType);
-        audit.Parameters.AddWithValue("id", entityId);
-        audit.Parameters.AddWithValue("details", details);
-        audit.Parameters.AddWithValue("path", $"/api/admin/requests/{requestId}/review");
-        await audit.ExecuteNonQueryAsync(ct);
+        await AuditLogWriter.WriteAsync(connection, transaction, actor, actorName, action, entityType, entityId,
+            detailsJson: details, requestPath: $"/api/admin/requests/{requestId}/review", httpMethod: "POST",
+            cancellationToken: ct);
     }
 }
 

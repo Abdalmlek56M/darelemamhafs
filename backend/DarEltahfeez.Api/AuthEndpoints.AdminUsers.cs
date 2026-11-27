@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -200,24 +201,17 @@ public static partial class AuthEndpoints
                     }
                 }
 
-                await using (var audit = new NpgsqlCommand("""
-                    INSERT INTO audit_log(actor_user_id, actor_display_name, action_code, entity_type, entity_id, details, request_path, http_method, can_restore)
-                    VALUES (@actor, @name, 'user.access.update', 'app_user', @id,
-                            jsonb_build_object('isLocked', CAST(@locked AS boolean), 'teacherId', CAST(@teacher AS uuid),
-                                               'scopeCircles', COALESCE(CAST(@scopeCircles AS uuid[]), '{}'::uuid[]),
-                                               'scopeTeachers', COALESCE(CAST(@scopeTeachers AS uuid[]), '{}'::uuid[])),
-                            '/api/admin/users/' || CAST(@id AS text) || '/access', 'PUT', FALSE);
-                    """, connection, transaction))
-                {
-                    audit.Parameters.AddWithValue("actor", actorId);
-                    audit.Parameters.AddWithValue("name", principal.FindFirstValue("display_name") ?? "مدير النظام");
-                    audit.Parameters.AddWithValue("id", id);
-                    audit.Parameters.AddWithValue("locked", request.IsLocked);
-                    AddNullable(audit, "teacher", request.TeacherId);
-                    audit.Parameters.AddWithValue("scopeCircles", scopeCircles);
-                    audit.Parameters.AddWithValue("scopeTeachers", scopeTeachers);
-                    await audit.ExecuteNonQueryAsync(ct);
-                }
+                await AuditLogWriter.WriteAsync(connection, transaction, actorId,
+                    principal.FindFirstValue("display_name") ?? "مدير النظام",
+                    "user.access.update", "app_user", id,
+                    detailsJson: JsonSerializer.Serialize(new
+                    {
+                        isLocked = request.IsLocked,
+                        teacherId = request.TeacherId,
+                        scopeCircles,
+                        scopeTeachers
+                    }),
+                    requestPath: $"/api/admin/users/{id}/access", httpMethod: "PUT", cancellationToken: ct);
 
                 await transaction.CommitAsync(ct);
                 return Results.Ok(new { id, isLocked = request.IsLocked, teacherId = request.TeacherId, lockReason });

@@ -130,16 +130,15 @@ public static partial class DomainEndpoints
                 await InsertEnrollmentStatusEventAsync(conn, tx, enrollmentId, "enrollment.status.baseline", "active", request.StartsOn, "بداية الالتحاق الجماعي.", ActorId(principal), ct);
 
             var feesApplied = fees.Count(value => value.HasValue);
-            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'enrollment.bulk_create','circle',@circle,jsonb_build_object('requested',@requested,'added',@added,'startsOn',@starts,'feesSet',@feesSet));", conn, tx))
-            {
-                audit.Parameters.AddWithValue("actor", ActorId(principal));
-                audit.Parameters.AddWithValue("circle", request.CircleId);
-                audit.Parameters.AddWithValue("requested", studentIds.Length);
-                audit.Parameters.AddWithValue("added", added.Count);
-                audit.Parameters.AddWithValue("starts", request.StartsOn);
-                audit.Parameters.AddWithValue("feesSet", feesApplied);
-                await audit.ExecuteNonQueryAsync(ct);
-            }
+            await AuditLogWriter.WriteAsync(conn, tx, ActorId(principal), null, "enrollment.bulk_create", "circle", request.CircleId,
+                detailsJson: JsonSerializer.Serialize(new
+                {
+                    requested = studentIds.Length,
+                    added = added.Count,
+                    startsOn = request.StartsOn,
+                    feesSet = feesApplied
+                }),
+                cancellationToken: ct);
             await tx.CommitAsync(ct);
             return Results.Ok(new { added = added.Count, skipped = studentIds.Length - added.Count, feesApplied });
         }).RequireAuthorization("students.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();

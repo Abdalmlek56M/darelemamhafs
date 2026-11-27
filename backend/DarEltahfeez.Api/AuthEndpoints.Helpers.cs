@@ -1,10 +1,10 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Npgsql;
-using NpgsqlTypes;
 
 namespace DarEltahfeez.Api;
 
@@ -20,14 +20,9 @@ public static partial class AuthEndpoints
     {
         try
         {
-            await using var cmd = db.CreateCommand(
-                "INSERT INTO audit_log(actor_user_id,actor_display_name,action_code,entity_type,entity_id,details,request_path,http_method,can_restore) " +
-                "VALUES(@actor,@name,@action,'app_user',NULL,jsonb_build_object('username',@username),'/api/auth/login','POST',FALSE);");
-            cmd.Parameters.Add("actor", NpgsqlDbType.Uuid).Value = actorId.HasValue ? actorId.Value : DBNull.Value;
-            cmd.Parameters.AddWithValue("name", (object?)actorName ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("action", action);
-            cmd.Parameters.AddWithValue("username", (object?)username?.Trim().ToLowerInvariant() ?? DBNull.Value);
-            await cmd.ExecuteNonQueryAsync(ct);
+            await AuditLogWriter.WriteAsync(db, actorId, actorName, action, "app_user", null,
+                detailsJson: JsonSerializer.Serialize(new { username = username?.Trim().ToLowerInvariant() }),
+                requestPath: "/api/auth/login", httpMethod: "POST", cancellationToken: ct);
         }
         catch
         {

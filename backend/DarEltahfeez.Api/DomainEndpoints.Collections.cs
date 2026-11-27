@@ -128,9 +128,9 @@ public static partial class DomainEndpoints
                 if (!await reader.ReadAsync(ct)) return Results.NotFound();
                 var response = new { id = reader.GetGuid(0), amountDue = CanReadFinance(principal) ? reader.GetDecimal(1) : (decimal?)null, note = reader.IsDBNull(2) ? null : reader.GetString(2) };
                 await reader.CloseAsync();
-                await using var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'charge.update','monthly_charge',@id,jsonb_build_object('amountDue',@amount,'amountPaid',@paid));", conn, tx);
-                audit.Parameters.AddWithValue("actor", ActorId(principal)); audit.Parameters.AddWithValue("id", id); audit.Parameters.AddWithValue("amount", amountDue); audit.Parameters.AddWithValue("paid", paid);
-                await audit.ExecuteNonQueryAsync(ct);
+                await AuditLogWriter.WriteAsync(conn, tx, ActorId(principal), null, "charge.update", "monthly_charge", id,
+                    detailsJson: JsonSerializer.Serialize(new { amountDue, amountPaid = paid }),
+                    cancellationToken: ct);
                 await tx.CommitAsync(ct);
                 return Results.Ok(response);
             }
@@ -200,8 +200,9 @@ public static partial class DomainEndpoints
                         : PaymentReplayResult(existing, principal);
                 }
             }
-            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'payment.create_with_receipt','payment',@id,jsonb_build_object('chargeId',@charge,'amount',@amount,'receiptFileName',@filename));",conn,tx))
-            {audit.Parameters.AddWithValue("actor",ActorId(principal));audit.Parameters.AddWithValue("id",paymentId);audit.Parameters.AddWithValue("charge",chargeId);audit.Parameters.AddWithValue("amount",amount);audit.Parameters.AddWithValue("filename",Path.GetFileName(receipt.FileName));await audit.ExecuteNonQueryAsync(ct);}
+            await AuditLogWriter.WriteAsync(conn, tx, ActorId(principal), null, "payment.create_with_receipt", "payment", paymentId,
+                detailsJson: JsonSerializer.Serialize(new { chargeId, amount, receiptFileName = Path.GetFileName(receipt.FileName) }),
+                cancellationToken: ct);
             await tx.CommitAsync(ct);
             return Results.Created($"/api/payments/{paymentId}", new { id=paymentId, monthlyChargeId=chargeId, amount=CanReadFinance(principal) ? amount : (decimal?)null, paidAt, method, reference, note, hasReceipt=true });
         }).RequireAuthorization("finance.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
@@ -254,14 +255,9 @@ public static partial class DomainEndpoints
                 voidReason = reader.IsDBNull(2) ? null : reader.GetString(2);
                 await reader.CloseAsync();
             }
-            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'charge.void','monthly_charge',@id,jsonb_build_object('amountDue',@amount,'voidReason',@reason));", conn, tx))
-            {
-                audit.Parameters.AddWithValue("actor", actor);
-                audit.Parameters.AddWithValue("id", id);
-                audit.Parameters.AddWithValue("amount", amountDue);
-                AddNullable(audit, "reason", voidReason ?? request.Reason);
-                await audit.ExecuteNonQueryAsync(ct);
-            }
+            await AuditLogWriter.WriteAsync(conn, tx, actor, null, "charge.void", "monthly_charge", id,
+                detailsJson: JsonSerializer.Serialize(new { amountDue, voidReason = voidReason ?? request.Reason }),
+                cancellationToken: ct);
             await tx.CommitAsync(ct);
             return Results.Ok(new { id, voidedAt, voidReason });
         }).RequireAuthorization("finance.void").AddEndpointFilter<ScopedAccessEndpointFilter>();
@@ -303,15 +299,9 @@ public static partial class DomainEndpoints
                 voidReason = reader.IsDBNull(3) ? null : reader.GetString(3);
                 await reader.CloseAsync();
             }
-            await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'payment.void','payment',@id,jsonb_build_object('chargeId',@charge,'amount',@amount,'voidReason',@reason));", conn, tx))
-            {
-                audit.Parameters.AddWithValue("actor", actor);
-                audit.Parameters.AddWithValue("id", id);
-                audit.Parameters.AddWithValue("charge", chargeId);
-                audit.Parameters.AddWithValue("amount", amount);
-                AddNullable(audit, "reason", voidReason ?? request.Reason);
-                await audit.ExecuteNonQueryAsync(ct);
-            }
+            await AuditLogWriter.WriteAsync(conn, tx, actor, null, "payment.void", "payment", id,
+                detailsJson: JsonSerializer.Serialize(new { chargeId, amount, voidReason = voidReason ?? request.Reason }),
+                cancellationToken: ct);
             await tx.CommitAsync(ct);
             return Results.Ok(new { id, monthlyChargeId = chargeId, voidedAt, voidReason });
         }).RequireAuthorization("finance.void").AddEndpointFilter<ScopedAccessEndpointFilter>();

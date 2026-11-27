@@ -29,8 +29,14 @@ public static partial class DomainEndpoints
                 var value = await cmd.ExecuteScalarAsync(ct);
                 if (value is null) return Results.Conflict(new { message = "الحلقة غير موجودة أو متوقفة أو لم تُسند إلى معلمة. فعّل الحلقة وحدد المعلمة المسؤولة أولًا." });
                 var id = (Guid)value;
-                await using var audit = db.CreateCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'schedule.create','circle_schedule_slot',@id,jsonb_build_object('dayOfWeek',@day,'startsAt',@time,'durationMinutes',@duration));");
-                audit.Parameters.AddWithValue("actor", ActorId(principal)); audit.Parameters.AddWithValue("id", id); audit.Parameters.AddWithValue("day", request.DayOfWeek); audit.Parameters.AddWithValue("time", startsAt.ToString("HH:mm")); audit.Parameters.AddWithValue("duration", request.DurationMinutes); await audit.ExecuteNonQueryAsync(ct);
+                await AuditLogWriter.WriteAsync(db, ActorId(principal), null, "schedule.create", "circle_schedule_slot", id,
+                    detailsJson: JsonSerializer.Serialize(new
+                    {
+                        dayOfWeek = request.DayOfWeek,
+                        startsAt = startsAt.ToString("HH:mm"),
+                        durationMinutes = request.DurationMinutes
+                    }),
+                    cancellationToken: ct);
                 return Results.Created($"/api/schedule-slots/{id}", new { id, request.CircleId, request.DayOfWeek, startsAt = startsAt.ToString("HH:mm"), request.DurationMinutes });
             }
             catch (PostgresException ex) when (ex.SqlState == "23505") { return Results.Conflict(new { message = "هذا الموعد مسجل للحلقة في اليوم والوقت نفسيهما بالفعل." }); }
@@ -96,19 +102,18 @@ public static partial class DomainEndpoints
                     after.Parameters.AddWithValue("id", id);
                     afterJson = (string)(await after.ExecuteScalarAsync(ct) ?? "{}");
                 }
-                await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details,before_data,after_data,request_path,http_method,can_restore) VALUES(@actor,'schedule.update','circle_schedule_slot',@id,jsonb_build_object('circleId',@circle,'dayOfWeek',@day,'startsAt',@time,'durationMinutes',@duration,'isActive',@active),@before::jsonb,@after::jsonb,'/api/schedule-slots/'||@id,'PUT',TRUE);", conn, tx))
-                {
-                    audit.Parameters.AddWithValue("actor", ActorId(principal));
-                    audit.Parameters.AddWithValue("id", id);
-                    audit.Parameters.AddWithValue("circle", circleId);
-                    audit.Parameters.AddWithValue("day", request.DayOfWeek);
-                    audit.Parameters.AddWithValue("time", startsAt.ToString("HH:mm"));
-                    audit.Parameters.AddWithValue("duration", request.DurationMinutes);
-                    audit.Parameters.AddWithValue("active", effectiveActive);
-                    audit.Parameters.AddWithValue("before", beforeJson);
-                    audit.Parameters.AddWithValue("after", afterJson);
-                    await audit.ExecuteNonQueryAsync(ct);
-                }
+                await AuditLogWriter.WriteAsync(conn, tx, ActorId(principal), null, "schedule.update", "circle_schedule_slot", id,
+                    detailsJson: JsonSerializer.Serialize(new
+                    {
+                        circleId,
+                        dayOfWeek = request.DayOfWeek,
+                        startsAt = startsAt.ToString("HH:mm"),
+                        durationMinutes = request.DurationMinutes,
+                        isActive = effectiveActive
+                    }),
+                    beforeJson: beforeJson, afterJson: afterJson,
+                    requestPath: $"/api/schedule-slots/{id}", httpMethod: "PUT", canRestore: true,
+                    cancellationToken: ct);
                 await tx.CommitAsync(ct);
                 return Results.Ok(new { id, circleId, dayOfWeek = request.DayOfWeek, startsAt = startsAt.ToString("HH:mm"), durationMinutes = request.DurationMinutes, isActive = effectiveActive });
             }
@@ -162,9 +167,17 @@ public static partial class DomainEndpoints
             Guid savedId; int duration; decimal payable, rate; string status;
             await using (var reader = await update.ExecuteReaderAsync(ct)) { await reader.ReadAsync(ct); savedId=reader.GetGuid(0); duration=reader.GetInt32(1); payable=reader.GetDecimal(2); rate=reader.GetDecimal(3); status=reader.GetString(4); }
             await using (var afterCmd = new NpgsqlCommand("SELECT to_jsonb(a)::text FROM teacher_attendance a WHERE id=@id;", conn, tx))
-            { afterCmd.Parameters.AddWithValue("id", id); var after=(string?)await afterCmd.ExecuteScalarAsync(ct);
-              await using var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,actor_display_name,action_code,entity_type,entity_id,details,before_data,after_data,request_path,http_method,can_restore) VALUES(@actor,@name,'attendance.duration.update','teacher_attendance',@id,jsonb_build_object('durationMinutes',@duration,'payableAmount',@payable),@before::jsonb,@after::jsonb,'/api/teacher-attendance/'||@id||'/duration','PUT',TRUE);", conn, tx);
-              audit.Parameters.AddWithValue("actor", ActorId(principal)); audit.Parameters.AddWithValue("name", principal.FindFirstValue("display_name") ?? "حساب غير معروف"); audit.Parameters.AddWithValue("id", id); audit.Parameters.AddWithValue("duration", duration); audit.Parameters.AddWithValue("payable", payable); audit.Parameters.AddWithValue("before", before); audit.Parameters.AddWithValue("after", (object?)after ?? DBNull.Value); await audit.ExecuteNonQueryAsync(ct); }
+            {
+                afterCmd.Parameters.AddWithValue("id", id);
+                var after = (string?)await afterCmd.ExecuteScalarAsync(ct);
+                await AuditLogWriter.WriteAsync(conn, tx, ActorId(principal),
+                    principal.FindFirstValue("display_name") ?? "حساب غير معروف",
+                    "attendance.duration.update", "teacher_attendance", id,
+                    detailsJson: JsonSerializer.Serialize(new { durationMinutes = duration, payableAmount = payable }),
+                    beforeJson: before, afterJson: after,
+                    requestPath: $"/api/teacher-attendance/{id}/duration", httpMethod: "PUT", canRestore: true,
+                    cancellationToken: ct);
+            }
             await tx.CommitAsync(ct);
             return Results.Ok(new { id=savedId, durationMinutes=duration, payableAmount=CanReadFinance(principal) ? payable : (decimal?)null, hourlyRateSnapshot=CanReadFinance(principal) ? rate : (decimal?)null, status });
         }).RequireAuthorization("attendance.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
@@ -235,8 +248,19 @@ public static partial class DomainEndpoints
                 save.Parameters.AddWithValue("slot",request.ScheduleSlotId);save.Parameters.AddWithValue("enrollment",request.EnrollmentId);save.Parameters.AddWithValue("date",request.SessionDate);save.Parameters.AddWithValue("status",request.Status);save.Parameters.AddWithValue("note",(object?)request.Note?.Trim()??DBNull.Value);save.Parameters.AddWithValue("actor",ActorId(principal));id=(Guid)(await save.ExecuteScalarAsync(ct)??throw new InvalidOperationException("لم يتم حفظ الحضور."));
             }
             string? after;await using(var snap=new NpgsqlCommand("SELECT to_jsonb(sa)::text FROM student_attendance sa WHERE id=@id;",conn,tx)){snap.Parameters.AddWithValue("id",id);after=(string?)await snap.ExecuteScalarAsync(ct);}
-            await using(var audit=new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,actor_display_name,action_code,entity_type,entity_id,details,before_data,after_data,request_path,http_method,can_restore) VALUES(@actor,@name,@action,'student_attendance',@id,jsonb_build_object('status',@status,'sessionDate',@date,'historicalOverride',@allowHistorical),@before::jsonb,@after::jsonb,'/api/student-attendance','POST',FALSE);",conn,tx))
-            {audit.Parameters.AddWithValue("actor",ActorId(principal));audit.Parameters.AddWithValue("name",principal.FindFirstValue("display_name")??"حساب غير معروف");audit.Parameters.AddWithValue("action",before is null?"student.attendance.create":"student.attendance.update");audit.Parameters.AddWithValue("id",id);audit.Parameters.AddWithValue("status",request.Status);audit.Parameters.AddWithValue("date",request.SessionDate);audit.Parameters.AddWithValue("allowHistorical",request.AllowHistoricalEntry);audit.Parameters.AddWithValue("before",(object?)before??DBNull.Value);audit.Parameters.AddWithValue("after",(object?)after??DBNull.Value);await audit.ExecuteNonQueryAsync(ct);}
+            await AuditLogWriter.WriteAsync(conn, tx, ActorId(principal),
+                principal.FindFirstValue("display_name") ?? "حساب غير معروف",
+                before is null ? "student.attendance.create" : "student.attendance.update",
+                "student_attendance", id,
+                detailsJson: JsonSerializer.Serialize(new
+                {
+                    status = request.Status,
+                    sessionDate = request.SessionDate,
+                    historicalOverride = request.AllowHistoricalEntry
+                }),
+                beforeJson: before, afterJson: after,
+                requestPath: "/api/student-attendance", httpMethod: "POST", canRestore: false,
+                cancellationToken: ct);
             await tx.CommitAsync(ct);return Results.Ok(new{id,status=request.Status,sessionDate=request.SessionDate,enrollmentId=request.EnrollmentId,scheduleSlotId=request.ScheduleSlotId});
         }).RequireAuthorization("attendance.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
 

@@ -81,11 +81,11 @@ public static partial class SystemAdminEndpoints
             if (string.IsNullOrWhiteSpace(request.EntityType) || request.EntityType.Length > 80) return Results.BadRequest(new { message = "نوع السجل غير صحيح." });
             var details = request.Details.HasValue ? request.Details.Value.GetRawText() : "{}";
             if (details.Length > 8000) return Results.BadRequest(new { message = "تفاصيل سجل العملية أطول من المسموح." });
-            await using var cmd = db.CreateCommand("INSERT INTO audit_log(actor_user_id,actor_display_name,action_code,entity_type,entity_id,details,request_path,http_method,can_restore) VALUES(@actor,@name,@action,@type,@id,@details::jsonb,@path,'POST',FALSE) RETURNING id;");
-            cmd.Parameters.AddWithValue("actor", DbGuid(ActorId(principal))); cmd.Parameters.AddWithValue("name", principal.FindFirstValue("display_name") ?? "حساب غير معروف");
-            cmd.Parameters.AddWithValue("action", request.ActionCode); cmd.Parameters.AddWithValue("type", request.EntityType); cmd.Parameters.AddWithValue("id", (object?)request.EntityId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("details", NpgsqlDbType.Jsonb, details); cmd.Parameters.AddWithValue("path", "/api/admin/audit-events");
-            var id = (long)(await cmd.ExecuteScalarAsync(ct) ?? 0L);
+            var id = await AuditLogWriter.WriteAsync(db, ActorId(principal),
+                principal.FindFirstValue("display_name") ?? "حساب غير معروف",
+                request.ActionCode, request.EntityType, request.EntityId,
+                detailsJson: details, requestPath: "/api/admin/audit-events", httpMethod: "POST",
+                cancellationToken: ct);
             return Results.Ok(new { id, logged = true });
         }).RequireAuthorization();
 
@@ -145,8 +145,12 @@ public static partial class SystemAdminEndpoints
             var sql = $"UPDATE public.{entity} AS target SET {assignments} FROM jsonb_populate_record(NULL::public.{entity}, @snapshot::jsonb) AS source WHERE target.id=@entityId;";
             await using (var restore = new NpgsqlCommand(sql, conn, tx)) { restore.Parameters.AddWithValue("snapshot", NpgsqlDbType.Jsonb, snapshot); restore.Parameters.AddWithValue("entityId", entityId.Value); await restore.ExecuteNonQueryAsync(ct); }
             await using (var mark = new NpgsqlCommand("UPDATE audit_log SET restored_at=now(),can_restore=FALSE WHERE id=@id;", conn, tx)) { mark.Parameters.AddWithValue("id", id); await mark.ExecuteNonQueryAsync(ct); }
-            await using (var log = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,actor_display_name,action_code,entity_type,entity_id,details,before_data,after_data,request_path,http_method,can_restore) VALUES(@actor,@name,'audit.restore_before',@type,@entityId,jsonb_build_object('sourceAuditId',@source),@before::jsonb,@after::jsonb,'/api/admin/audit-log/'||@source||'/restore-before','POST',TRUE);", conn, tx))
-            { log.Parameters.AddWithValue("actor", DbGuid(ActorId(principal))); log.Parameters.AddWithValue("name", principal.FindFirstValue("display_name") ?? ""); log.Parameters.AddWithValue("type", entity!); log.Parameters.AddWithValue("entityId", entityId.Value); log.Parameters.AddWithValue("source", id); log.Parameters.AddWithValue("before", NpgsqlDbType.Jsonb, beforeNow); log.Parameters.AddWithValue("after", NpgsqlDbType.Jsonb, snapshot); await log.ExecuteNonQueryAsync(ct); }
+            await AuditLogWriter.WriteAsync(conn, tx, ActorId(principal), principal.FindFirstValue("display_name") ?? "",
+                "audit.restore_before", entity!, entityId.Value,
+                detailsJson: JsonSerializer.Serialize(new { sourceAuditId = id }),
+                beforeJson: beforeNow, afterJson: snapshot,
+                requestPath: $"/api/admin/audit-log/{id}/restore-before", httpMethod: "POST", canRestore: true,
+                cancellationToken: ct);
             await tx.CommitAsync(ct);
             return Results.Ok(new { restored = true, message = "تمت استعادة القيم السابقة. راجع السجل الجديد للتأكد." });
         }).RequireAuthorization("audit.restore").AddEndpointFilter<ScopedAccessEndpointFilter>();

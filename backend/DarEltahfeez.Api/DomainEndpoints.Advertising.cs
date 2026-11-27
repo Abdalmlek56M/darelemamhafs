@@ -139,31 +139,31 @@ public static partial class DomainEndpoints
                 newTotalAmount = reader.GetDecimal(1);
             }
 
-            await using (var audit = new NpgsqlCommand("""
-                INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details)
-                VALUES(@actor,'advertising.update','advertising_expense',@id,jsonb_build_object(
-                    'old',jsonb_build_object('circleId',@oldCircle::uuid,'platform',@oldPlatform::text,'startDate',@oldStartDate::date,'daysCount',@oldDays,'dailyCost',@oldDaily,'totalAmount',@oldTotal,'note',@oldNote::text),
-                    'new',jsonb_build_object('circleId',@newCircle::uuid,'platform',@newPlatform::text,'startDate',@newStartDate::date,'daysCount',@newDays,'dailyCost',@newDaily,'totalAmount',@newTotal,'note',@newNote::text)));
-                """, conn, tx))
-            {
-                audit.Parameters.AddWithValue("actor", ActorId(principal));
-                audit.Parameters.AddWithValue("id", id);
-                audit.Parameters.AddWithValue("oldCircle", oldCircleId);
-                audit.Parameters.Add(new NpgsqlParameter("oldPlatform", NpgsqlDbType.Text) { Value = (object?)oldPlatform ?? DBNull.Value });
-                audit.Parameters.Add(new NpgsqlParameter("oldStartDate", NpgsqlDbType.Date) { Value = oldStartDate });
-                audit.Parameters.AddWithValue("oldDays", oldDaysCount);
-                audit.Parameters.AddWithValue("oldDaily", oldDailyCost);
-                audit.Parameters.AddWithValue("oldTotal", oldTotalAmount);
-                audit.Parameters.Add(new NpgsqlParameter("oldNote", NpgsqlDbType.Text) { Value = (object?)oldNote ?? DBNull.Value });
-                audit.Parameters.AddWithValue("newCircle", newCircleId);
-                audit.Parameters.Add(new NpgsqlParameter("newPlatform", NpgsqlDbType.Text) { Value = (object?)platform ?? DBNull.Value });
-                audit.Parameters.Add(new NpgsqlParameter("newStartDate", NpgsqlDbType.Date) { Value = request.StartDate });
-                audit.Parameters.AddWithValue("newDays", request.DaysCount);
-                audit.Parameters.AddWithValue("newDaily", dailyCost);
-                audit.Parameters.AddWithValue("newTotal", newTotalAmount);
-                audit.Parameters.Add(new NpgsqlParameter("newNote", NpgsqlDbType.Text) { Value = (object?)note ?? DBNull.Value });
-                await audit.ExecuteNonQueryAsync(ct);
-            }
+            await AuditLogWriter.WriteAsync(conn, tx, ActorId(principal), null, "advertising.update", "advertising_expense", id,
+                detailsJson: JsonSerializer.Serialize(new Dictionary<string, object?>
+                {
+                    ["old"] = new
+                    {
+                        circleId = oldCircleId,
+                        platform = oldPlatform,
+                        startDate = oldStartDate,
+                        daysCount = oldDaysCount,
+                        dailyCost = oldDailyCost,
+                        totalAmount = oldTotalAmount,
+                        note = oldNote
+                    },
+                    ["new"] = new
+                    {
+                        circleId = newCircleId,
+                        platform,
+                        startDate = request.StartDate,
+                        daysCount = request.DaysCount,
+                        dailyCost,
+                        totalAmount = newTotalAmount,
+                        note
+                    }
+                }),
+                cancellationToken: ct);
 
             await tx.CommitAsync(ct);
             return Results.Ok(new { id, circleId = newCircleId, platform, startDate = request.StartDate, daysCount = request.DaysCount, dailyCost, totalAmount = newTotalAmount, note });

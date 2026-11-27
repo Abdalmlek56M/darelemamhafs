@@ -116,13 +116,10 @@ public sealed class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddlewar
             if (updatedId is null)
             {
                 var action = $"api.{method.ToLowerInvariant()}";
-                await using var insert = db.CreateCommand("INSERT INTO audit_log(actor_user_id,actor_display_name,action_code,entity_type,entity_id,details,before_data,after_data,request_path,http_method,can_restore) VALUES(@actor,@actorName,@action,@entityType,@entityId,@details::jsonb,@before::jsonb,@after::jsonb,@path,@method,@canRestore);");
-                insert.Parameters.AddWithValue("actor", DbGuid(actorId)); insert.Parameters.AddWithValue("actorName", displayName);
-                insert.Parameters.AddWithValue("action", action); insert.Parameters.AddWithValue("entityType", target.Table);
-                insert.Parameters.AddWithValue("entityId", DbGuid(id)); insert.Parameters.AddWithValue("details", NpgsqlDbType.Jsonb, detailJson);
-                insert.Parameters.AddWithValue("before", (object?)before ?? DBNull.Value); insert.Parameters.AddWithValue("after", (object?)after ?? DBNull.Value);
-                insert.Parameters.AddWithValue("path", path); insert.Parameters.AddWithValue("method", method); insert.Parameters.AddWithValue("canRestore", canRestore);
-                await insert.ExecuteNonQueryAsync(context.RequestAborted);
+                await AuditLogWriter.WriteAsync(db, actorId, displayName, action, target.Table, id,
+                    detailsJson: detailJson, beforeJson: before, afterJson: after,
+                    requestPath: path, httpMethod: method, canRestore: canRestore,
+                    cancellationToken: context.RequestAborted);
             }
         }
         catch (Exception ex)

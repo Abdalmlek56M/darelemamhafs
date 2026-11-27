@@ -92,15 +92,13 @@ public static partial class SystemAdminEndpoints
             cmd.Parameters.AddWithValue("actor", DbGuid(ActorId(principal)));
             await cmd.ExecuteNonQueryAsync(ct);
             var settingsAfter = await ReadBrandingAuditSnapshotAsync(db, ct);
-            await using (var audit = db.CreateCommand("INSERT INTO audit_log(actor_user_id,actor_display_name,action_code,entity_type,entity_id,details,before_data,after_data,request_path,http_method,can_restore) VALUES(@actor,@actorName,'settings.update','school_settings',NULL,@details::jsonb,@before::jsonb,@after::jsonb,'/api/admin/settings','PUT',FALSE);"))
-            {
-                audit.Parameters.AddWithValue("actor", DbGuid(ActorId(principal)));
-                audit.Parameters.AddWithValue("actorName", principal.FindFirstValue("display_name") ?? "حساب غير معروف");
-                audit.Parameters.AddWithValue("details", NpgsqlDbType.Jsonb, JsonSerializer.Serialize(new { logoChanged = logoBytes is not null || request.ClearLogo, note = "تعديل هوية الدار وسياسات النظام" }));
-                audit.Parameters.AddWithValue("before", NpgsqlDbType.Jsonb, (object?)settingsBefore ?? DBNull.Value);
-                audit.Parameters.AddWithValue("after", NpgsqlDbType.Jsonb, (object?)settingsAfter ?? DBNull.Value);
-                await audit.ExecuteNonQueryAsync(ct);
-            }
+            await AuditLogWriter.WriteAsync(db, ActorId(principal),
+                principal.FindFirstValue("display_name") ?? "حساب غير معروف",
+                "settings.update", "school_settings", null,
+                detailsJson: JsonSerializer.Serialize(new { logoChanged = logoBytes is not null || request.ClearLogo, note = "تعديل هوية الدار وسياسات النظام" }),
+                beforeJson: settingsBefore, afterJson: settingsAfter,
+                requestPath: "/api/admin/settings", httpMethod: "PUT",
+                cancellationToken: ct);
             return Results.Ok(new { saved = true, message = "تم حفظ إعدادات الدار." });
         }).RequireAuthorization("settings.manage");
 

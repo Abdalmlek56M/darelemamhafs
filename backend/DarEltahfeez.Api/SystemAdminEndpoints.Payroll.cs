@@ -102,15 +102,11 @@ public static partial class SystemAdminEndpoints
     private static async Task InsertPayrollAuditAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         ClaimsPrincipal principal, string action, DateOnly month, string details, CancellationToken ct)
     {
-        await using var audit = new NpgsqlCommand("""
-            INSERT INTO audit_log(actor_user_id,actor_display_name,action_code,entity_type,entity_id,details,request_path,http_method,can_restore)
-            VALUES(@actor,@name,@action,'payroll_lock',NULL,@details::jsonb,'/api/admin/payroll','POST',FALSE);
-            """, connection, transaction);
-        audit.Parameters.AddWithValue("actor", DbGuid(ActorId(principal)));
-        audit.Parameters.AddWithValue("name", (object?)principal.FindFirstValue("display_name") ?? DBNull.Value);
-        audit.Parameters.AddWithValue("action", action);
-        audit.Parameters.AddWithValue("details", details);
-        await audit.ExecuteNonQueryAsync(ct);
+        await AuditLogWriter.WriteAsync(connection, transaction, ActorId(principal),
+            principal.FindFirstValue("display_name"),
+            action, "payroll_lock", null,
+            detailsJson: details, requestPath: "/api/admin/payroll", httpMethod: "POST",
+            cancellationToken: ct);
     }
 
     private static bool TryPayrollMonth(string? value, out DateOnly month)

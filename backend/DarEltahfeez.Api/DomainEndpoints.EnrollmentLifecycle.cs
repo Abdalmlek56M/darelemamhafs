@@ -22,14 +22,14 @@ public static partial class DomainEndpoints
 
     private static async Task InsertEnrollmentStatusEventAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid enrollmentId, string actionCode, string status, DateOnly effectiveOn, string? reason, Guid actorId, CancellationToken ct)
     {
-        await using var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,@action,'enrollment',@id,jsonb_build_object('status',@status,'effectiveOn',@effectiveOn,'reason',@reason));", conn, tx);
-        audit.Parameters.AddWithValue("actor", actorId);
-        audit.Parameters.AddWithValue("action", actionCode);
-        audit.Parameters.AddWithValue("id", enrollmentId);
-        audit.Parameters.AddWithValue("status", status);
-        audit.Parameters.AddWithValue("effectiveOn", effectiveOn);
-        audit.Parameters.Add(new NpgsqlParameter("reason", NpgsqlDbType.Text) { Value = (object?)reason?.Trim() ?? DBNull.Value });
-        await audit.ExecuteNonQueryAsync(ct);
+        await AuditLogWriter.WriteAsync(conn, tx, actorId, null, actionCode, "enrollment", enrollmentId,
+            detailsJson: JsonSerializer.Serialize(new
+            {
+                status,
+                effectiveOn,
+                reason = reason?.Trim()
+            }),
+            cancellationToken: ct);
     }
 
     private static async Task<DateOnly?> GetLatestEnrollmentStatusDateAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid enrollmentId, CancellationToken ct)

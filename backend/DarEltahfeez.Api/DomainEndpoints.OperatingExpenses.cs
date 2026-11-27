@@ -74,13 +74,16 @@ public static partial class DomainEndpoints
                     await using var reader = await insert.ExecuteReaderAsync(ct); await reader.ReadAsync(ct);
                     id = reader.GetGuid(0); createdAt = reader.GetFieldValue<DateTimeOffset>(1);
                 }
-                await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'operating_expense.create','operating_expense',@id,jsonb_build_object('category',@category,'description',@description,'amount',@amount,'expenseDate',@date,'circleId',@circle));", conn, tx))
-                {
-                    audit.Parameters.AddWithValue("actor", ActorId(principal)); audit.Parameters.AddWithValue("id", id);
-                    audit.Parameters.AddWithValue("category", request.Category.Trim()); audit.Parameters.AddWithValue("description", request.Description.Trim());
-                    audit.Parameters.AddWithValue("amount", normalizedAmount); audit.Parameters.AddWithValue("date", request.ExpenseDate); AddNullableGuid(audit, "circle", request.CircleId);
-                    await audit.ExecuteNonQueryAsync(ct);
-                }
+                await AuditLogWriter.WriteAsync(conn, tx, ActorId(principal), null, "operating_expense.create", "operating_expense", id,
+                    detailsJson: JsonSerializer.Serialize(new
+                    {
+                        category = request.Category.Trim(),
+                        description = request.Description.Trim(),
+                        amount = normalizedAmount,
+                        expenseDate = request.ExpenseDate,
+                        circleId = request.CircleId
+                    }),
+                    cancellationToken: ct);
                 await tx.CommitAsync(ct);
                 return Results.Created($"/api/operating-expenses/{id}", new { id, createdAt });
             }
@@ -110,13 +113,16 @@ public static partial class DomainEndpoints
                     AddOperatingExpenseParams(update, normalizedRequest, principal); update.Parameters.AddWithValue("id", id);
                     if (await update.ExecuteScalarAsync(ct) is null) return Results.NotFound(new { message = "المصروف غير موجود." });
                 }
-                await using (var audit = new NpgsqlCommand("INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details) VALUES(@actor,'operating_expense.update','operating_expense',@id,jsonb_build_object('category',@category,'description',@description,'amount',@amount,'expenseDate',@date,'circleId',@circle));", conn, tx))
-                {
-                    audit.Parameters.AddWithValue("actor", ActorId(principal)); audit.Parameters.AddWithValue("id", id);
-                    audit.Parameters.AddWithValue("category", request.Category.Trim()); audit.Parameters.AddWithValue("description", request.Description.Trim());
-                    audit.Parameters.AddWithValue("amount", normalizedAmount); audit.Parameters.AddWithValue("date", request.ExpenseDate); AddNullableGuid(audit, "circle", request.CircleId);
-                    await audit.ExecuteNonQueryAsync(ct);
-                }
+                await AuditLogWriter.WriteAsync(conn, tx, ActorId(principal), null, "operating_expense.update", "operating_expense", id,
+                    detailsJson: JsonSerializer.Serialize(new
+                    {
+                        category = request.Category.Trim(),
+                        description = request.Description.Trim(),
+                        amount = normalizedAmount,
+                        expenseDate = request.ExpenseDate,
+                        circleId = request.CircleId
+                    }),
+                    cancellationToken: ct);
                 await tx.CommitAsync(ct); return Results.Ok(new { id, updated = true });
             }
             catch (PostgresException ex) when (ex.SqlState == "23503")
