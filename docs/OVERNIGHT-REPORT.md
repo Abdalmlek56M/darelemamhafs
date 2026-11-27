@@ -73,6 +73,19 @@ Batch commits also include suite wiring/report: `7d0d8eb`, `47a9674`, report com
 | Z1 characterization: teacherTypes.ts | done (split 152/97/198 + barrel) | pending | typecheck + ``teacherTypes.characterization.test.ts`` | type-only |
 | Z1 characterization: useDarApplication.ts / TeacherApp.tsx | tests added | pending | ``useDarApplication.characterization.test.ts``, ``TeacherApp.characterization.test.tsx`` | split not started |
 
+
+## Z1 splits / Tier2 continuation
+
+| Item | Status | Commit | Tests | NOT VERIFIED |
+|---|---|---|---|---|
+| Z1 split teacherTypes.ts | done | `edcea0b` | typecheck + characterization | type-only |
+| Z1 split MeetBotJobRepository.cs | done | `134b73f` | `z1-bot-repo-characterization` | real bot not run |
+| Z1 split AuthEndpoints.cs | done | `cc8ff3d` | `z1-auth-characterization` | browser E2E not run |
+| Z1 split useDarApplication.ts / TeacherApp.tsx | REMAINING | — | characterization render tests added | split not done (too risky without full hook/component tests) |
+| Tier2 2.6 single meet session cap | done | pending | `tier2-meet-cap` | production migration pending |
+| Tier2 2.15 remove dead Docker/Caddy files | done (shared helper pending) | pending | CI shell checks | helper library still TODO |
+| Tier2 2.4 money-linked communication retention | done | `4d9df55` | `tier2-retention` | production retention not run |
+
 ## NOT VERIFIED (all Tier-1 work)
 
 - No deployment; production timers, systemd units, migration 034/035, real backups, real browser downloads and live Telegram/Google/recorder flows were not exercised.

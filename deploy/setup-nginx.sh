@@ -296,10 +296,7 @@ else
   $SUDO systemctl start nginx
 fi
 
-echo "==> Retired Docker Caddy (best effort, never fatal)"
-if command -v docker >/dev/null 2>&1 && [ -f "$REPO_DIR/deploy/docker-compose.yml" ]; then
-  (cd "$REPO_DIR" && $SUDO docker compose --env-file deploy/.env -f deploy/docker-compose.yml stop caddy >/dev/null 2>&1) || true
-fi
+
 
 if [ "$SKIP_SMOKE" -eq 1 ]; then
   echo "==> --skip-smoke: skipping local smoke requests"

@@ -292,13 +292,6 @@ jobs:
           npm run generate
           git diff --exit-code -- src/schema.d.ts
 
-  deployment:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - name: Validate Compose stack
-        run: docker compose --env-file deploy/.env.example -f deploy/docker-compose.yml config > /dev/null
 
   security:
     runs-on: ubuntu-latest
