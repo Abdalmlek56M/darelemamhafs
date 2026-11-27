@@ -31,6 +31,20 @@ Tier 0 complete (0.1–0.12; commits `79e9749`, `9895d35`, `da4af74`, `9113943`,
 
 Batch commits also include suite wiring/report: `7d0d8eb`, `47a9674`, report commits.
 
+
+## Recorder hardening (1.18-1.25)
+
+| Item | Status | Commit | Tests | NOT VERIFIED |
+|---|---|---|---|---|
+| 1.18 meet link before launch/exact host | in progress | pending | `link.test.ts` | live Meet not run |
+| 1.19 status retry + local outbox | in progress | pending | `outbox.test.ts` | live API outage not run |
+| 1.20 wav delete/disk check/HLS retention | in progress | pending | `retention.test.ts`, `captureArgs.test.ts` | real recording not run |
+| 1.21 idle consecutive confirmations | in progress | pending | `idle.test.ts` | live participant UI not run |
+| 1.22 restrict/configurable auto-admit | in progress | pending | `admit.test.ts` | live admit UI not run |
+| 1.23 wire state machine + tests + CI | in progress | pending | state tracker/config/poller/capture tests, CI job | CI run not observed |
+| 1.24 startup recovery + automation flag | in progress | pending | retention tests, README risk note | server .runtime dirs not observed |
+| 1.25 nginx /internal 404 | in progress | pending | `bash -n setup-nginx.sh` | live nginx not reloaded |
+
 ## NOT VERIFIED (all Tier-1 work)
 
 - No deployment; production timers, systemd units, migration 034/035, real backups, real browser downloads and live Telegram/Google/recorder flows were not exercised.
