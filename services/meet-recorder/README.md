@@ -7,7 +7,7 @@
 
 | المكوّن | الاستخدام |
 |---|---|
-| **Node 24 + TypeScript** | الخدمة نفسها (بلا اعتماديات وقت التشغيل في 3.2) |
+| **Node 24 + TypeScript + Playwright** | الخدمة نفسها + متصفح Chromium الدائم |
 | **Xvfb** | شاشة وهمية 1280×720 يرسم فيها Chrome |
 | **PulseAudio (null sink)** | التقاط صوت الاجتماع عبر monitor source |
 | **FFmpeg** | تسجيل MP4 (أرشيف) + HLS (عرض حي) |
