@@ -290,6 +290,32 @@ run_suite() {
   DB=""
 }
 
+# Variant used by suites that must read files the apps wrote (the harness runs the sandboxed apps
+# as root, and the production media store deliberately writes 0600 files owned by the app user).
+run_suite_as_root() {
+  local name="$1" file="$2" mode="${3:-q6}" prep="${4:-prep_none}"
+  if [ -n "${DAR_ONLY_SUITE:-}" ]; then case ",${DAR_ONLY_SUITE}," in *",$name,"*) ;; *) return 0 ;; esac; fi
+  local rc=0
+  echo "== $name =="
+  prepare_db "$name" || { FAILED=1; return; }
+  start_apps "$name"
+  suite_env
+  if [ "$prep" != "prep_none" ]; then
+    if ! "$prep"; then echo "$name PREP_FAILED"; FAILED=1; stop_apps; cleanup; ROLE=""; DB=""; return; fi
+  fi
+  cd "$ROOT"
+  env "${SUITE_ENV[@]}" node "$file" > "$APP/$name.json" 2> "$APP/$name.err"
+  rc=$?
+  echo "$name EXIT=$rc"
+  tail -1 "$APP/$name.json" 2>/dev/null || true
+  if [ -s "$APP/$name.err" ] && [ "$rc" -ne 0 ]; then tail -5 "$APP/$name.err" || true; fi
+  [ "$rc" -ne 0 ] && FAILED=1
+  SUITES_RUN=$((SUITES_RUN + 1))
+  stop_apps
+  cleanup
+  ROLE=""
+  DB=""
+}
 # DB-only suite: one disposable database, one psql -f, no apps. Any FAIL inside the SQL
 # raises (the scripts carry their own gate); ON_ERROR_STOP makes psql exit non-zero.
 run_sql_suite() {
@@ -396,7 +422,7 @@ run_suite tier2-search tests/regression/tier2-search/run.mjs q6
 run_suite tier2-history tests/regression/tier2-history/run.mjs q6
 run_suite tier2-queries tests/regression/tier2-queries/run.mjs generic
 run_suite tier2-history-fk tests/regression/tier2-history-fk/run.mjs q6
-run_suite tier2-blobs tests/regression/tier2-blobs/run.mjs q6
+run_suite_as_root tier2-blobs tests/regression/tier2-blobs/run.mjs q6
 run_suite security-permissions tests/regression/security-permissions/run.mjs q6
 run_plain_suite docs-migration-count "node tests/regression/docs-migration-count/run.mjs"
 run_plain_suite tier2-deploy "node tests/regression/tier2-deploy/run.mjs"
