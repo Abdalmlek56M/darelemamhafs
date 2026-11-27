@@ -37,8 +37,19 @@ public sealed class DataRetentionService(NpgsqlDataSource dataSource, IConfigura
             WHERE (status = 'resolved' AND resolved_at IS NOT NULL AND resolved_at < now() - (@days || ' days')::interval)
                OR (expires_at IS NOT NULL AND expires_at < now())
             """, notificationDays);
-        var communication = await DeleteAsync(
-            "DELETE FROM communication_log WHERE created_at < now() - (@days || ' days')::interval;", communicationDays);
+        // FINAL 2.4: never prune communication rows tied to payments/money; they are audit evidence.
+        var communication = await DeleteAsync("""
+            DELETE FROM communication_log
+            WHERE created_at < now() - (@days || ' days')::interval
+              AND lower(COALESCE(template_key, '')) NOT LIKE '%pay%'
+              AND lower(COALESCE(template_key, '')) NOT LIKE '%charge%'
+              AND lower(COALESCE(template_key, '')) NOT LIKE '%money%'
+              AND lower(COALESCE(template_key, '')) NOT LIKE '%finance%'
+              AND lower(COALESCE(template_key, '')) NOT LIKE '%subscription%'
+              AND COALESCE(template_key, '') NOT LIKE '%دفع%'
+              AND COALESCE(template_key, '') NOT LIKE '%تحصيل%'
+              AND COALESCE(template_key, '') NOT LIKE '%اشتراك%'
+            """, communicationDays);
 
         await transaction.CommitAsync(ct);
         var result = new RetentionResult(sessions, otps, notifications, communication);

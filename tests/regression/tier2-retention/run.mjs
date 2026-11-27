@@ -15,6 +15,10 @@ one(`INSERT INTO notifications(id,role_scope,category,status,severity,title,body
   VALUES (gen_random_uuid(),'supervisor','system','open','info','fresh','fresh','t2-ret-fresh');`);
 one(`INSERT INTO communication_log(id,recipient_type,recipient_id,phone,template_key,created_at)
   VALUES (gen_random_uuid(),'teacher',gen_random_uuid(),'01000000000','t2-ret',now() - INTERVAL '730 days');`);
+one(`INSERT INTO communication_log(id,recipient_type,recipient_id,phone,template_key,created_at)
+  VALUES (gen_random_uuid(),'student_guardian',gen_random_uuid(),'01000000001','payment-reminder',now() - INTERVAL '730 days');`);
+one(`INSERT INTO communication_log(id,recipient_type,recipient_id,phone,template_key,created_at)
+  VALUES (gen_random_uuid(),'student_guardian',gen_random_uuid(),'01000000002','subscription-due',now() - INTERVAL '730 days');`);
 one(`INSERT INTO audit_log(actor_user_id,action_code,entity_type,entity_id,details)
   VALUES (${q(userId)},'retention.audit.test','app_user',${q(userId)},'{}'::jsonb);`);
 const auditBefore = one(`SELECT count(*) FROM audit_log WHERE action_code='retention.audit.test';`);
@@ -28,7 +32,9 @@ assert.equal(one("SELECT count(*) FROM auth_email_otps WHERE email='old@example.
 assert.equal(one("SELECT count(*) FROM auth_email_otps WHERE email='fresh@example.invalid';"), '1', 'fresh otp deleted');
 assert.equal(one("SELECT count(*) FROM notifications WHERE dedupe_key='t2-ret-old';"), '0', 'resolved old notification kept');
 assert.equal(one("SELECT count(*) FROM notifications WHERE dedupe_key='t2-ret-fresh';"), '1', 'fresh notification deleted');
-assert.equal(one("SELECT count(*) FROM communication_log WHERE template_key='t2-ret';"), '0', 'old communication log kept');
+assert.equal(one("SELECT count(*) FROM communication_log WHERE template_key='t2-ret';"), '0', 'old general communication log kept');
+assert.equal(one("SELECT count(*) FROM communication_log WHERE template_key='payment-reminder';"), '1', 'money-related communication log was pruned');
+assert.equal(one("SELECT count(*) FROM communication_log WHERE template_key='subscription-due';"), '1', 'subscription communication log was pruned');
 assert.equal(one("SELECT count(*) FROM audit_log WHERE action_code='retention.audit.test';"), auditBefore, 'retention pruned audit_log');
 
 console.log(JSON.stringify({ suite: 'tier2-retention', ok: true, cases: 6 }));
