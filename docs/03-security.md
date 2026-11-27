@@ -381,3 +381,20 @@ The retired Windows desktop tooling was the only home of some operational checks
 - **Z2:** the frontend no longer calculates profit; it renders the server `/api/summary/profit` (including the server-computed `unmarkedPastSessions`). Audit-insert dedup and permission-helper dedup remain.
 - **Tier 2:** migration 037 adds the proven hot-path indexes and drops the redundant media-asset index (`tier2-indexes` proves plans with EXPLAIN); migration 038 keeps one Meet session cap (`tier2-meet-cap`); retention prunes expired auth sessions/OTP/resolved notifications/general communication but never money-linked communication rows or `audit_log` (`tier2-retention`); dead Docker/Caddy files were removed; PostgreSQL receives the restore-drill/integrity SQL from the retired Windows tools.
 - **NOT VERIFIED:** production migrations 037/038, live retention timers, and the recorder/bot against real Google/LiveKit were not exercised.
+## 27. كوكي الأدمن النحيف (FINAL B7)
+
+- كوكي `DarEltahfeez.Admin` كانت تحمل claim لكل صلاحية: 65 صلاحية = `Set-Cookie` بحجم 4049
+  بايت (مجموع headers الرد 4645 بايت) وهذا تجاوز `proxy_buffer_size` الافتراضي (4 KB) في nginx
+  فظهر `upstream sent too big header` (502 للعميل) على `/api/setup/admin` و`/api/auth/login`
+  مع أن التطبيق سجّل 200 وأنشأ الصف. 200 صلاحية = 4 قطع chunk بحجم إجمالي 10881 بايت.
+- الحل (ADR-0008): `SlimAdminCookieTicketDataFormat` يحذف claims `permission` عند كتابة
+  الـticket فقط، و`AuthEndpoints.ValidatePrincipalAsync` يبني الـprincipal من
+  `user_permissions` في كل طلب (بدون `ShouldRenew`)؛ الـclaims تظل متاحة وقت الطلب لكل
+  `HasClaim("permission", …)` و`RequireAuthorization("code")`، والكوكيز القديمة تُفك وتُستبدل
+  صلاحياتها من الداتابيز ثم تصغر عند أول تجديد/دخول.
+- الأمان: لا تُخزَّن نسخة قديمة من الصلاحيات في المتصفح، وسحب الصلاحية يسري من الطلب التالي؛
+  `session_version` يظل في الـticket ويُتحقق منه ليبقى إبطال الجلسة فوريًا.
+- Regression: `tests/regression/b7-cookie-size` — دخول بمستخدم عنده 200 صلاحية، مجموع headers
+  كوكي الإدارة < 1500 بايت، ثم `/api/auth/me` (200 صلاحية) ومسار محمي بالـpolicy يعملان.
+- **NOT VERIFIED:** إعادة نشر staging لم تحدث في هذه الجولة، ولم يُختبر متصفح حقيقي ضد
+  الكوكي النحيفة. أثر الإنتاج موثق في ADR-0008: لا كسر للجلسات الحالية، ولا حاجة لإعادة دخول.

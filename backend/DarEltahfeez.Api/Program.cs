@@ -2,6 +2,7 @@ using System.Net;
 using System.Threading.RateLimiting;
 using DarEltahfeez.Api;
 using DarEltahfeez.Api.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -141,6 +142,21 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             return Task.CompletedTask;
         };
+    });
+
+// FINAL B7: the admin ticket must stay small. The permission claims are rebuilt from the
+// database on every request (AuthEndpoints.ValidatePrincipalAsync), so SlimAdminCookieTicketDataFormat
+// strips them before encryption; the 65-claim ticket was ~4 KB, near the browser cookie limit.
+// The purpose string matches CookieAuthenticationHandler's default so existing cookies keep
+// decrypting and the modular API bridge (ADR-0006) keeps working.
+builder.Services.AddOptions<CookieAuthenticationOptions>(CookieAuthenticationDefaults.AuthenticationScheme)
+    .Configure<IDataProtectionProvider>((options, provider) =>
+    {
+        var protector = provider.CreateProtector(
+            "Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationMiddleware",
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            "v2");
+        options.TicketDataFormat = new SlimAdminCookieTicketDataFormat(new TicketDataFormat(protector));
     });
 
 builder.Services.AddAuthorization(options =>

@@ -7,7 +7,7 @@
 
 ## Context
 
-- لوحة الإدارة تُخدم من الـlegacy API على المنفذ 5080، وجلستها كوكي `DarEltahfeez.Admin` (نظام `Cookies`، SameSite=Strict، صلاحية 8 ساعات، `session_version` + `user_permissions` في الـclaims).
+- لوحة الإدارة تُخدم من الـlegacy API على المنفذ 5080، وجلستها كوكي `DarEltahfeez.Admin` (نظام `Cookies`، SameSite=Strict، صلاحية 8 ساعات، `session_version` + `user_permissions` في الـclaims). **تحديث 2026-11-27 (ADR-0008):** الـticket صار نحيفًا ويحمل الهوية و`session_version` فقط؛ `user_permissions` تُقرأ من الداتابيز في كل طلب (نفس ما يفعله الجسر أدناه)، والكوكيز القديمة تظل صالحة.
 - وحدة Meet تُبنى داخل الـmodular monolith الجديد (`src/Modules/Meet`) وتُخدم من `Dar.Api` على المنفذ 5081 تحت `/api/v1/meet/*`، بجلسة مختلفة (`dar_session`).
 - Nginx يوجّه `/api/v1/*` إلى 5081 و`/api/*` إلى 5080 على **نفس الـorigin**. لوحة الإدارة تحتاج استدعاء `/api/v1/meet/*` بدون تسجيل دخول ثانٍ وبدون CORS.
 - بدون حل: إما نقل الوحدة إلى الـlegacy API (يكسر اتجاه الـmodular monolith)، أو جسر توكن جديد (أجزاء متحركة إضافية)، أو تكرار تسجيل الدخول (غير مقبول تشغيليًا).

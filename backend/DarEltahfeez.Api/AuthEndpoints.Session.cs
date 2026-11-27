@@ -53,22 +53,18 @@ public static partial class AuthEndpoints
             while (await reader.ReadAsync(context.HttpContext.RequestAborted)) currentPermissions.Add(reader.GetString(0));
         }
 
-        var oldPermissions = context.Principal?.FindAll("permission").Select(c => c.Value).OrderBy(x => x, StringComparer.Ordinal).ToArray() ?? [];
-        var newPermissions = currentPermissions.OrderBy(x => x, StringComparer.Ordinal).ToArray();
-        var oldName = context.Principal?.FindFirstValue(ClaimTypes.Name);
-        var oldDisplay = context.Principal?.FindFirstValue("display_name");
-        if (!oldPermissions.SequenceEqual(newPermissions, StringComparer.Ordinal) || oldName != username || oldDisplay != displayName)
+        // FINAL B7: the cookie ticket carries no permission claims (see
+        // SlimAdminCookieTicketDataFormat); the request principal is rebuilt from the current
+        // database permissions on every request instead. SQL changes take effect on the next
+        // request and the cookie never grows with the permission catalog.
+        var claims = new List<Claim>
         {
-            var claims = new List<Claim>
-            {
-                new(ClaimTypes.NameIdentifier, userId.ToString()),
-                new(ClaimTypes.Name, username),
-                new("display_name", displayName),
-                new("session_version", sessionVersion.ToString(System.Globalization.CultureInfo.InvariantCulture))
-            };
-            claims.AddRange(newPermissions.Select(permission => new Claim("permission", permission)));
-            context.ReplacePrincipal(new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
-            context.ShouldRenew = true;
-        }
+            new(ClaimTypes.NameIdentifier, userId.ToString()),
+            new(ClaimTypes.Name, username),
+            new("display_name", displayName),
+            new("session_version", sessionVersion.ToString(System.Globalization.CultureInfo.InvariantCulture))
+        };
+        claims.AddRange(currentPermissions.Select(permission => new Claim("permission", permission)));
+        context.ReplacePrincipal(new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
     }
 }
