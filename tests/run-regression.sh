@@ -99,12 +99,14 @@ run_suite() {
   cd "$ROOT"
   local common="DAR_TEST_DATABASE=$DBENV"
   if [ "$mode" = "q6" ]; then
-    sudo -u deploy env "$common" Q6_LEGACY_URL="http://127.0.0.1:$PORT_OLD" \
+    sudo -u deploy env "$common" "DAR_LEGACY_APP_DIR=$APP/legacy" "DAR_NEW_APP_DIR=$APP/new" \
+      Q6_LEGACY_URL="http://127.0.0.1:$PORT_OLD" \
       Q6_NEW_URL="http://127.0.0.1:$PORT_NEW" Q6_SETUP_TOKEN="regression-setup" \
       Q6_PASSWORD="RegressionStrong!" Q6_MEET_INTERNAL_TOKEN="regression-internal-token" node "$file" > "$APP/$name.json" 2> "$APP/$name.err"
     rc=$?
   else
-    sudo -u deploy env "$common" Q1_LEGACY_URL="http://127.0.0.1:$PORT_OLD" \
+    sudo -u deploy env "$common" "DAR_LEGACY_APP_DIR=$APP/legacy" "DAR_NEW_APP_DIR=$APP/new" \
+      Q1_LEGACY_URL="http://127.0.0.1:$PORT_OLD" \
       Q1_NEW_URL="http://127.0.0.1:$PORT_NEW" Q1_SETUP_TOKEN="regression-setup" \
       Q1_PASSWORD="RegressionStrong!" Q2_LEGACY_URL="http://127.0.0.1:$PORT_OLD" \
       Q2_NEW_URL="http://127.0.0.1:$PORT_NEW" Q2_SETUP_TOKEN="regression-setup" \
@@ -168,6 +170,7 @@ run_suite tier2-indexes tests/regression/tier2-indexes/run.mjs generic
 run_suite tier2-retention tests/regression/tier2-retention/run.mjs q6
 run_suite tier2-meet-cap tests/regression/tier2-meet-cap/run.mjs generic
 run_suite b7-cookie-size tests/regression/b7-cookie-size/run.mjs q6
+run_suite b10-cookie-secure tests/regression/b10-cookie-secure/run.mjs q6
 run_suite integrity-sql tests/regression/integrity-sql/run.mjs generic
 echo "RESULT=$([ "$FAILED" -eq 0 ] && echo PASS || echo FAIL)"
 exit "$FAILED"
