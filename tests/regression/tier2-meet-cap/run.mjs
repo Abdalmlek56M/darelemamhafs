@@ -23,6 +23,7 @@ const psql = (sql) => {
 
 assert.equal(psql("SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='meet_settings' AND column_name='max_session_seconds';"), '0', 'unused seconds cap still exists');
 assert.equal(psql("SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='meet_settings' AND column_name='max_session_minutes';"), '1', 'minute cap is missing');
+psql('INSERT INTO meet_settings(id) VALUES (TRUE) ON CONFLICT (id) DO NOTHING;');
 assert.equal(psql("SELECT max_session_minutes FROM meet_settings WHERE id=TRUE;"), '240', 'unexpected minute cap default');
 
 console.log(JSON.stringify({ suite: 'tier2-meet-cap', ok: true, cases: 3 }));
