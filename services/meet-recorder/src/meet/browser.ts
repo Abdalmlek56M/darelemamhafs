@@ -33,7 +33,6 @@ export async function launchBrowser(
       '--kiosk',
       '--start-fullscreen',
       '--disable-gpu',
-      '--disable-blink-features=AutomationControlled',
       '--use-fake-ui-for-media-stream',
       '--use-fake-device-for-media-stream',
       '--autoplay-policy=no-user-gesture-required',

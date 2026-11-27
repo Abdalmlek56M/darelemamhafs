@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { BotJob, DarClient } from '../api/darClient.js'
+import { StatusOutbox, type OutboxReport } from '../api/outbox.js'
 import type { BotConfig } from '../config.js'
 import type { Logger } from '../logger.js'
 import { NullAudioSink } from '../media/audio.js'
@@ -11,23 +12,29 @@ import { joinMeet, leaveCall } from '../meet/join.js'
 import { admitWaiting, countParticipants, openMeetingAccess } from '../meet/access.js'
 import { collectWebRtcAudio } from '../meet/webrtc.js'
 import { isStopping } from '../lifecycle.js'
-import { assertFreeSpace } from '../storage/disk.js'
+import { assertFreeSpace, freeGigabytes, shouldStopForDisk } from '../storage/disk.js'
+import { validateMeetLink } from '../meet/link.js'
+import { nextIdleState, type IdleState } from './idle.js'
+import { JobStatusTracker } from './statusTracker.js'
+import type { BotStatusExtras } from '../api/darClient.js'
+import type { JobStatus } from './stateMachine.js'
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 const MAX_SESSION_MS = 4 * 60 * 60 * 1000
 const TICK_MS = 5000
 
 /**
- * One recording job: reveal the profile, join the Meet, capture the display and the
- * meeting audio, stop at the scheduled end plus the grace period, then report the files.
- * Every exit path (success, join failure, crash) reports a terminal status to Dar.Api so a
- * job can never stay silently stuck in `joining`.
+ * One recording job: validate the link, reveal the profile, join the Meet, capture the
+ * display and the meeting audio, stop at the scheduled end plus the grace period, then
+ * report the files. Every exit path reports a terminal status; a failed terminal report is
+ * persisted in the local outbox and retried by the poller (FINAL 1.19).
  */
 export async function runRecordingJob(
   job: BotJob,
   config: BotConfig,
   logger: Logger,
-  client: DarClient
+  client: DarClient,
+  outbox: StatusOutbox = new StatusOutbox(join(config.mediaRoot, '.runtime', 'outbox'))
 ): Promise<void> {
   const sessionDir = join(config.mediaRoot, 'jobs', job.id)
   const runtimeDir = join(config.mediaRoot, '.runtime', `job-${job.id}`)
@@ -37,46 +44,84 @@ export async function runRecordingJob(
   const audio = new NullAudioSink('darmeet_job', runtimeDir, logger)
   let browser: LaunchedBrowser | null = null
   let capture: ScreenCapture | null = null
+  const tracker = new JobStatusTracker((job.status as JobStatus) ?? 'joining')
+
+  const report = async (
+    status: JobStatus,
+    errorCode?: string,
+    errorMessage?: string,
+    extras?: BotStatusExtras
+  ): Promise<boolean> => {
+    if (!tracker.tryAdvance(status)) {
+      logger.warn('refusing an invalid job transition', { jobId: job.id, from: tracker.status, to: status })
+      return false
+    }
+    const report: Omit<OutboxReport, 'enqueuedAt'> = {
+      jobId: job.id,
+      status,
+      errorCode: errorCode ?? null,
+      errorMessage: errorMessage ?? null,
+      extras: extras ?? {}
+    }
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await client.reportStatus(job.id, status, errorCode, errorMessage, extras)
+        return true
+      } catch (error) {
+        if (attempt === 2) {
+          const terminal = status === 'ready' || status === 'failed' || status === 'partial'
+          if (terminal) {
+            await outbox.enqueue(report).catch((enqueueError: unknown) => {
+              logger.error('could not persist the terminal status in the outbox', { error: String(enqueueError) })
+            })
+            logger.warn('terminal status kept in the outbox for retry', { jobId: job.id, status })
+          } else {
+            logger.warn('status report failed', { jobId: job.id, status, error: String(error) })
+          }
+          return false
+        }
+        await sleep(500 * 2 ** attempt)
+      }
+    }
+    return false
+  }
 
   try {
+    // FINAL 1.18: validate the link before starting Xvfb/Chromium and only allow Meet hosts.
+    const link = validateMeetLink(job.meetLink)
+    if (!link.ok) {
+      const code = link.reason === 'missing' ? 'missing_meet_link' : `invalid_meet_link_${link.reason}`
+      await report('failed', code, 'رابط Google Meet غير صالح.')
+      return
+    }
+
     await assertFreeSpace(config.mediaRoot, config.diskBlockGb)
     await display.start()
     await audio.start()
 
-    // Chromium alone gets a larger Pulse buffer; FFmpeg/parecord keep their own settings.
     const chromeEnv: NodeJS.ProcessEnv =
       config.chromePulseLatencyMs > 0
         ? { ...audio.env, PULSE_LATENCY_MSEC: String(config.chromePulseLatencyMs) }
         : audio.env
-    // A large Chromium audio output buffer removes the playout glitches (isolated lab test:
-    // 232 gaps/min with the default buffer vs 0 with 16384 under the same CPU load). The
-    // recording does not need low latency, so the extra ~340 ms is free.
     const chromeArgs = config.chromeAudioBuffer > 0 ? [`--audio-buffer-size=${config.chromeAudioBuffer}`] : []
     browser = await launchBrowser(config.profileDir, display.name, logger, chromeEnv, chromeArgs)
-    if (!job.meetLink) {
-      await client.reportStatus(job.id, 'failed', 'missing_meet_link', 'الحدث بلا رابط Google Meet.')
-      return
-    }
 
-    const outcome = await joinMeet(browser.page, job.meetLink, join(sessionDir, 'join.png'), logger)
+    const outcome = await joinMeet(browser.page, link.url, join(sessionDir, 'join.png'), logger)
     if (outcome.state !== 'joined') {
-      await client.reportStatus(job.id, 'failed', `join_${outcome.state}`, outcome.detail)
+      await report('failed', `join_${outcome.state}`, outcome.detail)
       return
     }
 
-    await client.reportStatus(job.id, 'live')
-    // Participants must not wait for a human: open the meeting (unless the owner chose
-    // trusted) and admit anyone who knocks.
-    if ((job.accessType ?? 'open') === 'open') {
+    await report('live')
+    if ((job.accessType ?? 'open') === 'open' && config.autoAdmit) {
       await openMeetingAccess(browser.page, logger).catch(() => undefined)
     } else {
-      logger.info('meeting access left as trusted by settings', { jobId: job.id })
+      logger.info('meeting access left as trusted/by configuration', { jobId: job.id, autoAdmit: config.autoAdmit })
     }
 
     capture = new ScreenCapture(config, sessionDir, logger)
     await capture.start(display.name, audio.monitorSource, { ...audio.env, DISPLAY: display.name })
 
-    // Audio canary: if Chromium never connects to the null sink the file will be silent.
     for (const waitMs of [5000, 5000, 10000]) {
       await sleep(waitMs)
       const inputs = await audio.sinkInputs()
@@ -90,40 +135,44 @@ export async function runRecordingJob(
     const scheduledEnd = new Date(job.scheduledEnd).getTime()
     const maxSessionMs = (job.maxSessionMinutes ?? 240) * 60_000
     const idleStopMs = (job.idleStopSeconds ?? 300) * 1000
-    const stopAt = Math.min(
-      scheduledEnd + job.stopGraceSeconds * 1000,
-      Date.now() + maxSessionMs,
-      Date.now() + MAX_SESSION_MS
-    )
+    const stopAt = Math.min(scheduledEnd + job.stopGraceSeconds * 1000, Date.now() + maxSessionMs, Date.now() + MAX_SESSION_MS)
     logger.info('recording until the scheduled end', {
       jobId: job.id,
       scheduledEnd: job.scheduledEnd,
       accessType: job.accessType ?? 'open',
       idleStopSeconds: job.idleStopSeconds ?? 300,
+      idleConfirmTicks: config.idleConfirmTicks,
       captureMode: config.captureMode,
       stopAt: new Date(stopAt).toISOString()
     })
 
-    // The wait loop doubles as the control channel: every tick reports telemetry and reads
-    // the commands queued from the admin UI (stop / pause / resume) plus admits knockers.
     let paused = false
     let audioOk: boolean | null = null
     let ticks = 0
-    let emptySince: number | null = null
+    let idle: IdleState = { emptySince: null, lowStreak: 0 }
+    let lowDisk = false
     while (Date.now() < stopAt) {
       await sleep(TICK_MS)
       ticks += 1
       if (ticks % 3 === 0) audioOk = (await audio.sinkInputs()) > 0
-      const participants = await countParticipants(browser.page).catch(() => null)
-      const commands = await client
-        .heartbeat(job.id, participants, audioOk)
-        .catch((error: unknown) => {
-          logger.warn('heartbeat failed', { jobId: job.id, error: String(error) })
-          return null
-        })
-      await admitWaiting(browser.page, logger).catch(() => 0)
 
-      // Google's own audio counters: separates network loss from recorder problems.
+      // FINAL 1.20: keep checking disk during the lesson, not only before it starts.
+      if (ticks % 6 === 0) {
+        const free = await freeGigabytes(config.mediaRoot).catch(() => Number.POSITIVE_INFINITY)
+        if (shouldStopForDisk(free, config.diskStopGb)) {
+          logger.warn('stopping: free disk fell below the active-recording threshold', { freeGb: free, thresholdGb: config.diskStopGb })
+          lowDisk = true
+          break
+        }
+      }
+
+      const participants = await countParticipants(browser.page).catch(() => null)
+      const commands = await client.heartbeat(job.id, participants, audioOk).catch((error: unknown) => {
+        logger.warn('heartbeat failed', { jobId: job.id, error: String(error) })
+        return null
+      })
+      if (config.autoAdmit) await admitWaiting(browser.page, logger).catch(() => 0)
+
       const webrtcAudio = await collectWebRtcAudio(browser.page).catch(() => ({ peers: 0, hooked: false, types: [], stats: [] }))
       logger.info('webrtc audio', {
         jobId: job.id,
@@ -138,7 +187,6 @@ export async function runRecordingJob(
         break
       }
       if (isStopping()) {
-        // A deploy is restarting the service: finalise instead of losing the recording.
         logger.info('service is stopping: finalising the recording', { jobId: job.id })
         break
       }
@@ -148,27 +196,22 @@ export async function runRecordingJob(
         else capture.resume()
       }
 
-      // Smart length: only the bot left in the room means the class is over.
-      if (idleStopMs > 0 && participants !== null) {
-        if (participants <= 1) {
-          emptySince ??= Date.now()
-          if (Date.now() - emptySince >= idleStopMs) {
-            logger.info('stopping: the room stayed empty', { jobId: job.id, participants })
-            break
-          }
-        } else {
-          emptySince = null
+      if (idleStopMs > 0) {
+        const decision = nextIdleState(idle, participants, Date.now(), idleStopMs, config.idleConfirmTicks)
+        idle = decision.state
+        if (decision.stop) {
+          logger.info(decision.reason ?? 'stopping: the room stayed empty', { jobId: job.id, participants })
+          break
         }
       }
     }
 
-    // The state machine requires live -> finalizing -> ready; reporting ready directly is
-    // rejected with 409 (invalid_transition:live->ready).
-    await client.reportStatus(job.id, 'finalizing')
+    const terminal: JobStatus = lowDisk ? 'partial' : 'ready'
+    await report('finalizing')
     const result = await capture.stop()
     capture = null
     const duration = Math.round(result.durationSeconds)
-    await client.reportStatus(job.id, 'ready', undefined, undefined, {
+    await report(terminal, lowDisk ? 'disk_low' : undefined, lowDisk ? 'تم إيقاف التسجيل بسبب انخفاض مساحة القرص.' : undefined, {
       durationSeconds: duration,
       artifacts: [
         {
@@ -181,21 +224,17 @@ export async function runRecordingJob(
         ...(result.posterPath
           ? [{ kind: 'poster', localPath: result.posterPath, sizeBytes: 0, sha256: null as string | null, durationSeconds: 0 }]
           : []),
-        // Audio-only mode produces no HLS playlist; the MP4 is the only artifact.
         ...(result.hlsDir && result.segments > 0
           ? [{ kind: 'hls', localPath: result.hlsDir, sizeBytes: 0, sha256: null as string | null, durationSeconds: 0 }]
           : [])
       ]
     })
-    logger.info('recording finished', { jobId: job.id, duration, sizeBytes: result.sizeBytes })
+    logger.info('recording finished', { jobId: job.id, duration, sizeBytes: result.sizeBytes, lowDisk })
   } catch (error) {
     logger.error('recording failed', { jobId: job.id, error: String(error) })
-    await client
-      .reportStatus(job.id, 'failed', 'recording_failed', String(error).slice(0, 500))
-      .catch(() => undefined)
+    await report('failed', 'recording_failed', String(error).slice(0, 500))
   } finally {
     await capture?.stop().catch(() => undefined)
-    // Leave cleanly so the account is not "already in the call" for the next job.
     if (browser) await leaveCall(browser.page, logger).catch(() => undefined)
     await browser?.context.close().catch(() => undefined)
     await audio.stop().catch(() => undefined)
