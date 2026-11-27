@@ -79,6 +79,27 @@ public static partial class DomainEndpoints
 
             decimal teacherPay = 0m;
             var teacherRows = new Dictionary<Guid, TeacherPayAccumulator>();
+            // FINAL Z2: the "past session without attendance" warning is calculated by the
+            // server too; the frontend no longer rebuilds any profit formula locally.
+            var unmarkedPastSessions = 0;
+            await using (var unmarkedCommand = db.CreateCommand("""
+                SELECT COUNT(*)
+                FROM circle_schedule_slots ss
+                JOIN circles c ON c.id = ss.circle_id AND c.is_trashed = FALSE AND c.is_active = TRUE
+                CROSS JOIN LATERAL generate_series(@from::date, LEAST(@to::date - 1, (now() AT TIME ZONE 'Africa/Cairo')::date), interval '1 day') AS day
+                WHERE ss.is_trashed = FALSE AND ss.is_active = TRUE
+                  AND EXTRACT(DOW FROM day)::int = ss.day_of_week
+                  AND (day::timestamp + ss.starts_at) AT TIME ZONE 'Africa/Cairo' <= now()
+                  AND NOT EXISTS (
+                      SELECT 1 FROM teacher_attendance ta
+                      WHERE ta.schedule_slot_id = ss.id AND ta.session_date = day::date AND ta.is_trashed = FALSE
+                  );
+                """))
+            {
+                unmarkedCommand.Parameters.AddWithValue("from", monthStart);
+                unmarkedCommand.Parameters.AddWithValue("to", monthEnd);
+                unmarkedPastSessions = Convert.ToInt32(await unmarkedCommand.ExecuteScalarAsync(ct) ?? 0, System.Globalization.CultureInfo.InvariantCulture);
+            }
             await using (var cmd = db.CreateCommand("""
                 SELECT ta.teacher_id, t.full_name,
                        COUNT(*) FILTER (WHERE ta.status='present') AS sessions,
@@ -135,7 +156,8 @@ public static partial class DomainEndpoints
                     teacherPay = MoneyRules.RoundCurrency(teacherPay),
                     otherExpenses = MoneyRules.RoundCurrency(otherExpenses),
                     net = MoneyRules.RoundCurrency(billed - advertising - teacherPay - otherExpenses),
-                    withoutChargeCount = (int)uncharged
+                    withoutChargeCount = (int)uncharged,
+                    unmarkedPastSessions
                 },
                 teachers = teacherRows.Values.Select(row => new
                 {

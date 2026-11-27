@@ -9,8 +9,6 @@ import type {
   OperatingExpense,
   StudentStatus,
   TeacherStatus,
-  TeacherPaySummary,
-  CircleProfitSummary,
 } from '../domain/types'
 import { localDateKey, timeLabel, sessionDateTime } from '../lib/dates'
 
@@ -161,99 +159,4 @@ export function getMonthlyAdvertisingTotal(advertisingExpenses: AdExpense[]) {
 
 export function getMonthlyOperatingExpenseTotal(operatingExpenses: OperatingExpense[]) {
   return operatingExpenses.reduce((sum, row) => sum + row.amount, 0)
-}
-
-export function getDashboardProfit(args: {
-  currentMonthTotals: { due: number; paid: number; balance: number }
-  monthlyAdvertisingTotal: number
-  monthlyTeacherPayTotal: number
-  monthlyOperatingExpenseTotal: number
-  collections: CollectionRow[]
-  monthSessions: MonthSession[]
-  clockNow: number
-}) {
-  const {
-    currentMonthTotals,
-    monthlyAdvertisingTotal,
-    monthlyTeacherPayTotal,
-    monthlyOperatingExpenseTotal,
-    collections,
-    monthSessions,
-    clockNow,
-  } = args
-
-  return {
-    billed: currentMonthTotals.due,
-    collected: currentMonthTotals.paid,
-    balance: currentMonthTotals.balance,
-    advertising: monthlyAdvertisingTotal,
-    teacherPay: monthlyTeacherPayTotal,
-    otherExpenses: monthlyOperatingExpenseTotal,
-    net: currentMonthTotals.due - monthlyAdvertisingTotal - monthlyTeacherPayTotal - monthlyOperatingExpenseTotal,
-    withoutChargeCount: collections.filter(row => !row.chargeId).length,
-    unmarkedPastSessions: monthSessions.filter(item => item.target.getTime() <= clockNow && !item.attendance).length,
-  }
-}
-
-export function getTeacherPaySummary(attendanceRows: AttendanceRow[]): TeacherPaySummary[] {
-  const byId = new Map<string, TeacherPaySummary>()
-  for (const row of attendanceRows) {
-    if (row.status !== 'present') continue
-    let item = byId.get(row.teacherId)
-    if (!item) {
-      item = {
-        teacherId: row.teacherId,
-        teacherName: row.teacherName,
-        sessions: 0,
-        hours: 0,
-        payable: 0,
-        avgHourlyRate: 0,
-      }
-      byId.set(row.teacherId, item)
-    }
-    item.sessions += 1
-    item.hours += row.durationMinutes / 60
-    item.payable += row.payableAmount ?? 0
-  }
-  const rows = Array.from(byId.values())
-  for (const row of rows) row.avgHourlyRate = row.hours > 0 ? row.payable / row.hours : 0
-  return rows.sort((a, b) => b.payable - a.payable || a.teacherName.localeCompare(b.teacherName, 'ar'))
-}
-
-export function getCircleProfitSummary(args: {
-  circles: Circle[]
-  collections: CollectionRow[]
-  advertisingExpenses: AdExpense[]
-  attendanceRows: AttendanceRow[]
-  operatingExpenses: OperatingExpense[]
-}): CircleProfitSummary[] {
-  const { circles, collections, advertisingExpenses, attendanceRows, operatingExpenses } = args
-  const byId = new Map<string, CircleProfitSummary>()
-  const ensure = (circleId: string, circleName: string) => {
-    let row = byId.get(circleId)
-    if (!row) {
-      row = { circleId, circleName, billed: 0, collected: 0, advertising: 0, teacherPay: 0, linkedExpenses: 0, uncharged: 0, net: 0 }
-      byId.set(circleId, row)
-    }
-    return row
-  }
-
-  for (const circle of circles) if (circle.isActive) ensure(circle.id, circle.name)
-  for (const row of collections) {
-    const target = ensure(row.circleId, row.circleName)
-    target.billed += row.amountDue
-    target.collected += row.paidAmount
-    if (!row.chargeId) target.uncharged++
-  }
-  for (const row of advertisingExpenses) ensure(row.circleId, row.circleName).advertising += row.monthAmount
-  for (const row of attendanceRows) {
-    if (row.status === 'present') ensure(row.circleId, row.circleName).teacherPay += row.payableAmount ?? 0
-  }
-  for (const row of operatingExpenses) {
-    if (row.circleId) ensure(row.circleId, row.circleName || 'حلقة غير معروفة').linkedExpenses += row.amount
-  }
-
-  const rows = Array.from(byId.values())
-  for (const row of rows) row.net = row.billed - row.advertising - row.teacherPay - row.linkedExpenses
-  return rows.sort((a, b) => b.net - a.net || a.circleName.localeCompare(b.circleName, 'ar'))
 }

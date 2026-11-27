@@ -29,12 +29,9 @@ import {
   getMonthlyTeacherPayTotal,
   getMonthlyAdvertisingTotal,
   getMonthlyOperatingExpenseTotal,
-  getDashboardProfit,
-  getTeacherPaySummary,
-  getCircleProfitSummary,
 } from './selectors'
 import { confirmAction } from '../components/common/confirmService'
-import useProfitSummary from './useProfitSummary'
+import useProfitSummary, { type ProfitDashboardSummary } from './useProfitSummary'
 import { parseMoneyInput } from '../lib/money'
 
 export default function useDarApplication() {
@@ -490,12 +487,15 @@ export default function useDarApplication() {
   const monthlyTeacherPayTotal = useMemo(() => getMonthlyTeacherPayTotal(attendanceRows), [attendanceRows])
   const monthlyAdvertisingTotal = useMemo(() => getMonthlyAdvertisingTotal(advertisingExpenses), [advertisingExpenses])
   const monthlyOperatingExpenseTotal = useMemo(() => getMonthlyOperatingExpenseTotal(operatingExpenses), [operatingExpenses])
-  const localDashboardProfit = useMemo(() => getDashboardProfit({ currentMonthTotals, monthlyAdvertisingTotal, monthlyTeacherPayTotal, monthlyOperatingExpenseTotal, collections, monthSessions, clockNow }), [currentMonthTotals, monthlyAdvertisingTotal, monthlyTeacherPayTotal, monthlyOperatingExpenseTotal, collections, monthSessions, clockNow])
-  const dashboardProfit = useMemo(() => ({ ...localDashboardProfit, ...(serverProfit?.dashboard ?? {}) }), [localDashboardProfit, serverProfit])
-  const localTeacherPaySummary = useMemo(() => getTeacherPaySummary(attendanceRows), [attendanceRows])
-  const teacherPaySummary = serverProfit?.teachers ?? localTeacherPaySummary
-  const localCircleProfitSummary = useMemo(() => getCircleProfitSummary({ circles, collections, advertisingExpenses, attendanceRows, operatingExpenses }), [circles, collections, advertisingExpenses, attendanceRows, operatingExpenses])
-  const circleProfitSummary = serverProfit?.circles ?? localCircleProfitSummary
+  // FINAL Z2: the frontend no longer calculates money. It renders the server summary;
+  // while the summary is loading/after an error the values are empty, never a local formula.
+  const emptyDashboardProfit: ProfitDashboardSummary = {
+    billed: 0, collected: 0, balance: 0, advertising: 0, teacherPay: 0,
+    otherExpenses: 0, net: 0, withoutChargeCount: 0, unmarkedPastSessions: 0,
+  }
+  const dashboardProfit = serverProfit?.dashboard ?? emptyDashboardProfit
+  const teacherPaySummary = serverProfit?.teachers ?? []
+  const circleProfitSummary = serverProfit?.circles ?? []
   const downloadProfitSummary = () => exportProfitSummary({ brandName: branding.brandName, currentMonthValue, dashboardProfit, teacherPaySummary, circleProfitSummary })
   const changePage = (next: Page) => { if (!visiblePages.some(item=>item.id===next)) { setToast({tone:'error',text:'حسابك لا يملك صلاحية فتح القسم المطلوب.'}); return }; setPage(next); if(next==='students'&&has('students.read'))void loadStudents();if(next==='teachers'&&has('teachers.read'))void loadTeachers();if(next==='circles'&&has('circles.read'))void loadCircles();if(next==='schedule'){if(has('schedule.read')||has('schedule.edit')||has('attendance.read')||has('attendance.edit'))void loadScheduleSlots();if(has('attendance.read')||has('attendance.edit'))void loadAttendance()}if(next==='payments'&&has('finance.read')){void loadCollections();void loadReports();void loadAdvertisingExpenses()}if(next==='users')void loadUsers() }
 

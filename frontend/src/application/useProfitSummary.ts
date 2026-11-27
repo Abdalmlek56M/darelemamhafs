@@ -10,6 +10,7 @@ export type ProfitDashboardSummary = {
   otherExpenses: number
   net: number
   withoutChargeCount: number
+  unmarkedPastSessions: number
 }
 
 export type ProfitTeacherSummary = {

@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { AdExpense, AttendanceRow, Circle, CollectionRow, OperatingExpense, Student, Teacher } from '../domain/types'
 import type { MonthSession } from './selectors'
 import {
-  getCircleProfitSummary,
   getCurrentMonthTotals,
-  getDashboardProfit,
   getFilteredStudents,
   getFilteredTeachers,
   getSuggestedMonthlyCharge,
@@ -104,69 +102,5 @@ describe('selectors', () => {
     })
 
     expect(getSuggestedMonthlyCharge(row)).toBe(250)
-  })
-
-  it('computes dashboard profit and missing-data counters', () => {
-    const monthSessions = [
-      {
-        slot: { id: 'slot-1' },
-        date: '2026-01-10',
-        target: new Date('2026-01-10T20:00:00'),
-        attendance: undefined,
-      },
-    ] as unknown as MonthSession[]
-
-    const profit = getDashboardProfit({
-      currentMonthTotals: { due: 100, paid: 40, balance: 60 },
-      monthlyAdvertisingTotal: 10,
-      monthlyTeacherPayTotal: 20,
-      monthlyOperatingExpenseTotal: 5,
-      collections: [
-        collection({ chargeId: 'c1', amountDue: 100, paidAmount: 40, balance: 60 }),
-        collection({ chargeId: null, amountDue: 0, paidAmount: 0, balance: 0, paymentStatus: 'not-set' }),
-      ],
-      monthSessions,
-      clockNow: new Date('2026-01-10T21:00:00').getTime(),
-    })
-
-    expect(profit).toEqual({
-      billed: 100,
-      collected: 40,
-      balance: 60,
-      advertising: 10,
-      teacherPay: 20,
-      otherExpenses: 5,
-      net: 65,
-      withoutChargeCount: 1,
-      unmarkedPastSessions: 1,
-    })
-  })
-
-  it('computes per-circle estimated net', () => {
-    const circles = [{ id: 'cir1', name: 'حلقة النور', isActive: true }] as unknown as Circle[]
-    const advertising = [{ circleId: 'cir1', circleName: 'حلقة النور', monthAmount: 10 }] as unknown as AdExpense[]
-    const attendance = [
-      { circleId: 'cir1', circleName: 'حلقة النور', status: 'present', payableAmount: 20 },
-    ] as unknown as AttendanceRow[]
-    const expenses = [{ circleId: 'cir1', circleName: 'حلقة النور', amount: 5 }] as unknown as OperatingExpense[]
-
-    const rows = getCircleProfitSummary({
-      circles,
-      collections: [collection({ amountDue: 100, paidAmount: 40, balance: 60 })],
-      advertisingExpenses: advertising,
-      attendanceRows: attendance,
-      operatingExpenses: expenses,
-    })
-
-    expect(rows).toHaveLength(1)
-    expect(rows[0]).toMatchObject({
-      circleId: 'cir1',
-      billed: 100,
-      collected: 40,
-      advertising: 10,
-      teacherPay: 20,
-      linkedExpenses: 5,
-      net: 65,
-    })
   })
 })

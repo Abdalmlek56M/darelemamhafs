@@ -55,6 +55,14 @@ Batch commits also include suite wiring/report: `7d0d8eb`, `47a9674`, report com
 | 1.17 pagination envelope unify | done (client boundary) | `f6cb23e` | `pagination.test.ts` | backend response shapes not migrated |
 | migration 034 safety | done | `cb394c7` | `tier1-migration-034` | production migration not run |
 
+
+## Z2 (characterization first)
+
+| Item | Status | Commit | Tests | NOT VERIFIED |
+|---|---|---|---|---|
+| Z2 server-only money (remove frontend profit formulas/fallback) | in progress | pending | `tier1-profit-server` + frontend build/tests | no browser E2E of the dashboard |
+| Z2 one sleep helper in recorder | in progress | pending | recorder typecheck/tests | none |
+
 ## NOT VERIFIED (all Tier-1 work)
 
 - No deployment; production timers, systemd units, migration 034/035, real backups, real browser downloads and live Telegram/Google/recorder flows were not exercised.
