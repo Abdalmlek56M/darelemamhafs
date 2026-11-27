@@ -95,6 +95,22 @@ Batch commits also include suite wiring/report: `7d0d8eb`, `47a9674`, report com
 | Z5 recorder README networking/deps | in progress | pending | docs review | final recorder env docs remaining |
 | Z4 deepseek current hardening state + remove live IP/hostname | in progress | pending | `repo-secrets` still to run | full Z4 rewrite remaining; real-domain request conflicts with the 0.10 scrub decision |
 
+
+## Staging deployment and Z1 completion
+
+| Item | Status | Commit/deployed SHA | Evidence |
+|---|---|---|---|
+| Staging environment (separate DB/dirs/ports/vhost/basic auth, ZZ-TEST only) | done | deployed `eb2a0a4` | `/health` `/management` `/teacher` `/api/v1/ping` 200; `/internal/` 404; production untouched |
+| Testing Library + jsdom | done | `63f7e83` | frontend 24 files / 72 tests PASS |
+| Z1 split SystemAdminEndpoints.cs (401→38 + partials) | done | `627c620` | full regression PASS e4a9ec6 |
+| Z1 split SystemAdminEndpoints.Requests.cs (408→116 + partials) | done | `0175787` | full regression PASS e4a9ec6 |
+| Z1 split MeetCalendarRepository.cs (424→236+200) | done | `948678e` | full regression PASS e4a9ec6 |
+| Z1 split TeacherApp.tsx (532→8+378+220) | done | `d788731` | RTL characterization PASS |
+| Z1 split useDarApplication.ts (570→12+241+276+275) | done | `7520ced` | RTL characterization PASS |
+| Z2 policy registration + CairoTime dedup | in progress | `8924e7a` | targeted regression pending/full regression pending |
+| Z2 audit-insert SQL unification (29 copies) | REMAINING | — | not started |
+| Z2 remaining helper duplication | REMAINING | — | — |
+
 ## NOT VERIFIED (all Tier-1 work)
 
 - No deployment; production timers, systemd units, migration 034/035, real backups, real browser downloads and live Telegram/Google/recorder flows were not exercised.
