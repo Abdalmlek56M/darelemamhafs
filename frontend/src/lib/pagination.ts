@@ -48,6 +48,45 @@ export function parsePageMeta(headers: Headers, returned: number, fallbackPageSi
   return { page, pageSize: Math.max(1, pageSize), total, truncated }
 }
 
+/**
+ * FINAL 1.17: legacy endpoints return a bare array + pagination headers, while some
+ * new endpoints return an {items,total,page,pageSize} envelope. One parser accepts
+ * both so every caller uses the same PageMeta shape.
+ */
+export function parsePagedMeta<T>(body: unknown, headers: Headers, returned: number, fallbackPageSize = PORTAL_PAGE_SIZE): PageMeta {
+  const headerMeta = parsePageMeta(headers, returned, fallbackPageSize)
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return headerMeta
+  const record = body as Record<string, unknown>
+  const hasCollection = ['items', 'data', 'rows', 'results'].some((key) => Array.isArray(record[key]))
+  const hasEnvelopeNumbers =
+    typeof record.total === 'number' &&
+    (typeof record.page === 'number' || typeof record.pageSize === 'number' || typeof record.page_size === 'number')
+  // A random object may carry an unrelated `count`/`total`; only genuine envelopes override headers.
+  if (!hasCollection && !hasEnvelopeNumbers) return headerMeta
+  const numberField = (value: unknown): number | null => {
+    const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10)
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+  }
+  const total = numberField(record.total) ?? numberField(record.count) ?? headerMeta.total
+  const page = numberField(record.page) ?? headerMeta.page
+  const pageSize = numberField(record.pageSize) ?? numberField(record.page_size) ?? headerMeta.pageSize
+  const truncated = typeof record.truncated === 'boolean' ? record.truncated : headerMeta.truncated
+  return { page: Math.max(1, page), pageSize: Math.max(1, pageSize), total, truncated }
+}
+
+export function pagedItemCount(body: unknown): number {
+  if (Array.isArray(body)) return body.length
+  if (!body || typeof body !== 'object') return 0
+  const record = body as Record<string, unknown>
+  for (const key of ['items', 'data', 'rows', 'results']) {
+    const value = record[key]
+    if (Array.isArray(value)) return value.length
+  }
+  if (typeof record.count === 'number') return record.count
+  if (typeof record.total === 'number') return record.total
+  return 0
+}
+
 export function defaultMeta(returned: number, page = 1, pageSize = PORTAL_PAGE_SIZE): PageMeta {
   return { page, pageSize, total: Math.max(0, returned), truncated: false }
 }

@@ -1,5 +1,5 @@
 import { ApiError, isArabicUserMessage, normalizeUserMessage, userErrorCode } from '../lib/userMessages'
-import { PORTAL_PAGE_SIZE, parsePageMeta, type PagedResponse } from '../lib/pagination'
+import { PORTAL_PAGE_SIZE, pagedItemCount, parsePagedMeta, type PagedResponse } from '../lib/pagination'
 import { portalRequestHeaders } from '../lib/portalHeaders'
 
 const api = (path: string) => path
@@ -66,13 +66,8 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export async function requestPage<T>(path: string, init?: RequestInit, fallbackPageSize = PORTAL_PAGE_SIZE): Promise<PagedResponse<T>> {
   const response = await send(path, init)
   const data = await decode<T>(response)
-  const record = data as unknown as Record<string, unknown> | null
-  const returned = Array.isArray(data)
-    ? data.length
-    : record && typeof record.count === 'number'
-      ? record.count
-      : 0
-  return { data, meta: parsePageMeta(response.headers, returned, fallbackPageSize) }
+  const returned = pagedItemCount(data)
+  return { data, meta: parsePagedMeta(data, response.headers, returned, fallbackPageSize) }
 }
 
 export async function requestForm<T>(path: string, form: FormData, init?: RequestInit): Promise<T> {

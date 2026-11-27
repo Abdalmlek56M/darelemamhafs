@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampPage, defaultMeta, MAX_PAGE_SIZE, normalizePageSize, pageCount, parsePageMeta } from './pagination'
+import { clampPage, defaultMeta, MAX_PAGE_SIZE, normalizePageSize, pageCount, pagedItemCount, parsePageMeta, parsePagedMeta } from './pagination'
 
 function headers(values: Record<string, string>) {
   return new Headers(values)
@@ -41,5 +41,15 @@ describe('pagination meta', () => {
 
   it('builds demo meta without pagination truth', () => {
     expect(defaultMeta(3)).toEqual({ page: 1, pageSize: 25, total: 3, truncated: false })
+  })
+
+  it('unifies legacy headers and the new items envelope (FINAL 1.17)', () => {
+    const envelope = { items: [{ id: 1 }, { id: 2 }], page: 2, pageSize: 1, total: 5 }
+    expect(pagedItemCount(envelope)).toBe(2)
+    expect(parsePagedMeta(envelope, headers({}), 2)).toEqual({ page: 2, pageSize: 1, total: 5, truncated: false })
+    expect(pagedItemCount([{ id: 1 }])).toBe(1)
+    expect(pagedItemCount({ rows: [{}, {}, {}] })).toBe(3)
+    expect(parsePagedMeta([{ id: 1 }], headers({ 'X-Total-Count': '9', 'X-Page': '3' }), 1))
+      .toEqual({ page: 3, pageSize: 25, total: 9, truncated: false })
   })
 })
