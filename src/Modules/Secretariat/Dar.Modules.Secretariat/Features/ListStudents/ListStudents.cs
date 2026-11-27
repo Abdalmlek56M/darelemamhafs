@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Dar.Common.Domain;
 using Dar.Common.Permissions;
-using Npgsql;
 using Dar.Modules.Secretariat.Abstractions;
 using Dar.Modules.Secretariat.Domain;
 
@@ -11,10 +10,14 @@ public sealed record ListStudentsQuery(string? Search, string? Status, int Page,
 
 public sealed class ListStudentsHandler(IStudentRepository repository)
 {
+    /// <summary>
+    /// Tier 2.7: the access scope is resolved inside the same statement as the page + total, so a
+    /// scoped supervisor list request is one DB round trip instead of ScopeLoader + COUNT + page.
+    /// </summary>
     public async Task<PagedResult<StudentResponse>> HandleAsync(
         ListStudentsQuery query,
         bool allScopes,
-        Guid[] scopeCircles,
+        Guid? userId,
         CancellationToken cancellationToken)
     {
         var result = await repository.ListAsync(
@@ -23,7 +26,7 @@ public sealed class ListStudentsHandler(IStudentRepository repository)
             query.Page,
             query.PageSize,
             allScopes,
-            scopeCircles,
+            userId,
             cancellationToken);
 
         var items = result.Items.Select(StudentResponse.From).ToArray();
@@ -41,16 +44,13 @@ public static class ListStudentsEndpoint
                 int? page,
                 int? pageSize,
                 ClaimsPrincipal principal,
-                NpgsqlDataSource dataSource,
                 ListStudentsHandler handler,
                 CancellationToken cancellationToken) =>
             {
-                await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
-                var scope = await ScopeLoader.LoadAsync(connection, principal, cancellationToken);
                 var result = await handler.HandleAsync(
                     new ListStudentsQuery(search, status, page ?? 1, pageSize ?? 25),
-                    scope.All,
-                    scope.CircleIds,
+                    ScopeLoader.IsAllScope(principal),
+                    ScopeLoader.UserId(principal),
                     cancellationToken);
                 return Results.Ok(result);
             })

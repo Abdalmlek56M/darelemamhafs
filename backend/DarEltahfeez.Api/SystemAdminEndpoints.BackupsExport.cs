@@ -77,23 +77,36 @@ public static partial class SystemAdminEndpoints
             if (entityId.HasValue && entityType is null) return Results.BadRequest(new { message = "حدد نوع السجل عند تصدير سجل بعينه." });
             if (entityType is not null && !new[] { "student", "teacher", "circle" }.Contains(entityType, StringComparer.Ordinal)) return Results.BadRequest(new { message = "نوع التصدير التفصيلي غير مدعوم." });
             if (entityType is not null) tables = SystemAdminService.TablesForEntityExport(entityType);
+            // Tier 2.7: build every export section as one jsonb document inside a single command
+            // instead of one round trip per table (the student/teacher/circle exports used to
+            // run 9-12 sequential SELECTs plus the brand lookup). The section values are the
+            // exact same aggregations, so the response shape is unchanged; the only semantic
+            // difference is that all sections now come from one MVCC snapshot instead of one
+            // snapshot per table.
+            var select = new System.Text.StringBuilder("SELECT jsonb_build_object(");
+            for (var index = 0; index < tables.Length; index++)
+            {
+                var table = tables[index];
+                var predicate = entityType is null ? "TRUE" : entityId.HasValue ? ExportEntityPredicate(table, entityType) : ExportEntityFamilyPredicate(table, entityType);
+                if (index > 0) select.Append(',');
+                select.Append('\'').Append(table).Append("', ").Append(ExportSectionJsonSubquery(table, predicate));
+            }
+            select.Append(")::text, (SELECT brand_name FROM school_settings WHERE id=1);");
+            await using var cmd = db.CreateCommand(select.ToString());
+            if (entityId.HasValue) cmd.Parameters.AddWithValue("entityId", entityId.Value);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            await reader.ReadAsync(ct);
+            var brand = reader.IsDBNull(1) ? "دار الإمام حفص للقرآن والتجويد" : reader.GetString(1);
+            using var document = JsonDocument.Parse(reader.GetString(0));
             var sections = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
             foreach (var table in tables)
             {
-                var predicate = entityType is null ? "TRUE" : entityId.HasValue ? ExportEntityPredicate(table, entityType) : ExportEntityFamilyPredicate(table, entityType);
-                if (table == "app_users")
-                {
-                    await using var users = db.CreateCommand($"SELECT COALESCE(jsonb_agg(jsonb_build_object('id',id,'username',username,'display_name',display_name,'is_active',is_active,'created_at',created_at)), '[]'::jsonb)::text FROM app_users WHERE {predicate};");
-                    if (entityId.HasValue) users.Parameters.AddWithValue("entityId", entityId.Value);
-                    sections[table] = ParseJson((string?)await users.ExecuteScalarAsync(ct)) ?? JsonDocument.Parse("[]").RootElement.Clone(); continue;
-                }
-                await using var cmd = db.CreateCommand($"SELECT COALESCE(jsonb_agg(to_jsonb(t) - 'password_hash' - 'receipt_data' - 'logo_data' - 'avatar_data' - 'backup_path'), '[]'::jsonb)::text FROM public.{table} t WHERE {predicate};");
-                if (entityId.HasValue) cmd.Parameters.AddWithValue("entityId", entityId.Value);
-                var tableJson = (string?)await cmd.ExecuteScalarAsync(ct);
-                sections[table] = (financeVisible ? ParseJson(tableJson) : ParseJsonForFinance(tableJson, false)) ?? JsonDocument.Parse("[]").RootElement.Clone();
+                var tableJson = document.RootElement.TryGetProperty(table, out var section) ? section.GetRawText() : "[]";
+                // app_users never carried financial columns, so it keeps the old plain parse path.
+                sections[table] = table == "app_users"
+                    ? ParseJson(tableJson) ?? JsonDocument.Parse("[]").RootElement.Clone()
+                    : (financeVisible ? ParseJson(tableJson) : ParseJsonForFinance(tableJson, false)) ?? JsonDocument.Parse("[]").RootElement.Clone();
             }
-            await using var brandCmd = db.CreateCommand("SELECT brand_name FROM school_settings WHERE id=1;");
-            var brand = (string?)await brandCmd.ExecuteScalarAsync(ct) ?? "دار الإمام حفص للقرآن والتجويد";
             return Results.Ok(new { schoolName = brand, generatedAt = DateTimeOffset.UtcNow, scope = scopes ?? "all", entityType, entityId, sections });
         }).RequireAuthorization("exports.manage");
     }

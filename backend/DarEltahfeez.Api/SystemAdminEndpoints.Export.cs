@@ -9,6 +9,15 @@ namespace DarEltahfeez.Api;
 
 public static partial class SystemAdminEndpoints
 {
+    /// <summary>
+    /// Tier 2.7: one export section as a jsonb aggregate subquery, embedded in the single
+    /// /api/admin/export command. Tables and predicates come from the fixed allow-lists above,
+    /// never from the request, so the interpolation is not injectable.
+    /// </summary>
+    private static string ExportSectionJsonSubquery(string table, string predicate) => table == "app_users"
+        ? $"COALESCE((SELECT jsonb_agg(jsonb_build_object('id',id,'username',username,'display_name',display_name,'is_active',is_active,'created_at',created_at)) FROM app_users t WHERE {predicate}), '[]'::jsonb)"
+        : $"COALESCE((SELECT jsonb_agg(to_jsonb(t) - 'password_hash' - 'receipt_data' - 'logo_data' - 'avatar_data' - 'backup_path') FROM public.{table} t WHERE {predicate}), '[]'::jsonb)";
+
     private static string ExportEntityFamilyPredicate(string table, string entityType) => (table, entityType) switch
     {
         // Whole-family exports include only related records, not unrelated circles or students from outside the selected family.

@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Dar.Common.Domain;
 using Dar.Common.Permissions;
-using Npgsql;
 using Dar.Modules.Secretariat.Abstractions;
 using Dar.Modules.Secretariat.Domain;
 
@@ -9,9 +8,11 @@ namespace Dar.Modules.Secretariat.Features.GetStudent;
 
 public sealed class GetStudentHandler(IStudentRepository repository)
 {
-    public async Task<StudentResponse> HandleAsync(Guid id, bool allScopes, Guid[] scopeCircles, CancellationToken cancellationToken)
+    // Tier 2.7: the access scope is resolved by the same statement that reads the student, so a
+    // scoped supervisor detail request is one DB round trip instead of ScopeLoader + detail.
+    public async Task<StudentResponse> HandleAsync(Guid id, bool allScopes, Guid? userId, CancellationToken cancellationToken)
     {
-        var student = await repository.GetByIdAsync(id, allScopes, scopeCircles, cancellationToken)
+        var student = await repository.GetByIdAsync(id, allScopes, userId, cancellationToken)
                       ?? throw AppException.NotFound("الطالبة غير موجودة.");
         return StudentResponse.From(student);
     }
@@ -24,13 +25,11 @@ public static class GetStudentEndpoint
         group.MapGet("/{id:guid}", async (
                 Guid id,
                 ClaimsPrincipal principal,
-                NpgsqlDataSource dataSource,
                 GetStudentHandler handler,
                 CancellationToken cancellationToken) =>
             {
-                await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
-                var scope = await ScopeLoader.LoadAsync(connection, principal, cancellationToken);
-                var student = await handler.HandleAsync(id, scope.All, scope.CircleIds, cancellationToken);
+                var student = await handler.HandleAsync(
+                    id, ScopeLoader.IsAllScope(principal), ScopeLoader.UserId(principal), cancellationToken);
                 return Results.Ok(student);
             })
             .RequireAuthorization("students.read")
