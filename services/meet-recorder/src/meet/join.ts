@@ -1,6 +1,7 @@
 import type { Page } from 'playwright'
 import type { Logger } from '../logger.js'
 import { isSignInPage } from './browser.js'
+import { sleep } from '../lib/sleep.js'
 
 export type JoinState =
   | 'joined'
