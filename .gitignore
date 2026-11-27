@@ -40,7 +40,7 @@ Thumbs.db
 **/.npmcache/
 
 # Agent / verification scratch directories
-.tmp*/
+.tmp*
 .verify/
 
 # Python bytecode (skill scripts)
