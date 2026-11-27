@@ -138,9 +138,11 @@ dotnet run --project src/Host/Dar.Api -- --migrate
 
 # Add a migration
 # create database/0NN_short_name.sql with IF NOT EXISTS / expand-contract rules
+# splitting one logical migration? use ordered parts NNN a/b: 039a_..., 039b_...
+# the real count is the number of database/*.sql files (README/docs/00 must match it).
 ```
 
-`MigrationRunner` يسجّل checksums في `web_schema_migrations` ويتبنّى الـledger القديم عند أول تشغيل. الـlegacy `schema_migrations` متوقف عند 16. `DatabaseInitializer` القديم **ما زال موجودًا لكنه مقيّد بـDevelopment** (`Database:ApplyMigrationsOnStartup=true` فقط، ومُعطَّل صراحةً في Production) — إزالته الكاملة وحدَث الـledger متبقية ضمن تنظيف 2.8. أي migration مطبّقة لا تُعدَّل (تغيير checksum يوقف الـrunner) — التصحيح دائمًا عبر migration جديد. العدد في المستودع الآن **001→040** (آخر ملفين 039/040 في دفعة batch 2) والإنتاج متأخر حتى 026 حتى النشر القادم.
+`MigrationRunner` يسجّل checksums في `web_schema_migrations` ويتبنّى الـledger القديم عند أول تشغيل. الـlegacy `schema_migrations` متوقف عند 16. `DatabaseInitializer` القديم **ما زال موجودًا لكنه مقيّد بـDevelopment** (`Database:ApplyMigrationsOnStartup=true` فقط، ومُعطَّل صراحةً في Production) — إزالته الكاملة وحدَث الـledger متبقية ضمن تنظيف 2.8. أي migration مطبّقة لا تُعدَّل (تغيير checksum يوقف الـrunner) — التصحيح دائمًا عبر migration جديد. العدد في المستودع الآن **001→041 في 42 ملفًا** (039 مقسمة `039a`/`039b`، و041 أحدث ملف) والإنتاج متأخر حتى 026 حتى النشر القادم.
 
 Rules:
 
@@ -295,6 +297,13 @@ Alerts: Telegram/email. No paid service without approval.
 
 ## 10. Runbooks
 
+**الإجراءات التفصيلية في `docs/runbooks/`** (الفهرس: `docs/runbooks/README.md`):
+[deploy](runbooks/deploy.md) — [rollback (binaries)](runbooks/rollback.md) — [DB rollback من نسخة
+ما قبل النشر إلى قاعدة جديدة](runbooks/rollback-db.md) — [backup & restore](runbooks/backup-restore.md)
+— [incident response](runbooks/incident-response.md) — [DB roles/tuning](runbooks/db-roles-and-tuning.md)
+— [LiveKit M0](runbooks/livekit-m0.md).
+البنود التالية ملخص سريع؛ أي إجراء فعلي يتبع الـrunbook المطابق (ونشر مسبق `deploy/preflight.sh`).
+
 ### 10.1 API down
 
 1. Check systemd status/logs (`systemctl status dar-legacy dar-api`؛ `journalctl -u dar-legacy`).
@@ -382,4 +391,4 @@ Alerts: Telegram/email. No paid service without approval.
 1. Email provider (SMTP) لتفعيل OTP فعليًا.
 2. Monitoring alert channel (Telegram/Email) + Uptime.
 3. rclone OAuth client ID مخصص + تدوير Cloudflare token (قبل تقاعد shared client في 2026).
-4. نشر دفعة التحصين (main حتى 040) إلى staging ثم الإنتاج — بموافقة المالك ونافذة نشر.
+4. نشر دفعة التحصين (main حتى 041) إلى staging ثم الإنتاج — بموافقة المالك ونافذة نشر.

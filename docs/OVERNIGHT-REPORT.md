@@ -153,7 +153,7 @@ Batch-1 full regression PASS is recorded in the batch-1 section above (41 suites
 
 Batch-1 full regression on `4166fd0` (the exact commit pushed): **UNIT 67/67, 41/41 suites EXIT=0, RESULT=PASS** (including `b7-cookie-size` and `b10-cookie-secure`). Push: `1d5255b..4166fd0  main -> main`; `git ls-remote origin main` = `4166fd06cd1a027524dc1cadf49d3deeabacba99`.
 
-## FINAL continuation batch 2 (27 Nov, not pushed until its own regression passes)
+## FINAL continuation batch 2 (27 Nov, pushed)
 
 | Item | Status | Evidence / tests | NOT VERIFIED |
 |---|---|---|---|
@@ -178,5 +178,39 @@ Batch-1 full regression on `4166fd0` (the exact commit pushed): **UNIT 67/67, 41
 
 ### Full regression (batch 2)
 
-Run on the batch-2 HEAD before push; the PASS line, suite counts and SHA are recorded in the final report and in the next report update.
+**Batch-2 verification (pushed):** full regression on `2cd9dcf` (the exact pushed commit) — **UNIT 67/67, NODE_SUITES=50, SQL_SUITES=6, RESULT=PASS**; the 14 browser/UI suites are opt-in and reported `UI_SUITES_NOT_RUN` (never green). Push: `4166fd0..2cd9dcf  main -> main`; `git ls-remote origin main` = `2cd9dcf29f681cff1a3fd84093b077c54131dbd6` (PASS).
 
+The first batch-2 regression run (on `76efd79`) failed on 5 suites and was fixed in `2cd9dcf`: `q6-review` (new cancellation assertions needed an in-progress teacher_session), `tier2-history` (simulated pre-migration insert missed RETURNING id), `sql-financial-void` S17 (schema-only disposable DB needed the finance.edit/finance.void catalog rows seeded), and `sql-schedule-overlap` S32 + `sql-schedule-overlap-hardening` H01/H02 (assertions were written against the legacy global lock that migration 035 intentionally removed; they now assert the per-teacher lock and the removed global key). After the fix a targeted run of those 5 suites was PASS, then the full run above was PASS.
+
+
+
+## FINAL continuation batch 3 (27 Nov 2026, owner review of 2cd9dcf)
+
+Owner review items, all implemented failing-test-first where a behavior changed:
+
+| Item | Status | Commit(s) | Evidence / tests | NOT VERIFIED |
+|---|---|---|---|---|
+| 1. 039 FKs vs retention/reset/delete | done | `2e5eb9d` | `enrollment_id` FK is now `ON DELETE CASCADE`; append-only guard allows only FK-cascade deletes (`pg_trigger_depth() > 1`); `source_audit_id` stays `RESTRICT` because audit_log is never pruned (RetentionService excludes it; reset only moves rows to trash; 015 trigger blocks audit deletes). Old single-file 039 reproduced `23503` FK violation when hard-deleting an enrollment (disposable PG17); new `tier2-history-fk` proves retention leaves audit_log untouched, audit/history remain append-only, enrollment/student hard deletes cascade, and trash move/restore keeps history + eligibility. ADR-0009 records the decisions. | production run |
+| 1b. migration runtime / audit_log lock | done (measured) | `2e5eb9d` | disposable PG17 with 103k audit rows incl. 3k lifecycle: 039a 0.22s, 039b 0.31s (re-run 0.28s no-op). `039b` holds SHARE ROW EXCLUSIVE on audit_log only inside its own transaction (trigger installed in 039a first, so concurrent inserts are captured; ON CONFLICT fills old rows); readers unaffected. Production catalog estimate (metadata only, no row reads): audit_log ~514 rows / 584 kB, so expected deploy impact is sub-second. | real production deploy window |
+| 2. split 039 (407 lines) | done | `2e5eb9d` | `039a` (schema/indexes/guards/sync trigger) 149 lines + `039b` (backfill/assertions/synthetic/functions) 287 lines, both idempotent and applied in order; harness migration glob letter-suffix aware; `tier2-history` re-applies both halves and proves no-op. | — |
+| 3. B3 zero actual minutes = zero pay | done | `8239eee` | `Money.TryCalculateTeacherSessionPay` returns 0 payable minutes/amount for 0 actual minutes (no minimum) while 1 minute still pays 1; unit test renamed to `TeacherSessionPay_ZeroActual_PaysZero` + boundary test; frontend live preview via tested `teacherLivePayableMinutes`; end-session message updated. Stored `payable_amount` rows are not recalculated (reports/profit sum stored amounts) → historical production numbers unchanged; future zero-minute ends pay zero. Docs/ADR-0002 amendment updated. | live staging behavior |
+| 4. security: reset-candidates perms/scope | done | `ce94471` | aggregate requires `students.read` + `finance.read`, paged requires the list's read permission, both apply `app_user_scopes` filter, school-wide lists fail closed for scoped users. `security-permissions` covers 403 without perms + scope filtering on seeded candidates. | live roles |
+| 4. security: purge owner-only | done | `ce94471` | `DELETE /api/admin/trash/{id}` now requires `trash.manage` **and** `users.manage`; move/restore unchanged; suite: trash manager move 200 → purge 403, admin purge 200 + row gone. | live roles |
+| 4. security: no permission escalation | done | `ce94471` | a users.manage holder cannot grant codes it does not hold; on update codes already present on the target are allowed so unrelated edits work. Suite: 403 for new unheld `finance.read`, 201 for held code, 200 for unchanged list, 403 for adding unheld code. | live roles |
+| Tier 2.5 blobs → file storage (migration 041) | done (resize BLOCKED) | `a2a8eb2` | receipts/logo/avatars moved to content-addressed files with lazy BYTEA migration + repair + batch backfill endpoints/status; old BYTEA untouched for rollback; no list query selects blobs; `tier2-blobs` (14 cases) passed E2E on disposable PG17 + both apps. Receipt image resizing **BLOCKED**: no cross-platform image package available and NuGet cannot be added offline (documented pass-through hook, recommended SixLabors.ImageSharp). | staging/deploy media root; real resize |
+| Tier 2.7 query/round-trip optimization | done | `00537e3` | legacy students/teachers/circles lists → CTE + LATERAL; session summary 159ms → 25ms; export 10 statements → 1; ScopeLoader 3 → 1 command; new-API list/detail 2 → 1. EXPLAIN proof 0 correlated SubPlans for new lists. No new migration needed. `tier2-queries` (61 cases) compares old/new shapes + plans. | real production data volumes |
+| Tier 2.8–2.14 deploy hardening | done (files only) | `7fff2e2` | deploy flock, default CI/quality gate, meet-bot deploy path, real login+money smoke (0600 credentials), DB rollback script + runbook (fresh DB, never live restore, auto env revert), healthcheck Telegram/bot/LiveKit/PG/off-site/jq, nginx rate-limit+gzip, PG tuning + dar_migrator/dar_app/dar_read_only roles SQL/wrapper/runbook (not executed), LiveKit M0 gated + pinned SHA-256 + media-port opt-in + test page disabled; `tier2-deploy` contract suite + 34/34 bash -n + shellcheck. | no host execution; DB roles SQL/tuning not run; login+money smoke not E2E; LiveKit ports owner action BLOCKED |
+| Tier 3.1/3.7/3.8 frontend logic | done | `f541307` | one Africa/Cairo date helper (DST/midnight boundary tests), CSV formula-injection guard, demo mode disabled in prod builds + cleared on logout, circle names scoped by teacher, PaymentDialog remaining-amount cap, StudentDialog withdrawn/archived guard, typed status/severity unions. 45 frontend test files / 152 tests, tsc + vite build pass. | browser E2E |
+| Z3/Z4/Z5 docs + AGENTS/naming/runbooks/ADR index | done | docs commit | `AGENTS.md` 147 lines, docs/17-vs-23 de-duplicated, `docs/naming.md`, runbooks (deploy/rollback/rollback-db/backup-restore/incident-response/db-roles/livekit), ADR index 0001–0009, migration count enforced at **42 files / 001→041** by `docs-migration-count`, staging-environment and recorder docs synced, pay-rule + cookie + security decisions documented. | docs are source-verified only |
+| harness/CI wiring | done | `031bd79` | new suites wired into `tests/run-regression.sh` (plus media env for tier2-blobs); CI regression workflow lists docs-count gate and tier2-queries. | CI execution not observed |
+
+### Batch-3 verification
+
+Full regression runs on the batch-3 HEAD before push; the PASS line, suite counts and SHA are in the final report. Targeted evidence: both .NET Release builds + integration/unit builds exit 0; frontend tsc + 152 tests + vite build pass; all new suites pass `node --check`; `docs-migration-count` PASS (42 files, 001→041); `bash -n` passes on the harness and every deploy script.
+
+### Batch-3 BLOCKED / NOT VERIFIED
+
+- BLOCKED: receipt image resizing (no cross-platform image dependency offline; hook+docs ready).
+- BLOCKED (owner action): closing LiveKit ports 7881/7882 if the spike is unused; DB role split/tuning application; production deploy of migrations 039a/039b/040/041.
+- Staging was **not redeployed** (still `1d5255b`); batch-1/2/3 code is on `main` only after review/push. Production untouched.
+- CI workflows not executed; Playwright UI suites remain opt-in NOT_RUN; real browser E2E and live host behavior not exercised.

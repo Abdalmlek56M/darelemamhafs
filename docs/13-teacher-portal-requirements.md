@@ -103,7 +103,7 @@ Each card shows: circle name, time, duration, student count, teacher name, statu
 
 - Teacher can mark the session as **لم تنعقد** with a reason (optional supervisor approval).
 - If a substitute teacher takes the session, the session records the substitute; original teacher does not get paid.
-- **سياسة الأجر المعتمدة (ADR-0002، 22 Nov 2026):** الدقائق الفعلية بدون تقريب؛ إذا بلغت/تجاوزت المدة المجدولة يُدفع المجدول والزائد overtime يُسجل للمراجعة؛ الانصراف المبكر يُدفع بالفعلي بحد أدنى دقيقة؛ التقريب الوحيد للمبلغ منزلتان `AwayFromZero`. نسب الإلغاء/البديلة/سماح التأخير تبقى **مؤجلة** خارج النطاق حتى قرار مالك.
+- **سياسة الأجر المعتمدة (ADR-0002، 22 Nov 2026 + تعديل مالك 27 Nov 2026):** الدقائق الفعلية بدون تقريب؛ إذا بلغت/تجاوزت المدة المجدولة يُدفع المجدول والزائد overtime يُسجل للمراجعة؛ الانصراف المبكر يُدفع بالفعلي — **صفر دقيقة فعلية = صفر أجر (لا حد أدنى دقيقة)**؛ التقريب الوحيد للمبلغ منزلتان `AwayFromZero`. المبالغ المخزنة سابقًا في الإنتاج لم تُعَد حسابها. نسب الإلغاء/البديلة/سماح التأخير تبقى **مؤجلة** خارج النطاق حتى قرار مالك.
 
 ---
 
@@ -264,7 +264,7 @@ All endpoints derive the teacher from the authenticated session; never trust a c
 | 1 | **Late start:** record the actual start and show “بدأت متأخرًا” with the delay. The owner sees it. |
 | 2 | **Early end is allowed.** Do not block it. The finish sheet shows actual vs scheduled duration and the resulting pay. |
 | 3 | **Overtime pay cap:** if the actual duration **reaches or exceeds** the scheduled duration, pay the **scheduled duration**, not the actual overtime. Example: a 2-hour circle that runs 2h10 is paid as 2 hours; the extra 10 minutes are recorded for review. |
-| 4 | **Short session:** if the teacher ends before the scheduled duration, pay the **actual whole minutes** (minimum 1 minute). The legacy 15-minute minimum is relaxed to 1 minute in the teacher-pay policy. |
+| 4 | **Short session:** if the teacher ends before the scheduled duration, pay the **actual whole minutes**; **zero actual minutes = zero pay** (no 1-minute minimum — owner amendment 27 Nov 2026; the legacy 15-minute minimum is removed). Applies to new calculations only — stored production amounts are unchanged. |
 | 5 | **Manual adjustment:** the admin can adjust paid duration and amount manually after reviewing the note. Every adjustment is audited with before/after values. A supervisor may adjust only with the explicit `supervisor.attendance.correct` permission. |
 | 6 | **Notes at finish:** the finish sheet has a note field for overtime/early end, reason, or detail. The note is stored on the session and the attendance row and is visible to the owner/supervisor. Notes can also be added during the session, but the finish sheet always offers the field. |
 | 7 | **Attendance statuses:** the teacher roster has only **حاضر / غائب بعذر / غائب بدون عذر**. This maps to `student_attendance.status` = `present` / `excused` / `absent`. |

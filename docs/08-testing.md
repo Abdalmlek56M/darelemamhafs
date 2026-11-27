@@ -267,6 +267,7 @@ Rules:
 - `frontend`: `npm ci` + **`npm run typecheck` (`tsc -b --force`)** + `npm test` (31 ملف/89) + `npm run build`.
 - `api-client`: `npm ci` + typecheck + **`npm run generate` ثم `git diff --exit-code -- src/schema.d.ts`** (no-drift للـgenerated types).
 - `security`: `dotnet list package --vulnerable` + `npm audit --omit=dev` (frontend + api-client) + built-in secret scan (git-grep regex، ليس gitleaks).
+- `regression.yml` / `guard-contract`: **`node tests/regression/docs-migration-count/run.mjs`** — يفشل إذا اختلف عدد الترحيلات المذكور في `README.md` أو `docs/00-current-state.md` عن عدد ملفات `database/*.sql` (أو نطاق `001→NNN`، أو تكرر رقم ترحيل). لا يحتاج قاعدة بيانات ولا شبكة.
 - **لا Docker/Caddy validation** — ملفات الـstack أُزيلت من الريبو (Tier 2 / 2.15).
 - **لا يزال ناقصًا:** E2E Playwright، contract diff الحقيقي مقابل API يعمل، HTTP regression للمسارات المالية legacy، lint، deploy job + rollback verification (مؤجلة إلى 2.5-b لأنها تحتاج أسرار host/staging).
 - **أول تشغيل على GitHub لم يُتحقق منه بعد** — كل الخطوات الجديدة تحتاج run فعلي على runner.

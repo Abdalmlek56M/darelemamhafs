@@ -19,7 +19,7 @@
 8. `docs/04-engineering-standards.md`
 9. `docs/06-operations.md`
 10. `docs/08-testing.md`
-11. `docs/adr/*` — القرارات الملزمة (0001–0008).
+11. `docs/adr/*` — القرارات الملزمة (الفهرس: `docs/adr/README.md`).
 12. آخر ملف في `docs/checkpoints/`.
 
 `docs/05-roadmap.md` مرجع تاريخي لمراحل سابقة. `docs/07-gap-audit.md` و`docs/10-code-review.md` سجلات تاريخية وليست قوائم مهام حالية. `docs/24`/`docs/25` تخطيط مستقبلي (لا تنفيذ).
@@ -48,7 +48,7 @@
 **Backend:** .NET 10 / ASP.NET Core minimal API + Npgsql + Dapper
 **Hardening plan:** [docs/23-hardening-plan.md](docs/23-hardening-plan.md) وسجل التنفيذ [docs/OVERNIGHT-REPORT.md](docs/OVERNIGHT-REPORT.md)
 **Frontend:** React 19 + Vite + TypeScript — **نهائي**؛ قرار Next.js ملغي (ADR-0001).
-**Database:** PostgreSQL 17+ على نفس السيرفر — **40 migration في المستودع (001→040)**
+**Database:** PostgreSQL 17+ على نفس السيرفر — **42 migration في المستودع (001→041؛ 039 مقسمة 039a/039b)**
 **Auth:** Email OTP + Google (Google deferred)؛ كلمة مرور/جلسة مؤقتة الآن، بدون SMS؛ قفل تدريجي لكل حساب + rate limit 5/min.
 **Language:** عربي فقط الآن (RTL)؛ الإنجليزية مؤجلة (ADR-0004).
 **Deploy:** Ubuntu 24.04 + Nginx + Certbot + systemd + host PostgreSQL 17 + Cloudflare DNS (Docker/Caddy stack متقاعد وملفاته حُذفت من الريبو).
@@ -226,7 +226,7 @@ Rules:
 | `docs/18`–`docs/22` | Meet: الخطة/التشغيل/التسليم/الصوت/منصة LiveKit |
 | `docs/24-mobile-app-plan.md` | تخطيط تطبيق موبايل (بلا تنفيذ) |
 | `docs/25-meetings-capacity-plan.md` | تخطيط سعة LiveKit (بلا تنفيذ) |
-| `docs/adr/0001`–`0008` | القرارات الملزمة (واجهة/مالية/خزنة/لغة/void/Meet cookie) |
+| `docs/adr/` | القرارات الملزمة + الفهرس (`README.md`: الملفات الحالية وقرارات S-1 بلا ADR) |
 | `docs/checkpoints/*.md` | Done / Remaining / Decisions |
 | `docs/checkpoints/README.md` | Ordered checkpoint index and next steps |
 | `docs/runbooks/*.md` | runbooks تشغيلية (asset retention) |
@@ -354,7 +354,7 @@ Date: DD Mon YYYY
 
 ## Current hardening state (Nov 2026)
 
-- Repo `main` includes the hardening work: Tier 0/1، **Z1 splits مكتملة** (AuthEndpoints/SystemAdminEndpoints/Requests/MeetCalendarRepository/MeetBotJobRepository/teacherTypes/TeacherApp/useDarApplication)، Z2 server-authoritative money، Tier 2 (037/038/retention/2.15)، B7/ADR-0008، B10، UI fixes. Migration files are now **001→040** (`database/` is the source of truth).
+- Repo `main` includes the hardening work: Tier 0/1، **Z1 splits مكتملة** (AuthEndpoints/SystemAdminEndpoints/Requests/MeetCalendarRepository/MeetBotJobRepository/teacherTypes/TeacherApp/useDarApplication)، Z2 server-authoritative money، Tier 2 (037/038/retention/2.15)، B7/ADR-0008، B10، UI fixes. Migration files are now **001→041** — 42 files, with 039 split into `039a_…` + `039b_…` (`database/` is the source of truth).
 - Plan and decisions: [docs/23-hardening-plan.md](docs/23-hardening-plan.md)، [docs/OVERNIGHT-REPORT.md](docs/OVERNIGHT-REPORT.md)، [docs/03-security.md](docs/03-security.md).
 - **Production is not the same as `main`:** no deploy was performed during the hardening sessions (production is `a823b32`/ledger 26). Check the deployed SHA/backups before claiming any production behaviour.
 - **REMAINING:** Z2 audit-insert/permission dedup، Tier 3 (frontend/CSS/UI)، staging redeploy from `main`، production deploy + rollback rehearsal، E2E/contract (2.5-b). The live domain is configured only through `DAR_DOMAIN` in `deploy/.env` and must not be committed.

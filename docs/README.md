@@ -1,27 +1,29 @@
 # RIGX Dar — Documentation Index
 
-> ابدأ من `deepseek.md` في جذر المشروع، ثم هذا الفهرس. **مصدر الحقيقة للحالة الحالية هو `docs/00-current-state.md`، وللخطة `docs/17-master-plan.md`، ولسجل التحصين الجاري `docs/OVERNIGHT-REPORT.md`.**
-> قاعدة: الوثيقة الأحدث لا تُلغي الوثيقة الأصح — أي تعارض يُحل بالرجوع إلى `docs/00-current-state.md` ثم `docs/17-master-plan.md`، وقواعد التشغيل في `docs/WORKFLOW.md` ملزمة.
+> ابدأ من `deepseek.md` في جذر المشروع، ثم هذا الفهرس. **الوكلاء يقرأون [`../AGENTS.md`](../AGENTS.md) أولًا** (قواعد إلزامية: بيانات الإنتاج/الترحيلات/الأسرار/حدود الملفات/التحقق). **مصدر الحقيقة للحالة الحالية هو `docs/00-current-state.md`، ولفهرس الخطة `docs/17-master-plan.md`، ولتفاصيل التحصين `docs/23-hardening-plan.md`، ولسجل التنفيذ `docs/OVERNIGHT-REPORT.md`.**
+> قاعدة: الوثيقة الأحدث لا تُلغي الوثيقة الأصح — أي تعارض يُحل بالرجوع إلى `docs/00-current-state.md` ثم `docs/17-master-plan.md`، وقواعد التشغيل في `docs/WORKFLOW.md` ملزمة. قرارات S-1 بلا ADR وفهرس القرارات في `docs/adr/README.md`.
 
 ---
 
 ## Reading Order
 
-1. [`../deepseek.md`](../deepseek.md) — تعليمات التشغيل والقراءة الأولى.
-2. [`00-current-state.md`](00-current-state.md) — **الحالة الآن** (Stack، المسارات، الوضع المالي، الاختبارات).
-3. [`17-master-plan.md`](17-master-plan.md) — **الخطة الثابتة المعتمدة** وترتيب المراحل.
-4. [`23-hardening-plan.md`](23-hardening-plan.md) — خطة التحصين الجارية (Tier 0/1/2 + Z) وترتيبها.
-5. [`OVERNIGHT-REPORT.md`](OVERNIGHT-REPORT.md) — سجل تنفيذ التحصين (Done/PARTIAL/BLOCKED/NOT VERIFIED).
-6. [`WORKFLOW.md`](WORKFLOW.md) — قواعد التشغيل الإلزامية (Process Safety حادثة 24 Nov + نشر).
-7. [`01-business.md`](01-business.md) — المجال، الأدوار، القواعد المالية المعتمدة.
-8. [`02-architecture.md`](02-architecture.md) — الحالة والهدف المعماري (React+Vite نهائي).
-9. [`03-security.md`](03-security.md) — الأمان والصلاحيات.
-10. [`04-engineering-standards.md`](04-engineering-standards.md) — معايير الكود.
-11. [`06-operations.md`](06-operations.md) — التشغيل والنشر والنسخ.
-12. [`08-testing.md`](08-testing.md) — الاختبارات وعزلها.
-13. [`11-deployment.md`](11-deployment.md) — النشر الفعلي على الـhost؛ [`staging-environment.md`](staging-environment.md) — بيئة staging.
-14. [`adr/`](adr/) — القرارات الملزمة (0001–0008).
-15. آخر ملف في [`checkpoints/`](checkpoints/).
+1. [`../AGENTS.md`](../AGENTS.md) — قواعد الوكلاء الملزمة (بيانات الإنتاج، الأسرار، الملفات، الاختبارات، الأوامر).
+2. [`../deepseek.md`](../deepseek.md) — تعليمات التشغيل والقراءة الأولى.
+3. [`00-current-state.md`](00-current-state.md) — **الحالة الآن** (Stack، المسارات، الوضع المالي، الاختبارات).
+4. [`17-master-plan.md`](17-master-plan.md) — **فهرس الخطة** (ترتيب المراحل المعتمد + القرارات D1–D9 + خريطة الوثائق).
+5. [`23-hardening-plan.md`](23-hardening-plan.md) — **تفاصيل خطة التحصين** (Tier 0/1/2 + Z، وبنود P/Q/S)؛ الحالة والأدلة في `OVERNIGHT-REPORT.md`.
+6. [`OVERNIGHT-REPORT.md`](OVERNIGHT-REPORT.md) — سجل تنفيذ التحصين الوحيد (Done/PARTIAL/BLOCKED/NOT VERIFIED).
+7. [`WORKFLOW.md`](WORKFLOW.md) — قواعد التشغيل الإلزامية (Process Safety حادثة 24 Nov + نشر).
+8. [`01-business.md`](01-business.md) — المجال، الأدوار، القواعد المالية المعتمدة.
+9. [`02-architecture.md`](02-architecture.md) — الحالة والهدف المعماري (React+Vite نهائي).
+10. [`03-security.md`](03-security.md) — الأمان والصلاحيات.
+11. [`04-engineering-standards.md`](04-engineering-standards.md) — معايير الكود.
+12. [`06-operations.md`](06-operations.md) — التشغيل والنشر والنسخ؛ [`runbooks/`](runbooks/) — إجراءات deploy/rollback/backup-restore/incident.
+13. [`08-testing.md`](08-testing.md) — الاختبارات وعزلها.
+14. [`11-deployment.md`](11-deployment.md) — النشر الفعلي على الـhost؛ [`staging-environment.md`](staging-environment.md) — بيئة staging.
+15. [`naming.md`](naming.md) — أسماء الريبو/النشر/الخدمات/قواعد البيانات (production vs staging vs disposable).
+16. [`adr/`](adr/) — القرارات الملزمة (كل ملفات `adr/NNNN-*.md`) وفهرس القرارات بلا ADR: [`adr/README.md`](adr/README.md).
+17. آخر ملف في [`checkpoints/`](checkpoints/).
 
 ---
 
@@ -29,10 +31,12 @@
 
 | File | Purpose | Status |
 |---|---|---|
+| [`../AGENTS.md`](../AGENTS.md) | قواعد الوكلاء الملزمة (الإنتاج/الترحيلات/الأسرار/الملفات/الأوامر/التحقق) — اقرأها أولًا | 🟢 إلزامي |
 | `00-current-state.md` | الحالة الحالية الموثقة (مصدر الحقيقة) | 🟢 حيّ — محدّث 27 Nov 2026 |
-| `17-master-plan.md` | الخطة الثابتة والمراحل والقرارات | 🟢 حيّ — معتمد 22 Nov 2026 |
-| `23-hardening-plan.md` | خطة التحصين (Tier 0/1/2 + Z) | 🟢 حيّ — سجل التنفيذ في `OVERNIGHT-REPORT.md` |
-| `OVERNIGHT-REPORT.md` | سجل تنفيذ التحصين خطوة بخطوة | 🟢 حيّ |
+| `17-master-plan.md` | **فهرس الخطة**: ترتيب المراحل المعتمد + القرارات D1–D9 + خريطة مصادر الحالة | 🟢 حيّ — معتمد 22 Nov 2026 |
+| `23-hardening-plan.md` | **تفاصيل خطة التحصين** (Tier 0/1/2 + Z، وبنود P/Q/S)؛ الحالة في `OVERNIGHT-REPORT.md` | 🟢 حيّ — جرد 24 Nov مجمّد |
+| `OVERNIGHT-REPORT.md` | سجل تنفيذ التحصين خطوة بخطوة (المصدر الوحيد للحالة/الأدلة/NOT VERIFIED) | 🟢 حيّ |
+| `naming.md` | أسماء الريبو/النشر/الخدمات/قواعد البيانات: production vs staging vs disposable + placeholders | 🟢 جديد — 27 Nov 2026 |
 | `WORKFLOW.md` | Process Safety + قواعد النشر/الحوادث | 🟢 إلزامي |
 | `01-business.md` | المجال، الأدوار، القواعد المالية | 🟢 محدّث 22 Nov 2026 |
 | `02-architecture.md` | الحالة والهدف المعماري | 🟢 محدّث 27 Nov 2026 |
@@ -57,9 +61,9 @@
 | `22-inhouse-meetings-design.md` | تصميم منصة اجتماعات داخلية + قرار/خطة | 📝 مقترحة — بانتظار قرار المالك |
 | `24-mobile-app-plan.md` | تخطيط تطبيق موبايل (Google Play/App Store) | 📋 تخطيط مستقبلي — لا تنفيذ |
 | `25-meetings-capacity-plan.md` | تخطيط سعة اجتماعات LiveKit/WebRTC | 📋 تخطيط هندسي — لا تنفيذ |
-| `adr/` | ADRs (0001–0008) | 🟢 حيّ |
+| `adr/` | القرارات الملزمة (كل ملفات `NNNN-*.md`)؛ الفهرس الموحّد + قرارات S-1 بلا ADR في `adr/README.md` | 🟢 حيّ |
 | `audits/` | تقارير تدقيق (تداخل المواعيد، تجاوب الموبايل) | 🟢 جديد |
-| `runbooks/` | runbooks التشغيل (مثل `asset-retention.md`) | 🟢 حيّ |
+| `runbooks/` | إجراءات التشغيل: [README](runbooks/README.md) — deploy / rollback (+ `rollback-db`) / backup-restore / incident-response / db-roles-and-tuning / livekit-m0 / asset-retention | 🟢 حيّ — 27 Nov 2026 |
 | `checkpoints/` | سجل Done/Remaining/Decisions لكل خطوة | 🟢 حيّ (سجلات تاريخية) |
 | `samples/` | نماذج PDF/تقارير | 🟡 مرجعي |
 
@@ -73,7 +77,7 @@
 - **`main`:** دفعات التحصين (Tier 0/1، Z1 splits، Z2، Tier 2، B7/B10/UI) مدموجة؛ التفاصيل في `docs/OVERNIGHT-REPORT.md`.
 - **الواجهة:** React 19 + Vite (نهائي) — `/`، `/management`، `/teacher`، `/supervisor`؛ **31 ملف / 89 اختبار Vitest** (Testing Library + jsdom).
 - **Backend:** legacy API (كل الدومين) + new API `/api/v1` (Identity + Secretariat + Teaching + Meet)؛ unit + integration (Testcontainers).
-- **الترحيلات:** **40** في المستودع (001→040؛ 039/040 في دفعة batch 2)؛ الإنتاج على 26 حتى النشر القادم.
+- **الترحيلات:** **42** في المستودع (001→041؛ 039 مقسمة 039a/039b؛ 041 أحدث ملف)؛ الإنتاج على 26 حتى النشر القادم.
 - **staging:** موجود على نفس الـhost (منفصل DB/مجلدات/منافذ/vhost + IP allow-list؛ تفاصيل في `staging-environment.md`).
 - **التالي:** نشر دفعة التحصين إلى staging ثم الإنتاج (بموافقة المالك)؛ Z2 dedup المتبقي؛ Tier 3؛ E2E contract.
 - **مؤجل بقرار المالك:** الإنجليزية، القيد المزدوج، مسير/قسائم الرواتب، خصومات/خطط رسوم، إيصالات مرقّمة، بوابة ولي الأمر، تطبيق الموبايل (24)، منصة LiveKit (22/25).
@@ -82,8 +86,10 @@
 
 ## Rules
 
-- الحالة الحالية الموثقة في `docs/00`؛ الخطة في `docs/17`؛ التحصين في `docs/23` + `docs/OVERNIGHT-REPORT.md`؛ لا تخترع قرارًا.
-- الوثائق الأحدث تُحدّث مع كل checkpoint.
-- لا أسرار في الوثائق (لا domain/IP/server/DB حقيقي).
-- كل قاعدة مالية = كود + اختبار + وثيقة (ADR عند التغيير).
+- الحالة الحالية الموثقة في `docs/00`؛ فهرس الخطة في `docs/17`؛ تفاصيل التحصين في `docs/23` وسجل الحالة الوحيد في `docs/OVERNIGHT-REPORT.md`؛ لا تخترع قرارًا.
+- **عدّاد الترحيلات له مصدر واحد:** العدد الحقيقي = عدد ملفات `database/*.sql`، ويُذكر فقط في `README.md` و`docs/00-current-state.md` (يرفض CI أي اختلاف: `tests/regression/docs-migration-count/run.mjs`). لا تكرر العدد في وثائق أخرى.
+- الوثائق الأحدث تُحدّث مع كل checkpoint. أي قرار معماري = ADR في `docs/adr/` + صف في `docs/adr/README.md` (والقرارات بلا ADR تُسجَّل هناك بحالة `needs owner confirmation` إن لم يكن قرار المالك موثقًا).
+- لا أسرار في الوثائق (لا domain/IP/server/DB حقيقي) — القواعد في `docs/03-security.md` §19 و`docs/naming.md`؛ الـplaceholders فقط.
+- كل قاعدة مالية = كود + اختبار + وثيقة (ADR عند التغيير)؛ أي تعديل مالي (مثل أجر صفر الدقائق 27 Nov 2026) يوثّق أثره على المبالغ المخزنة سابقًا.
+- كل نشر/rollback/استرجاع/حادثة يتبع `docs/runbooks/` — لا إجراء من الذاكرة.
 - العربية هي لغة المنتج والتوثيق الحالية؛ الإنجليزية مؤجلة.

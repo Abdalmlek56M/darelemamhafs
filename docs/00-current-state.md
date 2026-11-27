@@ -22,7 +22,7 @@
 | الواجهة | **React 19 + Vite + TypeScript** + CSS tokens + framer-motion — **لا Next.js** (القرار ملغي نهائيًا، ADR-0001) |
 | Backend (قديم) | ASP.NET Core 10 Minimal API — `backend/DarEltahfeez.Api` على 5080 (يخدم الـSPA + كل الـdomain APIs) |
 | Backend (جديد) | `Dar.slnx`: `src/Host/Dar.Api` على 5081 — `/api/v1/*` (Identity + Secretariat + Teaching + Meet) |
-| قاعدة البيانات | PostgreSQL 17 — `public` schema — **40 migration في المستودع (001→040؛ 039/040 في دفعة batch 2)**؛ **الإنتاج على 26/26** حتى النشر القادم |
+| قاعدة البيانات | PostgreSQL 17 — `public` schema — **42 migration في المستودع (001→041؛ 039 مقسمة 039a/039b؛ 041 أحدث ملف)**؛ **الإنتاج على 26/26** حتى النشر القادم |
 | النشر | Ubuntu 24.04 + Nginx + Certbot + systemd + منافذ داخلية 5080/5081؛ staging منفصل على نفس الـhost (`docs/staging-environment.md`) |
 | الاختبارات | backend unit + integration (Testcontainers) + 48 suite في `tests/run-regression.sh`؛ frontend **31 ملف / 89 اختبار Vitest** (Testing Library + jsdom) |
 | اللغة | العربية فقط الآن — الإنجليزية مؤجلة (ADR-0004) |
@@ -52,7 +52,7 @@
 | `backend/DarEltahfeez.Api/` | 77 ملف C# — 105 route mapping — كل الإدارة/المالية/الحضور/التقارير (partials بعد Z1) | لا يزال مصدر معظم الوظائف |
 | `src/Host/Dar.Api/` + `src/Modules/*` | 128 ملف C# — Identity/Secretariat/Teaching/**Meet** — 82 route mapping | هوست جديد + وحدات؛ Meet = تقويم Google + أحداث + نطاق تسجيل (3.1) |
 | `frontend/src/` | 180 ملف TS/TSX (82 ts + 98 tsx) — SPA واحدة تحمل admin + teacher + supervisor + home | admin: `App.tsx`/`SystemAdminView.tsx`/`pages/` + `meet/` — teacher/supervisor: `teacher/` |
-| `database/` | 40 ملف SQL مرتّب + ledger في `web_schema_migrations` | legacy `schema_migrations` متوقف عند 16 |
+| `database/` | 42 ملف SQL مرتّب + ledger في `web_schema_migrations` | legacy `schema_migrations` متوقف عند 16 |
 | `tests/` | UnitTests + IntegrationTests (Testcontainers) + `tests/regression` (node/bash، 48 suite) | PowerShell runners/catalog **أُزيلت** |
 | `deploy/` | Nginx/systemd/backup/setup/update scripts + `deploy/lib` (split قيد التنفيذ) | Docker/Caddy stack حُذف من الريبو (2.15) |
 | `services/meet-recorder/` | بوت التسجيل (Node 24 + TypeScript) — 26 ملف src | خدمة `dar-meet-bot` + `dar-meet.slice` (3.2) |
@@ -63,7 +63,7 @@
 ## 5. الوضع المالي الفعلي (بعد قرارات 22 Nov)
 
 - **استحقاق الطالبة:** `agreed_monthly_fee` المسجّل وقت الالتحاق — **لا pro-rata**، ولا تقريب لأقرب 5 جنيه.
-- **أجر المعلمة:** `hourly_rate_snapshot × payable_duration_minutes ÷ 60`، منزلتان عشريتان AwayFromZero — **لا تقريب 5 دقائق/5 جنيه**. القابل للدفع = scheduled عند بلوغ المدة، و= actual (بحد أدنى دقيقة) عند الانصراف المبكر؛ الوقت الإضافي يُسجّل ولا يُدفع آليًا.
+- **أجر المعلمة:** `hourly_rate_snapshot × payable_duration_minutes ÷ 60`، منزلتان عشريتان AwayFromZero — **لا تقريب 5 دقائق/5 جنيه**. القابل للدفع = scheduled عند بلوغ المدة، و= actual عند الانصراف المبكر؛ **صفر دقيقة فعلية = صفر أجر (لا حد أدنى دقيقة — تعديل المالك 27 Nov 2026)**؛ الوقت الإضافي يُسجّل ولا يُدفع آليًا. المبالغ المخزنة/المعتمدة سابقًا في الإنتاج **لم يُعَد حسابها** بهذا التعديل.
 - **الإلغاء/البديلة/التأخير/التعويض:** غير منفّذة — قواعد مؤجلة تحتاج قرار مالك.
 - **الحذف المالي:** ممنوع — **Reverse/Void منفّذ (Phase 2.3، migration 024، ADR-0005)**: `voided_at/by/reason` على الاستحقاقات والدفعات + `finance.void` + Audit + استبعاد الملغي من كل المجاميع مع بقائه ظاهرًا في سجل الطالب. نقل السجلات المالية للـtrash ممنوع (409).
 - **الخزنة:** مصروفات + دفعات/استحقاقات فقط حاليًا؛ الإيرادات وتقفيل الشهر يُنفّذان في Phase 2.6. لا قيد مزدوج (مؤجل).
@@ -103,7 +103,7 @@
 3. `docs/23-hardening-plan.md` + `docs/OVERNIGHT-REPORT.md` — خطة التحصين وسجل تنفيذها.
 4. `docs/WORKFLOW.md` — Process Safety وقواعد التشغيل/النشر.
 5. `docs/01-business.md` → `02-architecture` → `03-security` → `04-engineering-standards` → `06-operations` → `08-testing` → `11-deployment` → `staging-environment`.
-6. `docs/adr/*` — القرارات المعمارية والمالية الملزمة (0001–0008).
+6. `docs/adr/*` — القرارات المعمارية والمالية الملزمة (الفهرس: `docs/adr/README.md`).
 7. `docs/checkpoints/*` — سجل خطوة بخطوة. `docs/07-gap-audit.md` و`docs/10-code-review.md` **سجلات تاريخية** (15–16 Nov 2026) وليست قائمة مهام.
 8. `docs/16`, `docs/13`, `docs/14`, `docs/15` — مراجع نطاق ومتطلبات؛ `docs/24`/`docs/25` تخطيط مستقبلي (بلا تنفيذ).
 
@@ -125,7 +125,7 @@
 
 **مؤجل بقرار المالك:** الإنجليزية، القيد المزدوج، مسير/قسائم الرواتب، خصومات/خطط رسوم، إيصالات مرقّمة، بوابة ولي الأمر، تطبيق الموبايل (`docs/24`)، منصة LiveKit (`docs/22`/`docs/25`).
 
-**NOT VERIFIED:** لا نشر لأي من دفعات التحصين؛ production timers/migrations 034→040/Google/Telegram/SMTP/recorder لم تُجرّب إنتاجيًا — التفاصيل في `docs/OVERNIGHT-REPORT.md`.
+**NOT VERIFIED:** لا نشر لأي من دفعات التحصين؛ production timers/migrations 034→041/Google/Telegram/SMTP/recorder لم تُجرّب إنتاجيًا — التفاصيل في `docs/OVERNIGHT-REPORT.md`.
 
 ## 10. قواعد ثابتة
 
@@ -199,7 +199,7 @@
 - **الإنتاج متأخر عن `main`** — النشر يحتاج موافقة المالك ونافذة + backup، وممنوع `git pull + restart` المباشر.
 - **Google OAuth كان في Testing** (22 Nov) → التوكن ينتهي بعد 7 أيام؛ إن لم يُحدَّث الوضع، إعادة الربط مطلوبة قبل التسجيل الإنتاجي.
 - **بيئة التحقق المحلية محدودة:** `dotnet test` (testhost `Win32Exception 5`)، Docker/Testcontainers، esbuild أحيانًا — الحكم CI أو جهاز غير مقيّد.
-- **NOT VERIFIED:** كل ما لم يُنشر: production timers، migrations 034→040، retention الحقيقي، Google/Telegram/SMTP/recorder الحي.
+- **NOT VERIFIED:** كل ما لم يُنشر: production timers، migrations 034→041، retention الحقيقي، Google/Telegram/SMTP/recorder الحي.
 
 ### للاستئناف
 1. اقرأ `docs/OVERNIGHT-REPORT.md` (FINAL continuation) + `docs/23-hardening-plan.md` ثم قرر نشر الدفعة.

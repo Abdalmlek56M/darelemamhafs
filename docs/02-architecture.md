@@ -3,7 +3,7 @@
 **Status:** Current state (27 Nov 2026 — after hardening batch) + architectural principles.
 **Scope:** Shape, modules, data, API, frontend, deployment, decisions.
 **Source of truth:** `docs/00-current-state.md` — يحدد الحالة الآن. هذا الملف يشرح **الشكل والسبب**؛ وأي تعارض يُحسم لصالح `docs/00`.
-**Related:** `docs/17-master-plan.md` (الخطة)، `docs/23-hardening-plan.md` + `docs/OVERNIGHT-REPORT.md` (التحصين)، `docs/adr/*` (0001–0008).
+**Related:** `docs/17-master-plan.md` (الخطة)، `docs/23-hardening-plan.md` + `docs/OVERNIGHT-REPORT.md` (التحصين)، `docs/adr/*` (الفهرس: `docs/adr/README.md`).
 
 ---
 
@@ -17,7 +17,7 @@ backend/DarEltahfeez.Api  ASP.NET Core 10 minimal API — legacy domain/admin AP
 src/Host/Dar.Api          ASP.NET Core 10 minimal API — /api/v1 on 5081 (composition root)
 src/Modules/*             Identity + Secretariat + Teaching + Meet (128 C# files)
 src/Common/*              AppException, PagedResult, Money, PermissionCodes, Messages
-database/*.sql            40 SQL migrations (public schema), ledger = web_schema_migrations
+database/*.sql            42 SQL migrations (public schema), ledger = web_schema_migrations
 tests/                    xUnit Unit/Integration (Testcontainers) + node/bash regression suites
 services/meet-recorder/   Node 24 + Playwright bot (Xvfb/PulseAudio/FFmpeg) — separate systemd service
 PostgreSQL 17             host PostgreSQL on 127.0.0.1:5432
@@ -100,7 +100,7 @@ src/Modules/<Module>/
 
 - PostgreSQL 17+؛ one database، **one `public` schema**؛ module boundaries in code.
 - **Npgsql + Dapper** (لا EF Core): الـSQL الحالي هو السلوك المُثبت؛ إعادة كتابة EF = مخاطرة بلا قيمة.
-- SQL migrations هي المصدر المرتّب: **40 ملفًا (001→040)** في `database/` — 039 (`enrollment_status_history` + trigger بدل قراءة audit_log) و040 (pg_trgm GIN indexes للبحث) في دفعة batch 2؛ **الإنتاج متأخر على 26/26** حتى النشر القادم.
+- SQL migrations هي المصدر المرتّب: **42 ملفًا (001→041)** في `database/` — 039 مقسمة `039a_enrollment_status_history_table` + `039b_enrollment_status_history_backfill`، و040 (pg_trgm GIN indexes للبحث)، و041 (blob file storage) أحدث ملف؛ **الإنتاج متأخر على 26/26** حتى النشر القادم.
 - `MigrationRunner` (`dotnet run --project src/Host/Dar.Api -- --migrate`) هو المسؤول الوحيد: checksums + advisory lock + تبنّي ledger القديم.
 - `web_schema_migrations` هو الـledger الفعلي؛ `schema_migrations` القديم متوقف عند 16؛ `DatabaseInitializer` القديم مقيّد بـDevelopment فقط (إزالته ضمن التنظيف 2.8).
 - Do **not** auto-apply migrations in Production؛ backup قبل أي migration إنتاجية.
@@ -361,7 +361,7 @@ systemd timers: dar-backup, dar-healthcheck, dar-restore-drill, certbot
 | Frontend | React 19 + Vite SPA واحدة + lazy pages/manualChunks؛ 82 ts + 98 tsx؛ **89 Vitest** |
 | Backend (legacy) | `backend/DarEltahfeez.Api` — 77 ملف C#، **105 route mapping** على 5080، يخدم الـSPA + كل الدومين/الإدارة/المالية |
 | Backend (new) | `src/` — 128 ملف C#، **82 route mapping** على 5081: Identity + Secretariat + Teaching + Meet |
-| Database | PostgreSQL 17 — **40 migration** (001→040)؛ الإنتاج 26/26؛ ledger `web_schema_migrations`؛ `schema_migrations` متوقف عند 16 |
+| Database | PostgreSQL 17 — **42 migration** (001→041)؛ الإنتاج 26/26؛ ledger `web_schema_migrations`؛ `schema_migrations` متوقف عند 16 |
 | Auth | password + cookie sessions على الـhostين (ADR-0006/0008)؛ lockout لكل حساب + rate limit 5/min؛ OTP path جاهز، Google مؤجل |
 | Tests | backend unit + integration (Testcontainers) + SQL/node regression في CI؛ frontend 31 ملف/89؛ لا Contract/Playwright |
 | CI | 6 jobs في `.github/workflows/ci.yml`؛ لا deploy/rollback؛ أول run غير متحقق |
@@ -371,7 +371,7 @@ systemd timers: dar-backup, dar-healthcheck, dar-restore-drill, certbot
 **Legacy tables (25):**
 `app_users`, `roles`, `permissions`, `role_permissions`, `user_roles`, `user_permissions`, `students`, `teachers`, `circles`, `circle_enrollments`, `monthly_charges`, `payments`, `student_notes`, `teacher_notes`, `circle_schedule_slots`, `teacher_attendance`, `student_attendance`, `advertising_expenses`, `operating_expenses`, `school_settings`, `audit_log`, `trash_items`, `system_backups`, `collection_reports`, `schema_migrations`.
 
-**Note:** `roles`, `role_permissions`, `user_roles` موجودة لكن الـlegacy API يستخدم `user_permissions` مباشرة؛ role templates = seed فقط. **الجداول الجديدة** (Meet 8 جداول + `notifications` + `notification_reads` + `attendance_requests` + `communication_log` + `payroll_locks` + `meet_oauth_states` + ...) تُدار من migrations 017→040.
+**Note:** `roles`, `role_permissions`, `user_roles` موجودة لكن الـlegacy API يستخدم `user_permissions` مباشرة؛ role templates = seed فقط. **الجداول الجديدة** (Meet 8 جداول + `notifications` + `notification_reads` + `attendance_requests` + `communication_log` + `payroll_locks` + `meet_oauth_states` + ...) تُدار من migrations 017→041.
 
 ---
 
@@ -396,5 +396,4 @@ systemd timers: dar-backup, dar-healthcheck, dar-restore-drill, certbot
 4. أولوية الإيصالات المرقّمة / مسير الرواتب / خصومات وخطط رسوم (backlog — بعد 2.6).
 5. بوابة ولي الأمر/الطالبة — خارج العام الأول.
 6. أكثر من فرع؟ / بيانات Excel/ورق قديمة تحتاج استيراد؟
-7. نشر دفعة التحصين إلى staging ثم الإنتاج (بموافقة المالك) + rehearsal rollback.
-8. Turnstile: تفعيل مفاتيح Cloudflare (الكود جاهز) + step-up scope.
+7. نشر دفعة التحصين إلى staging ثم الإنتاج (بموافقة المالك) + rehearsal rollback؛ Turnstile: تفعيل مفاتيح Cloudflare (الكود جاهز) + step-up scope.

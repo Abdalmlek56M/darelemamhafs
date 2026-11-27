@@ -89,6 +89,8 @@ Routing:
 ## 5. Nginx + TLS
 
 - Site file: /etc/nginx/sites-available/dar-elemam-hafs (يُولَّد من deploy/setup-nginx.sh — **مصدر الحقيقة**، مطابق لـdeploy/nginx/dar-elemam-hafs.conf).
+- Rate limiting (FINAL 2.13): zones في `deploy/nginx/00-dar-ratelimit.conf` تُثبَّت إلى `/etc/nginx/conf.d/00-dar-ratelimit.conf` عبر setup-nginx.sh — `dar_auth` لـ`/api/auth/` (5r/m burst=10)، `dar_api` لـ`/api/v1/`، `dar_general` لبقية الموقع؛ `limit_req_status 429`.
+- gzip مضبوط في server block (JSON/JS/CSS، `gzip_min_length 256`، level 5) داخل setup-nginx.sh والملف المرجعي.
 - client_max_body_size 12m؛ proxy_buffer_size 32k / proxy_buffers 8 32k / proxy_busy_buffers_size 64k؛ proxy_read_timeout 120s/180s؛ server_tokens off.
 - Security headers على مستوى Nginx: HSTS (TLS فقط)، X-Content-Type-Options، Referrer-Policy، X-Frame-Options: DENY، Permissions-Policy.
 - X-Forwarded-Proto https صريح لأن Cloudflare يُنهي TLS.
@@ -145,15 +147,27 @@ Routing:
     sudo bash deploy/update.sh --dry-run    # اطبع الخطة بدون أي تغيير
     sudo bash deploy/update.sh              # التنفيذ الكامل
 
-الترتيب الثابت: preflight → **نسخة DB إلزامية** (pg_dump -Fc + pg_restore --list + sha256) → git pull --ff-only → build (npm ci + npm run build + dotnet publish للاثنين + dist→wwwroot) → migrations (--migrate بـProduction) → تحقق عدد web_schema_migrations = عدد database/*.sql → stop services → swap إلى /opt/dar/app/*.old.<stamp> → start + readiness → **smoke سبع نقاط** (/health/ready 5080/5081، /، /management، /teacher، /supervisor، /api/v1/ping) → عند أي فشل: **rollback تلقائي للبيناريز** (قاعدة البيانات لا تُرجع تلقائيًا — migrations إضافية فقط) → retention (آخر 5 نسخ app + 30 يوم dumps) → state في /var/lib/dar/deploy/last-deploy.env + log في /var/log/dar/update-<stamp>.log.
-خيارات: --skip-build (إعادة استخدام legacy.new/api.new من محاولة متوقفة)، --allow-stopped-services (أول نشر فقط).
+الترتيب الثابت (FINAL 2.8): **flock واحد** (نشر متزامن واحد فقط عبر `/var/lib/dar/deploy/update.lock`) → preflight → **نسخة DB إلزامية** (pg_dump -Fc + pg_restore --list + sha256) → git pull --ff-only → **CI/quality gate** (`bash -n` لكل سكربتات deploy + `node --check` + suites `tier2-deploy`/`backup-source`/`repo-secrets`؛ يُتخطّى فقط بـ`--skip-quality-gate` ويُسجَّل في last-deploy.env) → build (npm ci + npm run build + dotnet publish للاثنين + dist→wwwroot، و**meet-bot** يُبنى إلى `/opt/dar-meet-bot.new` إن كان مثبَّتًا) → migrations (--migrate بـProduction) → تحقق عدد web_schema_migrations = عدد database/*.sql → stop services → swap إلى /opt/dar/app/*.old.<stamp> (و`/opt/dar-meet-bot.old.<stamp>`) → start + readiness + انتظار بقاء dar-meet-bot active → **smoke سبع نقاط** (/health/ready 5080/5081، /، /management، /teacher، /supervisor، /api/v1/ping) → **login حقيقي + قراءة مالية واحدة** من `/etc/dar/smoke.env` (لا تُطبع الأسرار؛ يُتخطّى بتحذير إن لم توجد، ورفض الاعتماد ليس فشلًا إلا مع `DAR_SMOKE_STRICT=1`) → عند أي فشل: **rollback تلقائي للبيناريز + البوت** (قاعدة البيانات لا تُرجع تلقائيًا) → retention (آخر 5 نسخ app/bot + 30 يوم dumps) → state في /var/lib/dar/deploy/last-deploy.env + log في /var/log/dar/update-<stamp>.log.
+خيارات: --skip-build (إعادة استخدام legacy.new/api.new/بوت من محاولة متوقفة)، --allow-stopped-services (أول نشر فقط)، --skip-quality-gate (طوارئ موثَّقة فقط).
+**livekit ليس جزءًا من update.sh** ولا يُثبَّت تلقائيًا (راجع القسم 11).
 
-### 7.3 Rollback (طوارئ — binaries فقط)
+### 7.3 Rollback (طوارئ)
+
+**أ) بيناريز فقط (الافتراضي — لا يلمس قاعدة البيانات):**
 
     sudo bash deploy/rollback.sh --list
     sudo bash deploy/rollback.sh <stamp>
 
-لا يلمس قاعدة البيانات. لو فشل smoke بعد rollback يعيد البيناريز الحالية تلقائيًا. لو فشل تحديث **بعد** تطبيق migration غير متوافق: استخدم update.sh لإصلاح أمامي، أو استعد نسخة ما قبل النشر يدويًا (بموافقة + قاعدة جديدة — القسم 3 / setup-host-db).
+لا يلمس قاعدة البيانات. لو فشل smoke بعد rollback يعيد البيناريز الحالية تلقائيًا.
+
+**ب) قاعدة البيانات (يدوي بالكامل، لا يعمل تلقائيًا أبدًا — FINAL 2.9):**
+
+    sudo bash deploy/rollback-db.sh --list
+    sudo bash deploy/rollback-db.sh --backup /var/lib/dar/backups/db/dar-pre-deploy-<stamp>.dump
+    sudo bash deploy/rollback-db.sh --backup /var/lib/dar/backups/db/dar-pre-deploy-<stamp>.dump --confirm
+    sudo bash deploy/rollback-db.sh --revert --confirm    # العودة لقاعدة ما قبل الـrollback
+
+يسترجع dump ما قبل النشر في **قاعدة جديدة** `dar_rollback_<stamp>`، يتحقق من العدّادات والـledger، ينسخ `/etc/dar/*.env` إلى `/var/backups/dar-config/` ثم يوجّه `Database=`/`PGDATABASE=` للقاعدة الجديدة، يعيد تشغيل dar-legacy + dar-api (+ dar-meet-bot إن وُجد) وينتظر `/health/ready`. القاعدة الحيّة **لا تُسترجع فوقها ولا تُحذف ولا تُعاد تسميتها**؛ عند فشل إعادة التشغيل تُستعاد env تلقائيًا. تفاصيل البوابة والتحقق والرجوع: `docs/runbooks/rollback-db.md`.
 
 ### 7.4 Status / Logs / Restart
 
@@ -167,12 +181,12 @@ Routing:
     sudo systemctl restart dar-legacy dar-api
     sudo systemctl reload nginx
 
-### 7.5 Healthcheck (جديد)
+### 7.5 Healthcheck
 
     sudo bash deploy/scripts/dar-healthcheck.sh           # نصي
-    sudo bash deploy/scripts/dar-healthcheck.sh --json    # للآلة
+    sudo bash deploy/scripts/dar-healthcheck.sh --json    # للآلة (JSON مبني بـjq)
 
-يفحص: خدمات systemd، /health/ready 5080/5081، /api/v1/ping، القرص >15%، عمر آخر backup <26h + وجود ملف الدمب، نتيجة آخر dar-backup.service، شهادة TLS >14 يوم، nginx -t. exit 0 = ok/warning، 1 = critical، 2 = usage. HEALTHCHECK_STRICT=1 يجعل التحذيرات فشلًا. dar-healthcheck.timer كل 6 ساعات + OnFailure من dar-backup.service.
+يفحص (FINAL 2.10): خدمات systemd، /health/ready 5080/5081، /api/v1/ping، **PostgreSQL مباشرة** (SELECT 1 + عدّاد web_schema_migrations ببيانات `/etc/dar/backup.env`)، business-integrity SQL، القرص >15%، عمر آخر backup <26h + وجود ملف الدمب، نتيجة آخر dar-backup.service، **حداثة النسخة البعيدة (offsite) من `.offsite.status/finished_at`**، شهادة TLS >14 يوم، nginx -t، **meet-bot** (dar-meet-bot.service إن كان مثبتًا؛ غير مثبَّت = ok)، و**LiveKit** (اختياري: auto فقط إن كان dar-livekit.service موجودًا). exit 0 = ok/warning، 1 = critical، 2 = usage؛ HEALTHCHECK_STRICT=1 يجعل التحذيرات فشلًا. الـlibs تُثبَّت إلى `/usr/local/lib/dar/healthcheck/`. التنبيهات: **Telegram opt-in** عبر `HEALTHCHECK_TELEGRAM_BOT_TOKEN` + `HEALTHCHECK_TELEGRAM_CHAT_ID` في `/etc/dar/healthcheck.env` (يُرسل عند warning/critical؛ التوكن لا يظهر في argv/output). `--json` يتطلب jq. dar-healthcheck.timer كل 6 ساعات + OnFailure من dar-backup.service.
 
 ### 7.6 Update from Git (الطريقة القديمة — أُلغيت)
 
@@ -239,3 +253,6 @@ Added to GitHub. /opt/dar is a Git checkout tracking origin/main:
 - **Teacher/supervisor/notification APIs** live (migration 017+، Dar.Modules.Teaching). Supervisor temp password: change + delete `/etc/dar/supervisor-initial-password` إن وُجد.
 - **Production E2E** غير موجود بعد (Phase 2.5/2.9)؛ كل smoke يدوي حاليًا.
 - **staging environment** منفصل على نفس الـhost — راجع `docs/staging-environment.md` (IP allow-list، plain HTTP، cookie nosecure shim).
+- **DB roles + PostgreSQL tuning (FINAL 2.13):** السكربتات والوثائق جاهزة في الريبو (`deploy/setup-host-db-roles.sh` + `deploy/sql/db-roles.sql` + `deploy/postgresql/dar-postgresql-tuning.conf` + `docs/runbooks/db-roles-and-tuning.md`) لكنها **لم تُطبَّق على أي host** — نشرها قرار مالك (owner action) بعد مراجعة الكوتا/الذاكرة.
+- **LiveKit M0 spike (FINAL 2.14):** المؤشِّر أصبح feature-flagged: التثبيت يتطلب `--enable-livekit-test`، التنزيل يتحقق من SHA-256 مثبَّت، صفحة الاختبار العامة `/live-test/` (CDN) لم تعد تُثبَّت/تُوجَّه افتراضيًا، وفتح/إغلاق منافذ 7881/7882 **إجراء مالك**. **BLOCKED** على الـlive host: إغلاق 7881/tcp + 7882/udp إن كانا مفتوحين من التجربة السابقة — راجع `docs/runbooks/livekit-m0.md`.
+- **Healthcheck/alerts:** التنبيه الخارجي الموجود الآن هو Telegram opt-in داخل healthcheck؛ لا Uptime Kuma/تنبيهات منفصلة بعد.

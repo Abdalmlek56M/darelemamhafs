@@ -1,10 +1,27 @@
-# RIGX Dar — Master Plan (Approved)
+# RIGX Dar — Master Plan (Approved) — Plan Index
 
 **Approved:** 22 Nov 2026 — المالك اعتمد القرارات وترتيب المراحل نهائيًا.
-**Status:** Active — هذا هو **الخطة الثابتة** الوحيدة لترتيب العمل. آخر تحديث: 27 Nov 2026.
+**Status:** Active — **هذا الملف هو فهرس الخطة الوحيد**: ترتيب المراحل المعتمد + القرارات المثبتة + روابط.
+**Role:** لا يُدار هنا عدّاد تقدّم ولا عدّاد ملفات/اختبارات. الحالة لكل بند في `docs/00-current-state.md` وسجل التنفيذ `docs/OVERNIGHT-REPORT.md`، وتفاصيل التحصين في `docs/23-hardening-plan.md`.
 **Rule:** لا تبدأ مرحلة قبل اعتماد التي قبلها (checkpoint مكتوب + build/tests + commit). أي تعديل على الترتيب أو القرارات يحتاج موافقة المالك + تحديث هذا الملف + ADR عند الحاجة.
 
-> 🔧 **مسار التحصين (24–27 Nov 2026):** المالك طلب دفعة أمان/جودة/قابلية توسع قبل استئناف 2.x. خطتها في `docs/23-hardening-plan.md` وسجل تنفيذها في `docs/OVERNIGHT-REPORT.md`؛ ما اكتمل منها (Tier 0/1، Z1 splits، Z2، Tier 2، B7/B10/UI، staging) لا يُعيد فتح مراحل أدناه، والباقي مذكور في `docs/OVERNIGHT-REPORT.md` (REMAINING/BLOCKED).
+> 🔧 **مسار التحصين (24–27 Nov 2026):** المالك طلب دفعة أمان/جودة/قابلية توسع قبل استئناف 2.x. خطة البنود وتفاصيلها في `docs/23-hardening-plan.md`، وسجل الحالة/الأدلة/NOT VERIFIED الوحيد في `docs/OVERNIGHT-REPORT.md`؛ ما اكتمل منها لا يُعيد فتح مراحل أدناه، والباقي مذكور في التقرير (REMAINING/BLOCKED).
+
+---
+
+## 0. Plan map — which document owns what
+
+| Topic | Single source | This file's role |
+|---|---|---|
+| الحالة الآن + أرقام المستودع (migrations/مصادر) + آخر نشر | `docs/00-current-state.md` (+ `README.md` للعدّ) | يشير فقط — لا يكرر الأرقام |
+| ترتيب المراحل المعتمد + القرارات D1–D9 | **هذا الملف** | ملكية كاملة |
+| تفاصيل التحصين (Tier 0/1/2 + Z، وبنود P/Q/S) | `docs/23-hardening-plan.md` | يرسل إليه، لا يكرر بنوده |
+| حالة كل بند تحصين + الأدلة + NOT VERIFIED | `docs/OVERNIGHT-REPORT.md` | يرسل إليه، لا يكرر الحالة |
+| القرارات المعمارية الملزمة + القرارات بلا ADR | `docs/adr/` (الفهرس: `docs/adr/README.md`) | يرسل إليه |
+| سجل كل خطوة منجزة | `docs/checkpoints/` | يرسل إليه |
+| Naming (repo/deploy/database) | `docs/naming.md` | يرسل إليه |
+
+**قاعدة العدّادات:** عدد الترحيلات الحقيقي = `database/*.sql`، ويُذكر فقط في `README.md` و`docs/00-current-state.md` (يفشل CI عند أي اختلاف: `tests/regression/docs-migration-count/run.mjs`). أعداد الاختبارات/الـsuites تُذكر في `docs/OVERNIGHT-REPORT.md` فقط. لا تُكرَّر هذه الأرقام في هذا الملف أو في `docs/23`.
 
 
 > المرجع السريع للحالة: `docs/00-current-state.md`. التفاصيل التاريخية: `docs/07-gap-audit.md` و`docs/10-code-review.md` (سجلات، ليست مهامًا).
@@ -135,3 +152,5 @@
 | 22 Nov 2026 | إصدار أول معتمد: قرارات D1–D8 + مراحل 2.0 → 2.9 + المؤجلات. |
 | 22 Nov 2026 | إضافة **Phase 3.0** (Meet Recording & Live) كمقترح بانتظار موافقة المالك — docs/18. |
 | 22 Nov 2026 | **اعتماد Phase 3.0** بقرارات المالك السبعة (docs/18 §9) وتنفيذ **3.0 + 3.1** (ADR-0006/0007، migration 026، وحدة Meet، واجهة التسجيل). التوقف قبل 3.2 لمراجعة المالك. |
+| 27 Nov 2026 | **فصل الأدوار:** هذا الملف صار **فهرس الخطة** (ترتيب + قرارات + روابط)؛ تفاصيل التحصين في `docs/23`، وسجل الحالة/الأدلة في `docs/OVERNIGHT-REPORT.md`، والفهرس الموحّد للقرارات (بما فيها قرارات S-1 بلا ADR) في `docs/adr/README.md`. لا تُكرَّر عدّادات الترحيلات/الاختبارات هنا. |
+

@@ -365,36 +365,30 @@ The retired Windows desktop tooling was the only home of some operational checks
 - **NOT VERIFIED:** production migrations 034→040، live retention timers، recorder/bot ضد Google/LiveKit حقيقي.
 ## 27. كوكي الأدمن النحيف (FINAL B7)
 
-- كوكي `DarEltahfeez.Admin` كانت تحمل claim لكل صلاحية: 65 صلاحية = `Set-Cookie` بحجم 4049
-  بايت (مجموع headers الرد 4645 بايت) وهذا تجاوز `proxy_buffer_size` الافتراضي (4 KB) في nginx
-  فظهر `upstream sent too big header` (502 للعميل) على `/api/setup/admin` و`/api/auth/login`
-  مع أن التطبيق سجّل 200 وأنشأ الصف. 200 صلاحية = 4 قطع chunk بحجم إجمالي 10881 بايت.
-- الحل (ADR-0008): `SlimAdminCookieTicketDataFormat` يحذف claims `permission` عند كتابة
-  الـticket فقط، و`AuthEndpoints.ValidatePrincipalAsync` يبني الـprincipal من
-  `user_permissions` في كل طلب (بدون `ShouldRenew`)؛ الـclaims تظل متاحة وقت الطلب لكل
-  `HasClaim("permission", …)` و`RequireAuthorization("code")`، والكوكيز القديمة تُفك وتُستبدل
-  صلاحياتها من الداتابيز ثم تصغر عند أول تجديد/دخول.
-- الأمان: لا تُخزَّن نسخة قديمة من الصلاحيات في المتصفح، وسحب الصلاحية يسري من الطلب التالي؛
-  `session_version` يظل في الـticket ويُتحقق منه ليبقى إبطال الجلسة فوريًا.
-- Regression: `tests/regression/b7-cookie-size` — دخول بمستخدم عنده 200 صلاحية، مجموع headers
-  كوكي الإدارة < 1500 بايت، ثم `/api/auth/me` (200 صلاحية) ومسار محمي بالـpolicy يعملان.
-- **NOT VERIFIED:** إعادة نشر staging لم تحدث في هذه الجولة، ولم يُختبر متصفح حقيقي ضد
-  الكوكي النحيفة. أثر الإنتاج موثق في ADR-0008: لا كسر للجلسات الحالية، ولا حاجة لإعادة دخول.
+- الكوكي كانت تحمل claim لكل صلاحية (65 → Set-Cookie 4049B، و200 → 4 chunks بإجمالي 10881B)
+  فتجاوزت buffer nginx الافتراضي. ADR-0008: `SlimAdminCookieTicketDataFormat` يحذف claims
+  `permission` عند كتابة الـticket فقط، و`ValidatePrincipalAsync` يقرأ `user_permissions` من
+  الداتابيز كل طلب (بدون `ShouldRenew`)؛ الكوكيز القديمة تُفك وتُستبدل، وسحب الصلاحية يسري من
+  الطلب التالي، و`session_version` يظل في الـticket.
+- Regression: `b7-cookie-size` (200 صلاحية → headers < 1500B + `/api/auth/me` وpolicy).
+  **NOT VERIFIED:** browser/staging redeploy؛ أثر الإنتاج في ADR-0008.
 
 ## 28. كوكي الجلسة يتبع الـscheme (FINAL B10)
 
-- الخلل من الاختبار الحي على staging: التطبيق كان يضع `Secure` على كوكي الجلسة خارج بيئة
-  Development (`CookieSecurePolicy.Always`)، وstaging يشغّل كود Production لكنه يُخدم على
-  HTTP، فالمتصفح يرفض تخزين/إرسال الكوكي وكل الطلبات بعد "تذكّرني" ترجع 401.
-- الحل: `options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest` في legacy. الإنتاج
-  يظل آمنًا: nginx الإنتاج يوجّه 301 من :80 إلى :443، ويضيف `X-Forwarded-Proto: https` دائمًا
-  (deploy/nginx/dar-elemam-hafs.conf)، والتطبيق يثق بالـproxy loopback فقط
-  (`ForwardedHeaders` + `X-Real-IP`)، فيرى الطلب https ويضع Secure.
-- Regression: `tests/regression/b10-cookie-secure` يشغّل نسخة legacy ببيئة Production على
-  HTTP: كوكي الدخول بدون `Secure` ويعمل `/api/auth/me`، ونفس الطلب مع
-  `X-Forwarded-Proto: https` (محاكاة proxy الإنتاج) يرجع كوكي `Secure`.
-- **NOT VERIFIED:** نشر production الفعلي وتصفح حقيقي عبر HTTPS لم يُجرَّبا في هذه الجولة؛
-  تأكدنا من إعداد nginx الإنتاج للـscheme/redirect من ملف الـvhost على السيرفر (قراءة فقط).
-- ملاحظة نطاق: `dar_session` في الـAPI الجديد لا يزال يستخدم `Secure` خارج Development
-  (خارج بند B10 المحدد)؛ staging يستخدم shim `proxy_cookie_flags ... nosecure` في nginx حتى
-  ينتقل إلى HTTPS، وأي نشر production جديد لـnew API يجب أن يتحقق من الـscheme بنفس الأسلوب.
+- staging يشغّل كود Production على HTTP، و`Always` كان يجعل المتصفح يرفض الكوكي ويرجع 401 بعد
+  "تذكّرني". الحل `SameAsRequest`؛ الإنتاج يظل Secure لأن nginx يوجّه 301 لـhttps ويرسل
+  `X-Forwarded-Proto: https`، والتطبيق يثق بالـproxy loopback فقط (`ForwardedHeaders` + `X-Real-IP`).
+- Regression: `b10-cookie-secure` (Production-env على HTTP: بدون Secure ويعمل `/api/auth/me`؛
+  مع `X-Forwarded-Proto: https`: Secure). **NOT VERIFIED:** نشر production/متصفح HTTPS.
+  `dar_session` الجديد ما زال Always خارج Development (staging shim nosecure) — خارج B10.
+
+## 29. Authorization hardening from the self-review (batch 3)
+
+- **A1/A8:** reset-candidates تتطلب الآن `students.read` + `finance.read` (والـpaged:
+  `attendance.read`/`schedule.read`/`finance.read`) مع scope filter؛ القوائم المدرسية غير
+  المرتبطة تُرجع فارغة للمستخدم المقيّد.
+- **A3:** `DELETE /api/admin/trash/{id}` يتطلب `trash.manage` + `users.manage`؛ move/restore كما هي.
+- **A9:** `users.manage` لا يمنح صلاحية لا يملكها؛ عند التعديل تُسمح الصلاحيات الموجودة مسبقًا
+  على الهدف وتُرفض الجديدة غير المملوكة (403).
+- Regression: `security-permissions` (14 حالة) + `tier2-history-fk`. **NOT VERIFIED:** live
+  roles/production permission rows.
