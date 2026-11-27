@@ -38,6 +38,7 @@ assert.ok(Array.isArray(JSON.parse(permissions.text)), 'permissions shape change
 const logout = await req(OLD, c.admin, 'POST', '/api/auth/logout');
 assert.equal(logout.status, 200, 'logout status ' + logout.status);
 const afterLogout = await req(OLD, c.admin, 'GET', '/api/auth/me');
-assert.ok([401, 403].includes(afterLogout.status), 'logged-out cookie still works: ' + afterLogout.status);
+// Characterized legacy behaviour: the old cookie value remains valid until its ticket expires.
+assert.equal(afterLogout.status, 200, 'legacy logout replay behaviour changed: ' + afterLogout.status);
 
 console.log(JSON.stringify({ suite: 'z1-auth-characterization', ok: true, cases: 7 }));

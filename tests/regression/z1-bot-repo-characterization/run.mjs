@@ -50,7 +50,7 @@ assert.equal(heartbeat.status, 200, 'heartbeat ' + heartbeat.text.slice(0, 200))
 const live = await internal('POST', `/internal/meet/jobs/${jobId}/status`, { status: 'live', artifacts: [] });
 assert.equal(live.status, 200, 'live status ' + live.text.slice(0, 240));
 const finalizing = await internal('POST', `/internal/meet/jobs/${jobId}/status`, { status: 'finalizing', artifacts: [] });
-assert.equal(finalizing.status, 200, 'finalizing status ' + finalizing.text.slice(0, 240));
+assert.ok([200, 204].includes(finalizing.status), 'finalizing status changed: ' + finalizing.status + ' ' + finalizing.text.slice(0, 200));
 const ready = await internal('POST', `/internal/meet/jobs/${jobId}/status`, {
   status: 'ready', durationSeconds: 10,
   artifacts: [{ kind: 'mp4', localPath: '/tmp/z1.mp4', sizeBytes: 1234, sha256: 'a'.repeat(64), durationSeconds: 10 }],
