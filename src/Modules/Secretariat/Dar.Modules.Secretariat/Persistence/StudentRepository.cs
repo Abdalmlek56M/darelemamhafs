@@ -1,5 +1,6 @@
 using Dapper;
 using Dar.Common.Domain;
+using Dar.Common.Search;
 using Dar.Modules.Secretariat.Abstractions;
 using Dar.Modules.Secretariat.Domain;
 using Npgsql;
@@ -66,7 +67,8 @@ public sealed class StudentRepository(NpgsqlDataSource dataSource) : IStudentRep
                      OR guardian_phone ILIKE @search
                  )
                 """;
-            parameters.Add("search", $"%{normalizedSearch}%");
+            // FINAL 2.2: escape LIKE wildcards; "%" or "_" must match literally.
+            parameters.Add("search", SqlSearchPattern.Contains(normalizedSearch));
         }
 
         await using var connection = await dataSource.OpenConnectionAsync(ct);

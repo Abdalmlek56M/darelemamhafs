@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Dar.Common.Pagination;
+using Dar.Common.Search;
 using Npgsql;
 
 namespace DarEltahfeez.Api;
@@ -24,7 +25,9 @@ public static partial class DomainEndpoints
         if (paged) sql += " LIMIT @take OFFSET @skip";
         await using var cmd = db.CreateCommand(sql);
         cmd.Parameters.AddWithValue("search", term);
-        cmd.Parameters.AddWithValue("like", $"%{term}%");
+        // FINAL 2.2: the raw term is still needed for the empty-search guard; the LIKE
+        // pattern additionally escapes %, _ and \ so those characters match literally.
+        cmd.Parameters.AddWithValue("like", SqlSearchPattern.Contains(term));
         cmd.Parameters.AddWithValue("status", statusFilter);
         if (paged)
         {
