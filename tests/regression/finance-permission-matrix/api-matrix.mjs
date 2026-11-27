@@ -1,3 +1,5 @@
+import { assertSafeTargets } from '../../lib/index.mjs';
+
 const BASE = process.env.P17_BASE_URL || 'http://127.0.0.1:5099';
 const PASSWORD = 'P17-StrongPass!';
 const CHARGE = '55555555-5555-4555-8555-555555555555';
@@ -6,27 +8,8 @@ const REPORT = '99999999-9999-4999-8999-999999999999';
 const ENROLLMENT = '44444444-4444-4444-8444-444444444444';
 const STUDENT = '22222222-2222-4222-8222-222222222222';
 const TEACHER = '11111111-1111-4111-8111-111111111111';
-const PROD_DB = process.env.DAR_FORBIDDEN_DB || '';
-const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
-function isLoopbackHost(host) {
-  return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]';
-}
-function refuseTarget(message) {
-  console.error('P17_FAIL refusing production/live target: ' + message);
-  process.exit(2);
-}
-function guardTargets(base) {
-  let url;
-  try { url = new URL(base); } catch { refuseTarget('invalid URL'); }
-  const host = url.hostname.toLowerCase();
-  if (PROD_HOSTS.includes(host)) refuseTarget('production hostname ' + host);
-  if (!isLoopbackHost(host)) refuseTarget('non-loopback test URL ' + host);
-  const db = process.env.P17_DAR_TEST_DATABASE || process.env.DAR_TEST_DATABASE || '';
-  if (db && new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__') + '\\b', 'i').test(db)) refuseTarget('production database name');
-  const dbHost = /host\s*=\s*([^;]+)/i.exec(db);
-  if (dbHost && PROD_HOSTS.includes(dbHost[1].trim().toLowerCase())) refuseTarget('production database host');
-}
-guardTargets(BASE);
+const DB = process.env.P17_DAR_TEST_DATABASE || process.env.DAR_TEST_DATABASE || '';
+assertSafeTargets({ db: DB, urls: [BASE], label: 'P17_FAIL' });
 
 const numericSentinel = /(?:987654\.32|987654|123456\.78|444222\.11|55555\.55|11111\.11)/;
 
@@ -129,5 +112,25 @@ function slim(result) { return { status: result.status, sentinel: result.sentine
     createOnlyMaskedAmount: matrix.create.paymentCreate.amountField === null
   };
 
-  console.log(JSON.stringify({ permissions, matrix, checks }, null, 2));
+  const expectations = {
+    controlCollectionsHasNumericAmount: true,
+    controlReportHasNumericAmount: true,
+    noneReadsDenied: true,
+    reportsUserFinanceDenied: true,
+    noneAuditHasNoNumericAmount: true,
+    noneWritesDenied: true,
+    readWritesDenied: true,
+    createFinanceOptionsNoNumericAmount: true,
+    createOnlyCreateStatus: 201,
+    createOnlyMaskedAmount: true
+  };
+  const failed = Object.entries(expectations)
+    .filter(([name, expected]) => checks[name] !== expected)
+    .map(([name, expected]) => ({ name, expected, actual: checks[name] }));
+  console.log(JSON.stringify({ suite: 'p17-api-matrix', ok: failed.length === 0, permissions, matrix, checks, failed }, null, 2));
+  if (failed.length > 0) {
+    console.error('P17_API_MATRIX_FAIL ' + JSON.stringify(failed));
+    process.exit(1);
+  }
+  console.log('P17_API_MATRIX_PASS');
 })().catch(error => { console.error(JSON.stringify({ fatal: String(error && error.stack || error) })); process.exit(1); });

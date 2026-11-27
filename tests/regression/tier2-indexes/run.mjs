@@ -1,26 +1,11 @@
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
+import { assertSafeTargets, psql as libPsql } from '../../lib/index.mjs';
 
 // FINAL 2.1: each hot-path index exists and is actually chosen by the planner when
 // sequential scans are disabled; the redundant media-asset index is gone.
 const conn = process.env.DAR_TEST_DATABASE || '';
-const env = { ...process.env };
-for (const part of conn.split(';')) {
-  const index = part.indexOf('=');
-  if (index < 0) continue;
-  const key = part.slice(0, index).trim().toLowerCase();
-  const value = part.slice(index + 1).trim();
-  if (key === 'host') env.PGHOST = value;
-  if (key === 'port') env.PGPORT = value;
-  if (key === 'database') env.PGDATABASE = value;
-  if (key === 'username') env.PGUSER = value;
-  if (key === 'password') env.PGPASSWORD = value;
-}
-const psql = (sql) => {
-  const run = spawnSync('psql', ['-X', '-q', '-t', '-A', '-v', 'ON_ERROR_STOP=1', '-c', sql], { encoding: 'utf8', env });
-  assert.equal(run.status, 0, 'psql failed: ' + (run.stderr || '').slice(0, 500));
-  return (run.stdout || '').trim();
-};
+assertSafeTargets({ db: conn, requireDb: true, label: 'TIER2-INDEXES_FAIL' });
+const psql = (sql) => libPsql(conn, sql);
 
 const cases = [
   ['ix_circle_enrollments_circle_status_live', "SELECT 1 FROM circle_enrollments WHERE circle_id=gen_random_uuid() AND status='active' AND is_trashed = FALSE;"],

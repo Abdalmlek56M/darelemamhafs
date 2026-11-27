@@ -1,6 +1,4 @@
-const { chromium } = require('playwright');
 const http = require('node:http');
-const { spawnSync } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
 
 const BASE = process.env.P28B_BASE_URL || '';
@@ -9,15 +7,8 @@ const NEW_ORIGIN = process.env.P28B_NEW_URL || '';
 const CONN = process.env.DAR_TEST_DATABASE || '';
 const SETUP_TOKEN = process.env.P28B_SETUP_TOKEN || '';
 const PASSWORD = process.env.P28B_PASSWORD || 'P28B-StrongPass!';
-const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
-for (const raw of [BASE, LEGACY_ORIGIN, NEW_ORIGIN]) { try { const u=new URL(raw); if(PROD_HOSTS.includes(u.hostname.toLowerCase())||!['127.0.0.1','localhost','::1','[::1]'].includes(u.hostname.toLowerCase())){console.error('P28B_FAIL non-test URL');process.exit(2);} } catch { console.error('P28B_FAIL invalid URL');process.exit(2);} }
-if (!CONN || !SETUP_TOKEN) { console.error('P28B_FAIL missing env'); process.exit(2); }
-if (new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__') + '\\b', 'i').test(CONN)) { console.error('P28B_FAIL production database'); process.exit(2); }
+let psql, q; // assigned from the shared test library before any test code runs
 
-function pgEnv(){const e={...process.env};for(const part of CONN.split(';')){const i=part.indexOf('=');if(i<0)continue;const k=part.slice(0,i).trim().toLowerCase(),v=part.slice(i+1).trim();if(k==='host')e.PGHOST=v;if(k==='port')e.PGPORT=v;if(k==='database')e.PGDATABASE=v;if(k==='username')e.PGUSER=v;if(k==='password')e.PGPASSWORD=v;}return e;}
-const PGENV=pgEnv();
-function psql(sql){const r=spawnSync('psql',['-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-c',sql],{env:PGENV,encoding:'utf8'});if(r.status!==0)throw new Error('psql: '+(r.stderr||'').trim());return (r.stdout||'').trim();}
-function q(v){return "'"+String(v).replaceAll("'","''")+"'";}
 async function login(username,password,path='/api/auth/login'){
  const r=await fetch(BASE+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username,password})});
  if(!r.ok) throw new Error('login '+username+' '+r.status+': '+(await r.text()).slice(0,200));
@@ -27,6 +18,12 @@ async function login(username,password,path='/api/auth/login'){
 function seedBase(){const teacher=randomUUID(),circle=randomUUID(),slot=randomUUID(),tag=teacher.slice(0,8);psql('INSERT INTO teachers(id,teacher_code,full_name,status,hourly_rate) VALUES ('+q(teacher)+','+q('P28B-T-'+tag)+",'P28B Teacher','active',60);"+'INSERT INTO circles(id,circle_code,name,teacher_id,monthly_fee,is_active,starts_on) VALUES ('+q(circle)+','+q('P28B-C-'+tag)+",'P28B Circle',"+q(teacher)+',0,TRUE,DATE \'2026-01-01\');'+"INSERT INTO circle_schedule_slots(id,circle_id,day_of_week,starts_at,duration_minutes,is_active) VALUES ("+q(slot)+','+q(circle)+",1,'10:00',60,TRUE);");return{teacher,circle,slot};}
 
 (async()=>{
+ const { assertSafeTargets, psql: libPsql, q: libQ, requireEnv } = await import('../../lib/index.mjs');
+ requireEnv(['DAR_TEST_DATABASE','P28B_BASE_URL','P28B_LEGACY_URL','P28B_NEW_URL','P28B_SETUP_TOKEN'], 'P28B_FAIL');
+ assertSafeTargets({ db: CONN, urls: [BASE, LEGACY_ORIGIN, NEW_ORIGIN], requireDb: true, label: 'P28B_FAIL' });
+ const { chromium } = require('playwright');
+ psql = (sql) => libPsql(CONN, sql);
+ q = (v) => libQ(v);
  // Same-origin proxy: page/legacy on LEGACY_ORIGIN, new API under /api/v1.
  const baseUrl=new URL(BASE), legacyUrl=new URL(LEGACY_ORIGIN), newUrl=new URL(NEW_ORIGIN);
  const proxy=http.createServer((req,res)=>{const target=req.url.startsWith('/api/v1')?newUrl:legacyUrl;const opts={hostname:target.hostname,port:target.port,path:req.url,method:req.method,headers:{...req.headers,host:target.host}};const up=http.request(opts,r=>{res.writeHead(r.statusCode||502,r.headers);r.pipe(res)});up.on('error',e=>{res.writeHead(502);res.end('proxy error '+e.message)});req.pipe(up)});

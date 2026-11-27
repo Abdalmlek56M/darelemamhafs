@@ -1,18 +1,11 @@
-const { chromium } = require('playwright');
 const BASE = process.env.P23_LEGACY_URL || 'http://127.0.0.1:5500';
 const NEW_API = process.env.P23_NEW_URL || 'http://127.0.0.1:5501';
 const PASSWORD = process.env.P23_PASSWORD || 'P23-StrongPass!';
-const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
-for (const raw of [BASE, NEW_API]) {
-  try {
-    const url = new URL(raw);
-    if (PROD_HOSTS.includes(url.hostname.toLowerCase()) || !['127.0.0.1','localhost','::1','[::1]'].includes(url.hostname.toLowerCase())) {
-      console.error('P23_FAIL refusing non-test URL'); process.exit(2);
-    }
-  } catch { console.error('P23_FAIL invalid URL'); process.exit(2); }
-}
 
 (async () => {
+  const { assertSafeTargets } = await import('../../lib/index.mjs');
+  assertSafeTargets({ urls: [BASE, NEW_API], label: 'P23_FAIL' });
+  const { chromium } = require('playwright');
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   const page = await browser.newPage({ viewport: { width: 1400, height: 950 } });
   const errors = [];

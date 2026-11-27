@@ -1,19 +1,14 @@
-const { chromium } = require('playwright');
 const fs = require('node:fs');
 const BASE = process.env.P26_BASE_URL || 'http://127.0.0.1:5601';
 const PASSWORD = process.env.P26_PASSWORD || 'P26-StrongPass!';
 const MODE = process.env.P26_MODE || 'capture';
 const SHOTS = process.env.P26_SHOTS || '/tmp/p26-shots';
-const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
-try {
-  const url = new URL(BASE);
-  if (PROD_HOSTS.includes(url.hostname.toLowerCase()) || !['127.0.0.1','localhost','::1','[::1]'].includes(url.hostname.toLowerCase())) {
-    console.error('P26_FAIL refusing non-test URL'); process.exit(2);
-  }
-} catch { console.error('P26_FAIL invalid URL'); process.exit(2); }
 fs.mkdirSync(SHOTS, { recursive: true });
 
 (async () => {
+  const { assertSafeTargets } = await import('../../lib/index.mjs');
+  assertSafeTargets({ urls: [BASE], label: 'P26_FAIL' });
+  const { chromium } = require('playwright');
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   const results = [];
   try {

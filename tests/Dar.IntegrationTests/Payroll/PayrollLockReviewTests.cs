@@ -13,7 +13,6 @@ namespace Dar.IntegrationTests.Payroll;
 /// </summary>
 public sealed class PayrollLockReviewTests
 {
-    private const string EnvName = "DAR_TEST_DATABASE";
     private static readonly Guid ReviewerId = Guid.Parse("7b000000-0000-4000-8000-00000000c001");
 
     private sealed record Fixture(Guid RequestId, Guid AttendanceId);
@@ -21,8 +20,8 @@ public sealed class PayrollLockReviewTests
     [Fact]
     public async Task Review_Correction_OnLockedMonth_ReturnsConflict_AndDoesNotChangePay()
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EnvName))) return;
-        await using var dataSource = NpgsqlDataSource.Create(Environment.GetEnvironmentVariable(EnvName)!);
+        if (string.IsNullOrWhiteSpace(IntegrationDatabase.Require())) return;
+        await using var dataSource = NpgsqlDataSource.Create(IntegrationDatabase.Require()!);
         var fixture = await SeedCorrectionAsync(dataSource, "locked", new DateOnly(2026, 10, 5), locked: true);
 
         var result = await SupervisorRequestEndpoints.Review(fixture.RequestId,
@@ -39,8 +38,8 @@ public sealed class PayrollLockReviewTests
     [Fact]
     public async Task Review_Correction_OnUnlockedMonth_StillApplies()
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EnvName))) return;
-        await using var dataSource = NpgsqlDataSource.Create(Environment.GetEnvironmentVariable(EnvName)!);
+        if (string.IsNullOrWhiteSpace(IntegrationDatabase.Require())) return;
+        await using var dataSource = NpgsqlDataSource.Create(IntegrationDatabase.Require()!);
         var fixture = await SeedCorrectionAsync(dataSource, "unlocked", new DateOnly(2026, 12, 5), locked: false);
 
         var result = await SupervisorRequestEndpoints.Review(fixture.RequestId,

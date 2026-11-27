@@ -23,11 +23,10 @@ namespace Dar.IntegrationTests.Identity;
 /// </summary>
 public sealed class TurnstileLoginTests
 {
-    private const string EnvName = "DAR_TEST_DATABASE";
     private const string Password = "TestPass123!";
     private const string ExpectedHostname = "turnstile.example.invalid";
     private const string ExpectedAction = "login";
-    private static string? ConnectionString => Environment.GetEnvironmentVariable(EnvName);
+    private static string? ConnectionString => IntegrationDatabase.Require();
 
     [Fact]
     public async Task DisabledConfigEndpoint_ReturnsEnabledFalse()

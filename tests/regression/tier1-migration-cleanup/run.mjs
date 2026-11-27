@@ -1,26 +1,11 @@
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
+import { assertSafeTargets, psql } from '../../lib/index.mjs';
 
 // FINAL 1.8: the new migration removes the legacy global timetable lock; 031 must remain
 // the live payment-void function. This suite inspects the applied database functions.
 const conn = process.env.DAR_TEST_DATABASE || '';
-const env = { ...process.env };
-for (const part of conn.split(';')) {
-  const index = part.indexOf('=');
-  if (index < 0) continue;
-  const key = part.slice(0, index).trim().toLowerCase();
-  const value = part.slice(index + 1).trim();
-  if (key === 'host') env.PGHOST = value;
-  if (key === 'port') env.PGPORT = value;
-  if (key === 'database') env.PGDATABASE = value;
-  if (key === 'username') env.PGUSER = value;
-  if (key === 'password') env.PGPASSWORD = value;
-}
-const query = (sql) => {
-  const run = spawnSync('psql', ['-X', '-q', '-t', '-A', '-v', 'ON_ERROR_STOP=1', '-c', sql], { encoding: 'utf8', env });
-  assert.equal(run.status, 0, 'psql failed: ' + (run.stderr || '').slice(0, 400));
-  return (run.stdout || '').trim();
-};
+assertSafeTargets({ db: conn, requireDb: true, label: 'TIER1-CLEANUP_FAIL' });
+const query = (sql) => psql(conn, sql);
 
 const slotGuard = query("SELECT pg_get_functiondef('public.dar_guard_schedule_slot_teacher_overlap()'::regprocedure);");
 const circleGuard = query("SELECT pg_get_functiondef('public.dar_guard_circle_teacher_schedule_overlap()'::regprocedure);");

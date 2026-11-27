@@ -1,5 +1,5 @@
-import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { assertSafeTargets, login as libLogin, psql as libPsql, q, request as libRequest, requireEnv } from '../../lib/index.mjs';
 
 const CONN = process.env.DAR_TEST_DATABASE || '';
 const OLD = process.env.Q6_LEGACY_URL || '';
@@ -8,35 +8,17 @@ const SETUP = process.env.Q6_SETUP_TOKEN || '';
 const PASS = process.env.Q6_PASSWORD || 'Q6-StrongPass!';
 let ADMIN = '', TA = '', CIRCLE = '', SLOT = '';
 
-function pgEnv() {
-  const e = { ...process.env };
-  for (const p of CONN.split(';')) {
-    const i = p.indexOf('='); if (i < 0) continue;
-    const k = p.slice(0, i).trim().toLowerCase(), v = p.slice(i + 1).trim();
-    if (k === 'host') e.PGHOST = v; if (k === 'port') e.PGPORT = v;
-    if (k === 'database') e.PGDATABASE = v; if (k === 'username') e.PGUSER = v; if (k === 'password') e.PGPASSWORD = v;
-  }
-  return e;
-}
-const PGE = pgEnv();
-function psql(sql) {
-  const r = spawnSync('psql', ['-X', '-q', '-t', '-A', '-v', 'ON_ERROR_STOP=1', '-c', sql], { env: PGE, encoding: 'utf8' });
-  if (r.status !== 0) throw new Error('psql: ' + (r.stderr || '').trim());
-  return (r.stdout || '').trim();
-}
-const q = v => "'" + String(v).replaceAll("'", "''") + "'";
-const one = sql => psql(sql);
+// Shared guard (FINAL 2.17): the q6 workflows always need DB + both loopback apps.
+requireEnv(['DAR_TEST_DATABASE', 'Q6_LEGACY_URL', 'Q6_NEW_URL', 'Q6_SETUP_TOKEN'], 'Q6_FAIL');
+assertSafeTargets({ db: CONN, urls: [OLD, NEW], requireDb: true, label: 'Q6_FAIL' });
 
-async function login(base, path, user) {
-  const r = await fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: user, password: PASS }) });
-  if (!r.ok) throw new Error('login ' + user + ' ' + r.status);
-  const c = r.headers.getSetCookie ? r.headers.getSetCookie() : [r.headers.get('set-cookie')];
-  return c.filter(Boolean).map(x => x.split(';')[0]).join('; ');
-}
+function psql(text) { return libPsql(CONN, text); }
+function one(sql) { return psql(sql); }
+
+const login = (base, path, user) => libLogin(base, user, PASS, path);
 async function req(base, cookie, method, path, body, extraHeaders = {}) {
   const sameOrigin = base === NEW ? { origin: NEW } : {};
-  const r = await fetch(base + path, { method, headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...sameOrigin, ...extraHeaders, cookie }, body: body ? JSON.stringify(body) : undefined });
-  return { status: r.status, text: await r.text() };
+  return libRequest(base, cookie, method, path, body, { ...sameOrigin, ...extraHeaders });
 }
 async function createUser(adminCookie, username, perms) {
   const r = await req(OLD, adminCookie, 'POST', '/api/admin/users', { username, displayName: username, password: PASS, permissionCodes: perms });
@@ -45,9 +27,6 @@ async function createUser(adminCookie, username, perms) {
 }
 
 export async function setup() {
-  if (!CONN || !OLD || !NEW || !SETUP) throw new Error('Q6 env missing');
-  if (new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__'), 'i').test(CONN)) throw new Error('production database rejected');
-  for (const raw of [OLD, NEW]) { const h = new URL(raw).hostname.toLowerCase(); if (!['127.0.0.1', 'localhost'].includes(h)) throw new Error('non-loopback URL rejected'); }
   const setup = await fetch(OLD + '/api/setup/admin', { method: 'POST', headers: { 'content-type': 'application/json', 'X-Setup-Token': SETUP }, body: JSON.stringify({ username: 'q6_admin', displayName: 'Q6 Admin', password: PASS }) });
   if (![200, 409].includes(setup.status)) throw new Error('setup ' + setup.status);
   const admin = await login(OLD, '/api/auth/login', 'q6_admin');

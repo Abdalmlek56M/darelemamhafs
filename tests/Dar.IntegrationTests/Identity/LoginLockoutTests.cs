@@ -20,11 +20,10 @@ namespace Dar.IntegrationTests.Identity;
 /// </summary>
 public sealed class LoginLockoutTests
 {
-    private const string EnvName = "DAR_TEST_DATABASE";
     private const string Password = "TestPass123!";
     private const string OldDummyPassword = "p11-dummy-password-not-a-real-account";
 
-    private static string? ConnectionString => Environment.GetEnvironmentVariable(EnvName);
+    private static string? ConnectionString => IntegrationDatabase.Require();
 
     [Fact]
     public async Task ExistingAndUnknownUsernames_ReturnIdenticalFailures()

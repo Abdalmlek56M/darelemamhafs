@@ -1,37 +1,9 @@
-const { chromium } = require('playwright');
-const { spawnSync } = require('node:child_process');
-
 const BASE = process.env.P25_BASE_URL || 'http://127.0.0.1:5800';
 const PASSWORD = process.env.P25_PASSWORD || 'P25-StrongPass!';
 const CIRCLE = process.env.P25_CIRCLE_ID || '';
 const CONN = process.env.DAR_TEST_DATABASE || '';
-const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
-if (!CIRCLE || !CONN) { console.error('P25_FAIL missing env'); process.exit(2); }
-try {
-  const url = new URL(BASE);
-  if (PROD_HOSTS.includes(url.hostname.toLowerCase()) || !['127.0.0.1','localhost','::1','[::1]'].includes(url.hostname.toLowerCase())) {
-    console.error('P25_FAIL refusing non-test URL'); process.exit(2);
-  }
-} catch { console.error('P25_FAIL invalid URL'); process.exit(2); }
+let psql; // shared library psql, assigned in the async entry point
 
-function pgEnv() {
-  const env = { ...process.env };
-  for (const part of CONN.split(';')) {
-    const i = part.indexOf('='); if (i < 0) continue;
-    const k = part.slice(0, i).trim().toLowerCase(); const v = part.slice(i + 1).trim();
-    if (k === 'host') env.PGHOST = v;
-    if (k === 'port') env.PGPORT = v;
-    if (k === 'database') env.PGDATABASE = v;
-    if (k === 'username') env.PGUSER = v;
-    if (k === 'password') env.PGPASSWORD = v;
-  }
-  return env;
-}
-function psql(sqlText) {
-  const result = spawnSync('psql', ['-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-c',sqlText], { env: pgEnv(), encoding: 'utf8' });
-  if (result.status !== 0) throw new Error('psql failed: ' + (result.stderr || '').trim());
-  return (result.stdout || '').trim();
-}
 function assert(condition, message) { if (!condition) throw new Error(message); }
 function assertEq(actual, expected, message) { if (actual !== expected) throw new Error(message + ': got ' + actual + ' expected ' + expected); }
 async function login(base, username, password, requestContext) {
@@ -44,6 +16,11 @@ async function createUser(adminRequest, username, displayName, permissions) {
 }
 
 (async () => {
+  const { assertSafeTargets, psql: libPsql, requireEnv } = await import('../../lib/index.mjs');
+  requireEnv(['DAR_TEST_DATABASE', 'P25_BASE_URL', 'P25_CIRCLE_ID'], 'P25_FAIL');
+  assertSafeTargets({ db: CONN, urls: [BASE], requireDb: true, label: 'P25_FAIL' });
+  const { chromium } = require('playwright');
+  psql = (sqlText) => libPsql(CONN, sqlText);
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   const adminContext = await browser.newContext({ viewport: { width: 1400, height: 950 } });
   const adminPage = await adminContext.newPage();

@@ -41,9 +41,20 @@ expect_refusal "p17_ui_prod_url" env P17_BASE_URL="$PROD_URL" node "$ROOT/tests/
 expect_refusal "p17_supervisor_prod_url" env P17_NEW_BASE_URL="$PROD_URL" node "$ROOT/tests/regression/finance-permission-matrix/supervisor-matrix.mjs"
 expect_refusal "p17_api_prod_db" env P17_DAR_TEST_DATABASE="$PROD_DB" P17_BASE_URL="$LOCAL_URL" node "$ROOT/tests/regression/finance-permission-matrix/api-matrix.mjs"
 
+# FINAL 2.16/2.17: a missing DAR_TEST_DATABASE must fail (never silently pass), and the shared
+# allow-list guard must refuse a database name that is not on DAR_TEST_DB_ALLOWLIST.
+expect_refusal "q1_shell_missing_db" env -u DAR_TEST_DATABASE \
+  Q1_LEGACY_URL="$LOCAL_URL" Q1_NEW_URL="$LOCAL_URL" Q1_SETUP_TOKEN="guard" \
+  bash "$ROOT/tests/regression/approval-paths/run.sh"
+expect_refusal "q1_js_missing_db" env -u DAR_TEST_DATABASE \
+  Q1_LEGACY_URL="$LOCAL_URL" Q1_NEW_URL="$LOCAL_URL" Q1_SETUP_TOKEN="guard" \
+  node "$ROOT/tests/regression/approval-paths/run.mjs"
+expect_refusal "p17_api_allowlist_db" env DAR_TEST_DB_ALLOWLIST='dar_reg_*' P17_DAR_TEST_DATABASE="$PROD_DB" P17_BASE_URL="$LOCAL_URL" node "$ROOT/tests/regression/finance-permission-matrix/api-matrix.mjs"
+expect_refusal "p17_supervisor_allowlist_db" env DAR_TEST_DB_ALLOWLIST='dar_reg_*' P17_DAR_TEST_DATABASE="$PROD_DB" P17_NEW_BASE_URL="$LOCAL_URL" node "$ROOT/tests/regression/finance-permission-matrix/supervisor-matrix.mjs"
+
 TOTAL=$((PASS + FAIL))
 echo "SAFETY_GUARD tested=$TOTAL passed=$PASS failed=$FAIL"
-if [ "$FAIL" -ne 0 ] || [ "$TOTAL" -ne 9 ]; then
+if [ "$FAIL" -ne 0 ] || [ "$TOTAL" -ne 13 ]; then
   exit 1
 fi
 echo "SAFETY_GUARD_PASS"

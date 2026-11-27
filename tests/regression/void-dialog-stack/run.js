@@ -1,9 +1,9 @@
-const { chromium } = require('playwright');
 const BASE = process.env.P26F_BASE_URL || 'http://127.0.0.1:6010';
 const PASSWORD = process.env.P26F_PASSWORD || 'P26F-StrongPass!';
-const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
-try { const u = new URL(BASE); if (PROD_HOSTS.includes(u.hostname.toLowerCase()) || !['127.0.0.1','localhost','::1','[::1]'].includes(u.hostname.toLowerCase())) { console.error('P26F_FAIL non-test URL'); process.exit(2); } } catch { console.error('P26F_FAIL invalid URL'); process.exit(2); }
 (async()=>{
+ const { assertSafeTargets } = await import('../../lib/index.mjs');
+ assertSafeTargets({ urls: [BASE], label: 'P26F_FAIL' });
+ const { chromium } = require('playwright');
  const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
  const page=await browser.newPage({viewport:{width:1400,height:950}});
  try{

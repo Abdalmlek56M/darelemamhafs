@@ -13,7 +13,6 @@ namespace Dar.IntegrationTests.Payroll;
 /// </summary>
 public sealed class ReviewOptionalNoteTests
 {
-    private const string EnvName = "DAR_TEST_DATABASE";
     private static readonly Guid ReviewerId = Guid.Parse("7c000000-0000-4000-8000-00000000d001");
 
     private sealed record Fixture(Guid RequestId, Guid AttendanceId);
@@ -21,8 +20,8 @@ public sealed class ReviewOptionalNoteTests
     [Fact]
     public async Task Review_Correction_WithAbsentNullOrEmptyNote_AllSucceed()
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EnvName))) return;
-        await using var dataSource = NpgsqlDataSource.Create(Environment.GetEnvironmentVariable(EnvName)!);
+        if (string.IsNullOrWhiteSpace(IntegrationDatabase.Require())) return;
+        await using var dataSource = NpgsqlDataSource.Create(IntegrationDatabase.Require()!);
 
         var cases = new (string Tag, string Payload, int ExpectedMinutes, decimal ExpectedAmount)[]
         {

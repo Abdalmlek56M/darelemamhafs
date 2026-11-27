@@ -12,7 +12,6 @@ namespace Dar.IntegrationTests.Payroll;
 /// </summary>
 public sealed class ReviewCorrectionStatusTests
 {
-    private const string EnvName = "DAR_TEST_DATABASE";
     private static readonly Guid ReviewerId = Guid.Parse("7d000000-0000-4000-8000-00000000e001");
 
     private sealed record Fixture(Guid RequestId, Guid AttendanceId);
@@ -20,8 +19,8 @@ public sealed class ReviewCorrectionStatusTests
     [Fact]
     public async Task AbsentToPresent_AppliesStatusDurationAndPay()
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EnvName))) return;
-        await using var dataSource = NpgsqlDataSource.Create(Environment.GetEnvironmentVariable(EnvName)!);
+        if (string.IsNullOrWhiteSpace(IntegrationDatabase.Require())) return;
+        await using var dataSource = NpgsqlDataSource.Create(IntegrationDatabase.Require()!);
         var fixture = await SeedAsync(dataSource, "absent-to-present", new DateOnly(2026, 12, 7),
             currentStatus: "absent", currentAmount: 0m,
             payload: "{\"durationMinutes\":30,\"note\":\"P0-5\",\"status\":\"present\"}", locked: false);
@@ -39,8 +38,8 @@ public sealed class ReviewCorrectionStatusTests
     [Fact]
     public async Task PresentToAbsent_AppliesStatusAndClearsPay()
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EnvName))) return;
-        await using var dataSource = NpgsqlDataSource.Create(Environment.GetEnvironmentVariable(EnvName)!);
+        if (string.IsNullOrWhiteSpace(IntegrationDatabase.Require())) return;
+        await using var dataSource = NpgsqlDataSource.Create(IntegrationDatabase.Require()!);
         var fixture = await SeedAsync(dataSource, "present-to-absent", new DateOnly(2026, 12, 8),
             currentStatus: "present", currentAmount: 60m,
             payload: "{\"durationMinutes\":45,\"note\":\"P0-5\",\"status\":\"absent\"}", locked: false);
@@ -58,8 +57,8 @@ public sealed class ReviewCorrectionStatusTests
     [Fact]
     public async Task LockedMonth_RejectsStatusChangeAndKeepsRecord()
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EnvName))) return;
-        await using var dataSource = NpgsqlDataSource.Create(Environment.GetEnvironmentVariable(EnvName)!);
+        if (string.IsNullOrWhiteSpace(IntegrationDatabase.Require())) return;
+        await using var dataSource = NpgsqlDataSource.Create(IntegrationDatabase.Require()!);
         var fixture = await SeedAsync(dataSource, "locked-status", new DateOnly(2026, 10, 5),
             currentStatus: "absent", currentAmount: 0m,
             payload: "{\"durationMinutes\":30,\"note\":\"P0-5\",\"status\":\"present\"}", locked: true);
@@ -77,8 +76,8 @@ public sealed class ReviewCorrectionStatusTests
     [Fact]
     public async Task InvalidStatus_IsRejectedWithoutChanges()
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EnvName))) return;
-        await using var dataSource = NpgsqlDataSource.Create(Environment.GetEnvironmentVariable(EnvName)!);
+        if (string.IsNullOrWhiteSpace(IntegrationDatabase.Require())) return;
+        await using var dataSource = NpgsqlDataSource.Create(IntegrationDatabase.Require()!);
         var fixture = await SeedAsync(dataSource, "invalid-status", new DateOnly(2026, 12, 9),
             currentStatus: "present", currentAmount: 60m,
             payload: "{\"durationMinutes\":30,\"note\":\"P0-5\",\"status\":\"bogus\"}", locked: false);
@@ -96,8 +95,8 @@ public sealed class ReviewCorrectionStatusTests
     [Fact]
     public async Task MissingStatus_KeepsCurrentStatus_ForOldRequests()
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EnvName))) return;
-        await using var dataSource = NpgsqlDataSource.Create(Environment.GetEnvironmentVariable(EnvName)!);
+        if (string.IsNullOrWhiteSpace(IntegrationDatabase.Require())) return;
+        await using var dataSource = NpgsqlDataSource.Create(IntegrationDatabase.Require()!);
         var fixture = await SeedAsync(dataSource, "missing-status", new DateOnly(2026, 12, 10),
             currentStatus: "present", currentAmount: 60m,
             payload: "{\"durationMinutes\":20,\"note\":\"P0-5\"}", locked: false);

@@ -1,26 +1,10 @@
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
+import { assertSafeTargets, psql } from '../../lib/index.mjs';
 
 // FINAL 1.15: OAuth state nonces are consumed exactly once in the database.
 const conn = process.env.DAR_TEST_DATABASE || '';
-const env = { ...process.env };
-for (const part of conn.split(';')) {
-  const index = part.indexOf('=');
-  if (index < 0) continue;
-  const key = part.slice(0, index).trim().toLowerCase();
-  const value = part.slice(index + 1).trim();
-  if (key === 'host') env.PGHOST = value;
-  if (key === 'port') env.PGPORT = value;
-  if (key === 'database') env.PGDATABASE = value;
-  if (key === 'username') env.PGUSER = value;
-  if (key === 'password') env.PGPASSWORD = value;
-}
-const psql = (sql) => spawnSync('psql', ['-X', '-q', '-t', '-A', '-v', 'ON_ERROR_STOP=1', '-c', sql], { encoding: 'utf8', env });
-const query = (sql) => {
-  const run = psql(sql);
-  assert.equal(run.status, 0, 'psql failed: ' + (run.stderr || '').slice(0, 400));
-  return (run.stdout || '').trim();
-};
+assertSafeTargets({ db: conn, requireDb: true, label: 'TIER1-OAUTH_FAIL' });
+const query = (sql) => psql(conn, sql);
 
 assert.equal(query("SELECT to_regclass('public.meet_oauth_states') IS NOT NULL;"), 't', 'meet_oauth_states table is missing');
 const nonce = crypto.randomUUID();

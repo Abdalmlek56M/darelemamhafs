@@ -1,14 +1,13 @@
-const { chromium } = require('playwright');
-const { spawnSync } = require('node:child_process');
 const BASE = process.env.P27B_BASE_URL || 'http://127.0.0.1:6012';
 const PASSWORD = process.env.P27B_PASSWORD || 'P27B-StrongPass!';
 const CONN = process.env.DAR_TEST_DATABASE || '';
-if (!CONN) { console.error('P27B_FAIL missing DB'); process.exit(2); }
-const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
-try { const u=new URL(BASE); if(PROD_HOSTS.includes(u.hostname.toLowerCase())||!['127.0.0.1','localhost','::1','[::1]'].includes(u.hostname.toLowerCase())){console.error('P27B_FAIL non-test URL');process.exit(2);} } catch { console.error('P27B_FAIL invalid URL'); process.exit(2); }
-function pgEnv(){const e={...process.env};for(const p of CONN.split(';')){const i=p.indexOf('=');if(i<0)continue;const k=p.slice(0,i).trim().toLowerCase(),v=p.slice(i+1).trim();if(k==='host')e.PGHOST=v;if(k==='port')e.PGPORT=v;if(k==='database')e.PGDATABASE=v;if(k==='username')e.PGUSER=v;if(k==='password')e.PGPASSWORD=v;}return e;}
-function psql(s){const r=spawnSync('psql',['-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-c',s],{env:pgEnv(),encoding:'utf8'});if(r.status!==0)throw new Error('psql: '+(r.stderr||'').trim());return (r.stdout||'').trim();}
 (async()=>{
+ const { assertSafeTargets, pgEnv: libPgEnv, psql: libPsql } = await import('../../lib/index.mjs');
+ assertSafeTargets({ db: CONN, urls: [BASE], requireDb: true, label: 'P27B_FAIL' });
+ const { chromium } = require('playwright');
+ const { spawnSync } = require('node:child_process');
+ function pgEnv(){ return libPgEnv(CONN); }
+ function psql(s){ return libPsql(CONN, s); }
  const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
  const page=await browser.newPage();
  try{

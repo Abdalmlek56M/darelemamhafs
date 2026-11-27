@@ -1,10 +1,10 @@
-const { chromium } = require('playwright');
 const BASE = process.env.P28A_BASE_URL || 'http://127.0.0.1:6015';
 const APP_CHUNK = process.env.P28A_APP_CHUNK || '';
-if (!APP_CHUNK) { console.error('P28A_FAIL missing APP_CHUNK'); process.exit(2); }
-const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
-try { const u=new URL(BASE); if(PROD_HOSTS.includes(u.hostname.toLowerCase())||!['127.0.0.1','localhost','::1','[::1]'].includes(u.hostname.toLowerCase())){console.error('P28A_FAIL non-test URL');process.exit(2);} } catch { console.error('P28A_FAIL invalid URL'); process.exit(2); }
 (async()=>{
+ const { assertSafeTargets, requireEnv } = await import('../../lib/index.mjs');
+ requireEnv(['P28A_APP_CHUNK'], 'P28A_FAIL');
+ assertSafeTargets({ urls: [BASE], label: 'P28A_FAIL' });
+ const { chromium } = require('playwright');
  const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
  const context=await browser.newContext({viewport:{width:1400,height:950}, serviceWorkers:'block'});
  const page=await context.newPage();

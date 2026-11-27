@@ -1,15 +1,12 @@
-import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { assertSafeTargets, login as libLogin, psql as libPsql, q, requireEnv } from '../../lib/index.mjs';
 
 const CONN=process.env.DAR_TEST_DATABASE||'', LEGACY=process.env.Q5_LEGACY_URL||'', NEW=process.env.Q5_NEW_URL||'', SETUP=process.env.Q5_SETUP_TOKEN||'', PASSWORD=process.env.Q5_PASSWORD||'Q5-StrongPass!';
-if(!CONN||!LEGACY||!NEW||!SETUP){console.error('Q5_FAIL missing env');process.exit(2)}
-if(new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__'), 'i').test(CONN)){console.error('Q5_FAIL production database');process.exit(2)}
-for(const raw of [LEGACY,NEW]){const u=new URL(raw);if((process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean).includes(u.hostname.toLowerCase())||!['127.0.0.1','localhost','::1','[::1]'].includes(u.hostname.toLowerCase())){console.error('Q5_FAIL non-loopback URL');process.exit(2)}}
-function pgEnv(){const e={...process.env};for(const p of CONN.split(';')){const i=p.indexOf('=');if(i<0)continue;const k=p.slice(0,i).trim().toLowerCase(),v=p.slice(i+1).trim();if(k==='host')e.PGHOST=v;if(k==='port')e.PGPORT=v;if(k==='database')e.PGDATABASE=v;if(k==='username')e.PGUSER=v;if(k==='password')e.PGPASSWORD=v;}return e;}
-const PGE=pgEnv();function psql(s){const r=spawnSync('psql',['-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-c',s],{env:PGE,encoding:'utf8'});if(r.status!==0)throw new Error('psql '+(r.stderr||'').trim());return (r.stdout||'').trim()}
-const q=v=>"'" + String(v).replaceAll("'","''") + "'";
+requireEnv(['DAR_TEST_DATABASE','Q5_LEGACY_URL','Q5_NEW_URL','Q5_SETUP_TOKEN'], 'Q5_FAIL');
+assertSafeTargets({ db: CONN, urls: [LEGACY, NEW], requireDb: true, label: 'Q5_FAIL' });
+const psql=s=>libPsql(CONN,s);
 const one=s=>psql(s);
-async function login(base,path,user){const r=await fetch(base+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:user,password:PASSWORD})});if(!r.ok)throw new Error('login '+user+' '+r.status);const c=r.headers.getSetCookie?r.headers.getSetCookie():[r.headers.get('set-cookie')];return c.filter(Boolean).map(x=>x.split(';')[0]).join('; ')}
+const login=(base,path,user)=>libLogin(base,user,PASSWORD,path);
 async function reqForm(base,cookie,path,fields){const f=new FormData();for(const [k,v] of Object.entries(fields))f.append(k,v);const r=await fetch(base+path,{method:'POST',headers:{cookie},body:f});return{status:r.status,text:await r.text()}}
 async function reqReceipt(base,cookie,chargeId,amount){const f=new FormData();f.append('monthlyChargeId',chargeId);f.append('amount',String(amount));const bytes=new Uint8Array([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]);f.append('receipt',new Blob([bytes],{type:'image/png'}),'x.png');const r=await fetch(base+'/api/payments/with-receipt',{method:'POST',headers:{cookie},body:f});return{status:r.status,text:await r.text()}}
 async function req(base,cookie,method,path,body){const sameOrigin=base===NEW?{origin:NEW}:{};const r=await fetch(base+path,{method,headers:{...(body?{'content-type':'application/json'}:{}),...sameOrigin,cookie},body:body?JSON.stringify(body):undefined});return{status:r.status,text:await r.text()}}

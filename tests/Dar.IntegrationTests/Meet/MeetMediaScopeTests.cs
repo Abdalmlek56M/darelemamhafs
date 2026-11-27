@@ -18,7 +18,6 @@ namespace Dar.IntegrationTests.Meet;
 /// </summary>
 public sealed class MeetMediaScopeTests
 {
-    private const string EnvName = "DAR_TEST_DATABASE";
     private const string Password = "TestPass123!";
 
     private static readonly Guid ScopedUser = Guid.Parse("7a000000-0000-4000-8000-00000000e001");
@@ -34,7 +33,7 @@ public sealed class MeetMediaScopeTests
 
     private static string MediaRoot => Path.Combine(Path.GetTempPath(), "dar-p02-meet-media");
 
-    private static string? ConnectionString => Environment.GetEnvironmentVariable(EnvName);
+    private static string? ConnectionString => IntegrationDatabase.Require();
 
     [Fact]
     public async Task ScopedSupervisor_ListSeesOnlyOwnCircleRecordings()

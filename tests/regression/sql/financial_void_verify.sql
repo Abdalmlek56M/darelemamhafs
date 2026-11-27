@@ -439,13 +439,37 @@ END;
 $scenario$;
 
 -- ============================================================================
--- Summary
+-- Summary + CI gate
+-- ----------------------------------------------------------------------------
+-- FINAL 2.16: this script used to only print PASS/FAIL rows and always commit-rollback
+-- successfully, so a FAIL row was invisible to a runner that did not grep the output.
+-- Any FAIL (or a truncated run with fewer than the expected scenarios) now raises an
+-- exception, which fails psql under ON_ERROR_STOP=1. Raising aborts the open transaction,
+-- so the implicit rollback on disconnect replaces the explicit one.
 -- ============================================================================
 SELECT scenario, status, detail FROM pg_temp.vo_results ORDER BY scenario;
 SELECT
     count(*) FILTER (WHERE status='PASS') AS passed,
-    count(*) FILTER (WHERE status='FAIL') AS failed,
-    count(*) AS total
+    count(*) FILTER (WHERE status='FAIL') AS failed
 FROM pg_temp.vo_results;
+
+DO $gate$
+DECLARE
+    v_failed  integer;
+    v_total   integer;
+    v_expected constant integer := 20; -- S00..S19
+BEGIN
+    SELECT count(*) FILTER (WHERE status='FAIL'), count(*) INTO v_failed, v_total FROM pg_temp.vo_results;
+    IF v_total < v_expected THEN
+        RAISE EXCEPTION 'financial void verification incomplete: % of % scenarios ran', v_total, v_expected;
+    END IF;
+    IF v_failed > 0 THEN
+        RAISE EXCEPTION 'فشل التحقق من الإلغاء المالي: % من % سيناريو.', v_failed, v_total;
+    END IF;
+    RAISE NOTICE 'financial void verification passed: % scenarios', v_total;
+END;
+$gate$;
+
+SELECT 'PASS: financial void verification completed.' AS result;
 
 ROLLBACK;

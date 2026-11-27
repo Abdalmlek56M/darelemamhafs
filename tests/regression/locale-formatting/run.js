@@ -1,16 +1,11 @@
-const { chromium } = require('playwright');
 const BASE = process.env.P24_BASE_URL || 'http://127.0.0.1:5700';
 const PASSWORD = process.env.P24_PASSWORD || 'P24-StrongPass!';
-const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
-try {
-  const url = new URL(BASE);
-  if (PROD_HOSTS.includes(url.hostname.toLowerCase()) || !['127.0.0.1','localhost','::1','[::1]'].includes(url.hostname.toLowerCase())) {
-    console.error('P24_FAIL refusing non-test URL'); process.exit(2);
-  }
-} catch { console.error('P24_FAIL invalid URL'); process.exit(2); }
 const arabicDigits = /[٠-٩۰-۹]/;
 
 (async () => {
+  const { assertSafeTargets } = await import('../../lib/index.mjs');
+  assertSafeTargets({ urls: [BASE], label: 'P24_FAIL' });
+  const { chromium } = require('playwright');
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   const page = await browser.newPage({ viewport: { width: 1400, height: 950 } });
   try {

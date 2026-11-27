@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { assertSafeTargets, login as libLogin, psql as libPsql, q, request as libRequest, requireEnv } from '../../lib/index.mjs';
 
 const CONN = process.env.DAR_TEST_DATABASE || '';
 const LEGACY = process.env.Q2_LEGACY_URL || '';
@@ -12,79 +12,14 @@ const NOFIN = 'q2_nofin';
 const ADMIN = 'q2_admin';
 const EXPECTED_TESTS = 22;
 
-if (!CONN || !LEGACY || !NEW_API || !SETUP_TOKEN) {
-  console.error('Q2_FAIL missing DAR_TEST_DATABASE/Q2_LEGACY_URL/Q2_NEW_URL/Q2_SETUP_TOKEN');
-  process.exit(2);
-}
+requireEnv(['DAR_TEST_DATABASE', 'Q2_LEGACY_URL', 'Q2_NEW_URL', 'Q2_SETUP_TOKEN'], 'Q2_FAIL');
+assertSafeTargets({ db: CONN, urls: [LEGACY, NEW_API], requireDb: true, label: 'Q2_FAIL' });
 
-const PROD_DB = process.env.DAR_FORBIDDEN_DB || '';
-const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
-function isLoopbackHost(host) {
-  return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]';
-}
-function refuse(message, prefix) {
-  console.error(prefix + ' refusing production/live target: ' + message);
-  process.exit(2);
-}
-function guardTargets(db, urls, prefix) {
-  if (db && new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__') + '\\b', 'i').test(db)) refuse('production database name', prefix);
-  const dbHost = /host\s*=\s*([^;]+)/i.exec(db || '');
-  if (dbHost && PROD_HOSTS.includes(dbHost[1].trim().toLowerCase())) refuse('production database host', prefix);
-  for (const raw of urls) {
-    let url;
-    try { url = new URL(raw); } catch { refuse('invalid URL', prefix); }
-    const host = url.hostname.toLowerCase();
-    if (PROD_HOSTS.includes(host)) refuse('production hostname ' + host, prefix);
-    if (!isLoopbackHost(host)) refuse('non-loopback test URL ' + host, prefix);
-  }
-}
-guardTargets(CONN, [LEGACY, NEW_API], 'Q2_FAIL');
-
-function pgEnv() {
-  const env = { ...process.env };
-  for (const part of CONN.split(';')) {
-    const idx = part.indexOf('=');
-    if (idx < 0) continue;
-    const key = part.slice(0, idx).trim().toLowerCase();
-    const value = part.slice(idx + 1).trim();
-    if (key === 'host') env.PGHOST = value;
-    if (key === 'port') env.PGPORT = value;
-    if (key === 'database') env.PGDATABASE = value;
-    if (key === 'username') env.PGUSER = value;
-    if (key === 'password') env.PGPASSWORD = value;
-  }
-  return env;
-}
-const PGENV = pgEnv();
-function psql(text) {
-  const result = spawnSync('psql', ['-X', '-q', '-t', '-A', '-v', 'ON_ERROR_STOP=1', '-c', text], { env: PGENV, encoding: 'utf8' });
-  if (result.status !== 0) throw new Error('psql failed: ' + (result.stderr || '').trim());
-  return (result.stdout || '').trim();
-}
-function q(value) { return "'" + String(value).replaceAll("'", "''") + "'"; }
+function psql(text) { return libPsql(CONN, text); }
 function one(statement) { return psql(statement); }
 function sql(statement) { psql(statement); }
-
-async function login(base, path, username, password) {
-  const response = await fetch(base + path, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username, password })
-  });
-  const text = await response.text();
-  if (!response.ok) throw new Error('login ' + username + ' ' + response.status + ': ' + text.slice(0, 160));
-  const cookies = response.headers.getSetCookie ? response.headers.getSetCookie() : [response.headers.get('set-cookie')];
-  return cookies.filter(Boolean).map((value) => value.split(';')[0]).join('; ');
-}
-async function request(base, cookie, method, path, body) {
-  const response = await fetch(base + path, {
-    method,
-    headers: { ...(body ? { 'content-type': 'application/json' } : {}), cookie },
-    body: body ? JSON.stringify(body) : undefined
-  });
-  const text = await response.text();
-  let json = null; try { json = JSON.parse(text); } catch {}
-  return { status: response.status, text, json };
-}
+const login = (base, path, username, password) => libLogin(base, username, password, path);
+const request = (base, cookie, method, path, body) => libRequest(base, cookie, method, path, body);
 function assert(condition, message) { if (!condition) throw new Error(message); }
 function assertEq(actual, expected, message) { if (actual !== expected) throw new Error(message + ': got ' + actual + ' expected ' + expected); }
 

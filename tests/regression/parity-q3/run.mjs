@@ -1,4 +1,5 @@
 import { writeFileSync } from 'node:fs'
+import { assertSafeTargets, login as libLogin, request as libRequest, requireEnv } from '../../lib/index.mjs'
 import { psql, q } from './db.mjs'
 import { reviewCases, adjustCase, notComparable } from './cases.mjs'
 import { seedReviewFixture, readReviewState, seedAdjustFixture, readAdjustState } from './fixtures.mjs'
@@ -12,43 +13,18 @@ const SETUP_TOKEN = process.env.Q3_SETUP_TOKEN || ''
 const PASSWORD = process.env.Q3_PASSWORD || 'Q3-StrongPass!'
 const REPORT_PATH = process.env.Q3_REPORT_PATH || 'parity-report.md'
 const COMMIT = process.env.Q3_COMMIT || 'unknown'
-const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean)
-const dbHost = /host\s*=\s*([^;]+)/i.exec(CONN)?.[1]?.trim().toLowerCase() || ''
-if (PROD_HOSTS.includes(dbHost)) { console.error('Q3_FAIL refusing production database host'); process.exit(2) }
+// Explicit, reviewed allow-list of open parity mismatches. Any mismatch that is not named
+// here fails the suite (FINAL 2.16: the suite used to exit 0 with 5 open mismatches).
+const ALLOWED_MISMATCHES = (process.env.Q3_ALLOWED_MISMATCHES || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean)
 
-if (!CONN || !LEGACY || !NEW_API || !SETUP_TOKEN) {
-  console.error('Q3_FAIL missing DAR_TEST_DATABASE/Q3_LEGACY_URL/Q3_NEW_URL/Q3_SETUP_TOKEN')
-  process.exit(2)
-}
-for (const [label, value] of [['database', CONN], ['legacy', LEGACY], ['new', NEW_API]]) {
-  if (label === 'database' && new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__'), 'i').test(value)) {
-    console.error('Q3_FAIL refusing production database'); process.exit(2)
-  }
-  if (label !== 'database') {
-    let url
-    try { url = new URL(value) } catch { console.error('Q3_FAIL invalid URL'); process.exit(2) }
-    const host = url.hostname.toLowerCase()
-    if (PROD_HOSTS.includes(host) || !['127.0.0.1', 'localhost', '::1', '[::1]'].includes(host)) {
-      console.error('Q3_FAIL refusing production/non-loopback URL'); process.exit(2)
-    }
-  }
-}
+requireEnv(['DAR_TEST_DATABASE', 'Q3_LEGACY_URL', 'Q3_NEW_URL', 'Q3_SETUP_TOKEN'], 'Q3_FAIL')
+assertSafeTargets({ db: CONN, urls: [LEGACY, NEW_API], requireDb: true, label: 'Q3_FAIL' })
 
-async function login(base, path, username) {
-  const response = await fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username, password: PASSWORD }) })
-  const text = await response.text()
-  if (!response.ok) throw new Error('login ' + username + ' ' + response.status + ': ' + text.slice(0, 160))
-  const cookies = response.headers.getSetCookie ? response.headers.getSetCookie() : [response.headers.get('set-cookie')]
-  return cookies.filter(Boolean).map(value => value.split(';')[0]).join('; ')
-}
-
-async function request(base, cookie, method, path, body) {
-  const response = await fetch(base + path, { method, headers: { ...(body ? { 'content-type': 'application/json' } : {}), cookie }, body: body ? JSON.stringify(body) : undefined })
-  const text = await response.text()
-  let json = null
-  try { json = JSON.parse(text) } catch { /* non-JSON */ }
-  return { status: response.status, text, json }
-}
+const login = (base, path, username) => libLogin(base, username, PASSWORD, path)
+const request = (base, cookie, method, path, body) => libRequest(base, cookie, method, path, body)
 
 async function createUser(adminCookie, username, permissions) {
   const response = await request(LEGACY, adminCookie, 'POST', '/api/admin/users', { username, displayName: username, password: PASSWORD, permissionCodes: permissions })
@@ -91,14 +67,33 @@ try {
   results.push(compareAdjust(adjustCase, { status: legacyAdjust.status, state: readAdjustState(CONN, legacyAdjustIds.attendance) }, { status: newAdjust.status, state: readAdjustState(CONN, newAdjustIds.attendance) }))
 
   const summary = summarize(results)
+  const unexpected = summary.results.filter((result) => result.differences.length > 0 && !ALLOWED_MISMATCHES.includes(result.name))
+  const allowListed = summary.results.filter((result) => result.differences.length > 0 && ALLOWED_MISMATCHES.includes(result.name))
   const report = renderReport({
     summary, gaps: notComparable,
     metadata: { commit: COMMIT, generatedAt: new Date().toISOString(), database: 'disposable' },
     untested: ['payments/void (new endpoint does not exist)', 'payroll lock/unlock (new endpoint does not exist)', 'concurrent/race scenarios', 'production data']
   })
   writeFileSync(REPORT_PATH, report)
-  console.log(JSON.stringify({ scenarioCount: summary.scenarios, passed: summary.passed, mismatches: summary.mismatches, knownDifferences: summary.knownDifferences, results: summary.results, gaps: notComparable }, null, 2))
+  console.log(JSON.stringify({
+    suite: 'parity-q3',
+    ok: unexpected.length === 0,
+    scenarioCount: summary.scenarios,
+    passed: summary.passed,
+    mismatches: summary.mismatches,
+    knownDifferences: summary.knownDifferences,
+    allowListed: allowListed.map((result) => result.name),
+    unexpected: unexpected.map((result) => ({ name: result.name, differences: result.differences })),
+    results: summary.results,
+    gaps: notComparable
+  }, null, 2))
   console.log('Q3_DONE report=' + REPORT_PATH)
+  if (unexpected.length > 0) {
+    console.error('Q3_PARITY_FAIL ' + unexpected.length + ' unallow-listed mismatch(es): ' + unexpected.map((result) => result.name).join(', ')
+      + ' (allow open mismatches explicitly with Q3_ALLOWED_MISMATCHES)')
+    process.exit(3)
+  }
+  console.log('Q3_PASS')
 } catch (error) {
   console.error('Q3_FATAL ' + String(error && error.stack || error))
   process.exit(4)

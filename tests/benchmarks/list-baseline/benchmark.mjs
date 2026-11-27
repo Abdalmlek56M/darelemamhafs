@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { performance } from 'node:perf_hooks';
+import { assertSafeTargets, requireEnv } from '../../lib/index.mjs';
 
 const CONN = process.env.DAR_TEST_DATABASE || '';
 const LEGACY = process.env.S1_LEGACY_URL || '';
@@ -8,20 +9,10 @@ const SETUP_TOKEN = process.env.S1_SETUP_TOKEN || '';
 const PASSWORD = process.env.S1_PASSWORD || 'S1-BenchPass!';
 const LABEL = process.env.S1_LABEL || 'unknown';
 const ITERATIONS = Number(process.env.S1_ITERATIONS || 3);
-const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
 
-function fail(message) { console.error('S1A_FAIL refusing/failed: ' + message); process.exit(2); }
-function isLoopback(host) { return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]'; }
-function guard() {
-  if (!CONN || !LEGACY || !NEW_API || !SETUP_TOKEN) fail('missing DAR_TEST_DATABASE/S1_LEGACY_URL/S1_NEW_URL/S1_SETUP_TOKEN');
-  if (new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__') + '\\b', 'i').test(CONN)) fail('production database name');
-  for (const raw of [LEGACY, NEW_API]) {
-    let url;
-    try { url = new URL(raw); } catch { fail('invalid URL'); }
-    if (PROD_HOSTS.includes(url.hostname.toLowerCase()) || !isLoopback(url.hostname.toLowerCase())) fail('non-test URL ' + url.hostname);
-  }
-}
-guard();
+// Shared production-safety guard (FINAL 2.17) instead of a local copy.
+requireEnv(['DAR_TEST_DATABASE', 'S1_LEGACY_URL', 'S1_NEW_URL', 'S1_SETUP_TOKEN'], 'S1A_FAIL');
+assertSafeTargets({ db: CONN, urls: [LEGACY, NEW_API], requireDb: true, label: 'S1A_FAIL' });
 
 async function login(base, path, username, password) {
   const response = await fetch(base + path, {

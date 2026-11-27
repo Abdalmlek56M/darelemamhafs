@@ -1,0 +1,162 @@
+name: Regression (DB subset)
+
+# CI counterpart of the server-only full harness `tests/run-regression.sh`.
+#
+# What runs here:
+#   * PostgreSQL 17 as a service; `database/*.sql` migrations are applied to it, then every
+#     tests/regression/sql/*.sql verification script runs against that real schema.
+#   * The DB/schema-only Node suites that need nothing but `DAR_TEST_DATABASE` + `psql`.
+#   * The shared-guard contract suites (tests/lib + safety-guard-test.sh).
+#   * A negative check that a DB-backed suite FAILS (exit != 0) when DAR_TEST_DATABASE is unset,
+#     so a missing-DB environment can never turn into a green run again.
+#   * `bash -n` / `node --check` syntax gates for every runnable test file.
+#
+# What intentionally runs only on the deploy host: the full `tests/run-regression.sh` harness.
+# It provisions a disposable database from DAR_BASELINE_DB with `sudo -u postgres`, publishes
+# both APIs, starts them on loopback ports and runs the API/E2E suites with `sudo -u deploy`.
+# Host prerequisites and the exact provisioning contract are documented in
+# tests/README-regression.md. CI cannot provide sudo postgres/deploy users, so the API-level
+# suites stay on the host; this workflow still guarantees the DB and guard layers are covered
+# and that no DB suite can silently skip.
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regression-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Service-container PostgreSQL is reachable on the runner's loopback only.
+  PGHOST: 127.0.0.1
+  PGPORT: "5432"
+  PGUSER: dar
+  PGPASSWORD: dar
+  PGDATABASE: dar_ci
+  # Loopback URL is irrelevant for DB-only suites; the guard accepts it.
+  DAR_TEST_DATABASE: "Host=127.0.0.1;Port=5432;Database=dar_ci;Username=dar;Password=dar"
+  # The shared guard refuses databases that are not on this allow-list (FINAL 2.17).
+  DAR_TEST_DB_ALLOWLIST: "dar_ci"
+
+jobs:
+  guard-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Shared guard + missing-env contract (tests/lib)
+        run: node tests/regression/test-lib-guard/run.mjs
+      - name: Legacy safety-guard contract (refuses production DB/URLs)
+        run: bash tests/regression/safety-guard-test.sh
+      - name: Syntax gate — shell scripts
+        run: |
+          set -euo pipefail
+          shopt -s nullglob globstar
+          files=(tests/run-regression.sh tests/lib/*.sh tests/regression/**/*.sh deploy/*.sh deploy/scripts/*.sh)
+          echo "bash -n ${#files[@]} files"
+          for file in "${files[@]}"; do bash -n "$file"; done
+      - name: Syntax gate — Node suites
+        run: |
+          set -euo pipefail
+          shopt -s nullglob globstar
+          files=(tests/lib/*.mjs tests/regression/**/*.mjs tests/regression/**/*.js)
+          echo "node --check ${#files[@]} files"
+          for file in "${files[@]}"; do node --check "$file"; done
+      - name: Harness self-check (lists wired suites, no services needed)
+        run: bash tests/run-regression.sh --list
+      - name: Missing DAR_BASELINE_DB fails the full harness (no silent skip)
+        run: |
+          set -euo pipefail
+          if env -u DAR_BASELINE_DB bash tests/run-regression.sh; then
+            echo "::error::tests/run-regression.sh passed without DAR_BASELINE_DB (false green)"
+            exit 1
+          fi
+          echo "OK: tests/run-regression.sh fails without DAR_BASELINE_DB"
+
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: dar
+          POSTGRES_PASSWORD: dar
+          POSTGRES_DB: dar_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dar -d dar_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Apply every migration to the PostgreSQL service
+        env:
+          ConnectionStrings__Default: "Host=127.0.0.1;Port=5432;Database=dar_ci;Username=dar;Password=dar"
+        run: dotnet run --project src/Host/Dar.Api -- --migrate
+      - name: Fail loudly when DAR_TEST_DATABASE is missing
+        run: |
+          set -euo pipefail
+          # A DB-backed suite must never pass/skip silently without the database env.
+          if env -u DAR_TEST_DATABASE node tests/regression/integrity-sql/run.mjs; then
+            echo "::error::integrity-sql passed without DAR_TEST_DATABASE (false green)"
+            exit 1
+          fi
+          echo "OK: integrity-sql exits non-zero without DAR_TEST_DATABASE"
+          if env -u DAR_TEST_DATABASE bash tests/regression/approval-paths/run.sh; then
+            echo "::error::approval-paths shell guard passed without DAR_TEST_DATABASE (false green)"
+            exit 1
+          fi
+          echo "OK: approval-paths/run.sh exits non-zero without DAR_TEST_DATABASE"
+      - name: Run all tests/regression/sql/*.sql verification scripts
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(tests/regression/sql/*.sql)
+          echo "Running ${#files[@]} SQL verification scripts: ${files[*]}"
+          for file in "${files[@]}"; do
+            log="$(basename "$file").log"
+            echo "== $file =="
+            if ! psql -X -q -v ON_ERROR_STOP=1 -f "$file" > "$log" 2>&1; then
+              echo "::error::$file failed (its internal FAIL gate raises under ON_ERROR_STOP)"
+              tail -n 120 "$log"
+              exit 1
+            fi
+            tail -n 8 "$log"
+          done
+      - name: Run DB-only Node regression suites
+        run: |
+          set -euo pipefail
+          suites=(
+            tests/regression/integrity-sql/run.mjs
+            tests/regression/tier1-migration-034/run.mjs
+            tests/regression/tier1-migration-cleanup/run.mjs
+            tests/regression/tier1-oauth-state/run.mjs
+            tests/regression/tier2-indexes/run.mjs
+            tests/regression/tier2-meet-cap/run.mjs
+          )
+          for suite in "${suites[@]}"; do
+            echo "== $suite =="
+            node "$suite"
+          done
+      - name: Repository secret / backup-source contracts
+        run: |
+          node tests/regression/repo-secrets/run.mjs
+          node tests/regression/backup-source/run.mjs

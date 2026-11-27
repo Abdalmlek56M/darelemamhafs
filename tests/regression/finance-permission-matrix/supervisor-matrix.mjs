@@ -1,27 +1,10 @@
+import { assertSafeTargets } from '../../lib/index.mjs';
+
 const BASE = process.env.P17_NEW_BASE_URL || 'http://127.0.0.1:5100';
 const PASSWORD = process.env.P17_TEST_PASSWORD || 'P17-StrongPass!';
 const STUDENT = '22222222-2222-4222-8222-222222222222';
-const PROD_DB = process.env.DAR_FORBIDDEN_DB || '';
-const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
-function isLoopbackHost(host) {
-  return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]';
-}
-function refuseTarget(message) {
-  console.error('P17_FAIL refusing production/live target: ' + message);
-  process.exit(2);
-}
-function guardTargets(base) {
-  let url;
-  try { url = new URL(base); } catch { refuseTarget('invalid URL'); }
-  const host = url.hostname.toLowerCase();
-  if (PROD_HOSTS.includes(host)) refuseTarget('production hostname ' + host);
-  if (!isLoopbackHost(host)) refuseTarget('non-loopback test URL ' + host);
-  const db = process.env.P17_DAR_TEST_DATABASE || process.env.DAR_TEST_DATABASE || '';
-  if (db && new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__') + '\\b', 'i').test(db)) refuseTarget('production database name');
-  const dbHost = /host\s*=\s*([^;]+)/i.exec(db);
-  if (dbHost && PROD_HOSTS.includes(dbHost[1].trim().toLowerCase())) refuseTarget('production database host');
-}
-guardTargets(BASE);
+const DB = process.env.P17_DAR_TEST_DATABASE || process.env.DAR_TEST_DATABASE || '';
+assertSafeTargets({ db: DB, urls: [BASE], label: 'P17_FAIL' });
 
 const numeric = /(?:987654\\.32|123456\\.78|444222\\.11|55555\\.55|11111\\.11|37\\.5)/;
 
@@ -93,5 +76,13 @@ async function get(cookie, path) {
     finStudentAmountsNumeric: fin.student.status === 200 && fin.student.subscriptionRows.length > 0 && fin.student.subscriptionRows.some(s => typeof s.amountDue === 'number'),
     finLivePayableAmountNumeric: fin.live.status === 200 && fin.live.count > 0 && fin.live.payableAmounts.some(v => typeof v === 'number')
   };
-  console.log(JSON.stringify({ result, checks }, null, 2));
-})().catch(error => { console.log(JSON.stringify({ fatal: String(error && error.stack || error) })); process.exit(1); });
+  const failed = Object.entries(checks)
+    .filter(([, ok]) => ok !== true)
+    .map(([name, ok]) => ({ name, actual: ok }));
+  console.log(JSON.stringify({ suite: 'p17-supervisor-matrix', ok: failed.length === 0, result, checks, failed }, null, 2));
+  if (failed.length > 0) {
+    console.error('P17_SUPERVISOR_MATRIX_FAIL ' + JSON.stringify(failed));
+    process.exit(1);
+  }
+  console.log('P17_SUPERVISOR_MATRIX_PASS');
+})().catch(error => { console.error(JSON.stringify({ fatal: String(error && error.stack || error) })); process.exit(1); });

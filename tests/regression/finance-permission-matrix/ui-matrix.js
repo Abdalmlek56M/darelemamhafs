@@ -1,30 +1,14 @@
 const BASE = process.env.P17_BASE_URL || 'http://127.0.0.1:5099';
-const PROD_DB = process.env.DAR_FORBIDDEN_DB || '';
-const PROD_HOSTS = (process.env.DAR_FORBIDDEN_HOSTS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
-function isLoopbackHost(host) {
-  return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]';
-}
-function refuseTarget(message) {
-  console.error('P17_FAIL refusing production/live target: ' + message);
-  process.exit(2);
-}
-function guardTargets(base) {
-  let url;
-  try { url = new URL(base); } catch { refuseTarget('invalid URL'); }
-  const host = url.hostname.toLowerCase();
-  if (PROD_HOSTS.includes(host)) refuseTarget('production hostname ' + host);
-  if (!isLoopbackHost(host)) refuseTarget('non-loopback test URL ' + host);
-  const db = process.env.P17_DAR_TEST_DATABASE || process.env.DAR_TEST_DATABASE || '';
-  if (db && new RegExp('database\\s*=\\s*' + (process.env.DAR_FORBIDDEN_DB || '__forbidden_db__') + '\\b', 'i').test(db)) refuseTarget('production database name');
-  const dbHost = /host\s*=\s*([^;]+)/i.exec(db);
-  if (dbHost && PROD_HOSTS.includes(dbHost[1].trim().toLowerCase())) refuseTarget('production database host');
-}
-guardTargets(BASE);
-const { chromium } = require('playwright');
+const DB = process.env.P17_DAR_TEST_DATABASE || process.env.DAR_TEST_DATABASE || '';
 const PASSWORD = 'P17-StrongPass!';
 const sentinel = /987654|987,654|987\D{0,3}654|123456|444222|55555|P17-SENTINEL/;
 
 (async () => {
+  // Shared test library guard (FINAL 2.17): runs before playwright is required so a
+  // production target is refused even when the browser dependency is unavailable.
+  const { assertSafeTargets } = await import('../../lib/index.mjs');
+  assertSafeTargets({ db: DB, urls: [BASE], label: 'P17_FAIL' });
+  const { chromium } = require('playwright');
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   const users = { none: 'p17_none', create: 'p17_create', read: 'p17_read', reports: 'p17_reports', control: 'p17_control' };
   const results = {};
@@ -85,16 +69,24 @@ const sentinel = /987654|987,654|987\D{0,3}654|123456|444222|55555|P17-SENTINEL/
       };
       await context.close();
     }
-    console.log(JSON.stringify({ n: users, results, checks: {
+    const checks = {
       controlSeesAmountsInUi: results.control.dashboardSentinel || results.control.paymentsSentinel,
       controlSeesAmountsInReport: results.control.reportHasSentinel,
       noneSeesNoAmounts: !results.none.dashboardSentinel && !results.none.paymentsSentinel && !results.none.reportHasSentinel,
       createSeesNoAmounts: !results.create.dashboardSentinel && !results.create.paymentsSentinel && !results.create.reportHasSentinel,
       readHasPaymentsButReportHidesFinance: results.read.paymentsNav > 0 && results.read.paymentsSentinel && !results.read.reportHasSentinel,
       reportsHidesFinance: !results.reports.dashboardSentinel && !results.reports.paymentsSentinel && !results.reports.reportHasSentinel
-    } }, null, 2));
+    };
+    const failed = Object.entries(checks).filter(([, ok]) => ok !== true).map(([name, actual]) => ({ name, actual }));
+    console.log(JSON.stringify({ suite: 'p17-ui-matrix', ok: failed.length === 0, n: users, results, checks, failed }, null, 2));
+    if (failed.length > 0) {
+      console.error('P17_UI_MATRIX_FAIL ' + JSON.stringify(failed));
+      process.exitCode = 1;
+    } else {
+      console.log('P17_UI_MATRIX_PASS');
+    }
   } catch (error) {
-    console.log(JSON.stringify({ fatal: String(error && error.stack || error), results }, null, 2));
+    console.error(JSON.stringify({ fatal: String(error && error.stack || error), results }, null, 2));
     process.exitCode = 2;
   } finally {
     await browser.close();

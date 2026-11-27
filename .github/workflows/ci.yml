@@ -21,7 +21,24 @@ concurrency:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    # FINAL 2.16: the .NET integration tests require a disposable database. They must never
+    # silently return when DAR_TEST_DATABASE is absent (tests/Dar.IntegrationTests/
+    # IntegrationDatabase.cs fails by default), so CI provides PostgreSQL and the env here.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: dar
+          POSTGRES_PASSWORD: dar
+          POSTGRES_DB: dar_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dar -d dar_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -33,7 +50,14 @@ jobs:
         run: dotnet build backend/DarEltahfeez.Api/DarEltahfeez.Api.csproj --nologo
       - name: Build new solution
         run: dotnet build Dar.slnx --no-restore --nologo
+      - name: Apply migrations to the CI PostgreSQL service
+        env:
+          ConnectionStrings__Default: "Host=127.0.0.1;Port=5432;Database=dar_ci;Username=dar;Password=dar"
+        run: dotnet run --project src/Host/Dar.Api -- --migrate
       - name: Test
+        env:
+          # The integration tests fail (not skip) when this is missing; see IntegrationDatabase.cs.
+          DAR_TEST_DATABASE: "Host=127.0.0.1;Port=5432;Database=dar_ci;Username=dar;Password=dar"
         run: dotnet test Dar.slnx --no-build --nologo
       - name: Check deploy script syntax (bash -n)
         run: |
@@ -205,47 +229,27 @@ jobs:
           $check$;
           SQL
 
-      # SQL regression scripts are self-contained (single transaction + ROLLBACK), so they
-      # can run against the freshly migrated database without leaving rows behind.
-      - name: Run financial void SQL verification
+      # Every tests/regression/sql/*.sql verification script is self-contained (single
+      # transaction + ROLLBACK) and carries an internal FAIL gate that raises under
+      # ON_ERROR_STOP=1 — so a FAIL row can no longer be printed without failing CI.
+      - name: Run SQL regression verifications (all tests/regression/sql/*.sql)
         run: |
-          log=void_verify.log
-          if ! docker exec -i -e PGPASSWORD=dar "${{ job.services.postgres.id }}" \
-              psql -U dar -d dar_ci -v ON_ERROR_STOP=1 -f - \
-              < tests/regression/sql/financial_void_verify.sql > "$log" 2>&1; then
-            echo "::error::financial_void_verify.sql failed (psql exit code)"
-            tail -n 120 "$log"
-            exit 1
-          fi
-          tail -n 40 "$log"
-          if grep -q 'FAIL' "$log"; then
-            echo "::error::financial void verification reported FAIL scenarios"
-            exit 1
-          fi
-
-      - name: Run teacher schedule overlap SQL verification
-        run: |
-          log=overlap_verify.log
-          if ! docker exec -i -e PGPASSWORD=dar "${{ job.services.postgres.id }}" \
-              psql -U dar -d dar_ci -v ON_ERROR_STOP=1 -f - \
-              < tests/regression/sql/schedule_overlap_verify.sql > "$log" 2>&1; then
-            echo "::error::schedule_overlap_verify.sql failed (its internal gate raises on any FAIL)"
-            tail -n 120 "$log"
-            exit 1
-          fi
-          tail -n 20 "$log"
-
-      - name: Run schedule overlap hardening SQL verification
-        run: |
-          log=overlap_hardening_verify.log
-          if ! docker exec -i -e PGPASSWORD=dar "${{ job.services.postgres.id }}" \
-              psql -U dar -d dar_ci -v ON_ERROR_STOP=1 -f - \
-              < tests/regression/sql/schedule_overlap_hardening_verify.sql > "$log" 2>&1; then
-            echo "::error::schedule_overlap_hardening_verify.sql failed (advisory locks / atomic guards)"
-            tail -n 120 "$log"
-            exit 1
-          fi
-          tail -n 20 "$log"
+          set -euo pipefail
+          shopt -s nullglob
+          files=(tests/regression/sql/*.sql)
+          echo "Running ${#files[@]} SQL verification scripts: ${files[*]}"
+          for file in "${files[@]}"; do
+            log="$(basename "$file").log"
+            echo "== $file =="
+            if ! docker exec -i -e PGPASSWORD=dar "${{ job.services.postgres.id }}" \
+                psql -U dar -d dar_ci -v ON_ERROR_STOP=1 -f - \
+                < "$file" > "$log" 2>&1; then
+              echo "::error::$file failed (its internal FAIL gate raises under ON_ERROR_STOP)"
+              tail -n 120 "$log"
+              exit 1
+            fi
+            tail -n 20 "$log"
+          done
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 20
