@@ -6,6 +6,27 @@ namespace Dar.Common.Requests;
 /// <summary>Applies the attendance/session rows for an approved request.</summary>
 public static class RequestEffectApplier
 {
+    public const string CompletedSessionMessage =
+        "لا يمكن اعتماد طلب غياب لموعد تم تسجيل حلقته. ارفض الطلب أو عدّل الحضور من الحلقة.";
+
+    public static async Task<bool> HasCompletedSessionAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid slotId,
+        DateOnly date,
+        CancellationToken ct)
+    {
+        await using var cmd = new NpgsqlCommand("""
+            SELECT EXISTS(
+                SELECT 1 FROM teacher_sessions
+                WHERE schedule_slot_id=@slot AND session_date=@date AND status='completed'
+            );
+            """, connection, transaction);
+        cmd.Parameters.AddWithValue("slot", slotId);
+        cmd.Parameters.AddWithValue("date", date);
+        return (bool)(await cmd.ExecuteScalarAsync(ct) ?? false);
+    }
+
     public static async Task ApplyAttendanceStatusAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
@@ -19,6 +40,9 @@ public static class RequestEffectApplier
         Guid reviewer,
         CancellationToken ct)
     {
+        if (await HasCompletedSessionAsync(connection, transaction, slotId, date, ct))
+            throw new InvalidOperationException(CompletedSessionMessage);
+
         var status = type == "absence" ? "absent" : "cancelled";
         await using var upsert = new NpgsqlCommand("""
             INSERT INTO teacher_attendance(

@@ -15,7 +15,8 @@ public enum RequestReviewOutcome
     InvalidDuration,
     InvalidStatus,
     InvalidAmount,
-    Locked
+    Locked,
+    CompletedSessionExists
 }
 
 public sealed record RequestCorrectionAudit(
@@ -87,6 +88,8 @@ public static class RequestReviewService
                     return new(RequestReviewOutcome.MissingSchedule, Type: type);
                 if (await IsLockedAsync(connection, transaction, requestDate.Value, ct))
                     return new(RequestReviewOutcome.Locked, Type: type);
+                if (await RequestEffectApplier.HasCompletedSessionAsync(connection, transaction, slotId, requestDate.Value, ct))
+                    return new(RequestReviewOutcome.CompletedSessionExists, Type: type);
                 await RequestEffectApplier.ApplyAttendanceStatusAsync(
                     connection, transaction, type, circleId, teacherId, slotId,
                     requestDate.Value, note, reason, reviewer, ct);

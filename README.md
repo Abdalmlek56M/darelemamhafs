@@ -31,7 +31,7 @@
 
 ## الاختبارات والحالة
 
-- **الواجهة:** 46 ملف Vitest / **154 اختبارًا** (Testing Library + jsdom) عبر `npm test`.
+- **الواجهة:** 47 ملف Vitest / **155 اختبارًا** (Testing Library + jsdom) عبر `npm test`.
 - **Backend:** مشاريع `tests/Dar.UnitTests` + `tests/Dar.IntegrationTests` (Testcontainers PostgreSQL 17). آخر أرقام full regression وPASS/SHA في `docs/OVERNIGHT-REPORT.md`.
 - لا Contract test ولا Playwright/E2E بعد؛ CI في `.github/workflows/ci.yml` (backend + meet-recorder + migrations + frontend + api-client + security).
 - **الحالة الحالية الكاملة:** `docs/00-current-state.md`.

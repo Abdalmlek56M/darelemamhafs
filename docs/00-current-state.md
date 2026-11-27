@@ -24,7 +24,7 @@
 | Backend (جديد) | `Dar.slnx`: `src/Host/Dar.Api` على 5081 — `/api/v1/*` (Identity + Secretariat + Teaching + Meet) |
 | قاعدة البيانات | PostgreSQL 17 — `public` schema — **43 migration في المستودع (001→042؛ 039 مقسمة 039a/039b؛ 042 أحدث ملف)**؛ **الإنتاج على 26/26** حتى النشر القادم |
 | النشر | Ubuntu 24.04 + Nginx + Certbot + systemd + منافذ داخلية 5080/5081؛ staging منفصل على نفس الـhost (`docs/staging-environment.md`) |
-| الاختبارات | backend unit + integration (Testcontainers) + 48 suite في `tests/run-regression.sh`؛ frontend **46 ملف / 154 اختبار Vitest** (Testing Library + jsdom) |
+| الاختبارات | backend unit + integration (Testcontainers) + 48 suite في `tests/run-regression.sh`؛ frontend **47 ملف / 155 اختبار Vitest** (Testing Library + jsdom) |
 | اللغة | العربية فقط الآن — الإنجليزية مؤجلة (ADR-0004) |
 
 ---
@@ -88,7 +88,7 @@
 | **dotnet build** (legacy + Dar.slnx) | ✅ 0 warnings / 0 errors (بالأعلام الآمنة -m:1 -nodeReuse:false) |
 | **TypeScript** (frontend tsc -b + api-client) | ✅ 0 errors (`npm run typecheck`) |
 | **Unit/Integration .NET** | ✅ عبر CI و`tests/run-regression.sh`؛ `dotnet test` المحلي قد يُحجب (testhost `Win32Exception 5`) وTestcontainers يحتاج Docker — CI هو الحكم |
-| **Frontend tests** | ✅ **46 ملف / 154 اختبارًا** (Vitest + Testing Library + jsdom) عبر `npm test` |
+| **Frontend tests** | ✅ **47 ملف / 155 اختبارًا** (Vitest + Testing Library + jsdom) عبر `npm test` |
 | **Full regression harness** | `tests/run-regression.sh` — **48 suite** + UNIT؛ أحدث `UNIT/SUITES/PASS` + SHA في `docs/OVERNIGHT-REPORT.md` |
 | **Overlap protection** | ✅ 45/45 + تحصين 025 (17/17) + migration 012 |
 | **Vite build** | ✅ `npm run build` — dist مقسّمة chunks (lazy pages + manualChunks) |

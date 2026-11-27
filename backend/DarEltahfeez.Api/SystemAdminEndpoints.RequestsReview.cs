@@ -105,6 +105,8 @@ public static partial class SystemAdminEndpoints
                         new Dictionary<string, string[]> { ["amount"] = ["تعذر حساب الأجر."] }),
                     RequestReviewOutcome.Locked => Results.Conflict(new { message =
                         "مسير رواتب هذا الشهر مقفل. افتح المسير قبل اعتماد الطلب." }),
+                    RequestReviewOutcome.CompletedSessionExists => Results.Conflict(new { message =
+                        Dar.Common.Requests.RequestEffectApplier.CompletedSessionMessage }),
                     _ => Results.Problem()
                 };
             }
