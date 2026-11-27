@@ -7,9 +7,10 @@
 #
 # main keeps the order of operations documented at the top of deploy/update.sh
 # and must never be reordered:
-#   preflight -> backup -> git pull -> build/stage -> migrate -> verify ledger
-#   -> stop services -> swap -> restart/smoke (auto binary rollback) -> retention
-#   -> state -> summary.
+#   lock -> preflight -> backup -> git pull -> quality gate -> build/stage
+#   (app + optional meet-bot) -> migrate -> verify ledger -> stop services
+#   -> swap (app + bot) -> restart/smoke (readiness, bot, HTTP, real login +
+#   money read; auto binary rollback) -> retention -> state -> summary.
 # =============================================================================
 # shellcheck disable=SC2034,SC2154
 
@@ -19,7 +20,9 @@ print_banner() {
   echo " stamp : $STAMP"
   echo " repo  : $REPO_DIR"
   echo " log   : $LOG_FILE"
-  echo " mode  : dry-run=$DRY_RUN skip-build=$SKIP_BUILD allow-stopped=$ALLOW_STOPPED"
+  echo " lock  : $LOCK_FILE (dry-run does not lock)"
+  echo " mode  : dry-run=$DRY_RUN skip-build=$SKIP_BUILD allow-stopped=$ALLOW_STOPPED skip-quality-gate=$SKIP_QUALITY_GATE"
+  echo " bot   : $MEET_BOT_ENABLED (1 = rebuild/swap $MEET_BOT_SERVICE)"
   echo "======================================================================"
 }
 
@@ -30,20 +33,27 @@ print_plan() {
   echo "  current commit: $(git -C "$REPO_DIR" log -1 --oneline 2>/dev/null || echo unknown)"
   echo "  app root      : $APP_ROOT"
   echo "  services      : $SERVICES"
-  echo "  migrations    : $(find "$REPO_DIR/database" -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ') files in repository"
+  echo "  meet-bot      : $([ "$MEET_BOT_ENABLED" -eq 1 ] && echo "rebuild+swap+restart $MEET_BOT_SERVICE ($MEET_BOT_DIR)" || echo "not installed; skipped")"
+  echo "  migration     : $(find "$REPO_DIR/database" -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ') files in repository"
   echo "  planned steps :"
-  echo "    1. preflight (deploy/preflight.sh)"
-  echo "    2. database backup -> $BACKUP_DB_DIR/dar-pre-deploy-$STAMP.dump (+sha256)"
-  echo "    3. git pull --ff-only"
-  echo "    4. build: npm ci + npm run build + dotnet publish -> app/legacy.new + app/api.new"
-  echo "       (--skip-build reuses existing app/legacy.new + app/api.new)"
-  echo "    5. dotnet run --project src/Host/Dar.Api -- --migrate"
-  echo "    6. verify web_schema_migrations count == database/*.sql count"
-  echo "    7. stop services, swap app dirs to *.old.$STAMP, start services"
-  echo "    8. smoke: /health/ready 5080+5081, /, /management, /teacher, /supervisor, /api/v1/ping"
+  echo "    1. single-deploy flock on $LOCK_FILE"
+  echo "    2. preflight (deploy/preflight.sh)"
+  echo "    3. database backup -> $BACKUP_DB_DIR/dar-pre-deploy-$STAMP.dump (+sha256)"
+  echo "    4. git pull --ff-only"
+  echo "    5. CI/quality gate (bash -n + node --check + tier2-deploy/backup-source/repo-secrets suites)"
+  echo "       (--skip-quality-gate skips this and is recorded in the deploy state)"
+  echo "    6. build: npm ci + npm run build + dotnet publish -> app/legacy.new + app/api.new"
+  echo "       optional meet-bot: npm ci + npm run build -> $MEET_BOT_DIR.new"
+  echo "       (--skip-build reuses existing *.new artifacts)"
+  echo "    7. dotnet run --project src/Host/Dar.Api -- --migrate"
+  echo "    8. verify web_schema_migrations count == database/*.sql count"
+  echo "    9. stop services, swap app dirs to *.old.$STAMP (+ meet-bot.old.$STAMP), start services"
+  echo "   10. smoke: /health/ready 5080+5081, /, /management, /teacher, /supervisor, /api/v1/ping"
+  echo "       + optional real login (/api/auth/login) + money read (/api/collections)"
+  echo "       using $SMOKE_ENV_FILE credentials (never printed; skipped when absent)"
   echo "       on failure -> automatic binary rollback (database untouched)"
-  echo "    9. retention: last 5 app copies + 30 days pre-deploy dumps"
-  echo "   10. write $STATE_DIR/last-deploy.env and the log file"
+  echo "   11. retention: last 5 app/bot copies + 30 days pre-deploy dumps"
+  echo "   12. write $STATE_DIR/last-deploy.env and the log file"
   echo "  log file      : $LOG_FILE"
 }
 
@@ -55,6 +65,7 @@ main() {
     init_logging
   fi
   trap on_exit EXIT
+  acquire_deploy_lock
 
   print_banner
 
@@ -73,6 +84,7 @@ main() {
   fi
   take_db_backup
   git_update
+  run_quality_gate
   build_and_stage
   apply_migrations
   step "Stop services"
@@ -84,14 +96,18 @@ main() {
   # The deployment finished; clear the "binaries are live" flag so the EXIT trap
   # does not print a misleading rollback warning after a successful run.
   SWAPPED=0
+  MEET_BOT_SWAPPED=0
   echo ""
   echo "UPDATE_OK"
   echo "  stamp      : $STAMP"
   echo "  commit     : $AFTER_COMMIT"
   echo "  previous   : $BEFORE_COMMIT"
   echo "  migrations : $MIGRATIONS_COUNT"
+  echo "  meet-bot   : $([ "$MEET_BOT_ENABLED" -eq 1 ] && echo updated || echo not-installed)"
+  echo "  gate       : $([ "$SKIP_QUALITY_GATE" -eq 1 ] && echo skipped || echo passed)"
   echo "  backup     : $DUMP_FILE"
   echo "  backup sha : $DUMP_SHA"
   echo "  log        : $LOG_FILE"
   echo "  rollback   : sudo bash $SCRIPT_DIR/rollback.sh $STAMP"
+  echo "  db rollback: sudo bash $SCRIPT_DIR/rollback-db.sh --list   (manual; restores into a fresh DB)"
 }

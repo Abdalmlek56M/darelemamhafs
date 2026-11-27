@@ -28,8 +28,14 @@ sudo install -m 0644 deploy/systemd/dar-backup.timer /etc/systemd/system/dar-bac
 sudo install -d -m 0755 -o root -g root /usr/local/share/dar
 sudo install -m 0644 -o root -g root deploy/sql/integrity-checks.sql /usr/local/share/dar/integrity-checks.sql
 
-# Operational healthcheck (services + health endpoints + disk + backup age + TLS + nginx + integrity).
+# Operational healthcheck (services + health endpoints + postgres + disk + backup age
+# + off-site freshness + TLS + nginx + meet-bot/livekit + integrity); JSON with jq.
 sudo install -m 0755 -o root -g root deploy/scripts/dar-healthcheck.sh /usr/local/bin/dar-healthcheck
+sudo install -d -m 0755 -o root -g root /usr/local/lib/dar/healthcheck
+sudo install -m 0644 -o root -g root deploy/scripts/lib/healthcheck-*.sh /usr/local/lib/dar/healthcheck/
+if ! command -v jq >/dev/null 2>&1; then
+  echo 'WARN: jq is missing; dar-healthcheck --json and the off-site/integrity checks need jq (apt-get install -y jq).' >&2
+fi
 sudo install -m 0644 deploy/systemd/dar-healthcheck.service /etc/systemd/system/dar-healthcheck.service
 sudo install -m 0644 deploy/systemd/dar-healthcheck.timer /etc/systemd/system/dar-healthcheck.timer
 
@@ -49,4 +55,5 @@ sudo systemctl enable --now dar-restore-drill.timer
 sudo systemctl start dar-backup.service
 sleep 2
 sudo systemctl --no-pager --full status dar-backup.service | sed -n '1,12p' || true
+# shellcheck disable=SC2012
 ls -lh /var/lib/dar/backups/db | tail -3

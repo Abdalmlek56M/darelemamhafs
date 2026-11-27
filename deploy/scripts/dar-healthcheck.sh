@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034,SC2317
 # Dar operational health check.
 #
-# Checks: systemd services, legacy/new API readiness, /api/v1/ping, disk free space,
-# age + status of the latest backup manifest, last dar-backup.service result, TLS
-# certificate expiry and nginx config.
+# Checks: systemd services, legacy/new API readiness, /api/v1/ping, direct PostgreSQL
+# connectivity + schema ledger, business-integrity SQL, disk free space, age + status
+# of the latest backup manifest, last dar-backup.service result, off-site (rclone)
+# freshness from the manifest, TLS certificate expiry, nginx config, the optional meet
+# recorder bot unit and the opt-in LiveKit M0 spike endpoint.
 #
 # Usage: dar-healthcheck [--json]
 # Exit codes: 0 = ok/warning, 1 = critical (or warning when HEALTHCHECK_STRICT=1),
@@ -11,6 +14,8 @@
 #
 # Run (manual):  sudo bash deploy/scripts/dar-healthcheck.sh [--json]
 # Installed as:  /usr/local/bin/dar-healthcheck (systemd units dar-healthcheck.service + dar-healthcheck.timer)
+# Implementation: the check functions live in the libs installed to
+# /usr/local/lib/dar/healthcheck (repo: deploy/scripts/lib/healthcheck-*.sh).
 #
 # Optional environment (defaults match the live host):
 #   HEALTHCHECK_ENV_FILE              optional env file (default /etc/dar/healthcheck.env)
@@ -22,24 +27,60 @@
 #   HEALTHCHECK_DISK_MIN_FREE_PERCENT default 15
 #   HEALTHCHECK_BACKUP_DIR            default /var/lib/dar/backups/db
 #   HEALTHCHECK_BACKUP_MAX_AGE_HOURS  default 26
+#   HEALTHCHECK_OFFSITE_MAX_AGE_HOURS default 26
+#   HEALTHCHECK_PG_ENV_FILE           app DB credentials for the direct check (default /etc/dar/backup.env)
+#   HEALTHCHECK_MEET_BOT_SERVICE      optional meet recorder unit (default dar-meet-bot.service)
+#   HEALTHCHECK_LIVEKIT_ENABLED       auto|0|1 (default auto = check only when the unit is installed)
+#   HEALTHCHECK_LIVEKIT_URL           LiveKit M0 HTTP endpoint (default http://127.0.0.1:7880)
 #   HEALTHCHECK_CERT_DOMAIN           required to enable the certificate check
 #   HEALTHCHECK_CERT_MIN_DAYS         default 14
+#   HEALTHCHECK_INTEGRITY_SQL         default /usr/local/share/dar/integrity-checks.sql
+#   HEALTHCHECK_DEAD_TUPLE_WARN_PERCENT default 20
 #   HEALTHCHECK_STRICT                1 = treat warnings as failures (default 0)
+#   HEALTHCHECK_TELEGRAM_BOT_TOKEN    opt-in: Telegram bot token (never printed/logged)
+#   HEALTHCHECK_TELEGRAM_CHAT_ID      opt-in: Telegram chat id
+#   HEALTHCHECK_TELEGRAM_ENABLED      auto|0|1 (default auto = on when token+chat are set)
+#   HEALTHCHECK_TELEGRAM_NOTIFY_ALWAYS 1 = also send an alert for an ok result (default 0)
+#   HEALTHCHECK_LIB_DIR               override the installed lib directory
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+HEALTHCHECK_LIB_DIR="${HEALTHCHECK_LIB_DIR:-/usr/local/lib/dar/healthcheck}"
+if [ ! -r "$HEALTHCHECK_LIB_DIR/healthcheck-checks.sh" ] && [ -r "$SCRIPT_DIR/lib/healthcheck-checks.sh" ]; then
+  HEALTHCHECK_LIB_DIR="$SCRIPT_DIR/lib"
+fi
+if [ ! -r "$HEALTHCHECK_LIB_DIR/healthcheck-checks.sh" ] || [ ! -r "$HEALTHCHECK_LIB_DIR/healthcheck-checks-ops.sh" ] || [ ! -r "$HEALTHCHECK_LIB_DIR/healthcheck-report.sh" ]; then
+  printf 'dar-healthcheck: missing check/report libraries (looked in %s and %s/lib)\n' \
+    "${HEALTHCHECK_LIB_DIR:-}" "$SCRIPT_DIR" >&2
+  exit 2
+fi
+# shellcheck source=/dev/null
+. "$HEALTHCHECK_LIB_DIR/healthcheck-checks.sh"
+# shellcheck source=/dev/null
+. "$HEALTHCHECK_LIB_DIR/healthcheck-checks-ops.sh"
+# shellcheck source=/dev/null
+. "$HEALTHCHECK_LIB_DIR/healthcheck-report.sh"
+
 usage() {
   printf 'Usage: %s [--json]\n' "${0##*/}"
-  printf '  --json   machine-readable output (single JSON object)\n'
+  printf '  --json   machine-readable output (single JSON object, built with jq)\n'
   printf 'Exit codes: 0 ok/warning, 1 critical, 2 usage error\n'
 }
 
 JSON_MODE=0
 for arg in "$@"; do
   case "$arg" in
-    --json|-j) JSON_MODE=1 ;;
-    --help|-h) usage; exit 0 ;;
-    *) printf 'unknown argument: %s\n' "$arg" >&2; usage >&2; exit 2 ;;
+  --json | -j) JSON_MODE=1 ;;
+  --help | -h)
+    usage
+    exit 0
+    ;;
+  *)
+    printf 'unknown argument: %s\n' "$arg" >&2
+    usage >&2
+    exit 2
+    ;;
   esac
 done
 
@@ -59,244 +100,84 @@ DISK_PATH="${HEALTHCHECK_DISK_PATH:-/var/lib/dar}"
 DISK_MIN_FREE_PCT="${HEALTHCHECK_DISK_MIN_FREE_PERCENT:-15}"
 BACKUP_DIR="${HEALTHCHECK_BACKUP_DIR:-${BACKUP_DIR:-/var/lib/dar/backups/db}}"
 BACKUP_MAX_AGE_HOURS="${HEALTHCHECK_BACKUP_MAX_AGE_HOURS:-26}"
+OFFSITE_MAX_AGE_HOURS="${HEALTHCHECK_OFFSITE_MAX_AGE_HOURS:-$BACKUP_MAX_AGE_HOURS}"
+PG_ENV_FILE="${HEALTHCHECK_PG_ENV_FILE:-/etc/dar/backup.env}"
+MEET_BOT_SERVICE="${HEALTHCHECK_MEET_BOT_SERVICE:-dar-meet-bot.service}"
+LIVEKIT_ENABLED="${HEALTHCHECK_LIVEKIT_ENABLED:-auto}"
+LIVEKIT_URL="${HEALTHCHECK_LIVEKIT_URL:-http://127.0.0.1:7880}"
+LIVEKIT_SERVICE="${HEALTHCHECK_LIVEKIT_SERVICE:-dar-livekit.service}"
 CERT_DOMAIN="${HEALTHCHECK_CERT_DOMAIN:-}"
 CERT_MIN_DAYS="${HEALTHCHECK_CERT_MIN_DAYS:-14}"
-STRICT="${HEALTHCHECK_STRICT:-0}"`nINTEGRITY_SQL="${HEALTHCHECK_INTEGRITY_SQL:-/usr/local/share/dar/integrity-checks.sql}"`nDEAD_TUPLE_WARN_PERCENT="${HEALTHCHECK_DEAD_TUPLE_WARN_PERCENT:-20}"
+STRICT="${HEALTHCHECK_STRICT:-0}"
+INTEGRITY_SQL="${HEALTHCHECK_INTEGRITY_SQL:-/usr/local/share/dar/integrity-checks.sql}"
+DEAD_TUPLE_WARN_PERCENT="${HEALTHCHECK_DEAD_TUPLE_WARN_PERCENT:-20}"
+TELEGRAM_TOKEN="${HEALTHCHECK_TELEGRAM_BOT_TOKEN:-}"
+TELEGRAM_CHAT_ID="${HEALTHCHECK_TELEGRAM_CHAT_ID:-}"
+TELEGRAM_ENABLED="${HEALTHCHECK_TELEGRAM_ENABLED:-auto}"
+TELEGRAM_NOTIFY_ALWAYS="${HEALTHCHECK_TELEGRAM_NOTIFY_ALWAYS:-0}"
 HOST_NAME="$(hostname 2>/dev/null || printf 'unknown')"
 NOW_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-for value_name in TIMEOUT DISK_MIN_FREE_PCT BACKUP_MAX_AGE_HOURS CERT_MIN_DAYS; do
+for value_name in TIMEOUT DISK_MIN_FREE_PCT BACKUP_MAX_AGE_HOURS OFFSITE_MAX_AGE_HOURS CERT_MIN_DAYS; do
   value="${!value_name}"
   case "$value" in
-    ''|*[!0-9]*) printf 'invalid numeric value for %s: %s\n' "$value_name" "$value" >&2; exit 2 ;;
+  '' | *[!0-9]*)
+    printf 'invalid numeric value for %s: %s\n' "$value_name" "$value" >&2
+    exit 2
+    ;;
   esac
 done
+case "$LIVEKIT_ENABLED" in
+auto | 0 | 1) ;;
+*)
+  printf 'invalid HEALTHCHECK_LIVEKIT_ENABLED: %s (expected auto|0|1)\n' "$LIVEKIT_ENABLED" >&2
+  exit 2
+  ;;
+esac
+case "$TELEGRAM_ENABLED" in
+auto | 0 | 1) ;;
+*)
+  printf 'invalid HEALTHCHECK_TELEGRAM_ENABLED: %s (expected auto|0|1)\n' "$TELEGRAM_ENABLED" >&2
+  exit 2
+  ;;
+esac
 
 CHECK_NAMES=()
 CHECK_STATUSES=()
 CHECK_DETAILS=()
 
-json_escape() {
-  local value="${1-}"
-  value="${value//\\/\\\\}"
-  value="${value//\"/\\\"}"
-  value="${value//$'\n'/\\n}"
-  value="${value//$'\r'/\\r}"
-  value="${value//$'\t'/\\t}"
-  printf '%s' "$value"
-}
-
 record() {
+  local detail="$3"
+  detail="${detail//$'\t'/ }"
+  detail="${detail//$'\n'/ | }"
   CHECK_NAMES+=("$1")
   CHECK_STATUSES+=("$2")
-  CHECK_DETAILS+=("$3")
-}
-
-check_integrity() {
-  if ! command -v psql >/dev/null 2>&1; then
-    record "integrity" "warning" "psql not available; business-integrity report skipped"
-    return
-  fi
-  if [ ! -r "$INTEGRITY_SQL" ]; then
-    record "integrity" "warning" "business-integrity SQL not installed at $INTEGRITY_SQL"
-    return
-  fi
-  local report
-  if ! report="$(psql -X -q -t -A -v ON_ERROR_STOP=1 -f "$INTEGRITY_SQL" 2>/dev/null | tail -n 1)"; then
-    record "integrity" "critical" "business-integrity SQL failed"
-    return
-  fi
-  if ! command -v jq >/dev/null 2>&1; then
-    record "integrity" "warning" "jq not available; business-integrity report not parsed"
-    return
-  fi
-  local issues
-  issues="$(printf '%s' "$report" | jq -r '[.schema.missing_tables, .schema.missing_indexes, (.schema.unvalidated_constraints|select(.>0)|"unvalidated_constraints"), (.schema.invalid_indexes|select(.>0)|"invalid_indexes"), (.integrity|to_entries[]|select(.value>0)|.key), ((.autovacuum.max_dead_tuple_percent // 0)|select(.> '"$DEAD_TUPLE_WARN_PERCENT"')|"dead_tuple_percent:"+(tostring))] | map(select(. != null and . != "")) | join(",")' 2>/dev/null || true)"
-  if [ -z "$issues" ]; then
-    record "integrity" "ok" "business-integrity rules passed; WAL=$(printf '%s' "$report" | jq -r '.wal.size_bytes' 2>/dev/null)"
-  else
-    record "integrity" "warning" "integrity anomalies: $issues"
-  fi
-}
-check_services() {
-  if ! command -v systemctl >/dev/null 2>&1; then
-    record "services" "warning" "systemctl not available; skipped: $SERVICES"
-    return
-  fi
-  local service state
-  for service in $SERVICES; do
-    if systemctl is-active --quiet "$service" 2>/dev/null; then
-      state="$(systemctl is-active "$service" 2>/dev/null || true)"
-      record "service:$service" "ok" "state=${state:-active}"
-    else
-      state="$(systemctl is-active "$service" 2>/dev/null || true)"
-      record "service:$service" "critical" "state=${state:-unknown} (expected active)"
-    fi
-  done
-}
-
-check_http() {
-  local name="$1" url="$2" code
-  if ! command -v curl >/dev/null 2>&1; then
-    record "$name" "warning" "curl not available; skipped $url"
-    return
-  fi
-  code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time "$TIMEOUT" "$url" 2>/dev/null || true)"
-  if [ "$code" = "200" ]; then
-    record "$name" "ok" "$url -> HTTP $code"
-  else
-    record "$name" "critical" "$url -> HTTP ${code:-000} (expected 200)"
-  fi
-}
-
-check_disk() {
-  local used free
-  if ! command -v df >/dev/null 2>&1; then
-    record "disk" "warning" "df not available; skipped"
-    return
-  fi
-  if [ ! -d "$DISK_PATH" ]; then
-    record "disk" "warning" "path not found: $DISK_PATH"
-    return
-  fi
-  used="$(df -P "$DISK_PATH" 2>/dev/null | awk 'NR==2 {gsub(/%/, "", $5); print $5}')"
-  case "$used" in
-    ''|*[!0-9]*) record "disk" "warning" "cannot read df output for $DISK_PATH"; return ;;
-  esac
-  free=$((100 - used))
-  if [ "$free" -lt "$DISK_MIN_FREE_PCT" ]; then
-    record "disk" "critical" "free ${free}% < ${DISK_MIN_FREE_PCT}% on $DISK_PATH"
-  else
-    record "disk" "ok" "free ${free}% on $DISK_PATH"
-  fi
-}
-
-check_backup() {
-  local newest mtime now age_hours status manifest_file detail severity
-  if [ ! -d "$BACKUP_DIR" ]; then
-    record "backup" "critical" "backup directory missing: $BACKUP_DIR"
-    return
-  fi
-  newest="$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'dar-*.manifest.json' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 | cut -d' ' -f2-)"
-  if [ -z "$newest" ]; then
-    record "backup" "critical" "no backup manifest in $BACKUP_DIR (dar-backup.service has not succeeded?)"
-    return
-  fi
-  mtime="$(stat -c %Y "$newest" 2>/dev/null || printf '0')"
-  case "$mtime" in
-    ''|*[!0-9]*) record "backup" "warning" "cannot read manifest mtime: $newest"; return ;;
-  esac
-  if [ "$mtime" -le 0 ]; then
-    record "backup" "warning" "cannot read manifest mtime: $newest"
-    return
-  fi
-  now="$(date +%s)"
-  age_hours=$(( (now - mtime) / 3600 ))
-  status="$(sed -n 's/.*"status":[[:space:]]*"\([^"]*\)".*/\1/p' "$newest" 2>/dev/null | head -n 1)"
-  manifest_file="$(sed -n 's/.*"file":[[:space:]]*"\([^"]*\)".*/\1/p' "$newest" 2>/dev/null | head -n 1)"
-
-  severity="ok"
-  detail="age=${age_hours}h status=${status:-unknown} file=$(basename "$newest")"
-  if [ -n "$manifest_file" ] && [ ! -f "$BACKUP_DIR/$manifest_file" ]; then
-    severity="critical"
-    detail="${detail} dump_missing=$manifest_file"
-  fi
-  if [ "$status" != "success" ]; then
-    severity="critical"
-    detail="${detail} (latest backup did not report success)"
-  fi
-  if [ "$age_hours" -gt "$BACKUP_MAX_AGE_HOURS" ]; then
-    severity="critical"
-    detail="${detail} (older than ${BACKUP_MAX_AGE_HOURS}h)"
-  fi
-  record "backup" "$severity" "$detail"
-}
-
-check_cert() {
-  local days="" source="" out="" enddate="" expiry=""
-  if command -v certbot >/dev/null 2>&1; then
-    out="$(certbot certificates 2>/dev/null | grep -A 6 "Certificate Name: $CERT_DOMAIN" || true)"
-    if [ -n "$out" ]; then
-      days="$(printf '%s\n' "$out" | sed -n 's/.*(VALID:[[:space:]]*\([0-9][0-9]*\)[[:space:]]*days).*/\1/p' | head -n 1)"
-      if [ -z "$days" ]; then
-        days="$(printf '%s\n' "$out" | sed -n 's/.*(INVALID:[[:space:]]*\([0-9][0-9]*\)[[:space:]]*days).*/\1/p' | head -n 1)"
-        if [ -n "$days" ]; then
-          days=$((0 - days))
-        fi
-      fi
-      if [ -n "$days" ]; then
-        source="certbot"
-      fi
-    fi
-  fi
-  if [ -z "$days" ] && command -v openssl >/dev/null 2>&1; then
-    enddate="$( (printf '' | openssl s_client -servername "$CERT_DOMAIN" -connect "${CERT_DOMAIN}:443" 2>/dev/null) | openssl x509 -noout -enddate 2>/dev/null | sed -n 's/^notAfter=//p')"
-    if [ -n "$enddate" ] && expiry="$(date -d "$enddate" +%s 2>/dev/null)"; then
-      days=$(( (expiry - $(date +%s)) / 86400 ))
-      source="tls"
-    fi
-  fi
-  case "$days" in
-    ''|*[!0-9-]*) record "certificate" "warning" "could not determine certificate expiry for $CERT_DOMAIN"; return ;;
-  esac
-  if [ "$days" -le 0 ]; then
-    record "certificate" "critical" "certificate for $CERT_DOMAIN is expired (${source:-source unknown})"
-  elif [ "$days" -lt "$CERT_MIN_DAYS" ]; then
-    record "certificate" "critical" "certificate for $CERT_DOMAIN expires in ${days}d (< ${CERT_MIN_DAYS}d, ${source:-source unknown})"
-  else
-    record "certificate" "ok" "certificate for $CERT_DOMAIN valid for ${days}d (${source:-source unknown})"
-  fi
-}
-
-check_backup_unit() {
-  local result loadstate
-  if ! command -v systemctl >/dev/null 2>&1; then
-    return
-  fi
-  loadstate="$(systemctl show -p LoadState --value dar-backup.service 2>/dev/null || true)"
-  result="$(systemctl show -p Result --value dar-backup.service 2>/dev/null || true)"
-  if [ "$loadstate" != "loaded" ]; then
-    record "backup:unit" "warning" "dar-backup.service is not loaded (state=${loadstate:-unknown})"
-    return
-  fi
-  if [ "$result" = "success" ] || [ -z "$result" ]; then
-    record "backup:unit" "ok" "last dar-backup.service result=${result:-success}"
-  else
-    record "backup:unit" "critical" "last dar-backup.service result=$result"
-  fi
-}
-
-check_nginx() {
-  local out
-  if ! command -v nginx >/dev/null 2>&1; then
-    record "nginx" "warning" "nginx binary not found; skipped"
-    return
-  fi
-  if out="$(nginx -t 2>&1)"; then
-    record "nginx" "ok" "configuration test passed"
-  else
-    record "nginx" "critical" "nginx -t failed: ${out//$'\n'/ | }"
-  fi
+  CHECK_DETAILS+=("$detail")
 }
 
 check_services
 check_http "legacy:ready" "${LEGACY_URL%/}/health/ready"
 check_http "new:ready" "${API_URL%/}/health/ready"
 check_http "api:ping" "${API_URL%/}/api/v1/ping"
+check_postgres
+check_integrity
 check_disk
 check_backup
 check_backup_unit
+check_backup_offsite
 check_cert
 check_nginx
+check_meet_bot
+check_livekit
 
 OK_COUNT=0
 WARNING_COUNT=0
 CRITICAL_COUNT=0
 for status in "${CHECK_STATUSES[@]}"; do
   case "$status" in
-    ok) OK_COUNT=$((OK_COUNT + 1)) ;;
-    warning) WARNING_COUNT=$((WARNING_COUNT + 1)) ;;
-    critical) CRITICAL_COUNT=$((CRITICAL_COUNT + 1)) ;;
+  ok) OK_COUNT=$((OK_COUNT + 1)) ;;
+  warning) WARNING_COUNT=$((WARNING_COUNT + 1)) ;;
+  critical) CRITICAL_COUNT=$((CRITICAL_COUNT + 1)) ;;
   esac
 done
 
@@ -313,35 +194,15 @@ elif [ "$WARNING_COUNT" -gt 0 ]; then
 fi
 
 if [ "$JSON_MODE" = "1" ]; then
-  printf '{\n'
-  printf '  "schema_version": 1,\n'
-  printf '  "time": "%s",\n' "$(json_escape "$NOW_ISO")"
-  printf '  "hostname": "%s",\n' "$(json_escape "$HOST_NAME")"
-  printf '  "result": "%s",\n' "$RESULT"
-  printf '  "exit_code": %s,\n' "$EXIT_CODE"
-  printf '  "counts": {"ok": %s, "warning": %s, "critical": %s},\n' "$OK_COUNT" "$WARNING_COUNT" "$CRITICAL_COUNT"
-  printf '  "thresholds": {"disk_min_free_percent": %s, "backup_max_age_hours": %s, "cert_min_days": %s},\n' "$DISK_MIN_FREE_PCT" "$BACKUP_MAX_AGE_HOURS" "$CERT_MIN_DAYS"
-  printf '  "checks": [\n'
-  index=0
-  for name in "${CHECK_NAMES[@]}"; do
-    if [ "$index" -gt 0 ]; then
-      printf ',\n'
-    fi
-    printf '    {"name": "%s", "status": "%s", "detail": "%s"}' \
-      "$(json_escape "$name")" "$(json_escape "${CHECK_STATUSES[$index]}")" "$(json_escape "${CHECK_DETAILS[$index]}")"
-    index=$((index + 1))
-  done
-  printf '\n  ]\n'
-  printf '}\n'
+  if ! command -v jq >/dev/null 2>&1; then
+    printf 'jq is required for --json output (apt-get install -y jq)\n' >&2
+    exit 2
+  fi
+  render_json
 else
-  printf 'Dar healthcheck — %s — %s\n' "$NOW_ISO" "$HOST_NAME"
-  printf '\n'
-  index=0
-  for name in "${CHECK_NAMES[@]}"; do
-    printf '[%-8s] %s: %s\n' "$(printf '%s' "${CHECK_STATUSES[$index]}" | tr '[:lower:]' '[:upper:]')" "$name" "${CHECK_DETAILS[$index]}"
-    index=$((index + 1))
-  done
-  printf '\nRESULT: %s (ok=%s warning=%s critical=%s)\n' "$(printf '%s' "$RESULT" | tr '[:lower:]' '[:upper:]')" "$OK_COUNT" "$WARNING_COUNT" "$CRITICAL_COUNT"
+  render_text
 fi
+
+notify_telegram
 
 exit "$EXIT_CODE"

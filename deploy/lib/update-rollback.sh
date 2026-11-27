@@ -4,13 +4,17 @@
 # =============================================================================
 # Sourced by deploy/lib/update-functions.sh (through deploy/update.sh only).
 # Defines : rollback_binaries (put the legacy.old.<stamp>/api.old.<stamp> copies
-#           back, restart and wait for /health/ready).
+#           and the meet-bot.old.<stamp> copy back, restart and wait for
+#           /health/ready).
 # =============================================================================
 # shellcheck disable=SC2034,SC2154
 
 rollback_binaries() {
   step "Rollback binaries (database is not touched)"
   $SUDO systemctl stop dar-legacy.service dar-api.service || true
+  if [ "$MEET_BOT_ENABLED" -eq 1 ]; then
+    $SUDO systemctl stop "$MEET_BOT_SERVICE" || true
+  fi
   if [ -d "$APP_ROOT/legacy" ]; then
     $SUDO mv "$APP_ROOT/legacy" "$APP_ROOT/legacy.failed.$STAMP" || true
   fi
@@ -23,7 +27,16 @@ rollback_binaries() {
   if [ -n "$OLD_API" ] && [ -d "$OLD_API" ]; then
     $SUDO mv "$OLD_API" "$APP_ROOT/api"
   fi
-  $SUDO systemctl start dar-legacy.service dar-api.service || true
+  if [ "$MEET_BOT_ENABLED" -eq 1 ]; then
+    if [ -d "$MEET_BOT_DIR" ]; then
+      $SUDO mv "$MEET_BOT_DIR" "$MEET_BOT_DIR.failed.$STAMP" || true
+    fi
+    if [ -n "$OLD_MEET_BOT" ] && [ -d "$OLD_MEET_BOT" ]; then
+      $SUDO mv "$OLD_MEET_BOT" "$MEET_BOT_DIR"
+      $SUDO chown -R dar:dar "$MEET_BOT_DIR"
+    fi
+  fi
+  start_services
   SERVICES_STOPPED=0
   if wait_ready "http://127.0.0.1:5080/health/ready" && wait_ready "http://127.0.0.1:5081/health/ready"; then
     info "previous binaries restarted and healthy"
@@ -31,4 +44,5 @@ rollback_binaries() {
     warn "previous binaries restarted but /health/ready is not OK; inspect journalctl"
   fi
   SWAPPED=0
+  MEET_BOT_SWAPPED=0
 }

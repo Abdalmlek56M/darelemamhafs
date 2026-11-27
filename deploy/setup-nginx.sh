@@ -16,6 +16,10 @@
 #     can complete the HTTP challenge; run certbot afterwards (printed hint).
 #   * Security headers are added at the Nginx layer: HSTS (TLS only),
 #     X-Content-Type-Options, Referrer-Policy, X-Frame-Options, Permissions-Policy.
+#   * Per-IP rate limiting (limit_req) references zones installed from
+#     deploy/nginx/00-dar-ratelimit.conf; gzip is configured in the server block.
+#   * The LiveKit M0 test page is NOT part of the generated vhost: it is gated
+#     behind deploy/livekit/install-livekit-test.sh --with-test-page.
 # Safe    : the current site file is copied to /var/backups/dar-config/<stamp>/
 #           first, and the backup is restored if nginx -t fails.
 # =============================================================================
@@ -125,6 +129,10 @@ server {
     server_tokens off;
     client_max_body_size 12m;
 
+    # gzip: levels/types live in conf.d/00-dar-ratelimit.conf (http context).
+    gzip on;
+    limit_req_status 429;
+
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -136,10 +144,24 @@ server {
         default_type text/plain;
     }
 
+    # Credential endpoints are the highest-value brute-force target.
+    location ^~ /api/auth/ {
+        limit_req zone=dar_auth burst=10 nodelay;
+        proxy_pass http://127.0.0.1:5080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_read_timeout 60s;
+    }
+
     # FINAL 1.25: the bot control plane is loopback-only; never proxy /internal/* publicly.
     location ^~ /internal/ { return 404; }
 
     location /api/v1/ {
+        limit_req zone=dar_api burst=40 nodelay;
         proxy_pass http://127.0.0.1:5081;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -154,6 +176,7 @@ server {
     }
 
     location / {
+        limit_req zone=dar_general burst=60 nodelay;
         proxy_pass http://127.0.0.1:5080;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -200,6 +223,10 @@ server {
     server_tokens off;
     client_max_body_size 12m;
 
+    # gzip: levels/types live in conf.d/00-dar-ratelimit.conf (http context).
+    gzip on;
+    limit_req_status 429;
+
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header X-Frame-Options "DENY" always;
@@ -210,10 +237,24 @@ server {
         default_type text/plain;
     }
 
+    # Credential endpoints are the highest-value brute-force target.
+    location ^~ /api/auth/ {
+        limit_req zone=dar_auth burst=10 nodelay;
+        proxy_pass http://127.0.0.1:5080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_read_timeout 60s;
+    }
+
     # FINAL 1.25: the bot control plane is loopback-only; never proxy /internal/* publicly.
     location ^~ /internal/ { return 404; }
 
     location /api/v1/ {
+        limit_req zone=dar_api burst=40 nodelay;
         proxy_pass http://127.0.0.1:5081;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -228,6 +269,7 @@ server {
     }
 
     location / {
+        limit_req zone=dar_general burst=60 nodelay;
         proxy_pass http://127.0.0.1:5080;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -293,6 +335,11 @@ else
   echo "==> real-ip mode=direct: remove Cloudflare snippet (no proxy headers trusted)"
   $SUDO rm -f /etc/nginx/conf.d/00-dar-cloudflare-realip.conf
 fi
+
+# Rate-limit zones are declared in the http{} context: install/refresh the conf.d
+# snippet so the vhost's limit_req directives always have their zones defined.
+echo "==> rate-limit zones (conf.d/00-dar-ratelimit.conf)"
+$SUDO install -m 0644 -o root -g root "$SCRIPT_DIR/nginx/00-dar-ratelimit.conf" /etc/nginx/conf.d/00-dar-ratelimit.conf
 
 echo "==> nginx -t"
 if ! $SUDO nginx -t; then

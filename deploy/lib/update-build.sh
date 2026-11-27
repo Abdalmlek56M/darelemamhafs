@@ -3,10 +3,12 @@
 # Dar production update - git pull --ff-only + build/stage binaries
 # =============================================================================
 # Sourced by deploy/lib/update-functions.sh (through deploy/update.sh only).
-# Defines : git_update (fast-forward only; exits 0 when already up to date) and
-#           build_and_stage (npm ci/build + dotnet publish into app/*.new).
+# Defines : git_update (fast-forward only; exits 0 when already up to date),
+#           build_and_stage (npm ci/build + dotnet publish into app/*.new) and
+#           stage_meet_bot (optional: build services/meet-recorder into
+#           /opt/dar-meet-bot.new when the bot is installed on this host).
 # =============================================================================
-# shellcheck disable=SC2154
+# shellcheck disable=SC2154,SC2034
 
 git_update() {
   step "Git pull --ff-only"
@@ -68,4 +70,39 @@ EOF
   else
     warn "api publish output has no database/ folder; --migrate will fail"
   fi
+  stage_meet_bot
+}
+
+# Rebuild the meet recorder bot into $MEET_BOT_NEW (never in place, so a failed
+# build cannot break the running service). Only called when detect_meet_bot found
+# a real install; the swap happens in update-swap.sh with the app binaries.
+stage_meet_bot() {
+  [ "$MEET_BOT_ENABLED" -eq 1 ] || return 0
+  step "Build and stage meet recorder bot"
+  if [ "$SKIP_BUILD" -eq 1 ]; then
+    [ -f "$MEET_BOT_NEW/dist/index.js" ] || fail "--skip-build: $MEET_BOT_NEW/dist/index.js does not exist; run once without --skip-build"
+    info "reusing prepared bot build: $MEET_BOT_NEW"
+    return 0
+  fi
+  $SUDO rm -rf -- "$MEET_BOT_NEW"
+  $SUDO install -d -m 0755 -o "$REPO_OWNER" -g "$REPO_OWNER" "$MEET_BOT_NEW"
+  info "sources: $MEET_BOT_SRC -> $MEET_BOT_NEW"
+  if command -v rsync >/dev/null 2>&1; then
+    run_as_owner rsync -a --delete --exclude node_modules --exclude dist --exclude '*.log' \
+      "$MEET_BOT_SRC/" "$MEET_BOT_NEW/"
+  else
+    run_as_owner cp -a "$MEET_BOT_SRC/." "$MEET_BOT_NEW/"
+    run_as_owner rm -rf -- "$MEET_BOT_NEW/node_modules" "$MEET_BOT_NEW/dist"
+  fi
+  info "bot: npm ci + npm run build"
+  # package-lock.json is committed, so npm ci is reproducible; the build is run as
+  # the repository owner and the result is chowned to dar at swap time.
+  run_as_owner bash -c "cd '$MEET_BOT_NEW' && npm ci --no-audit --no-fund && npm run build"
+  [ -f "$MEET_BOT_NEW/dist/index.js" ] || fail "meet-bot build output is missing dist/index.js"
+  run_as_owner tee "$MEET_BOT_NEW/.deploy-meta" >/dev/null <<EOF
+DEPLOY_STAMP=$STAMP
+DEPLOY_COMMIT=$AFTER_COMMIT
+DEPLOY_AT=$(date -Is)
+DEPLOY_BACKUP=$DUMP_FILE
+EOF
 }

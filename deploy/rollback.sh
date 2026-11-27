@@ -14,10 +14,17 @@
 #           newer release it stays in place; migrations are additive and the
 #           older binaries ignore unknown tables/columns. If the rollback smoke
 #           fails, the new binaries are restored automatically.
+#           A DATABASE rollback is a separate, always-manual recovery step:
+#             sudo bash deploy/rollback-db.sh --list
+#             sudo bash deploy/rollback-db.sh --backup <dump> --confirm
+#           (restores the pre-deploy dump into a FRESH database, points the env
+#           files at it, restarts, and never restores over the live database).
+#           docs/runbooks/rollback-db.md explains the gates and the way back.
 # =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC2034
 REPO_DIR="${DAR_REPO_DIR:-$(cd -- "$SCRIPT_DIR/.." && pwd)}"
 APP_ROOT="${DAR_APP_ROOT:-/opt/dar/app}"
 LOG_DIR="${DAR_LOG_DIR:-/var/log/dar}"
@@ -40,6 +47,8 @@ Usage: rollback.sh --list
 
 Rollback only swaps binaries under /opt/dar/app and restarts the services.
 The database is never touched; newer additive migrations are kept.
+For a database rollback (pre-deploy dump -> fresh database -> env repoint), use:
+  sudo bash deploy/rollback-db.sh --list
 USAGE
 }
 
@@ -337,6 +346,7 @@ echo "  target commit: $target_commit"
 echo "  previous dirs: $CURRENT_LEGACY_BACKUP"
 echo "                 $CURRENT_API_BACKUP"
 echo "  database     : untouched"
+echo "  database rbk : sudo bash deploy/rollback-db.sh --list   (manual DB rollback, never automatic)"
 echo "  log          : $LOG_FILE"
 echo ""
 list_stamps

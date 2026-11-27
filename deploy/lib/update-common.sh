@@ -29,11 +29,17 @@ fail() {
 }
 
 on_exit() {
+  if [ "${LOCK_HELD:-0}" -eq 1 ]; then
+    release_deploy_lock
+  fi
   if [ "$SWAPPED" -eq 1 ]; then
     printf '\nWARN: update exited while new binaries were live. Run deploy/rollback.sh %s to revert binaries.\n' "$STAMP" >&2
   elif [ "$SERVICES_STOPPED" -eq 1 ]; then
     printf '\nWARN: update exited with the services stopped; restarting them with the previous binaries.\n' >&2
     $SUDO systemctl start dar-legacy.service dar-api.service >/dev/null 2>&1 || true
+    if [ "$MEET_BOT_ENABLED" -eq 1 ]; then
+      $SUDO systemctl start "$MEET_BOT_SERVICE" >/dev/null 2>&1 || true
+    fi
     SERVICES_STOPPED=0
   fi
 }

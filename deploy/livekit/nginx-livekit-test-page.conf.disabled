@@ -1,0 +1,15 @@
+    # =========================================================================
+    # DISABLED BY DEFAULT - LiveKit M0 test page (opt-in, public CDN dependency)
+    # =========================================================================
+    # The page imports livekit-client from https://cdn.jsdelivr.net (third-party
+    # JavaScript on the deployment origin). Do not enable it on production.
+    # To use it for the M0 spike only:
+    #   1. sudo bash deploy/livekit/install-livekit-test.sh --enable-livekit-test --with-test-page
+    #   2. merge this location into the Dar vhost (copy it from here, not from git main),
+    #      sudo nginx -t && sudo systemctl reload nginx
+    #   3. REMOVE the location afterwards (owner action) and delete /var/www/live-test.
+    location ^~ /live-test/ {
+        alias /var/www/live-test/;
+        index index.html;
+        try_files $uri $uri/ /live-test/index.html;
+    }

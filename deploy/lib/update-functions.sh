@@ -14,6 +14,8 @@
 . "$SCRIPT_DIR/lib/update-common.sh"
 # shellcheck source=SCRIPTDIR/update-config.sh
 . "$SCRIPT_DIR/lib/update-config.sh"
+# shellcheck source=SCRIPTDIR/update-lock.sh
+. "$SCRIPT_DIR/lib/update-lock.sh"
 # shellcheck source=SCRIPTDIR/update-credentials.sh
 . "$SCRIPT_DIR/lib/update-credentials.sh"
 # shellcheck source=SCRIPTDIR/update-preflight.sh
