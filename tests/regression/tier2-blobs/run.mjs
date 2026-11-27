@@ -168,6 +168,9 @@ pass('avatar PUT/GET round trip through the file path');
 // ---------------------------------------------------------------------------------------------
 // 3. Branding logo round trip through the file path (data: URL contract unchanged)
 // ---------------------------------------------------------------------------------------------
+// The harness disposable DB is schema-only (production seeds school_settings via migration 005),
+// so make the singleton row exist before exercising the branding logo.
+one('INSERT INTO school_settings(id) VALUES (1) ON CONFLICT (id) DO NOTHING;');
 const logoBytes = pngBytes('logo');
 const logoDataUrl = 'data:image/png;base64,' + logoBytes.toString('base64');
 const settingsPut = await req(OLD, c.admin, 'PUT', '/api/admin/settings', {
