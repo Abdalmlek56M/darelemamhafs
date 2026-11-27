@@ -50,6 +50,34 @@ public static partial class AuthEndpoints
         return unknown.Length == 0 ? null : new Dictionary<string, string[]> { ["permissionCodes"] = ["توجد صلاحيات غير معروفة."] };
     }
 
+    /// <summary>
+    /// Security review (A9): a users.manage holder must not grant permission codes they do not
+    /// hold themselves. On update, codes the target already has are allowed through so an
+    /// unrelated profile edit keeps working; only newly added codes are checked.
+    /// </summary>
+    private static async Task<IResult?> ValidateGrantablePermissionsAsync(
+        ClaimsPrincipal principal, NpgsqlDataSource db, Guid? targetUserId, string[]? codes, CancellationToken ct)
+    {
+        if (codes is null || codes.Length == 0) return null;
+        var requested = codes.Distinct(StringComparer.Ordinal).ToArray();
+        var notHeld = requested.Where(code => !principal.HasClaim("permission", code)).ToArray();
+        if (notHeld.Length == 0) return null;
+        if (targetUserId is Guid targetId)
+        {
+            var current = new HashSet<string>(StringComparer.Ordinal);
+            await using (var existing = db.CreateCommand("SELECT permission_code FROM user_permissions WHERE user_id=@id;"))
+            {
+                existing.Parameters.AddWithValue("id", targetId);
+                await using var reader = await existing.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct)) current.Add(reader.GetString(0));
+            }
+            notHeld = notHeld.Where(code => !current.Contains(code)).ToArray();
+            if (notHeld.Length == 0) return null;
+        }
+        return Results.Json(
+            new { message = "لا يمكنك منح صلاحيات لا تملكها: " + string.Join("، ", notHeld) },
+            statusCode: StatusCodes.Status403Forbidden);
+    }
     private static async Task ReplacePermissions(NpgsqlConnection connection, NpgsqlTransaction transaction, Guid id, string[] codes, CancellationToken ct)
     {
         await using (var delete = new NpgsqlCommand("DELETE FROM user_permissions WHERE user_id=@id;", connection, transaction))

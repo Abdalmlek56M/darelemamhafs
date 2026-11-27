@@ -14,12 +14,14 @@ public static partial class AuthEndpoints
             .RequireAuthorization("users.manage");
         users.MapGet("", (int? page, int? pageSize, HttpContext http, NpgsqlDataSource db, CancellationToken ct) => LoadAdminUsersAsync(page, pageSize, http, db, ct));
 
-        users.MapPost("", async Task<IResult> (AdminUserWriteRequest request, NpgsqlDataSource db, CancellationToken ct) =>
+        users.MapPost("", async Task<IResult> (AdminUserWriteRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
             var errors = ValidateCredentials(request.Username, request.DisplayName, request.Password, true);
             if (errors is not null) return Results.ValidationProblem(errors);
             var permissionErrors = ValidatePermissionList(request.PermissionCodes);
             if (permissionErrors is not null) return Results.ValidationProblem(permissionErrors);
+            var grantError = await ValidateGrantablePermissionsAsync(principal, db, null, request.PermissionCodes, ct);
+            if (grantError is not null) return grantError;
             var linkError = await ValidateTeacherLinkAsync(db, null, request.TeacherId, ct);
             if (linkError is not null) return linkError;
             if (request.IsLocked && string.IsNullOrWhiteSpace(request.LockReason))
@@ -64,6 +66,8 @@ public static partial class AuthEndpoints
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["username"] = ["اسم المستخدم مطلوب وبحد أقصى 100 حرف."] });
             var permissionErrors = ValidatePermissionList(request.PermissionCodes);
             if (permissionErrors is not null) return Results.ValidationProblem(permissionErrors);
+            var grantError = await ValidateGrantablePermissionsAsync(principal, db, id, request.PermissionCodes, ct);
+            if (grantError is not null) return grantError;
             var actorId = GetActorId(principal);
             if (actorId == id && !request.IsActive)
                 return Results.Conflict(new { message = "لا يمكنك تعطيل حسابك الحالي. استخدم حساب مدير آخر." });

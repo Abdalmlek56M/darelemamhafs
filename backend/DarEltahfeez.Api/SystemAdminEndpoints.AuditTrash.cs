@@ -12,58 +12,79 @@ public static partial class SystemAdminEndpoints
 {
     private static void MapAuditAndTrash(WebApplication app)
     {
-        app.MapGet("/api/admin/reset-candidates", async Task<IResult> (NpgsqlDataSource db, CancellationToken ct) =>
+        app.MapGet("/api/admin/reset-candidates", async Task<IResult> (ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
-            var teacherAttendance = await ReadResetCandidatesAsync(db, """
+            // Security review A1/A8: these lists expose names and money labels across circles.
+            var forbidden = RequireResetCandidatePermissions(principal);
+            if (forbidden is not null) return forbidden;
+            Dar.Common.Permissions.AccessScope scope;
+            await using (var scopeConnection = await db.OpenConnectionAsync(ct))
+                scope = await Dar.Common.Permissions.ScopeLoader.LoadAsync(scopeConnection, principal, ct);
+            var scoped = !scope.All;
+            string WithScope(string sql)
+            {
+                if (!scoped) return sql;
+                const string filter = " AND (c.id = ANY(@scopeCircles) OR c.teacher_id = ANY(@scopeTeachers))";
+                var orderBy = sql.LastIndexOf("ORDER BY", StringComparison.OrdinalIgnoreCase);
+                return orderBy < 0 ? sql + filter : string.Concat(sql.AsSpan(0, orderBy), filter, " ", sql.AsSpan(orderBy));
+            }
+            async Task<List<object>> ReadAsync(string sql, bool circleLinked = true)
+            {
+                // School-wide (unlinked) lists are outside every circle/teacher scope: fail closed.
+                if (scoped && !circleLinked) return new List<object>();
+                return await ReadResetCandidatesAsync(db, WithScope(sql), ct, scope);
+            }
+
+            var teacherAttendance = await ReadAsync("""
                 SELECT a.id, concat(t.full_name,' · ',c.name,' · ',to_char(a.session_date,'DD/MM/YYYY'),' · ',a.status)
                 FROM teacher_attendance a JOIN teachers t ON t.id=a.teacher_id JOIN circles c ON c.id=a.circle_id
                 WHERE a.is_trashed=FALSE ORDER BY a.session_date DESC,t.full_name,c.name;
-                """, ct);
-            var studentAttendance = await ReadResetCandidatesAsync(db, """
+                """);
+            var studentAttendance = await ReadAsync("""
                 SELECT sa.id, concat(s.full_name,' · ',c.name,' · ',to_char(sa.session_date,'DD/MM/YYYY'),' · ',sa.status)
                 FROM student_attendance sa JOIN circle_enrollments ce ON ce.id=sa.enrollment_id
                 JOIN students s ON s.id=ce.student_id JOIN circles c ON c.id=ce.circle_id
                 WHERE sa.is_trashed=FALSE ORDER BY sa.session_date DESC,s.full_name,c.name;
-                """, ct);
-            var scheduleSlots = await ReadResetCandidatesAsync(db, """
+                """);
+            var scheduleSlots = await ReadAsync("""
                 SELECT ss.id, concat(c.name,' · ',CASE ss.day_of_week WHEN 0 THEN 'الأحد' WHEN 1 THEN 'الاثنين' WHEN 2 THEN 'الثلاثاء' WHEN 3 THEN 'الأربعاء' WHEN 4 THEN 'الخميس' WHEN 5 THEN 'الجمعة' ELSE 'السبت' END,' · ',to_char(ss.starts_at,'HH24:MI'))
                 FROM circle_schedule_slots ss JOIN circles c ON c.id=ss.circle_id
                 WHERE ss.is_trashed=FALSE ORDER BY c.name,ss.day_of_week,ss.starts_at;
-                """, ct);
-            var monthlyCharges = await ReadResetCandidatesAsync(db, """
+                """);
+            var monthlyCharges = await ReadAsync("""
                 SELECT mc.id, concat(s.full_name,' · ',c.name,' · ',mc.billing_month::text)
                 FROM monthly_charges mc JOIN circle_enrollments ce ON ce.id=mc.enrollment_id
                 JOIN students s ON s.id=ce.student_id JOIN circles c ON c.id=ce.circle_id
                 WHERE mc.is_trashed=FALSE AND mc.voided_at IS NULL ORDER BY mc.billing_month DESC,s.full_name;
-                """, ct);
-            var payments = await ReadResetCandidatesAsync(db, """
+                """);
+            var payments = await ReadAsync("""
                 SELECT p.id, concat(s.full_name,' · ',c.name,' · ',to_char(p.paid_at,'DD/MM/YYYY'))
                 FROM payments p JOIN monthly_charges mc ON mc.id=p.monthly_charge_id
                 JOIN circle_enrollments ce ON ce.id=mc.enrollment_id JOIN students s ON s.id=ce.student_id JOIN circles c ON c.id=ce.circle_id
                 WHERE p.is_trashed=FALSE AND p.voided_at IS NULL ORDER BY p.paid_at DESC,s.full_name;
-                """, ct);
-            var advertisingExpenses = await ReadResetCandidatesAsync(db, """
+                """);
+            var advertisingExpenses = await ReadAsync("""
                 SELECT a.id, concat(c.name,' · ',COALESCE(a.platform,'إعلان'),' · ',to_char(a.start_date,'DD/MM/YYYY'))
                 FROM advertising_expenses a JOIN circles c ON c.id=a.circle_id
                 WHERE a.is_trashed=FALSE ORDER BY a.start_date DESC,c.name;
-                """, ct);
-            var operatingExpenses = await ReadResetCandidatesAsync(db, """
+                """);
+            var operatingExpenses = await ReadAsync("""
                 SELECT o.id, concat(to_char(o.expense_date,'DD/MM/YYYY'),' · ',COALESCE(c.name,'مصروف عام للدار'),' · مصروف تشغيلي')
                 FROM operating_expenses o LEFT JOIN circles c ON c.id=o.circle_id
                 WHERE o.is_trashed=FALSE ORDER BY o.expense_date DESC,o.description;
-                """, ct);
+                """);
             // The full list is used by selective reset. The all-operational reset only adds unlinked school-wide expenses,
             // because circle-linked expenses are moved to Trash as children of each circle.
-            var generalOperatingExpenses = await ReadResetCandidatesAsync(db, """
+            var generalOperatingExpenses = await ReadAsync("""
                 SELECT o.id, concat(to_char(o.expense_date,'DD/MM/YYYY'),' · مصروف عام للدار · مصروف تشغيلي')
                 FROM operating_expenses o
                 WHERE o.circle_id IS NULL AND o.is_trashed=FALSE
                 ORDER BY o.expense_date DESC,o.description;
-                """, ct);
-            var collectionReports = await ReadResetCandidatesAsync(db, """
+                """, circleLinked: false);
+            var collectionReports = await ReadAsync("""
                 SELECT id, concat(title,' · ',billing_month::text)
                 FROM collection_reports WHERE is_trashed=FALSE ORDER BY billing_month DESC,title;
-                """, ct);
+                """, circleLinked: false);
             return Results.Ok(new { teacherAttendance, studentAttendance, scheduleSlots, monthlyCharges, payments, advertisingExpenses, operatingExpenses, generalOperatingExpenses, collectionReports });
         }).RequireAuthorization("trash.manage");
 
@@ -180,7 +201,7 @@ public static partial class SystemAdminEndpoints
 
         app.MapPost("/api/admin/trash", async Task<IResult> (TrashCreateRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await MoveToTrashAsync(request, principal, db, ct)).RequireAuthorization("trash.manage").AddEndpointFilter<ScopedAccessEndpointFilter>();
         app.MapPost("/api/admin/trash/{id:guid}/restore", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await RestoreTrashAsync(id, principal, db, ct)).RequireAuthorization("trash.manage").AddEndpointFilter<ScopedAccessEndpointFilter>();
-        app.MapDelete("/api/admin/trash/{id:guid}", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await PurgeTrashAsync(id, principal, db, ct)).RequireAuthorization("trash.manage").AddEndpointFilter<ScopedAccessEndpointFilter>();
+        app.MapDelete("/api/admin/trash/{id:guid}", async Task<IResult> (Guid id, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) => await PurgeTrashAsync(id, principal, db, ct)).RequireAuthorization("trash.manage", "users.manage").AddEndpointFilter<ScopedAccessEndpointFilter>();
 
     }
 }

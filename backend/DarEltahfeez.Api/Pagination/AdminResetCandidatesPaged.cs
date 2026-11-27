@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Dar.Common.Pagination;
 using Npgsql;
 
@@ -58,15 +59,39 @@ public static partial class SystemAdminEndpoints
 
     internal static void MapPagedResetCandidates(WebApplication app)
     {
-        app.MapGet("/api/admin/reset-candidates/{entity}", async Task<IResult> (string entity, int? page, int? pageSize, HttpContext http, NpgsqlDataSource db, CancellationToken ct) =>
+        app.MapGet("/api/admin/reset-candidates/{entity}", async Task<IResult> (string entity, int? page, int? pageSize, HttpContext http, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
             var baseSql = ResetCandidateSql(entity);
             if (baseSql is null) return Results.NotFound(new { message = "نوع قوائم إعادة الضبط غير معروف." });
-            var paging = new PageRequest(page, pageSize);
+            // Security review (A1/A8): each paged list requires the domain read permission and scope.
+            var permission = ResetCandidateReadPermission(entity);
+            if (permission is null) return Results.NotFound(new { message = "نوع قوائم إعادة الضبط غير معروف." });
+            if (!principal.HasClaim("permission", permission))
+                return Results.Json(new { message = "عرض قائمة التصفير يتطلب صلاحية القراءة المناسبة." },
+                    statusCode: StatusCodes.Status403Forbidden);
+            Dar.Common.Permissions.AccessScope scope;
+            await using (var scopeConnection = await db.OpenConnectionAsync(ct))
+                scope = await Dar.Common.Permissions.ScopeLoader.LoadAsync(scopeConnection, principal, ct);
+            var scoped = !scope.All;
             var paged = page is not null || pageSize is not null;
-            var query = $"SELECT q.*, COUNT(*) OVER() AS total FROM ({baseSql}) q ORDER BY q.id";
+            var paging = new PageRequest(page, pageSize);
+            // School-wide (unlinked) candidates are outside every circle/teacher scope: fail closed.
+            if (scoped && entity is "general-operating-expenses" or "collection-reports")
+            {
+                PaginationHeaderWriter.Write(http.Response, 0, paging, 0, paged);
+                return Results.Ok(Array.Empty<object>());
+            }
+            var filter = scoped
+                ? " AND (c.id = ANY(@scopeCircles) OR c.teacher_id = ANY(@scopeTeachers))"
+                : "";
+            var query = $"SELECT q.*, COUNT(*) OVER() AS total FROM ({baseSql}{filter}) q ORDER BY q.id";
             if (paged) query += " LIMIT @take OFFSET @skip";
             await using var cmd = db.CreateCommand(query);
+            if (scoped)
+            {
+                cmd.Parameters.AddWithValue("scopeCircles", scope.CircleIds);
+                cmd.Parameters.AddWithValue("scopeTeachers", scope.TeacherIds);
+            }
             if (paged)
             {
                 cmd.Parameters.AddWithValue("take", paging.PageSize);
