@@ -120,6 +120,9 @@ server {
         default_type text/plain;
     }
 
+    # FINAL 1.25: the bot control plane is loopback-only; never proxy /internal/* publicly.
+    location ^~ /internal/ { return 404; }
+
     location /api/v1/ {
         proxy_pass http://127.0.0.1:5081;
         proxy_http_version 1.1;
@@ -190,6 +193,9 @@ server {
         root /var/www/certbot;
         default_type text/plain;
     }
+
+    # FINAL 1.25: the bot control plane is loopback-only; never proxy /internal/* publicly.
+    location ^~ /internal/ { return 404; }
 
     location /api/v1/ {
         proxy_pass http://127.0.0.1:5081;
