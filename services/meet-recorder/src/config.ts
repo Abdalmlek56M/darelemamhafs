@@ -29,6 +29,18 @@ export type BotConfig = {
   /** Chromium --audio-buffer-size (samples per output buffer). 0 = Chromium default. */
   chromeAudioBuffer: number
   diskBlockGb: number
+  /** Stop an active recording when free space falls below this (FINAL 1.20). */
+  diskStopGb: number
+  /** Delete HLS folders older than this many days; MP4 archives are kept (FINAL 1.20). */
+  hlsRetentionDays: number
+  /** Remove .runtime/job-* scratch dirs older than this (FINAL 1.24). */
+  runtimeRetentionHours: number
+  /** Consecutive low participant readings before an idle stop (FINAL 1.21). */
+  idleConfirmTicks: number
+  /** Admit waiting participants automatically (FINAL 1.22; can be disabled). */
+  autoAdmit: boolean
+  /** Attempts for the terminal-status outbox (FINAL 1.19). */
+  outboxMaxAttempts: number
   selftestSeconds: number
   pollIntervalMs: number
   heartbeatMs: number
@@ -38,6 +50,12 @@ export type BotConfig = {
 function text(env: NodeJS.ProcessEnv, name: string, fallback: string): string {
   const value = env[name]?.trim()
   return value && value.length > 0 ? value : fallback
+}
+
+function boolean(env: NodeJS.ProcessEnv, name: string, fallback: boolean): boolean {
+  const raw = env[name]?.trim().toLowerCase()
+  if (!raw) return fallback
+  return !['0', 'false', 'off', 'no'].includes(raw)
 }
 
 function integer(env: NodeJS.ProcessEnv, name: string, fallback: number, min: number, max: number): number {
@@ -81,6 +99,12 @@ export function loadConfig(env: NodeJS.ProcessEnv, mode: BotConfig['mode']): Bot
     chromePulseLatencyMs: integer(env, 'BOT_CHROME_PULSE_LATENCY_MS', 60, 0, 500),
     chromeAudioBuffer: integer(env, 'BOT_CHROME_AUDIO_BUFFER', 16384, 0, 65536),
     diskBlockGb: integer(env, 'BOT_DISK_BLOCK_GB', 25, 1, 500),
+    diskStopGb: integer(env, 'BOT_DISK_STOP_GB', 10, 1, 500),
+    hlsRetentionDays: integer(env, 'BOT_HLS_RETENTION_DAYS', 30, 1, 3650),
+    runtimeRetentionHours: integer(env, 'BOT_RUNTIME_RETENTION_HOURS', 24, 1, 720),
+    idleConfirmTicks: integer(env, 'BOT_IDLE_CONFIRM_TICKS', 3, 1, 12),
+    autoAdmit: boolean(env, 'BOT_AUTO_ADMIT', true),
+    outboxMaxAttempts: integer(env, 'BOT_OUTBOX_MAX_ATTEMPTS', 5, 1, 20),
     selftestSeconds: integer(env, 'BOT_SELFTEST_SECONDS', 30, 5, 300),
     pollIntervalMs: integer(env, 'BOT_POLL_MS', 5000, 1000, 60000),
     heartbeatMs: integer(env, 'BOT_HEARTBEAT_MS', 15000, 5000, 120000),
