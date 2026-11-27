@@ -1,7 +1,7 @@
 import type { Page } from 'playwright'
 import type { Logger } from '../logger.js'
+import { sleep } from '../lib/sleep.js'
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 /** FINAL 1.22: only controls whose whole label is an admit action are clicked. */
 export function isAdmitControlLabel(label: string): boolean {

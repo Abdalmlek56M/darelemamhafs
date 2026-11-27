@@ -5,7 +5,6 @@ import type { BotConfig } from '../config.js'
 import type { Logger } from '../logger.js'
 import { cleanHlsRetention, cleanRuntimeDirs } from '../storage/retention.js'
 import { runRecordingJob } from './recording.js'
-
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     const timer = setTimeout(resolve, ms)

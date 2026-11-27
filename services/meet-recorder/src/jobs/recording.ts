@@ -18,8 +18,8 @@ import { nextIdleState, type IdleState } from './idle.js'
 import { JobStatusTracker } from './statusTracker.js'
 import type { BotStatusExtras } from '../api/darClient.js'
 import type { JobStatus } from './stateMachine.js'
+import { sleep } from '../lib/sleep.js'
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 const MAX_SESSION_MS = 4 * 60 * 60 * 1000
 const TICK_MS = 5000
 
