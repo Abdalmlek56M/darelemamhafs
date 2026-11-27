@@ -52,7 +52,7 @@ one(`INSERT INTO teacher_attendance(circle_id, teacher_id, session_date, schedul
 one(`INSERT INTO teacher_attendance(circle_id, teacher_id, session_date, scheduled_start, duration_minutes, status, hourly_rate_snapshot)
      VALUES (${q(circleTwoId)}, ${q(teacherTwoId)}, DATE '2026-11-25', '10:00', 60, 'present', 50);`);
 
-const limitedId = await createUser('sec_limited', ['users.manage', 'dashboard.read']);
+const limitedId = await createUser('sec_limited', ['users.manage', 'dashboard.read', 'trash.manage']);
 const purgeUserId = await createUser('sec_purge', ['trash.manage', 'students.delete']);
 const scopedId = await createUser('sec_scoped', ['trash.manage', 'finance.read', 'students.read', 'attendance.read', 'backup.manage']);
 await setScope(scopedId, [c.circleId]);
