@@ -66,7 +66,7 @@ Date: 16 Nov 2026
 
 ## Pending
 - Add the deploy key to GitHub; convert `/opt/dar` to a Git checkout for updates.
-- Point the final domain (`darelemamhaf.rigxhardware.com`) to `<server-ip>`; update `DAR_DOMAIN` and restart Caddy.
+- Point the final domain (`<deployment-host>` from `DAR_DOMAIN` in `deploy/.env`) to `<server-ip>`; update `DAR_DOMAIN` and restart Caddy.
 - Offsite backup copy (R2/B2) + restore drill.
 - Deploy the two hardware stores and the Quran site as separate Compose projects behind the central Caddy.
 - First GitHub Actions run verification.

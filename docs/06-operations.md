@@ -1,10 +1,10 @@
 # RIGX Dar — Operations
 
-**Status:** Live runbook (22 Nov 2026 — Docs Reset). الأوامر المعلّمة "هدف" لم تُنفَّذ بعد.
+**Status:** Live runbook (27 Nov 2026 — بعد تحصين Batch). الأوامر المعلّمة "هدف" لم تُنفَّذ بعد.
 **Scope:** Local setup, migrations, tests, backups, deployment, monitoring, incidents.
 **Source of truth:** `docs/00-current-state.md` — والتفاصيل التشغيلية في `docs/11-deployment.md`.
 
-> **Deployment (live):** Ubuntu + Nginx + Certbot + systemd + PostgreSQL 17. الـDocker/Caddy stack **متقاعد** على الإنتاج (ملفات موجودة كمرجع/محلي فقط).
+> **Deployment (live):** Ubuntu + Nginx + Certbot + systemd + PostgreSQL 17. الـDocker/Caddy stack **متقاعد وملفاته حُذفت من الريبو** (Tier 2 / 2.15). لا توجد أدوات Windows/desktop في الشجرة.
 
 ---
 
@@ -17,34 +17,19 @@
 | npm | 10+ | 11.x |
 | PostgreSQL | 17+ | host محلي أو container |
 | Docker | 27+ (اختياري) | **غير مستخدم على الإنتاج**؛ محليًا لـTestcontainers فقط |
-| Playwright | — | لم يُثبَّت بعد (smoke في 2.5 / E2E كامل في 2.9) |
+| Playwright | — | مستخدم داخل `services/meet-recorder` (البوت)؛ لا Playwright E2E لتطبيق الويب بعد (2.5/2.9) |
 
 **No `.bat` files.** استخدم أوامر terminal، والنشر عبر systemd/Nginx على الـhost.
 
-### Legacy Desktop Commands (temporary)
+### لا أدوات Windows/desktop
 
-الأدوات القديمة (Windows/desktop) ما زالت في الريبو لكنها **غير مستخدمة في الإنتاج**؛ إزالتها/أرشفتها = Phase 2.7/2.8. أوامر PowerShell التالية مرجعية فقط ولا تُستخدم في التشغيل الحالي:
+`tools/`، `desktop-host/`، `tests/runners/`، `tests/catalog.json` **أُزيلت من الريبو** (Tier 2 / 2.15)؛ لا `run-desktop.ps1` ولا `TestCenter.ps1` ولا `Verify-*.ps1` ولا WPF/WebView2. البدائل الحالية:
 
-```powershell
-# Start legacy desktop app (source or installed)
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\run-desktop.ps1
-
-# Build React + API for acceptance (does not start PostgreSQL or apply migrations)
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\Build-DarForRehearsal.ps1
-
-# Legacy Test Center GUI is archived. Run individual Verify-*.ps1 runners
-# only while converting them to tests/ projects.
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tests\runners\Verify-FinancialRounding.ps1
-
-# System Center
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-SystemCenter.ps1
-
-# Port/diagnostics helpers
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\Show-DarPortOwner.ps1
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\Export-Diagnostics.ps1
-```
-
-هذه الأوامر **legacy فقط** وغير مستخدمة في الإنتاج؛ إزالة الأدوات نفسها ضمن Phase 2.7/2.8.
+- `deploy/sql/integrity-checks.sql` — فحوصات تكامل read-only.
+- `deploy/scripts/dar-healthcheck.sh` — صحة الخدمات/القاعدة/النسخ/الشهادة.
+- `deploy/scripts/dar-backup.sh` — نسخ manifest + SHA-256 + offsite.
+- `deploy/scripts/restore-drill.sh` — تدريب استرجاع مجدول.
+- `tests/regression/` — suites آلية (node/bash) بدل runners الـPowerShell.
 
 ---
 
@@ -83,7 +68,7 @@ npm run test      # vitest run
 npm run preview
 ```
 
-**تم إصلاح dev proxy (2.5-a):** `vite.config.ts` يعرّف `/api/v1` → 5081 قبل `/api` → 5080 (الترتيب مهم — Vite يحل أول تطابق بادئة). شغّل الـAPI القديم والجديد معًا لاختبار لوحة الإدارة وبوابتي المعلمة/المشرفة محليًا.، وscripts `typecheck`/`lint` تُضاف في Phase 2.5.
+**تم إصلاح dev proxy (2.5-a):** `vite.config.ts` يعرّف `/api/v1` → 5081 قبل `/api` → 5080 (الترتيب مهم — Vite يحل أول تطابق بادئة). شغّل الـAPI القديم والجديد معًا لاختبار لوحة الإدارة وبوابتي المعلمة/المشرفة محليًا. `npm run typecheck` موجود الآن؛ `lint` لم يُضف بعد (قرار ESLint مؤجل ضمن 2.5-b).
 
 ### 2.4 المنافذ الفعلية
 
@@ -92,16 +77,16 @@ npm run preview
 | legacy API + SPA | 5080 |
 | new API (`/api/v1`) | 5081 |
 | Vite dev | 5173 |
-| PostgreSQL | 5432 (host) — 5433 في تثبيت Docker القديم |
+| PostgreSQL | 5432 (host) — 5433 كان في تثبيت Docker القديم (غير مستخدم) |
 
 ---
 
 ## 3. Configuration
 
 - Local: `.env` (not committed).
-- Production: host secret store / Docker secrets.
+- Production: `/etc/dar/{legacy,api,backup,healthcheck}.env` (640 root:dar) + `deploy/.env` (600 deploy:deploy)؛ لا Docker secrets بعد تقاعد الـstack.
 - Never commit `.env`, connection strings, SMTP passwords, JWT keys.
-- `.env.example` contains names only.
+- `deploy/.env.example` contains names only (لا يحتوي Caddy/Docker vars — أُزيلت).
 
 Required configuration groups:
 
@@ -155,7 +140,7 @@ dotnet run --project src/Host/Dar.Api -- --migrate
 # create database/0NN_short_name.sql with IF NOT EXISTS / expand-contract rules
 ```
 
-`MigrationRunner` يسجّل checksums في `web_schema_migrations` ويتبنّى الـledger القديم عند أول تشغيل. الـlegacy `schema_migrations` متوقف عند 16، ويُوقَف `DatabaseInitializer` نهائيًا قبل اعتماد أي migration جديد (ضمن التنظيف — Phase 2.8). أي migration مطبّقة لا تُعدَّل (تغيير checksum يوقف الـrunner) — التصحيح دائمًا عبر migration جديد.
+`MigrationRunner` يسجّل checksums في `web_schema_migrations` ويتبنّى الـledger القديم عند أول تشغيل. الـlegacy `schema_migrations` متوقف عند 16. `DatabaseInitializer` القديم **ما زال موجودًا لكنه مقيّد بـDevelopment** (`Database:ApplyMigrationsOnStartup=true` فقط، ومُعطَّل صراحةً في Production) — إزالته الكاملة وحدَث الـledger متبقية ضمن تنظيف 2.8. أي migration مطبّقة لا تُعدَّل (تغيير checksum يوقف الـrunner) — التصحيح دائمًا عبر migration جديد. العدد في المستودع الآن **001→040** (آخر ملفين 039/040 في دفعة batch 2) والإنتاج متأخر حتى 026 حتى النشر القادم.
 
 Rules:
 
@@ -179,12 +164,13 @@ Rules:
 
 ## 6. Tests
 
-**الواقع (22 Nov 2026):** 16 unit + 20 integration (Testcontainers) + 6 Vitest. لا Contract ولا E2E/Playwright بعد.
+**الواقع (27 Nov 2026):** backend: `tests/Dar.UnitTests` + `tests/Dar.IntegrationTests` (Testcontainers PostgreSQL 17)؛ frontend: **31 ملف Vitest / 89 اختبارًا** (Testing Library + jsdom). لا Contract ولا E2E/Playwright للويب بعد. الأرقام الرسمية لآخر full regression (UNIT/SUITES/PASS + SHA) في `docs/OVERNIGHT-REPORT.md`.
 
 ```bash
 # Backend
 dotnet test Dar.slnx
-# على Windows داخل sandbox مقيّد: أضف -m:1 -nodeReuse:false للـbuild
+# ملاحظة: `dotnet test` قد يُحجب في sandbox محلي (testhost Win32Exception 5)؛ CI هو الحكم
+# وعلى Windows المقيّد استخدم -m:1 -nodeReuse:false للـbuild.
 
 # One area
 dotnet test --filter "FullyQualifiedName~Supervision"
@@ -198,43 +184,40 @@ npm run build       # tsc -b + vite build
 **Test isolation:**
 
 - المشاريع داخل الحل: `tests/Dar.UnitTests` و`tests/Dar.IntegrationTests` فقط حاليًا (Contract/E2E لاحقًا).
-- Testcontainers PostgreSQL 17 لاختبارات التكامل — تحتاج Docker (14 حالة تُتخطّى بدونه).
-- Never production connection string.
-- E2E سيعمل على staging مخصص (غير مُنشأ بعد).
+- Testcontainers PostgreSQL 17 لاختبارات التكامل — تحتاج Docker (تُتخطّى/تفشل بدونه حسب الـsuite).
+- Never production connection string / never production data.
+- E2E سيعمل على staging (الموجود حاليًا — `docs/staging-environment.md`).
 - No test routes/panel in production.
-- الاختبارات المالية القديمة (`tests/regression`) خارج CI حتى Phase 2.5؛ 11 runner يشير لـ`TestCenter.ps1` المؤرشف.
+- الاختبارات المالية والـSQL regression: `.github/workflows/ci.yml` job `migrations` يشغّل `tests/regression/sql/*` وsuites الـregression في `tests/regression/` (راجع `docs/08-testing.md` §13).
 - See `docs/08-testing.md`.
 
 ---
 
 ## 7. Backups
 
-**الواقع (22 Nov 2026):** `deploy/scripts/dar-backup.sh` عبر `dar-backup.timer` يوميًا (~02:30 Cairo):
+**الواقع (27 Nov 2026):** `deploy/scripts/dar-backup.sh` عبر `dar-backup.timer` يوميًا (~02:30 Cairo):
 
-- `pg_dump -Fc` → `/var/lib/dar/backups/db/dar-YYYYmmdd-HHMMSS.dump`.
-- `rclone copy` إلى Google Drive (`gdrive:dar-backups/dar/db`).
-- Retention: 30 يومًا محليًا وبعيدًا؛ الفشل البعيد يُرجع exit non-zero (يظهر في `systemctl --failed`).
-- **لا manifest/checksum ولا تنبيه مركزي بعد.**
+- `pg_dump -Fc` → `/var/lib/dar/backups/db/dar-YYYYmmdd-HHMMSS.dump` + `pg_restore --list` TOC + SHA-256 + `.manifest.json` (status، حجم، sha256، TOC count، ledger count، offsite{status, uploaded, verified، warning}).
+- globals (`pg_dumpall --globals-only`) + config/keys archive حسب `BACKUP_CONFIG_FILES` / `BACKUP_KEY_DIRS`، وmedia اختياري (`BACKUP_MEDIA_ENABLED`).
+- `rclone copy` إلى Google Drive (`gdrive:dar-backups/dar/db`) مع تحقق الحجم دائمًا وSHA-256 عند دعم الريموت؛ فشل الرفع = exit non-zero + تنبيه عبر `dar-healthcheck`.
+- Retention: يحتفظ بآخر **BACKUP_KEEP_COUNT=30 نسخة موثّقة** (لا حذف بالعمر فقط).
+- `dar-healthcheck.timer` كل 6 ساعات + `dar-restore-drill.timer` أسبوعي (تدريب استرجاع مجدول).
+- **NOT VERIFIED:** نوع rclone remote (crypt؟)، تشغيل الـtimers على الـhost الإنتاجي، واسترجاع فعلي كامل للنسخة offsite — راجع `docs/11-deployment.md` §11.
 
-### 7.1 المطلوب — Phase 2.1
+### 7.1 Restore (manual, never from web)
 
-- `manifest.json`: وقت، migrations count، حجم DB، SHA-256، عدد الملفات.
-- التحقق من النسخة بـ`pg_restore --list` قبل اعتمادها.
-- healthcheck + تنبيه عند الفشل (systemd + قناة تنبيه).
-- restore drill شهري موثّق.
-
-### 7.2 Restore (manual, never from web)
-
-1. اختر أحدث نسخة تم التحقق منها.
+1. اختر أحدث نسخة تم التحقق منها (manifest + SHA).
 2. أوقف `dar-legacy` و`dar-api` (لا كتابة).
 3. استعد إلى قاعدة منفصلة:
    ```bash
    sudo -u postgres createdb dar_restore_check
    sudo pg_restore --no-owner --no-privileges -d dar_restore_check <dump>
    ```
-4. تحقق: `app_users`، `web_schema_migrations`، عينات مالية.
+4. تحقق: `app_users`، `web_schema_migrations`، عينات مالية، ثم `deploy/sql/integrity-checks.sql`.
 5. أعد تشغيل الخدمات وافحص `/health/ready`.
 6. اسجّل النتيجة ثم أسقط قاعدة الفحص.
+
+**تدريب مجدول:** `deploy/scripts/restore-drill.sh` + `dar-restore-drill.timer` يستخدمان `/etc/dar/restore-drill.env` ويستعيدان إلى قواعد disposable فقط.
 
 **لا تستعد فوق القاعدة الحية أبدًا.**
 
@@ -258,7 +241,7 @@ Cloudflare → Nginx:443 → SPA + legacy /api (5080) → PostgreSQL (127.0.0.1:
 - Ubuntu 24.04 LTS + systemd.
 - `deploy` user للنشر (sudo)، `dar` user لتشغيل الخدمات.
 - UFW: 22 restricted، 80، 443؛ fail2ban؛ unattended upgrades.
-- **لا Docker على الإنتاج** (stack متقاعد؛ الـvolumes محفوظة كـrollback).
+- **لا Docker لخدمات الإنتاج** (stack متقاعد وملفاته حُذفت من الريبو؛ الـhost قد يحتفظ بصور/volumes قديمة كـrollback فقط).
 
 ### 8.3 Services & Files
 
@@ -268,19 +251,23 @@ Cloudflare → Nginx:443 → SPA + legacy /api (5080) → PostgreSQL (127.0.0.1:
 | `dar-legacy.service` | SPA + `/api/*` على 5080 |
 | `dar-api.service` | `/api/v1/*` على 5081 |
 | `postgresql` | 17 على 127.0.0.1:5432 |
-| `dar-backup.timer` | dump يومي + offsite |
+| `dar-meet-bot.service` (+ `dar-meet.slice`) | bot التسجيل على `/internal/meet` عبر loopback فقط (3.2+) |
+| `dar-backup.timer` | dump يومي + manifest + offsite |
+| `dar-healthcheck.timer` | خدمات/health/disk/عمر النسخة/شهادة كل 6h |
+| `dar-restore-drill.timer` | تدريب استرجاع أسبوعي إلى قواعد disposable |
 | `certbot.timer` | تجديد الشهادات |
 | `/etc/dar/legacy.env` + `api.env` | 640 root:dar |
-| `/etc/dar/backup.env` + `/var/lib/dar/rclone/rclone.conf` | 600 dar:dar |
+| `/etc/dar/backup.env` + `/etc/dar/healthcheck.env` + `/var/lib/dar/rclone/rclone.conf` | 600 dar:dar |
 | `/opt/dar` | git checkout يتابع `origin/main` |
 
-### 8.4 سكربتات النشر (Phase 2.1 — تُصلَح/تُنشأ)
+### 8.4 سكربتات النشر (موجودة ومُجرّبة — Phase 2.1)
 
 - `deploy/preflight.sh`: فحص الخدمات/القاعدة/المساحة/حديث النسخة قبل أي تغيير.
-- `deploy/update.sh`: **backup إلزامي → `--migrate` → publish → swap → restart → smoke → rollback تلقائي** عند الفشل.
+- `deploy/update.sh`: **backup إلزامي → `--migrate` → publish → swap → restart → smoke → rollback تلقائي** عند الفشل (نقطة الدخول الوحيدة؛ قد تُقسَّم مساعداتها تحت `deploy/lib/` دون تغيير الترتيب).
 - `deploy/rollback.sh`: استرجاع آخر نسخة binaries؛ قاعدة البيانات لا تُرجَع destructively (forward fix أو restore موثّق).
-- إصلاح `bootstrap-server.sh` / `setup-host-db.sh` / `setup-host-services.sh` / `setup-nginx.sh` لتكون idempotent (إنشاء `dar`، buffers، pg_restore على قاعدة جديدة بعد نسخة).
+- `bootstrap-server.sh` / `setup-host-db.sh` / `setup-host-services.sh` / `setup-nginx.sh`: إعداد idempotent (إنشاء `dar`، buffers، pg_restore على قاعدة جديدة بعد نسخة).
 - **ممنوع** تحديث الـhost يدويًا بدون المرور على `update.sh`.
+- جرّبت العملية فعليًا في نشرات 22–24 Nov؛ المتبقي غير المتحقق هو rehearsal كامل لـ`rollback.sh` على الـhost.
 
 ### 8.5 Rollback
 
@@ -357,7 +344,7 @@ Alerts: Telegram/email. No paid service without approval.
 |---|---|
 | `<deployment-host>` | Cloudflare → host (live) |
 | `www` | غير مُعد (redirect لاحقًا إن لزم) |
-| `staging` | غير مُنشأ (Phase 2.5 smoke / 2.9 E2E) |
+| `staging` | موجود على نفس الـhost عبر `http://<deployment-host>:8088/` وvhost منفصل (IP allow-list، بلا DNS/certificate) — `docs/staging-environment.md` |
 
 - SSL Full (strict) + Certbot DNS-01 (Cloudflare token في `/root/.secrets/cloudflare.ini`؛ يحتاج تدويرًا).
 - HSTS: التطبيق يضيفه على `/api`؛ **Nginx يحتاج HSTS لكل الردود** (سبرنت الأمان).
@@ -392,7 +379,7 @@ Alerts: Telegram/email. No paid service without approval.
 
 ### Open
 
-1. Staging: نفس الـhost أم host منفصل؟ (مطلوب لـE2E)
-2. Email provider (SMTP) لتفعيل OTP فعليًا.
-3. Monitoring alert channel (Telegram/Email) + Uptime.
-4. rclone OAuth client ID مخصص + تدوير Cloudflare token (قبل تقاعد shared client في 2026).
+1. Email provider (SMTP) لتفعيل OTP فعليًا.
+2. Monitoring alert channel (Telegram/Email) + Uptime.
+3. rclone OAuth client ID مخصص + تدوير Cloudflare token (قبل تقاعد shared client في 2026).
+4. نشر دفعة التحصين (main حتى 040) إلى staging ثم الإنتاج — بموافقة المالك ونافذة نشر.

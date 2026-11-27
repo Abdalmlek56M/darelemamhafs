@@ -1,8 +1,8 @@
 # RIGX Dar — Security
 
-**Status:** Baseline rules + implementation status (22 Nov 2026).
+**Status:** Baseline rules + implementation status (27 Nov 2026 — hardening batch).
 **Scope:** Auth, authorization, data protection, API hardening, infrastructure, audit, tests.
-**Source of truth:** `docs/00-current-state.md` يحدد ما هو منفّذ فعليًا؛ هذا الملف يحدد القواعد والهدف.
+**Source of truth:** `docs/00-current-state.md` يحدد ما هو منفّذ فعليًا؛ هذا الملف يحدد القواعد والهدف. سجل التحصين الكامل في `docs/OVERNIGHT-REPORT.md`.
 
 ---
 
@@ -36,27 +36,23 @@
 - **Migration:** collect emails manually; keep password login temporarily for accounts without email; remove passwords after all active users are migrated.
 - **Credential handling:** never store admin credentials in docs, code, logs, or repository. Use a password manager. The current weak credential must be changed before production. Do not reuse it for OTP/Google.
 
-> **Implementation status (22 Nov 2026):** this section is the target security model; what follows is what is actually live.
+> **Implementation status (27 Nov 2026):** this section is the target security model; what follows is what is actually live.
 >
-> **Live today:** password login (PBKDF2-SHA256, 210k) — مسار Email OTP مُنفّذ لكن SMTP غير مُعد؛ Google مؤجل؛ HttpOnly/Secure cookies؛ `session_version` revocation عند تغيير كلمة المرور/الصلاحيات؛ rate limit 10/دقيقة لكل IP على مسارات auth؛ login audit؛ security headers؛ same-origin guard على الطلبات غير الآمنة؛ منع purge المالي؛ OTP hashed + pepper fail-closed؛ first-run setup token/loopback؛ forwarded headers؛ صلاحيات trash لكل كيان؛ append-only audit trigger؛ إزالة مسارات DELETE القديمة.
+> **Live today:** password login (PBKDF2-SHA256, 210k) — مسار Email OTP مُنفّذ لكن SMTP غير مُعد؛ Google مؤجل؛ HttpOnly cookies (legacy `SameAsRequest` Secure per B10/ADR-0008، `dar_session` Secure outside Development)؛ `session_version` revocation عند تغيير كلمة المرور/الصلاحيات؛ rate limit **5/دقيقة لكل IP** على مسارات auth + **per-account lockout تدريجي** (5 محاولات: 30ث→15د، migration 029)؛ Turnstile جاهز وينتظر مفاتيح؛ login audit؛ security headers + CSP/HSTS enforced للـSPA (FINAL 0.4)؛ same-origin guard على الطلبات غير الآمنة؛ منع purge المالي + Reverse/Void؛ OTP hashed + pepper fail-closed؛ first-run setup token/loopback؛ forwarded headers + real-IP mode؛ صلاحيات trash لكل كيان؛ append-only audit trigger.
 >
 > **Not implemented yet — أولويات سبرنت الأمان القادم (Phase 2.7):**
-> 1. **Per-account lockout** + throttle لكل حساب (5 محاولات/15 دقيقة) — الحالي per-IP فقط.
-> 2. **Antiforgery token (CSRF)** لكل POST/PUT/PATCH/DELETE — الحالي Origin/Referer guard فقط.
-> 3. **HSTS على مستوى Nginx** لكل الردود (HTML/static) + CSP مناسب لـVite — التطبيق يضع HSTS على `/api` فقط.
-> 4. **تقييد origin على Cloudflare IPs** في UFW/Nginx (docs تقول إنه موجود — الواقع لا).
-> 5. `__Host-` cookie prefix + سياسة عمر جلسة/remember-device موحّدة بين الـhostين.
-> 6. تنظيف بقايا desktop من الـproduction binary والواجهة (`DAR_ISOLATED_*`, `desktopCredentialBridge`).
+> 1. **Antiforgery token (CSRF)** لكل POST/PUT/PATCH/DELETE — الحالي Origin/Referer guard فقط.
+> 2. **تقييد origin على Cloudflare IPs** في UFW/Nginx (real-IP snippet موجود؛ الحجب الكامل لا) + `__Host-` prefix وسياسة عمر موحّدة + تناوب الأسرار وتنبيهات خارجية (Uptime/Sentry).
 >
-> See `docs/00-current-state.md` for evidence؛ `docs/10-code-review.md` سجل تاريخي (16 Nov).
+> See `docs/00-current-state.md` for evidence؛ `docs/10-code-review.md` سجل تاريخي (16 Nov)؛ التحصين في `docs/OVERNIGHT-REPORT.md`.
 
 ### 2.2 Sessions
 
-- Cookie: `HttpOnly`, `Secure` outside Development, `SameSite=Lax`, `__Host-` prefix.
-- Server-side session/ticket store.
-- Session lifetime: 12h browser session; "remember device" 30 days.
+- Cookie: `HttpOnly`, `Secure` outside Development (legacy: scheme-aware `SameAsRequest` — B10/ADR-0008), `SameSite` (legacy=Strict، `dar_session`=Lax), `__Host-` prefix (هدف).
+- Ticket-based session (لا server-side session store بعد)؛ `session_version` للإبطال.
+- Session lifetime: 8h + sliding (legacy)؛ "remember device" غير منفّذ كسياسة منفصلة (هدف: توحيد 12h/30d).
 - Revocation: single session, all sessions, on password change.
-- New-device alert email.
+- New-device alert email (هدف).
 - No tokens in `localStorage`/`sessionStorage`.
 
 ### 2.3 CSRF
@@ -73,8 +69,8 @@
 - Stored encrypted at rest; never logged.
 - Resend timer (e.g., 60 seconds).
 - Generic responses to avoid account enumeration.
-- Rate limit per IP + email (منفّذ جزئيًا: per-IP 10/min + per-email throttle في Identity module).
-- Lockout after repeated failures (هدف — غير منفّذ بعد).
+- Rate limit per IP + email (منفّذ: per-IP **5/min** على `/api/auth/*` و`/api/v1/auth/*` + per-email throttle في Identity module؛ per-account lockout على password — migration 029).
+- Lockout after repeated OTP failures (العدّاد atomic؛ قفل OTP مستقل هدف — غير منفّذ بعد).
 - المسار الحالي مؤقتًا password؛ عند اكتمال OTP/Google تُزال كلمات المرور نهائيًا (target).
 
 ### 2.5 Google
@@ -136,11 +132,11 @@
 
 ## 5. API Hardening
 
-- HTTPS only; HSTS (المطلوب على Nginx لكل الردود؛ حاليًا يضيفه التطبيق على `/api` فقط).
-- Security headers: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy.
+- HTTPS only; HSTS (مطبّق على ردود الـSPA/الـAPI عبر HTTPS + إعداد nginx يحمله).
+- Security headers: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy (FINAL 0.4 — سياسة واحدة لكل `/`، `/teacher`، `/supervisor`، `/management` والـstatic).
 - **CSP plan for Vite (بدل Next.js nonce):** `default-src 'self'`؛ `script-src 'self'` (الـbundle ملفات خارجية — لا inline scripts)؛ `style-src 'self' 'unsafe-inline'` مؤقتًا لحين فصل الـinline styles؛ `img-src 'self' data:`؛ `frame-ancestors 'none'`؛ `connect-src 'self'`. لا nonce ولا `unsafe-eval` (لا SSR).
 - Rate limits — **الحالي مقابل الهدف**:
-  - login/OTP: الحالي 10/دقيقة per IP؛ الهدف 5/15 دقيقة per IP+account + lockout.
+  - login/OTP: الحالي **5/دقيقة per IP** + per-account lockout تدريجي؛ الهدف 12h/30d policy + step-up.
   - global: 100/min per user (هدف).
   - public requests: 5/10 min per IP (هدف).
   - reports: 10/min (هدف).
@@ -157,7 +153,7 @@
 
 ## 6. Data Protection
 
-- PostgreSQL not public; 127.0.0.1 على نفس الـhost (Docker/Caddy متقاعد).
+- PostgreSQL not public؛ 127.0.0.1 على نفس الـhost (Docker/Caddy متقاعد وملفاته حُذفت — خدمات systemd فقط).
 - Separate DB roles (`app_rw`, `app_migrator`, `backup`, `readonly`).
 - No superuser for app.
 - Encryption at rest: host disk/volume encryption; encrypted backups.
@@ -194,13 +190,13 @@
 
 - Ubuntu 24.04 LTS.
 - Cloudflare DNS/WAF, SSL Full (strict), HSTS.
-- **Nginx + Certbot** TLS + reverse proxy (Docker/Caddy stack متقاعد على الإنتاج).
+- **Nginx + Certbot** TLS + reverse proxy (Docker/Caddy stack متقاعد وملفاته حُذفت من الريبو).
 - UFW: 22 (restricted), 80, 443 only — **تقييد Cloudflare IPs غير منفَّذ** (هدف).
 - SSH keys only; no root; fail2ban.
 - الخدمات: systemd `dar-legacy` و`dar-api` تعمل بمستخدم `dar`؛ لا حاويات في الإنتاج.
 - non-root users، healthchecks، log rotation (systemd/journald).
 - PostgreSQL غير منشور (127.0.0.1:5432).
-- Backups يومية + offsite (Google Drive)؛ manifest/healthcheck للنسخ = Phase 2.2.
+- Backups يومية + manifest/SHA-256/TOC + offsite (Google Drive) + `dar-healthcheck.timer` + `dar-restore-drill.timer` — منفّذ في `deploy/scripts/*` (docs/11 §6).
 - Dependency audit + secret scan in CI.
 - Container scan (Trivy): لا ينطبق حتى إعادة تفعيل الحاويات.
 - External pen test before launch (recommended).
@@ -228,22 +224,17 @@
 
 ---
 
-## 10. Gaps to Close — Updated 22 Nov 2026
+## 10. Gaps to Close — Updated 27 Nov 2026
 
 | Gap | Severity | Phase |
 |---|---|---|
-| Per-account lockout + per-account auth throttle | High | 2.7 |
 | Antiforgery token (CSRF) on unsafe methods | High | 2.7 |
-| HSTS on Nginx for all responses + full CSP | Medium | 2.7 |
-| Origin restriction to Cloudflare IPs | Medium | 2.7 |
+| Origin restriction to Cloudflare IPs (firewall-level) | Medium | 2.7 |
 | `__Host-` cookies + unified session lifetime | Low | later (3.0+) |
-| Backup manifest/checksum + failure alerts + restore drill | High | 2.1 |
-| Deploy scripts idempotent + backup/migrate/rollback gate | High | 2.1 |
 | Email/OTP provider activation (SMTP + pepper) | High | when provider chosen |
 | External pen test | High | before public growth |
-| Data retention policy | Medium | later |
-| Step-up scope | Medium | later |
-| Desktop remnants cleanup (`DAR_ISOLATED_*`, WebView bridges) | Low | 2.7 + 2.8 |
+| Secret rotation (rclone/Cloudflare/SSH) + uptime alerts | Medium | 2.7 |
+| OTP lockout + Step-up scope | Low/Medium | later |
 
 ---
 
@@ -265,7 +256,7 @@
 1. **payments.paid_at is server-owned.** The legacy payment JSON endpoint and the receipt-upload endpoint ignore any browser-supplied paidAt; the server writes DateTimeOffset.UtcNow. Client clocks are never trusted for money records.
 2. **Public health is status-only.** /health, /health/live and /health/ready return { status } only. Service name, database state and build stage live behind GET /api/health/details (authenticated).
 3. **Payroll lock blocks request reopen.** Reopening an approved attendance request restores its previous attendance effect, so the endpoint returns 409 when the request-date month is payroll-locked (payroll_locks.is_locked = TRUE). Unlocking the month allows the reopen. Covered by 	ests/regression/tier0-money.4. **One SPA security-header policy.** /, /teacher, /supervisor, /management and static assets all receive X-Content-Type-Options, X-Frame-Options: DENY, Referrer-Policy, Permissions-Policy, an enforced CSP and HSTS over HTTPS. The duplicate Report-Only CSP was removed. style-src 'unsafe-inline' stays for now because the React UI sets inline style attributes; removing it needs a nonce/class migration. The SPA fallback now only serves known entry paths and returns a real 404 for /.git/config, /swagger, /metrics and any other non-route path.5. **The proxy owns X-Forwarded-For.** nginx sends $remote_addr (overwrite) instead of appending a client-supplied chain; the app trusts only headers from configured ForwardedHeaders:KnownProxies.
-6. **Unpaid notifications follow the ledger.** Migration 32_paid_notification_ledger.sql excludes voided payments from the paid sum and fires the resolver when monthly_charges.amount_due changes. Regression: 	ests/regression/tier0-trigger.
+6. **Unpaid notifications follow the ledger.** Migration `032_paid_notification_ledger.sql` excludes voided payments from the paid sum and fires the resolver when monthly_charges.amount_due changes. Regression: `tests/regression/tier0-trigger`.
 ## 13. Real client IP behind Cloudflare (single setting)
 
 The repo cannot see the live DNS, so both deployment shapes are supported and documented:
@@ -315,7 +306,7 @@ In both modes the app trusts only a header named X-Real-IP arriving from Forward
 - `tests/run-regression.sh` generates a random disposable superuser password per run and reads the schema-template database from `DAR_BASELINE_DB` (no baked production name/password).
 - Turnstile `ExpectedHostname` no longer defaults to the production hostname: the app now fails fast when Turnstile is enabled without `Auth:Turnstile:ExpectedHostname`, and the test fixture uses `turnstile.example.invalid`.
 - New regression suite `tests/regression/repo-secrets` scans backend/src/frontend/tests/deploy/services/packages/database for the live identifiers, the hardcoded superuser password and the non-configurable baseline DB, and fails the regression if any reappear.
-- **Secrets to rotate (owner action):** the old regression superuser password (`RegressionPass123`, previously committed test-only), the Cloudflare API token mentioned in old checkpoint docs, the server SSH access used for deployments, and any `deploy/.env` value that previously appeared in docs. No live credential was changed by this commit.
+- **Secrets to rotate (owner action):** the old regression superuser password (previously committed test-only — literal removed from docs), the Cloudflare API token mentioned in old checkpoint docs, the server SSH access used for deployments, and any `deploy/.env` value that previously appeared in docs. No live credential was changed by this commit.
 - **NOT VERIFIED:** production hostnames/IPs/DNS in the live deployment, firewall/Cloudflare rules, and whether the live `deploy/.env` contains the placeholders. Docs that describe historic deployments were rewritten with placeholders; live runbooks must be re-generated from `deploy/.env`.
 ## 20. Backup coverage and verified retention (FINAL 0.9)
 
@@ -341,7 +332,7 @@ Two independent cookies can share one browser: the legacy admin cookie `DarEltah
 - **NOT VERIFIED:** a real browser with both cookies, the live DataProtection key ring, cross-tab logout behaviour, and non-portal clients that omit the marker (those still get admin-first identity when both cookies are present, by design). No production session was changed.
 ## 22. Windows-tooling port before removal (FINAL Z0, 2.11/2.12)
 
-The retired Windows desktop tooling was the only home of some operational checks. They are now ported to the Linux production tooling before the desktop edition is deleted:
+The retired Windows desktop tooling was the only home of some operational checks. It has been **deleted from the repo** (Tier 2 / 2.15), and its checks were ported to the Linux production tooling before removal:
 
 - `deploy/sql/integrity-checks.sql` is one read-only report (schema objects/indexes, duplicate enrollments/slots/attendance, payments over charge, teacher-payable mismatch, orphan relationships, WAL size, dead-tuple/autovacuum stats). It is executed by `dar-healthcheck` (`check_integrity`), the restore drill and the regression suite `tests/regression/integrity-sql`.
 - `dar-backup` now validates that every required table has a `TABLE DATA` entry in the dump (`BACKUP_REQUIRED_TABLES`), in addition to `pg_restore --list`/SHA-256.
@@ -350,37 +341,28 @@ The retired Windows desktop tooling was the only home of some operational checks
 - **NOT VERIFIED:** the live healthcheck/restore-drill timers, the installed `/usr/local/share/dar/integrity-checks.sql`, the real backup set's per-table entries and an actual drill run were not executed on production in this session.
 ## 23. Overnight Tier-1 batch: purge worker, backup path, permission catalog, attendance uniqueness
 
-- **1.1:** `TrashPurgeWorker` now runs `SystemAdminService.PurgeExpiredTrashAsync` every six hours (configurable via `Trash:PurgeIntervalMinutes`, 5–10080) after a two-minute startup delay; `POST /api/admin/trash/purge-expired` (trash.manage) is the manual trigger. Financial trash types remain retained. Regression: `tier1-trash-purge`.
-- **1.2:** the backup download endpoint resolves files under the same validated `SystemAdminService.BackupRootPath` used when creating backups, instead of a Windows-only profile folder. Regression: `tier1-backup-download`.
-- **1.3:** `meet.bot.control` was missing from the legacy catalog served to the admin Users screen and from the frontend labels. It is added; a regression compares the legacy catalog, the modular `PermissionCodes` catalog, the frontend label/group keys and the `/api/admin/permissions` response as one set. Regression: `tier1-permission-catalog`.
-- **1.4:** migration `034_teacher_attendance_partial_unique.sql` replaces the non-partial `UNIQUE(schedule_slot_id, session_date)` with a partial unique index over live rows, so an undone (trashed) attendance row no longer blocks re-marking the session. Regression: `tier1-attendance-unique`.
-- **NOT VERIFIED:** the live worker timer, a real browser download, production migration of 034, and whether the production permission seed rows already include `meet.bot.control` (migration 027 does).
+- **1.1/1.2:** `TrashPurgeWorker` runs `PurgeExpiredTrashAsync` every six hours (`Trash:PurgeIntervalMinutes`، 5–10080) عبر `POST /api/admin/trash/purge-expired` (manual)؛ backup download resolves files under the validated `BackupRootPath` (لا Windows profile). Regressions: `tier1-trash-purge`, `tier1-backup-download`.
+- **1.3/1.4:** `meet.bot.control` أُضيف للكتالوج (legacy + modular + frontend + served set equals)؛ migration 034 replaces the non-partial attendance unique with a partial index over live rows. Regressions: `tier1-permission-catalog`, `tier1-attendance-unique`.
+
 ## 24. Overnight Tier-1 batch 2/3: money audit, migration cleanup, auto-link, checksum, Cairo date, OTP consume
 
-- **1.6:** JSON payment/charge creation now write their `audit_log` row inside the same database transaction as the money row (receipt-path payments already did). A rejected create writes no audit. Regression: `tier1-money-audit`.
-- **1.8:** migration `035_schedule_locks_cleanup.sql` replaces the 025 timetable guard functions without the legacy global advisory lock; per-teacher locks remain. The live `dar_void_payment` remains the 031 subscription-aware version (024 is superseded history). Regression: `tier1-migration-cleanup`.
-- **1.9:** circle auto-link requires a whole-word phrase; a short name inside another word no longer scores 100, and two exact matches are not auto-linked. Regression: `MeetMatcherAmbiguityTests`.
-- **1.10:** Telegram HTML mode now escapes title/body/code. Regression: `MeetTelegramEscapingTests`.
-- **1.11:** new students get the Africa/Cairo server day (legacy and modular). Regression: `tier1-student-joined`.
-- **1.12:** escaped unique violations become 409 in the legacy global error handler. Regression: `tier1-unique-race`.
-- **1.15 (partial):** OTP verification consumes the code with one atomic conditional UPDATE, so two concurrent verifications cannot both succeed; attempts are already incremented atomically. OAuth state replay/revoke and SMTP queue remain blocked (Google credentials/SMTP queue design).
-- **1.16:** migration checksums normalize CRLF/LF before SHA-256. Regression: `MigrationChecksumTests`.
-- **1.17 (partial):** Secretariat student page has a deterministic `id` tie-break; unifying the two pagination envelopes is blocked on a cross-app contract decision.
-- **1.5:** with-schedule PUT replaces live slots (soft-deletes old ones), trashed operating expenses reject PUT. Regression: `tier1-circle-schedule`, `tier1-expense-trashed`.
+- **1.6/1.5:** JSON payment/charge audit inside the money transaction (rejected create = no audit)؛ with-schedule PUT replaces live slots (trashed expenses reject PUT). Regressions: `tier1-money-audit`, `tier1-circle-schedule`, `tier1-expense-trashed`.
+- **1.8/1.16:** migration 035 replaces the 025 guards without the legacy global advisory lock (live `dar_void_payment` = 031)؛ checksums normalize CRLF/LF. Regressions: `tier1-migration-cleanup`, `MigrationChecksumTests`.
+- **1.9/1.10:** circle auto-link requires a whole-word phrase (two exact matches ≠ auto-link)؛ Telegram HTML mode escapes title/body/code. Tests: `MeetMatcherAmbiguityTests`, `MeetTelegramEscapingTests`.
+- **1.11/1.12:** new students get the Africa/Cairo server day؛ escaped unique violations → 409 in the legacy handler. Regression: `tier1-student-joined`, `tier1-unique-race`.
+- **1.15 (partial):** OTP consume is one atomic conditional UPDATE؛ OAuth state replay/revoke were completed later (migration 036 + Google revoke)، SMTP queue صار bounded background queue. **1.17:** one frontend pagination-meta parser for both envelopes + deterministic `id` tie-break.
+
 ## 25. Recorder and teacher-state hardening (Tier 1 continuation)
 
-- **Recorder (1.18–1.24):** link validated before Xvfb/Chromium (only `https://meet.google.com`), terminal-status retries with a local outbox under `.runtime/outbox/`, active disk guard + `audio.wav` cleanup + 30-day HLS retention, idle stop requires consecutive low readings, auto-admit restricted/configurable, the state machine is wired into status reports, bot tests/typecheck run in CI, and startup removes stale `.runtime/job-*` dirs. `--disable-blink-features=AutomationControlled` was removed; the tradeoff (Google may challenge the profile more often) is documented in the recorder README. Nginx returns 404 for `/internal/`.
-- **1.13:** ending a teacher session no longer overwrites a manually corrected attendance row (`ON CONFLICT ... WHERE teacher_attendance.teacher_session_id = EXCLUDED.teacher_session_id`), and the supervisor absences list excludes sessions that are still `in_progress` for students and teachers. Regression: `tier1-teacher-state`.
-- **1.15:** OAuth state carries a one-time nonce consumed in `meet_oauth_states` (migration 036), disconnect revokes the refresh token at Google (`oauth2.googleapis.com/revoke`) before revoking locally, and OTP email delivery runs through a bounded background queue instead of inline SMTP. Remaining OAuth/queue gaps are listed as blocked.
-- **1.17:** the frontend has one pagination meta parser that accepts both the legacy headers envelope and the new `{items,total,page,pageSize}` envelope; the Secretariat student page has a deterministic `id` tie-break.
-- **Migration 034 safety:** it now finds exactly the unique constraint on `(schedule_slot_id, session_date)`, aborts on ambiguity/missing target-and-index, verifies no other unique constraint disappeared, creates the partial unique index, and is idempotent. Regression: `tier1-migration-034`.
-- **NOT VERIFIED:** live Meet/Google/Telnyx? (no), recorder on a real Xvfb host, SMTP delivery, Google revocation against a real grant, production migrations 034/036.
+- **Recorder (1.18–1.24):** link validated before Xvfb/Chromium (only `https://meet.google.com`), terminal-status retries with a local outbox، disk guard + `audio.wav` cleanup + 30-day HLS retention، idle stop requires consecutive low readings، auto-admit restricted/configurable، state machine wired into status reports، startup removes stale `.runtime/job-*`؛ `--disable-blink-features=AutomationControlled` removed؛ nginx returns 404 for `/internal/`. Tests/README: `services/meet-recorder`.
+- **1.13 + migration 034 safety:** ending a session no longer overwrites a manually corrected attendance row؛ supervisor absences exclude in-progress sessions؛ migration 034 locates exactly the target constraint، aborts on ambiguity، verifies no other unique constraint disappeared، creates the partial index idempotently. Regression: `tier1-teacher-state`, `tier1-migration-034`.
+- **NOT VERIFIED:** live Meet/Google/SMTP/Telegram flows، recorder on a real Xvfb host، production migrations 034/036 — full list في `docs/OVERNIGHT-REPORT.md`.
 ## 26. Z1/Z2/Tier-2 hardening (Nov 2026)
 
-- **Z1:** `teacherTypes.ts` is split into core/live/supervisor type files behind a barrel; `MeetBotJobRepository.cs` is split into queue/control partials (193/168/151 lines); `AuthEndpoints.cs` is split into session/sign-in/admin partials (72/258/244/74 lines). Characterization suites: `z1-auth-characterization`, `z1-bot-repo-characterization`; frontend render/type characterization tests run in Vitest. `useDarApplication.ts` and `TeacherApp.tsx` have characterization tests but are not split yet.
-- **Z2:** the frontend no longer calculates profit; it renders the server `/api/summary/profit` (including the server-computed `unmarkedPastSessions`). Audit-insert dedup and permission-helper dedup remain.
-- **Tier 2:** migration 037 adds the proven hot-path indexes and drops the redundant media-asset index (`tier2-indexes` proves plans with EXPLAIN); migration 038 keeps one Meet session cap (`tier2-meet-cap`); retention prunes expired auth sessions/OTP/resolved notifications/general communication but never money-linked communication rows or `audit_log` (`tier2-retention`); dead Docker/Caddy files were removed; PostgreSQL receives the restore-drill/integrity SQL from the retired Windows tools.
-- **NOT VERIFIED:** production migrations 037/038, live retention timers, and the recorder/bot against real Google/LiveKit were not exercised.
+- **Z1 (characterization first, then split — مكتمل):** `teacherTypes.ts` → barrel + core/live/supervisor (152/97/200)؛ `MeetBotJobRepository` 193/168/151؛ `AuthEndpoints` 72 + SignIn 258 / AdminUsers 244 / Helpers 168 / Session 70؛ `SystemAdminEndpoints` 38 + 12 partials؛ `Requests` 117 + Review 150 / Edit 178؛ `MeetCalendarRepository` 236 + Events 200؛ `TeacherApp` 8 + View 222 + state 378؛ `useDarApplication` 12 + State 241 + ActionsA 276 / ActionsB 275. Characterization: `z1-auth-characterization`، `z1-bot-repo-characterization`، RTL/type tests في Vitest.
+- **Z2:** الواجهة لم تعد تحسب الربح؛ تعرض `/api/summary/profit` من الخادم (بما فيه `unmarkedPastSessions`). Audit-insert dedup قيد batch 2 (`AuditLogWriter.cs` + `z2-audit-writer`) ويُعتمد Done في `docs/OVERNIGHT-REPORT.md` عند اكتماله؛ permission-helper dedup ما زال REMAINING.
+- **Tier 2:** migration 037 indexes + drop redundant media index (`tier2-indexes` مع EXPLAIN)؛ 038 single meet-session cap (`tier2-meet-cap`)؛ retention لا يحذف money-linked communication ولا `audit_log` (`tier2-retention`)؛ ملفات Docker/Caddy أُزيلت؛ checks الـWindows tools انتقلت إلى `deploy/sql/integrity-checks.sql` و`restore-drill`؛ **039** (`enrollment_status_history` مادة + trigger، بدل قراءة audit_log) و**040** (pg_trgm GIN indexes لبحث الطلاب) وصلتا في batch 2 وبانتظار full regression/اعتماد.
+- **NOT VERIFIED:** production migrations 034→040، live retention timers، recorder/bot ضد Google/LiveKit حقيقي.
 ## 27. كوكي الأدمن النحيف (FINAL B7)
 
 - كوكي `DarEltahfeez.Admin` كانت تحمل claim لكل صلاحية: 65 صلاحية = `Set-Cookie` بحجم 4049

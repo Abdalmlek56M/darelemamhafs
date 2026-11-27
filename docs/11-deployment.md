@@ -2,10 +2,10 @@
 
 **Status:** Live on Contabo VPS <server-ip> at **https://<deployment-host>** (since 16 Nov 2026).
 **Architecture:** Ubuntu 24.04 + Nginx + Certbot + systemd + host PostgreSQL 17 + .NET 10 + React 19/Vite.
-**Last hardened:** 22 Nov 2026 — Phase 2.1 (safe deploy/update/rollback + backup manifest + healthcheck). راجع docs/17-master-plan.md.
-**Legacy note:** the earlier Docker/Caddy stack is retired on this host; its volumes are retained as a rollback copy.
+**Last hardened:** 27 Nov 2026 — hardening batch (B7 slim admin cookie + ADR-0008، B10 scheme-aware cookie، staging، Z1 splits). راجع `docs/OVERNIGHT-REPORT.md` و`docs/23-hardening-plan.md`.
+**Legacy note:** the earlier Docker/Caddy stack is retired; its files (`deploy/docker-compose.yml`, two Dockerfiles, `deploy/Caddyfile`) were **deleted from the repo** (Tier 2 / 2.15). Any host volumes left from that experiment are rollback copies only and are not used by live services.
 
-> ⚠️ سكربتات Phase 2.1 الجديدة (update.sh، rollback.sh، preflight.sh، dar-backup.sh المحدّث، dar-healthcheck) تم التحقق منها بـ(shfmt + فاحص بنيوي) فقط، **ولم تُجرّب بعد على الـhost**. أول تشغيل يجب أن يكون rehearsal على staging/VPS غير إنتاجي أو في نافذة صيانة معتمدة. التحقق الرسمي bash -n يقع في CI (.github/workflows/ci.yml → "Check deploy script syntax"). التفاصيل في القسم 11 وفي docs/checkpoints/2.0-docs-reset-1.0.md.
+> ✅ **Phase 2.1 scripts are exercised:** `deploy/update.sh` ran the full backup → pull → build → migrate → swap → smoke path in the 22–24 Nov deployments (e.g. `20261122-215854`, P0/P1 fixes). The update flow now lives in `deploy/update.sh` as the single entry point (helper libraries under `deploy/lib/` may change without changing the order below). What is still **NOT verified**: a full `rollback.sh` rehearsal on the production host and a fresh-host bootstrap run.
 
 ---
 
@@ -19,6 +19,8 @@
 | PostgreSQL 17 | <database> database on 127.0.0.1:5432 | no |
 | dar-backup.timer | daily pg_dump + manifest + Google Drive offsite (30-day retention) | no |
 | dar-healthcheck.timer | every 6h: services, health, disk, backup age, TLS, nginx | no |
+| dar-meet-bot.service (`dar-meet.slice`) | Meet recorder bot: Xvfb + PulseAudio + FFmpeg; calls `/internal/meet` on loopback only | no |
+| dar-restore-drill.timer | weekly restore drill into disposable databases (`restore-drill.sh`) | no |
 
 Routing:
 - /api/v1/* → 127.0.0.1:5081
@@ -30,7 +32,7 @@ Routing:
 
 - Contabo Cloud VPS 4: 4 vCPU / 8 GB RAM / 100 GB SSD / 200 Mbit/s / EU.
 - Ubuntu 24.04.5 LTS, timezone Africa/Cairo, 2 GB swap.
-- Docker 29.9.3 + Compose v5.7.1 (kept for the retired stack; not used by live services).
+- Docker 29.x + Compose (installed by `bootstrap-server.sh`; **not used by live services** — the Docker/Caddy files were removed from the repo in Tier 2 / 2.15).
 - .NET SDK 10.0.115, Node.js 24.22.3, PostgreSQL 17.12, Nginx 1.24.0, Certbot 2.9.0, rclone 1.60.1.
 - UFW: 22, 80, 443. fail2ban sshd jail + unattended upgrades.
 - SSH key-only for root/deploy; password auth disabled.
@@ -56,7 +58,7 @@ Routing:
     5) sudo bash deploy/setup-host-backup.sh                  # backup + healthcheck timers
 
     6) sudo bash deploy/setup-nginx.sh
-       sudo certbot --nginx -d <deployment-host> --non-interactive --agree-tos -m admin@rigxhardware.com --redirect
+       sudo certbot --nginx -d <deployment-host> --non-interactive --agree-tos -m admin@example.invalid --redirect
 
     7) sudo bash deploy/setup-host-db.sh --dump /path/to/database.dump
        # قاعدة موجودة فيها بيانات: --confirm-restore ثم --confirm-restore --force
@@ -214,22 +216,26 @@ Added to GitHub. /opt/dar is a Git checkout tracking origin/main:
 
 ---
 
-## 10. Retired Docker Stack (reference only)
+## 10. Retired Docker Stack (removed from the repo)
 
-deploy/docker-compose.yml، deploy/legacy.Dockerfile، deploy/api.Dockerfile، deploy/Caddyfile remain as an alternative/local stack — **not running** on the production host. Old volumes (dar_pgdata, dar_backups, dar_caddy_data) retained as rollback copy; do not delete without verified backup.
+`deploy/docker-compose.yml`، `deploy/legacy.Dockerfile`، `deploy/api.Dockerfile` و`deploy/Caddyfile`
+**حُذفت من الريبو** (Tier 2 / 2.15) — لا توجد أي ملفات Compose/Dockerfile/Caddy متتبعة الآن.
+الـhost قد يحتفظ بصور/volumes قديمة من التجربة الأولى؛ هي نسخة rollback فقط وممنوع الاعتماد عليها.
+`bootstrap-server.sh` ما زال يثبّت Docker على host جديد، لكن خدمات الإنتاج (Nginx/systemd/PostgreSQL host) لا تستخدمه.
 
 ---
 
-## 11. Known Gaps / Pending (22 Nov 2026)
+## 11. Known Gaps / Pending (27 Nov 2026)
 
-- **Phase 2.1 سكربتات لم تُجرّب على host بعد** — التحقق: shfmt parser + فحص بنيوي + bash -n في CI؛ مطلوب rehearsal (staging أو نافذة صيانة) قبل الاعتماد.
+- **Production is behind the repo:** الإنتاج على ledger **26/26** وcommit `a823b32` حتى آخر نشر مسجل (22 Nov 2026). `main` يحمل دفعات التحصين حتى migrations **040** (+ 039/040 في دفعة batch 2) — لا تدّعِ أي سلوك إنتاجي جديد قبل نشر موثّق.
+- **Deploy tooling under cleanup:** عملية النشر موثّقة أعلاه، لكن `deploy/update.sh` ومساعداته تحت تنظيف/tقسيم (batch 2)؛ نقطة الدخول المعتمدة تبقى `sudo bash deploy/update.sh`. لا regression deploy تلقائي.
 - **rclone 1.60.1 يستخدم shared Google Drive client ID المخطط لإيقافه خلال 2026** — أنشئ OAuth client ID مخصص وأعد تفويض gdrive:؛ راقب النسخ أسبوعيًا حتى ذلك.
 - **تناوب Cloudflare API token** الذي شارك في محادثة سابقة — بدّل /root/.secrets/cloudflare.ini ثم certbot renew --dry-run.
 - **تناوب Google OAuth grant** إن كان التفويض سبق تعريض token.
-- **أول تشغيل لـdar-healthcheck.timer** بعد اعتماد السكربتات — تحقق من journal.
+- **dar-healthcheck.timer / dar-restore-drill.timer:** الوحدات والتنبيهات موجودة في الريبو؛ التشغيل الفعلي على الـhost ونتيجة drill حقيقية لم تُوثَّقا بعد.
 - **الواجهة الإنجليزية** مؤجلة (ADR-0004)؛ الواجهة عربية فقط الآن.
 - **الـmonitoring** الحالي = healthcheck timer + journal؛ لا Uptime Kuma/تنبيهات خارجية بعد (Phase 2.7).
 - **أي تعديل على setup-nginx.sh** يجب أن يطابق الـvhost الفعلي (buffers/timeouts/12m/certbot) — ستُضاف خطوة diff في preflight لاحقًا.
-- **Teacher/supervisor/notification APIs** live (migration 017، Dar.Modules.Teaching). Supervisor temp password: change + delete /etc/dar/supervisor-initial-password.
+- **Teacher/supervisor/notification APIs** live (migration 017+، Dar.Modules.Teaching). Supervisor temp password: change + delete `/etc/dar/supervisor-initial-password` إن وُجد.
 - **Production E2E** غير موجود بعد (Phase 2.5/2.9)؛ كل smoke يدوي حاليًا.
-- **حدود تحقق Phase 2.1 محليًا:** bash -n وshfmt غير مضمونين في كل بيئة؛ CI هو الحاكم، ولا يوجد تشغيل حقيقي على Ubuntu بعد.
+- **staging environment** منفصل على نفس الـhost — راجع `docs/staging-environment.md` (IP allow-list، plain HTTP، cookie nosecure shim).

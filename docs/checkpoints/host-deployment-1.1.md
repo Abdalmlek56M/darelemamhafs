@@ -3,8 +3,8 @@
 Date: 16 Nov 2026
 
 ## Done
-- **Fail2ban:** current client IP `102.45.255.243` unbanned and added to `ignoreip`; 3 unrelated attacker IPs remain banned.
-- **Cloudflare DNS-01:** scoped API token stored at `/root/.secrets/cloudflare.ini` (`600 root:root`).
+- **Fail2ban:** current client IP `203.0.113.10` unbanned and added to `ignoreip`; 3 unrelated attacker IPs remain banned.
+- **Cloudflare DNS-01:** scoped API token stored at `<certbot-secrets-dir>/cloudflare.ini` (`600 root:root`).
   - Forced certificate renewal through DNS-01 succeeded.
   - `certbot renew --dry-run --no-random-sleep-on-renew` → **all simulated renewals succeeded**.
   - Nginx reloaded; HTTPS still valid.

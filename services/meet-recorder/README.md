@@ -12,10 +12,26 @@
 | **PulseAudio (null sink)** | التقاط صوت الاجتماع عبر monitor source |
 | **FFmpeg** | تسجيل MP4 (أرشيف) + HLS (عرض حي) |
 
+## الاعتماديات والشبكة
+
+الخدمة **ليست بلا اعتماديات** — لا تعمل بمجرد `node`:
+
+| النوع | المطلوب |
+|---|---|
+| npm runtime | `playwright` (dependency في `package.json`) + متصفح Chromium المثبّت يدويًا على السيرفر |
+| npm dev | `typescript` + `vitest` (build/typecheck/اختبارات فقط) |
+| حزم النظام | Xvfb، PulseAudio (null sink)، FFmpeg، `parecord` |
+| الشبكة الصادرة | HTTPS إلى `meet.google.com` فقط (متصفح Google Meet) |
+| الشبكة الداخلية | loopback فقط: `Dar.Api` على `http://127.0.0.1:5081` عبر `/internal/meet` |
+| الشبكة الواردة | **لا شيء** — لا منافذ عامة؛ nginx يُرجع 404 لأي `/internal/*` |
+
+`BOT_RECORD_MODE` (video/audio) وباقي المتغيرات موثّقة في `.env.example` بجوار هذا الملف.
+
 ## التشغيل
 
 ```bash
-npm install                 # مرة واحدة (devDependencies فقط)
+npm ci                      # runtime (playwright) + devDependencies
+npx playwright install chromium   # مرة واحدة على السيرفر (متصفح البوت)
 npm run build               # tsc → dist/
 node dist/index.js --selftest   # اختبار الالتقاط (30 ثانية) بلا Google Meet
 node dist/index.js              # poller: يسحب المهام من Dar.Api
@@ -42,9 +58,10 @@ node dist/index.js              # poller: يسحب المهام من Dar.Api
 
 ## الأمان
 
-- الخدمة تستمع على loopback فقط، والـAPI الداخلي محمي بـ`X-Dar-Service-Token`.
+- الـAPI الداخلي محمي بـ`X-Dar-Service-Token`، ويُستدعى عبر loopback فقط؛ لا تستمع الخدمة لأي منفذ عام.
 - لا تُخزَّن بيانات Google في أي ملف: بروفايل Chrome يُدار يدويًا على السيرفر (3.3).
 - لا حذف تلقائي لأي ملف تسجيل نهائي.
+
 ## Hardening (Tier 1, Nov 2026)
 
 - **Meet link (1.18):** the link is validated before Xvfb/Chromium start; only `https://meet.google.com/...` is accepted.
@@ -57,6 +74,9 @@ node dist/index.js              # poller: يسحب المهام من Dar.Api
 - **Automation flag risk:** `--disable-blink-features=AutomationControlled` was removed because it only hides automation from Google and can break the signed-in profile in unpredictable ways. The tradeoff: Google may show "browser not secure" or deny joining more often; the bot uses the owner's real profile, so do not add stealth patches without testing.
 - **Nginx (1.25):** `/internal/*` must return 404 at the edge; the bot control plane is loopback only.
 
-## New environment variables
+## Environment variables
 
-`BOT_DISK_STOP_GB`, `BOT_HLS_RETENTION_DAYS`, `BOT_RUNTIME_RETENTION_HOURS`, `BOT_IDLE_CONFIRM_TICKS`, `BOT_AUTO_ADMIT`, `BOT_OUTBOX_MAX_ATTEMPTS`.
+القائمة الكاملة والقيم الافتراضية في [`.env.example`](.env.example). أهم الإضافات بعد Tier 1:
+`BOT_RECORD_MODE` (`video`/`audio`)، `BOT_DISK_STOP_GB`، `BOT_HLS_RETENTION_DAYS`،
+`BOT_RUNTIME_RETENTION_HOURS`، `BOT_IDLE_CONFIRM_TICKS`، `BOT_AUTO_ADMIT`،
+`BOT_OUTBOX_MAX_ATTEMPTS`، `BOT_CHROME_AUDIO_BUFFER`، `BOT_AUDIO_TAP`.

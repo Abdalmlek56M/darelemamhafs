@@ -1,8 +1,9 @@
 # RIGX Dar — Current State (Snapshot)
 
-**Date:** 22 Nov 2026
+**Date:** 27 Nov 2026 (hardening batch).
 **Rule:** هذا الملف هو **مصدر الحقيقة الواحد للحالة الحالية**. أي وثيقة تخالفه فهي إمّا هدف مستقبلي أو تاريخي. يتم تحديثه في نهاية كل مرحلة.
-**آخر Commit على `origin/main` ومُنشور:** `a823b32` (deploy stamp `20261122-215854`). التحديثات المحلية اللاحقة (docs + إصلاح update.sh) تنتظر push المالك.
+**Git:** `main` يحمل دفعات التحصين (Tier 0/1، Z1 splits، Z2، Tier 2، B7/B10/UI) حتى `4166fd0`+؛ سجل التنفيذ الكامل في `docs/OVERNIGHT-REPORT.md`.
+**Production:** آخر نشر مسجل `a823b32` (deploy stamp `20261122-215854`، ledger **26/26**) — **لم يُنشر أي شيء من دفعات التحصين إلى الإنتاج بعد**.
 
 ---
 
@@ -20,10 +21,10 @@
 |---|---|
 | الواجهة | **React 19 + Vite + TypeScript** + CSS tokens + framer-motion — **لا Next.js** (القرار ملغي نهائيًا، ADR-0001) |
 | Backend (قديم) | ASP.NET Core 10 Minimal API — `backend/DarEltahfeez.Api` على 5080 (يخدم الـSPA + كل الـdomain APIs) |
-| Backend (جديد) | `Dar.slnx`: `src/Host/Dar.Api` على 5081 — `/api/v1/*` (Identity + Secretariat + Teaching فقط) |
-| قاعدة البيانات | PostgreSQL 17 — `public` schema — **38 migration في المستودع (001→038)**؛ الإنتاج المسجل في هذا المستند أقدم من ذلك حتى يُنفَّذ نشر جديد (نُشرت 024 Void + 025 تحصين + 026 Meet في 22 Nov) |
-| النشر | Ubuntu 24.04 + Nginx + Certbot + systemd + منافذ داخلية 5080/5081 |
-| الاختبارات | 16 unit سابقة + **22 unit جديدة لـMeet** + 20 integration (Testcontainers) + 6 Vitest |
+| Backend (جديد) | `Dar.slnx`: `src/Host/Dar.Api` على 5081 — `/api/v1/*` (Identity + Secretariat + Teaching + Meet) |
+| قاعدة البيانات | PostgreSQL 17 — `public` schema — **40 migration في المستودع (001→040؛ 039/040 في دفعة batch 2)**؛ **الإنتاج على 26/26** حتى النشر القادم |
+| النشر | Ubuntu 24.04 + Nginx + Certbot + systemd + منافذ داخلية 5080/5081؛ staging منفصل على نفس الـhost (`docs/staging-environment.md`) |
+| الاختبارات | backend unit + integration (Testcontainers) + 48 suite في `tests/run-regression.sh`؛ frontend **31 ملف / 89 اختبار Vitest** (Testing Library + jsdom) |
 | اللغة | العربية فقط الآن — الإنجليزية مؤجلة (ADR-0004) |
 
 ---
@@ -48,15 +49,14 @@
 
 | المجلد | المحتوى | ملاحظات |
 |---|---|---|
-| `backend/DarEltahfeez.Api/` | 33 ملف C# — 91 endpoint — كل الإدارة/المالية/الحضور/التقارير | لا يزال مصدر معظم الوظائف |
-| `src/Host/Dar.Api/` + `src/Modules/*` | 94 ملف C# — Identity/Secretariat/Teaching/**Meet** (+12 endpoint) | هوست جديد + وحدات؛ Meet = تقويم Google + أحداث + نطاق تسجيل (3.1) |
-| `frontend/src/` | 120 ملف TS/TSX — SPA واحدة تحمل admin + teacher + supervisor + home | admin: `App.tsx`/`SystemAdminView.tsx`/`pages/` + `meet/` — teacher/supervisor: `teacher/` |
-| `database/` | 38 ملف SQL مرتّب + ledger في `web_schema_migrations` | legacy `schema_migrations` متوقف عند 16 |
-| `tests/` | UnitTests + IntegrationTests (Testcontainers) + regression قديمة + 36 runner قديم | 11 runner يشير لـTestCenter المؤرشف |
-| `deploy/` | Nginx/systemd/backup/setup scripts + Docker stack قديم (متقاعد) | يُعاد تأمينها في Phase 2.1 |
-| `services/meet-recorder/` | بوت التسجيل (Node 24 + TypeScript) — 17 ملفًا | خدمة `dar-meet-bot` + `dar-meet.slice` (3.2) |
-| `tools/` + `desktop-host/` | أدوات Windows قديمة + WPF/WebView2 | حطام مطلوب تنظيفه (Phase 2.9) |
-| `.opencode/` | 204 ملف skills للوكلاء (5.2MB) | يُنقل خارج الريبو في التنظيف |
+| `backend/DarEltahfeez.Api/` | 77 ملف C# — 105 route mapping — كل الإدارة/المالية/الحضور/التقارير (partials بعد Z1) | لا يزال مصدر معظم الوظائف |
+| `src/Host/Dar.Api/` + `src/Modules/*` | 128 ملف C# — Identity/Secretariat/Teaching/**Meet** — 82 route mapping | هوست جديد + وحدات؛ Meet = تقويم Google + أحداث + نطاق تسجيل (3.1) |
+| `frontend/src/` | 180 ملف TS/TSX (82 ts + 98 tsx) — SPA واحدة تحمل admin + teacher + supervisor + home | admin: `App.tsx`/`SystemAdminView.tsx`/`pages/` + `meet/` — teacher/supervisor: `teacher/` |
+| `database/` | 40 ملف SQL مرتّب + ledger في `web_schema_migrations` | legacy `schema_migrations` متوقف عند 16 |
+| `tests/` | UnitTests + IntegrationTests (Testcontainers) + `tests/regression` (node/bash، 48 suite) | PowerShell runners/catalog **أُزيلت** |
+| `deploy/` | Nginx/systemd/backup/setup/update scripts + `deploy/lib` (split قيد التنفيذ) | Docker/Caddy stack حُذف من الريبو (2.15) |
+| `services/meet-recorder/` | بوت التسجيل (Node 24 + TypeScript) — 26 ملف src | خدمة `dar-meet-bot` + `dar-meet.slice` (3.2) |
+| `.opencode/` | 157 ملف skills للوكلاء | يُنقل خارج الريبو في التنظيف (2.8) |
 
 ---
 
@@ -74,54 +74,58 @@
 ## 6. الصلاحيات والأدوار الحالية
 
 - `user_permissions` مسطّحة (لا أدوار مستخدمة فعليًا) + role templates seed.
-- كتالوج الصلاحيات مكرر في **4 مصادر**: `backend/.../Security.cs`، `src/Common/Dar.Common/Domain/PermissionCodes.cs`، seed في `database/017`/`018`/**`026`**، و`frontend/src/domain/permissions.ts`.
+- كتالوج الصلاحيات مكرر في **4 مصادر**: `backend/.../Security.cs`، `src/Common/Dar.Common/Domain/PermissionCodes.cs`، seed في `database/017`/`018`/`026`/`027` (**`meet.bot.control` أُضيف في Tier 1**)، و`frontend/src/domain/permissions.ts`.
 - Scopes: `app_user_scopes` (circle/teacher) — لا صفوف = الكل. تطبَّق أيضًا على بيانات Meet (`MeetAccessScope`).
 - المالية مخفية تمامًا بدون `finance.read` (UI + API).
 - **Meet (3.1):** `meet.view` / `meet.manage` / `meet.calendar.manage` / `meet.media.view` / `meet.media.delete` — المالك/الأدمن (users.manage) يأخذ الخمسة، المشرفة تأخذ view + media.view قابلة للسحب.
 
 ---
 
-## 7. الاختبارات والبناء (آخر تحقق فعلي — 22 Nov 2026)
+## 7. الاختبارات والبناء (آخر تحقق فعلي — 27 Nov 2026)
 
 | البند | الحالة |
 |---|---|
 | **dotnet build** (legacy + Dar.slnx) | ✅ 0 warnings / 0 errors (بالأعلام الآمنة -m:1 -nodeReuse:false) |
-| **TypeScript** (frontend tsc -b + api-client) | ✅ 0 errors |
-| **Unit tests** | ✅ **38/38** (16 سابقة + 22 Meet) عبر reflection runner — `dotnet test` نفسه محجوب محليًا (testhost: `Win32Exception 5` على العملية الأب)؛ CI هو الحكم |
-| **Integration بلا DB** | ✅ 6/6 (Health + SameOrigin) |
-| **Integration بـDB (14)** | ⏭️ تحتاج Docker/Testcontainers — غير متاحة في الساندبوكس المحلي |
-| **Overlap protection** | ✅ 45/45 + 3360 نقطة (012)؛ تحصين 025: 17/17 PASS + اختبار تزامن Testcontainers للـCI |
-| **Vite build** | ✅ البناء الإنتاجي نجح (2096 module) بعد توجيه `TMP/TEMP` داخل مساحة العمل؛ تحذير حجم chunk قائم مسبقًا. Vitest يبقى في CI |
-| **bash -n لسكربتات النشر** | ⚠️ غير قابل للتنفيذ محليًا (MSYS sandbox) — بديل shfmt + فحص بنيوي؛ الحكم في CI |
+| **TypeScript** (frontend tsc -b + api-client) | ✅ 0 errors (`npm run typecheck`) |
+| **Unit/Integration .NET** | ✅ عبر CI و`tests/run-regression.sh`؛ `dotnet test` المحلي قد يُحجب (testhost `Win32Exception 5`) وTestcontainers يحتاج Docker — CI هو الحكم |
+| **Frontend tests** | ✅ **31 ملف / 89 اختبارًا** (Vitest + Testing Library + jsdom) عبر `npm test` |
+| **Full regression harness** | `tests/run-regression.sh` — **48 suite** + UNIT؛ أحدث `UNIT/SUITES/PASS` + SHA في `docs/OVERNIGHT-REPORT.md` |
+| **Overlap protection** | ✅ 45/45 + تحصين 025 (17/17) + migration 012 |
+| **Vite build** | ✅ `npm run build` — dist مقسّمة chunks (lazy pages + manualChunks) |
+| **bash -n لسكربتات النشر** | ✅ في CI؛ غير قابل للتنفيذ دائمًا محليًا (MSYS sandbox) |
 | **GitHub Actions** | ⚠️ لم يُتحقق من أول تشغيل فعلي بعد |
-| **E2E / Contract** | ❌ غير موجودة (Phase 2.5) |
+| **E2E / Contract** | ❌ غير موجودة (2.5-b) |
 
 ## 8. الوثائق — ترتيب المرجعية
 
 1. `docs/00-current-state.md` (هذا الملف) — الحالة الآن.
 2. `docs/17-master-plan.md` — **الخطة الثابتة المعتمدة** وترتيب المراحل.
-3. `docs/01-business.md` → `02-architecture` → `03-security` → `04-engineering-standards` → `06-operations` → `08-testing` → `11-deployment`.
-4. `docs/adr/*` — القرارات المعمارية والمالية الملزمة.
-5. `docs/checkpoints/*` — سجل خطوة بخطوة. `docs/07-gap-audit.md` و`docs/10-code-review.md` **سجلات تاريخية** (15–16 Nov 2026) وليست قائمة مهام.
-6. `docs/16`, `docs/13`, `docs/14`, `docs/15` — مراجع نطاق ومتطلبات (مع تحديث الحالة).
+3. `docs/23-hardening-plan.md` + `docs/OVERNIGHT-REPORT.md` — خطة التحصين وسجل تنفيذها.
+4. `docs/WORKFLOW.md` — Process Safety وقواعد التشغيل/النشر.
+5. `docs/01-business.md` → `02-architecture` → `03-security` → `04-engineering-standards` → `06-operations` → `08-testing` → `11-deployment` → `staging-environment`.
+6. `docs/adr/*` — القرارات المعمارية والمالية الملزمة (0001–0008).
+7. `docs/checkpoints/*` — سجل خطوة بخطوة. `docs/07-gap-audit.md` و`docs/10-code-review.md` **سجلات تاريخية** (15–16 Nov 2026) وليست قائمة مهام.
+8. `docs/16`, `docs/13`, `docs/14`, `docs/15` — مراجع نطاق ومتطلبات؛ `docs/24`/`docs/25` تخطيط مستقبلي (بلا تنفيذ).
 
 ---
 
-## 9. ما هو ناقص/مؤجل (22 Nov 2026)
+## 9. ما هو ناقص/مؤجل (27 Nov 2026)
 
-**تم:** Docs Reset + قرارات المالك (2.0)؛ تأمين النشر/النسخ + healthcheck (2.1 — تحتاج rehearsal)؛ التحقق 45/45 من تداخل المواعيد + تحصين 025 (2.2)؛ Reverse/Void مالي (2.3)؛ Responsive shell + جداول/لمس/ConfirmSheet/MonthPicker (2.4-a/b)؛ CI typecheck/migration-count/SQL regression/schema-drift + إصلاح Vite proxy (2.5-a)؛ **Meet 3.0/3.1** (ADR-0006/0007 + migration 026 + تقويم Google + واجهة الأحداث ونطاق التسجيل).
+**تم (حتى 27 Nov):** Docs Reset (2.0)؛ تأمين النشر/النسخ + healthcheck (2.1)؛ تداخل المواعيد 2.2؛ Reverse/Void 2.3؛ Responsive 2.4-a/b؛ CI/proxy 2.5-a؛ Meet 3.0–3.3 + 3.3b (منشورة على الإنتاج)؛ **التحصين:** Tier 0/1 (1.1–1.25 ما عدا BLOCKED)، Z1 splits، Z2 server-money، Tier 2 (037/038/retention/2.15)، B7/ADR-0008، B10، إصلاحات UI (B1/B2/B4/B5/B9/B11)، staging environment، docs sync.
 
 **التالي بالترتيب:**
-- **مراجعة المالك لـ3.1** ثم **3.2** (بوت التسجيل + self-test) — هي نقطة التوقف الحالية.
-- 3.3 التقاط حي + HLS/DVR + SSE + المشغل؛ 3.4 رفع Drive + دورة حياة الوسائط؛ 3.5 تحكم يدوي + موثوقية؛ 3.6 أمان/صلاحيات؛ 3.7 QA/نشر.
-- 2.4-c: QA بصري 390/1440، 3 جداول SystemAdminView، print/reduced-motion، pagination، مراجعة RTL نهائية.
-- 2.5-b: contract حقيقي مقابل API يعمل، Playwright E2E، deploy/rollback verification، lint.
+- **نشر دفعة التحصين إلى staging ثم الإنتاج** (بموافقة المالك) + rehearsal rollback.
+- Z2 المتبقي: permission-helper dedup؛ audit-insert dedup قيد batch 2 (`AuditLogWriter` + `z2-audit-writer`) — يُعتمد Done في `docs/OVERNIGHT-REPORT.md` عند اكتماله.
+- Tier 3 (frontend/CSS/UI) حسب `docs/23-hardening-plan.md`.
+- 2.4-c (تلميع/طباعة/RTL نهائي) و2.5-b (contract/E2E/lint/deploy job).
 - 2.6 الخزنة والإيرادات وتقفيل الشهر (بدون قيد مزدوج).
-- 2.7 أمان وتشغيل (lockout، antiforgery، HSTS/Nginx، Cloudflare origin، rotation، monitoring).
-- 2.8 تنظيف وإعادة هيكلة (ملفات >400، desktop-host/tools/runners، .opencode، Vite dev proxy).
+- 2.7 أمان وتشغيل: antiforgery، تقييد Cloudflare origin، rotation، monitoring/تنبيهات.
+- 2.8 تنظيف: `.opencode` خارج الريبو، `SystemAdminView.tsx` (401)، إزالة `DatabaseInitializer` القديم.
 - 2.9 جودة الإطلاق (E2E شامل، restore drill، load/pen، PDF sign-off، handover).
 
-**مؤجل بقرار المالك:** الإنجليزية، القيد المزدوج، مسير/قسائم الرواتب، خصومات/خطط رسوم، إيصالات مرقّمة، بوابة ولي الأمر.
+**مؤجل بقرار المالك:** الإنجليزية، القيد المزدوج، مسير/قسائم الرواتب، خصومات/خطط رسوم، إيصالات مرقّمة، بوابة ولي الأمر، تطبيق الموبايل (`docs/24`)، منصة LiveKit (`docs/22`/`docs/25`).
+
+**NOT VERIFIED:** لا نشر لأي من دفعات التحصين؛ production timers/migrations 034→040/Google/Telegram/SMTP/recorder لم تُجرّب إنتاجيًا — التفاصيل في `docs/OVERNIGHT-REPORT.md`.
 
 ## 10. قواعد ثابتة
 
@@ -134,7 +138,9 @@
 
 ---
 
-## 11. آخر التحديثات (22 Nov 2026)
+## 11. سجل تاريخي — تحديثات 22 Nov 2026
+
+> ⚠️ هذا سجل تاريخي (قبل دفعات التحصين) — محفوظ للمرجعية. الحالة الحالية في أعلى الملف + §12 + `docs/OVERNIGHT-REPORT.md`.
 
 - **Phase 3.2 — بوت التسجيل (deploy `20261122-234642`، commits `db0beda` + `8c98b13`):** خدمة `dar-meet-bot` تعمل في `dar-meet.slice` (MemoryMax=3G، CPUQuota=180%) — Xvfb + PulseAudio تابعة + FFmpeg ينتجان MP4(faststart) + HLS + poster + SHA-256، وطابور claim/heartbeat/status عبر `/internal/meet` محمي بتوكن خدمة (لا يصل من الإنترنت). **Self-test 30s على الإنتاج: MP4 513KB، 7 مقاطع HLS، poster حقيقي**. التفاصيل: `docs/checkpoints/3.2-meet-bot-1.0.md`، التشغيل: `docs/19` §10.
 - **نشر 3.0/3.1 على الإنتاج (deploy `20261122-215854`، commit `a823b32`):** نسخة DB قبلية مُتحقَّقة + migrations **024/025/026** (ledger 26/26) + بناء جديد + تبديل + smoke كامل (200 لكل المسارات). Meet endpoints تعمل و**401** بدون جلسة، 8 جداول `meet_*`، 5 صلاحيات، وbackfill (view=3، media.view=3، manage/calendar/delete=1). أُبطلت جلسات الإدارة مرة واحدة (ADR-0006). التفاصيل: `docs/checkpoints/3.1-meet-deploy-1.0.md`.
@@ -157,56 +163,53 @@
 
 ---
 
-## 12. نقطة التوقف الحالية (22 Nov 2026) — Resume Here
+## 12. نقطة التوقف الحالية (27 Nov 2026) — Resume Here
 
-> **الحالة:** **3.0 + 3.1 منفذتان ومُcommit محليًا**؛ التنفيذ متوقف بطلب المالك لمراجعة النتيجة قبل **3.2 (بوت التسجيل)**. المسار 2.x (2.4-c/2.5-b) لا يزال مؤجلًا بقرار المالك لصالح مميزات Meet.
+> **الحالة:** دفعات التحصين مكتملة على `main` حتى `4166fd0`+ (Tier 0/1، Z1 splits، Z2، Tier 2، B7/ADR-0008، B10، إصلاحات UI B1/B2/B4/B5/B9/B11، staging، docs sync) — **لم تُنشر إلى الإنتاج**. نقطة الاستئناف: نشر الدفعة (staging ثم production بموافقة المالك) ثم استكمال Z2/Tier 3، وبعدها العودة للمسار 2.x (2.4-c/2.5-b/2.6) أو Meet 3.4 حسب قرار المالك. Meet 3.0–3.3 و3.3b ما زالت منشورة على الإنتاج.
 
-### آخر commit
-- الإنتاج: `a823b32` (deploy stamp `20261122-215854`) — نسخة DB قبلية `dar-pre-deploy-20261122-215854.dump`.
-- **محليًا commits لاحقة (docs + إصلاح update.sh) بانتظار push المالك** — الـpush من هذه البيئة محجوب (لا يوجد GitHub write credential؛ مفتاح السيرفر read-only).
-- تفاصيل النشر: `docs/checkpoints/3.1-meet-deploy-1.0.md`.
+### آخر commit/نشر
+- **الإنتاج:** `a823b32` (deploy stamp `20261122-215854`، ledger **26/26**) — لم يُنشر أي commit من دفعات التحصين.
+- **`main` (repo):** يشمل دفعات التحصين + docs؛ سجل الـcommits/SHAs في `docs/OVERNIGHT-REPORT.md`.
+- **staging:** نُشرت نسخة أقدم (`eb2a0a4`) — إعادة نشر من `main` مطلوبة قبل اختبار إصلاحات UI الأخيرة (`docs/staging-environment.md`).
 
 ### المنجز (بالترتيب)
-| المرحلة | الحالة | checkpoint |
+| المرحلة | الحالة | checkpoint / dump |
 |---|---|---|
 | 2.0 Docs Reset + قرارات المالك | ✅ | `docs/checkpoints/2.0-docs-reset-1.0.md` |
-| 2.1 تأمين النشر/النسخ + healthcheck | ✅ (تحتاج rehearsal) | `2.0-docs-reset-1.0.md` |
-| 2.2 تداخل المواعيد (45/45) + تحصين 025 (17/17) | ✅ | `2.0…` + `2.2fix-2.4b-2.5a-1.0.md` |
+| 2.1 تأمين النشر/النسخ + healthcheck | ✅ (rollback rehearsal متبقٍ) | `2.0-docs-reset-1.0.md` |
+| 2.2 تداخل المواعيد (45/45) + تحصين 025 (17/17) | ✅ | `2.2fix-2.4b-2.5a-1.0.md` |
 | 2.3 Reverse/Void مالي (migration 024، SQL verify 23/23) | ✅ | `2.3-2.4a-void-responsive-1.0.md` |
-| 2.4-a Responsive shell (Drawer/Bottom Nav/Modal sheet/CSS leak) | ✅ | `2.3-2.4a…` |
-| 2.4-b جداول/لمس/ConfirmSheet/MonthPicker | ✅ (16 جدولًا؛ 3 SystemAdminView متبقية) | `2.2fix-2.4b-2.5a-1.0.md` |
+| 2.4-a/b Responsive shell + جداول/لمس | ✅ (2.4-c متبقية) | `2.3-2.4a…` + `2.2fix…` |
 | 2.5-a CI (typecheck/migration-count/SQL regression/schema drift) + Vite proxy | ✅ | `2.2fix-2.4b-2.5a-1.0.md` |
-| **3.0 Meet — ADRs + جسر الجلسة + الصلاحيات** | ✅ منفّذة ومنشورة | `3.0-3.1-meet-calendar-1.0.md` |
-| **3.1 Meet — migration 026 + Calendar + Events UI** | ✅ **منشورة على الإنتاج** | `3.0-3.1-meet-calendar-1.0.md` + `3.1-meet-deploy-1.0.md` |
-| **3.2 Meet — بوت التسجيل + self-test** | ✅ **منشورة على الإنتاج** (خدمة `dar-meet-bot` تعمل) | `3.2-meet-bot-1.0.md` |
-| **3.3 Meet — دخول مضيف + تسجيل حقيقي** | ✅ **منشورة ومختبرة** (job ready، جلسة 176s، MP4 7.79MB) | `3.3-meet-join-recording-1.0.md` |
+| 3.0–3.3 + 3.3b Meet (Calendar/Events/Bot/Join/audio-only) | ✅ منشورة على الإنتاج | `3.0-3.1…`, `3.1-meet-deploy…`, `3.2-meet-bot…`, `3.3-meet-join-recording…`, `3.3b-audio-only-mode…` |
+| **التحصين Tier 0/1 + Z1 + Z2 + Tier 2** | ✅ على `main` — تفاصيل/RESIDUAL في `docs/OVERNIGHT-REPORT.md` | commits 24–27 Nov |
+| **B7/ADR-0008 + B10 + إصلاحات UI** | ✅ على `main` (لا نشر) | `f750897`, `73780bf`, `32dbfa4` |
+| **staging environment** | ✅ منشأ (نسخة قديمة — إعادة نشر مطلوبة) | `docs/staging-environment.md` |
 
-### المتبقي بالترتيب (عند الاستئناف)
-1. **3.4:** رفع MP4 إلى Drive (rclone + checksum + رابط) + **الحذف اليدوي بضغطتين** + منع الحذف قبل التحقق.
-2. **3.5:** reaper للمهام المعلّقة، إعادة انضمام تلقائية، **فحص جلسة Google قبل كل حصة 15 دقيقة + تنبيه**.
-3. **3.6:** مسارات `/media/meet/*` محمية بـX-Accel + SSE + مشغل في الواجهة + اختبارات صلاحيات سلبية.
-4. **3.7:** QA بصري/E2E + نشرة + docs/11.
-5. **T0.2/T0.3:** تعديل/حذف حصة من اللوحة + شاشة إعدادات التسجيل.
-6. **2.4-c / 2.5-b / 2.6 → 2.9:** المسار 2.x كما هو.
+### المتبقي بالترتيب
+1. **نشر دفعة التحصين:** إعادة نشر staging من `main` → smoke + Golden Paths/UI → backup production → `sudo bash deploy/update.sh` → smoke سبع نقاط + مراقبة → rollback plan جاهز.
+2. **Z2 المتبقي:** audit-insert dedup (29 copies) + permission-helper dedup + أي duplication متبقٍ.
+3. **Tier 3:** frontend/CSS/UI المتبقي حسب `docs/23-hardening-plan.md`.
+4. **2.4-c / 2.5-b:** تلميع/طباعة/RTL، contract test حقيقي، Playwright smoke، lint، deploy job.
+5. **2.6 → 2.9:** الخزنة/الإقفال ثم الأمان/التنظيف/جودة الإطلاق.
+6. **Meet:** 3.4 Drive + الحذف المحمي، 3.5 reaper/فحص جلسة، 3.6 media/SSE، 3.7 QA؛ 3.8 LiveKit مقترحة بانتظار المالك.
 
 ### Blockers/قيود معروفة
-- **push** محجوب بيئيًا: لا يوجد GitHub write credential (مفتاح الدخول للسيرفر ليس مفتاح GitHub، ومفتاح GitHub على السيرفر **read-only**) → المالك يدفع يدويًا. الإنتاج الآن على `db0beda` + إصلاح وحدة `8c98b13` مطبَّق يدويًا، وGitHub على `a823b32`.
-- **تم النشر:** الإنتاج على **26/26** migration وخدمة `dar-meet-bot` تعمل؛ ربط Google تمّ فعليًا (128 حدثًا) في وضع Testing.
-- **Google OAuth ما زال Testing** → التوكن يقع بعد 7 أيام. النشر يحتاج **Home page + Privacy policy** في Branding ثم Publish + إعادة ربط.
-- **تحقق بصري/E2E/Testcontainers/bash -n/dotnet test (testhost)** محجوبة في الساندبوكس (esbuild EPERM / no Docker / process handles) → CI أو جهاز غير مقيّد.
-- **3.2 لم يجرّب على Meet فعليًا** — الخدمة تلتقط شاشة وهمية؛ الانضمام للاجتماع في 3.3.
-- **سكربتات Phase 2.1** جُرّبت الآن فعليًا بالكامل في النشر (نسخة + pull + build + migrate + swap + smoke) ✅ — بقي rehearsal الـrollback نفسه.
-- **cleanup**: مجلد `.tmp-deploy` متبقٍ (pip temp، متجاهل في git ولا يؤثر).
+- **لا blocker للـgit:** الدفعات مدفوعة إلى `main`؛ أي push جديد يحتاج credentials كما في `docs/WORKFLOW.md` (لا force-push).
+- **الإنتاج متأخر عن `main`** — النشر يحتاج موافقة المالك ونافذة + backup، وممنوع `git pull + restart` المباشر.
+- **Google OAuth كان في Testing** (22 Nov) → التوكن ينتهي بعد 7 أيام؛ إن لم يُحدَّث الوضع، إعادة الربط مطلوبة قبل التسجيل الإنتاجي.
+- **بيئة التحقق المحلية محدودة:** `dotnet test` (testhost `Win32Exception 5`)، Docker/Testcontainers، esbuild أحيانًا — الحكم CI أو جهاز غير مقيّد.
+- **NOT VERIFIED:** كل ما لم يُنشر: production timers، migrations 034→040، retention الحقيقي، Google/Telegram/SMTP/recorder الحي.
 
 ### للاستئناف
-1. `git push origin main` (التحديثات المحلية: docs النشر + إصلاح `update.sh`).
-2. إدخال مفاتيح Google في `/etc/dar/meet.env` ثم `systemctl restart dar-api`، ثم «ربط Google» + «مزامنة الآن» والتحقق من صفحة **التسجيل والمحاضرات**.
-3. مراجعة المالك لنتيجة 3.1 ثم البدء في **3.2** — أو العودة إلى 2.4-c إن أراد إكمال المسار 2.x أولًا.
-
-### Phase 3.0 (22 Nov 2026) — معتمدة
-- القرارات السبعة في `docs/18-meet-recording-plan.md` §9؛ التنفيذ بدأ بـ3.0/3.1 (هذا الـcheckpoint)؛ 3.2+ بانتظار المراجعة.
+1. اقرأ `docs/OVERNIGHT-REPORT.md` (FINAL continuation) + `docs/23-hardening-plan.md` ثم قرر نشر الدفعة.
+2. staging: أعد النشر من `main`، اختبر UI flows (B1/B2/B4/B5/B9/B11) + B7/B10 cookie flows.
+3. production: backup + `deploy/update.sh` + smoke سبع نقاط + راقب 24 ساعة.
+4. بعد النشر: Z2 المتبقي / Tier 3، أو 3.4 إن قدّم المالك Meet.
 
 ---
+
+> ⚠️ **سجل تاريخي (22–24 Nov 2026)** — الأقسام التالية محفوظة كمرجع تنفيذي قديم (Meet 3.x، نشر 22 Nov، P0/P1 fixes). ليست نقطة التوقف الحالية.
 
 ## 14. تحديث 23 Nov 2026 — تشخيص صوت البوت + مقترح منصة داخلية (Lead)
 
@@ -247,7 +250,7 @@
 ### 24 Nov 2026 04:35 — تحسين UI إلحاق الطلاب + نشر واجهة فقط
 - `BulkEnrollmentDialog` أعيد تصميمه: تخطيط عمودين (قائمة + ملخص ثابت)، بحث أيقوني، «تحديد الكل»، شارة المحددات، رسوم لكل طالبة مع «ج.م» وحالة خطأ، سعر موحّد، إجمالي شهري، تعطيل الحفظ عند رسوم غير صالحة، وإخفاء أزرار المعاينة.
 - نُشر على الإنتاج نسخ واجهة فقط إلى `/opt/dar/app/legacy/wwwroot` (بدون إعادة تشغيل خدمة، بدون backend/DB): نسخة احتياطية `wwwroot.bak.20261124-043451`، smoke 200 للصفحات الثلاث، وmarker `be-layout` موجود في الأصول.
-- أوراق المراجعة (PDF) استُخرجت ونُقّشت: تؤكد تجاوز قفل المرتبات في مسار مراجعة الطلبات، ونطاق التسجيلات غير المقيّد، وخطأ `null` في ملاحظة التصحيح، وحذف outbox عند 4xx، وغياب security headers عن SPA، و`/api/students` بدون pagination. تصحيح واحد: يوجد rate limit 10/دقيقة لكل IP على auth (لكن بلا قفل حساب/2FA).
+- أوراق المراجعة (PDF) استُخرجت ونُقّشت: تؤكد تجاوز قفل المرتبات في مسار مراجعة الطلبات، ونطاق التسجيلات غير المقيّد، وخطأ `null` في ملاحظة التصحيح، وحذف outbox عند 4xx، وغياب security headers عن SPA، و`/api/students` بدون pagination. تصحيح واحد: كان يوجد rate limit **10/دقيقة لكل IP وقتها** على auth (لكن بلا قفل حساب/2FA) — صار لاحقًا 5/دقيقة + قفل تدريجي (P1-1).
 - عطل النسخ الاحتياطي خارج الموقع (18→24 Nov) تم إصلاحه والتحقق منه اليوم (راجع البند أعلاه).
 
 ### 24 Nov 2026 — P0-1: قفل المرتبات في مسار مراجعة الطلبات (إصلاح + اختبار قبل/بعد)
@@ -332,7 +335,7 @@
 - **الملفات:** migration 029؛ `backend/DarEltahfeez.Api/{AuthEndpoints,Program,LoginLockoutPolicy}.cs`؛ `src/Common/Dar.Common/Domain/AppException.cs` + `AppExceptionHandler.cs`؛ `src/Host/Dar.Api/Program.cs`؛ Identity (`AuthUser`, `IIdentityRepository`, `IdentityRepository`, `PasswordSignIn`, `LoginLockoutPolicy`)؛ اختبار `tests/Dar.IntegrationTests/Identity/LoginLockoutTests.cs`؛ Nginx `/etc/nginx/conf.d/00-dar-cloudflare-realip.conf`.
 - **اختبار قبل/بعد (new API، قاعدة disposable):** قبل: **Failed 2 / Passed 1** (المحاولة الخامسة 401). بعد إصلاح تحويل timestamptz: **3/3 Passed**. (بدون `DAR_TEST_DATABASE` الاختبارات تُرجِع early-return — انظر الباك لوج).
 - **اختبار E2E للـlegacy (disposable DB):** قبل: 5 محاولات خاطئة → كلها 401 والحالة `0|NULL` (لا قفل). بعد: الخامسة **429 / Retry-After: 30**؛ كلمة المرور الصحيحة أثناء القفل **429**؛ الحساب B سليم ويسجّل 200 (`0|NULL`)؛ بعد انتهاء القفل دخول 200 وتصفير `0|NULL`. **تأكيد عدم قفل حساب آخر:** B بقي 0/NULL وسجّل بنجاح أثناء قفل A.
-- **تحقق IP الحقيقي ورا proxy:** (1) فعّلت `real_ip_header CF-Connecting-IP` مع كل نطاقات Cloudflare في Nginx (لا يثق إلا بأقران Cloudflare). (2) طلب عبر الويب الحي من harness egress `156.194.255.193` ظهر **بنفسه** كأول حقل في `/var/log/nginx/access.log` وليس IP حافة Cloudflare. (3) اختبار التطبيق: 6 طلبات دخول بـ`X-Forwarded-For: 203.0.113.21` → السادس **429**، وطلب بـ`203.0.113.22` → **401** (تقسيم الحد حسب الـIP الحقيقي من proxy الموثوق loopback).
+- **تحقق IP الحقيقي ورا proxy:** (1) فعّلت `real_ip_header CF-Connecting-IP` مع كل نطاقات Cloudflare في Nginx (لا يثق إلا بأقران Cloudflare). (2) طلب عبر الويب الحي من harness egress `203.0.113.10` ظهر **بنفسه** كأول حقل في `/var/log/nginx/access.log` وليس IP حافة Cloudflare. (3) اختبار التطبيق: 6 طلبات دخول بـ`X-Forwarded-For: 203.0.113.21` → السادس **429**، وطلب بـ`203.0.113.22` → **401** (تقسيم الحد حسب الـIP الحقيقي من proxy الموثوق loopback).
 - **النشر:** بدأ 2026-11-24 **08:39:39** (EET)، الخدمات Active من **08:39:56**. Backup كامل قبل الهجرة: `/var/lib/dar/backups/db/predeploy-P11-20261124-083939.dump` (265K). migration ledger=29 والأعمدة الثلاثة موجودة. بصمات المنشور: `Dar.Api.dll = d6b7140f51e56829995b60f0dcf51ea9f4dfb63611c0ec464102806d14a7420a`، `DarEltahfeez.Api.dll = 798cffa22f4dbfb12fe5e5efa7e5810c5e963b85a57bff1975a1c31def2d57c6`. Smoke: API health 200/meet 401، legacy `/`و`/management`و`/teacher`=200، review=401؛ الموقع العام 200. Backups: `api.old.20261124-083939` و`legacy.bak.20261124-083939`.
 - **الرجوع:** استعادة مجلدات API/legacy من backups؛ الأعمدة الإضافية يمكن تركها (الكود القديم يتجاهلها)؛ Nginx: حذف ملف real-ip وإعادة التحميل. **قابل للرجوع نعم.**
 - **Turnstile (المرحلة 2):** مؤجل حتى تتوفر مفاتيح Cloudflare Site/Secret Keys. **P1-1 ليس Done** — يلزم Turnstile + تأكيد خارجي.

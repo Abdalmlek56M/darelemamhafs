@@ -1,8 +1,11 @@
 # RIGX Dar — Master Plan (Approved)
 
 **Approved:** 22 Nov 2026 — المالك اعتمد القرارات وترتيب المراحل نهائيًا.
-**Status:** Active — هذا هو **الخطة الثابتة** الوحيدة لترتيب العمل.
+**Status:** Active — هذا هو **الخطة الثابتة** الوحيدة لترتيب العمل. آخر تحديث: 27 Nov 2026.
 **Rule:** لا تبدأ مرحلة قبل اعتماد التي قبلها (checkpoint مكتوب + build/tests + commit). أي تعديل على الترتيب أو القرارات يحتاج موافقة المالك + تحديث هذا الملف + ADR عند الحاجة.
+
+> 🔧 **مسار التحصين (24–27 Nov 2026):** المالك طلب دفعة أمان/جودة/قابلية توسع قبل استئناف 2.x. خطتها في `docs/23-hardening-plan.md` وسجل تنفيذها في `docs/OVERNIGHT-REPORT.md`؛ ما اكتمل منها (Tier 0/1، Z1 splits، Z2، Tier 2، B7/B10/UI، staging) لا يُعيد فتح مراحل أدناه، والباقي مذكور في `docs/OVERNIGHT-REPORT.md` (REMAINING/BLOCKED).
+
 
 > المرجع السريع للحالة: `docs/00-current-state.md`. التفاصيل التاريخية: `docs/07-gap-audit.md` و`docs/10-code-review.md` (سجلات، ليست مهامًا).
 >
@@ -24,6 +27,7 @@
 | D6 | **Reverse/Void** بدل أي حذف مالي — سبب إلزامي + Audit + السجل يبقى ظاهرًا. | ADR-0005 |
 | D7 | **تجاوب 100% للوحة الإدارة على الموبايل** أولوية واجهة معتمدة. | Phase 2.4 |
 | D8 | الفريق يعمل بمرحلة واحدة في كل مرة، وكل مرحلة = build/tests + docs + checkpoint + commit. | deepseek.md |
+| D9 | **كوكي الأدمن نحيف:** الصلاحيات تُقرأ من `user_permissions` في كل طلب، والـticket يحمل الهوية + `session_version` فقط؛ الـSecure يتبع scheme. | ADR-0008 |
 
 ---
 
@@ -35,11 +39,11 @@
 | **2.1** | **تأمين سكربتات النشر والنسخ الاحتياطي** | ✅ منفّذة — تحتاج rehearsal على host | سكربتات setup idempotent وآمنة + `update.sh` (backup→migrate→swap→smoke→rollback) + `rollback.sh` + `preflight.sh` + backup manifest/SHA-256/verify + healthcheck + systemd + `bash -n` + docs/11 |
 | **2.2** | **التحقق 100% من منع تداخل مواعيد المعلمات** | ✅ مكتملة — 45/45 PASS + تحصين 025 (17/17) | تقرير audit + سيناريوهات Postgres (تعارض/تجاور/منتصف الليل/الأسبوع/غير نشط/exclude/race/preflight) + اختبارات SQL + إصلاح أي ثغرة |
 | **2.3** | **Reverse/Void للسجلات المالية** | ✅ منفّذة (22 Nov) — migration 024 + finance.void + SQL verify 23/23 | Migration + endpoints (void charge/payment بسبب) + audit + منع purge/trash المالي + إظهار السجل ملغيًا في الواجهات/التقارير + tests |
-| **2.4** | **لوحة الإدارة متجاوبة 100% على الموبايل** | 🟡 2.4-a ✅ (shell/تنقل/Modal/CSS leak) + 2.4-b ✅ (16 جدولًا→كروت، ConfirmSheet، MonthPicker، 44px/خطوط/تباين) — 2.4-c (QA بصري/SystemAdminView/print) متبقية | تنفيذ خطة `docs/audits/admin-mobile-responsive-audit.md`: shell/تنقل، جداول→كروت، حوارات→sheets، فلاتر/نماذج، أزرار 44px، خطوط، RTL، لا overflow أفقي + QA 390/1440 لكل صفحة |
-| **2.5** | **CI/CD + Contract + Test Baseline** | 🟡 2.5-a ✅ (typecheck/Vite proxy/CI asserts+SQL regression/schema drift) — 2.5-b (contract حقيقي/E2E/deploy/rollback) متبقية | أول GitHub Actions أخضر فعليًا + typecheck/lint scripts + contract test (spec == code) + رد اختبارات المال إلى الحل/CI + Playwright smoke + نشر آلي/موثّق يستخدم `update.sh` |
+| **2.4** | **لوحة الإدارة متجاوبة 100% على الموبايل** | 🟡 2.4-a ✅ (shell/تنقل/Modal/CSS leak) + 2.4-b ✅ (16 جدولًا→كروت، ConfirmSheet، MonthPicker، 44px/خطوط/تباين) + مراجعة UI نهائية (1.40) — 2.4-c (طباعة/RTL/SystemAdminView/QA نهائي) متبقية | تنفيذ خطة `docs/audits/admin-mobile-responsive-audit.md`: shell/تنقل، جداول→كروت، حوارات→sheets، فلاتر/نماذج، أزرار 44px، خطوط، RTL، لا overflow أفقي + QA 390/1440 لكل صفحة |
+| **2.5** | **CI/CD + Contract + Test Baseline** | 🟡 2.5-a ✅ (typecheck/Vite proxy/CI asserts+SQL regression/schema drift/meet-recorder job) — 2.5-b (contract حقيقي/E2E/deploy/rollback) متبقية | أول GitHub Actions أخضر فعليًا + typecheck/lint scripts + contract test (spec == code) + اختبارات المال في CI + Playwright smoke + نشر آلي/موثّق يستخدم `update.sh` |
 | **2.6** | **الخزنة والإيرادات وتقفيل الشهر** | ⬜ | حركات دخل/مصروف بالتصنيفات + تقفيل شهري مقفل (لا تعديل بعد التقفيل بدون فتح بسبب + audit) + تقارير الخزنة |
-| **2.7** | **سبرنت الأمان والتشغيل** | ⬜ | lockout + antiforgery token + HSTS/CSP + تقييد origin بـCloudflare + إزالة بقايا desktop + إخفاء الإصدار + rotation (rclone/Cloudflare) + monitoring |
-| **2.8** | **التنظيف وإعادة الهيكلة** | ⬜ | الملفات >400 تُقسّم + إزالة `desktop-host`/`tools`/`tests/runners`/`.vbs` + إخراج `.opencode` من الريبو + إصلاح Vite dev proxy + npm scripts |
+| **2.7** | **سبرنت الأمان والتشغيل** | 🟡 جزئي — per-account lockout ✅ (migration 029) + security headers/CSP/HSTS للـSPA ✅؛ متبقٍ: antiforgery token، تقييد origin بـCloudflare، rotation (rclone/Cloudflare)، monitoring/تنبيهات | lockout + antiforgery token + HSTS/CSP + تقييد origin بـCloudflare + إزالة بقايا desktop + إخفاء الإصدار + rotation (rclone/Cloudflare) + monitoring |
+| **2.8** | **التنظيف وإعادة الهيكلة** | 🟡 جزئي — Z1 splits ✅ (الملفات >400 قُسّمت: Auth/SystemAdmin/Requests/TeacherApp/teacherTypes/useDarApplication/Meet repositories) + `desktop-host`/`tools`/`tests/runners`/`tests/catalog.json` أُزيلت + Vite dev proxy ✅؛ متبقٍ: `.opencode` خارج الريبو + SystemAdminView 401 | الملفات >400 تُقسّم + إزالة `desktop-host`/`tools`/`tests/runners`/`.vbs` + إخراج `.opencode` من الريبو + إصلاح Vite dev proxy + npm scripts |
 | **2.9** | **جودة الإطلاق** | ⬜ | E2E Playwright + restore drill آلي + load/pen test + مراجعة PDF الرسمية + دليل التسليم والتدريب |
 | **3.0** | **Meet — المتطلبات المسبقة + ADRs** | ✅ منفّذة (22 Nov) — ما عدا أعمال host (حزم السيرفر/بروفايل Playwright/rclone OAuth) | ADR-0006 (جسر الجلسة) + ADR-0007 (المعمارية) + توحيد حلقة مفاتيح Data Protection في الـAPIين + كتالوج الصلاحيات في المصادر الأربعة |
 | **3.1** | **Meet — Calendar + Events UI** | ✅ منفّذة (22 Nov) — تحتاج تحقق OAuth حقيقي على السيرفر | migration 026 + OAuth offline + مزامنة incremental/full + قائمة أحداث + اقتراح وربط الحلقة + نطاق التسجيل + اختبارات وحدة |

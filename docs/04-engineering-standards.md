@@ -170,7 +170,7 @@ frontend/src/
   application/          app state hooks + selectors (useDarApplication, useDarAuth, ...)
   components/           shared UI + dialogs + ManagementReportBuilder
   domain/               types + defaults
-  services/             apiClient (fetch) + desktop bridges (كود Windows قديم — غير مستخدم على الويب)
+  services/             apiClient (fetch فقط — لا desktop bridges؛ نسخة WPF/WebView2 أُزيلت)
   system/               ثوابت/تنسيق لوحة النظام
   teacher/              TeacherApp + SupervisorWorkspace + teacherApi/teacherTypes
   styles/               CSS tokens + styles لكل منطقة
@@ -247,7 +247,7 @@ frontend/src/
 
 ## 4. API Contract
 
-> **الحالة (22 Nov 2026):** العقد موجود لكنه ناقص (27 path مقابل 52 endpoint) و**غير مستخدم** في الواجهة، ولا يوجد contract test. القواعد التالية هي الهدف الملزم حتى يُنجَز Phase 2.5.
+> **الحالة (27 Nov 2026):** العقد موجود لكنه ناقص (27 path مقابل 82 route mapping في `src/`) و**غير مستخدم** في الواجهة، ولا يوجد contract test. القواعد التالية هي الهدف الملزم حتى يُنجَز Phase 2.5.
 
 - OpenAPI 3.1 generated from code (`/api/openapi/v1.json` من `src/Host/Dar.Api`).
 - `packages/api-client/openapi.v1.json` committed.
@@ -284,23 +284,32 @@ frontend/src/
 - One use case per folder; do not create a "god service".
 - If a file grows beyond 300 lines, split by responsibility before committing.
 
-**الحالة الفعلية (22 Nov 2026):**
+**الحالة الفعلية (27 Nov 2026 — بعد Z1 splits):**
 
 | File | Lines | Action |
 |---|---:|---|
-| `backend/DarEltahfeez.Api/AuthEndpoints.cs` | 472 | **يتجاوز الحد** — تقسيم/استبدال بـIdentity في الـmigration |
-| `backend/DarEltahfeez.Api/SystemAdminEndpoints.Requests.cs` | 484 | **يتجاوز الحد** — تقسيم |
-| `frontend/src/teacher/TeacherApp.tsx` | 475 | **يتجاوز الحد** — تقسيم sections (Phase 2.8) |
-| `frontend/src/teacher/teacherTypes.ts` | 406 | **يتجاوز الحد** — تقسيم حسب المجال |
-| `frontend/src/application/useDarApplication.ts` | 373 | مراقبة — قرب الحد |
-| `backend/DarEltahfeez.Api/DomainEndpoints.ScheduleAttendance.cs` | 371 | مراقبة — قرب الحد |
-| `frontend/src/SystemAdminView.tsx` | 327 | مراقبة |
-| `frontend/src/components/ManagementReportBuilder.tsx` | 360 | مراقبة |
+| `frontend/src/SystemAdminView.tsx` | 401 | **يتجاوز الحد بقليل** — يحتاج تقسيمًا (أعلى ملف واجهة) |
+| `frontend/src/teacher/useTeacherAppState.ts` | 378 | مراقبة — قرب الحد |
+| `frontend/src/components/ManagementReportBuilder.tsx` | 382 | مراقبة — قرب الحد |
+| `frontend/src/meet/MeetPage.tsx` | 387 | مراقبة — قرب الحد |
+| `backend/DarEltahfeez.Api/DomainEndpoints.ScheduleAttendance.cs` | 319 | مراقبة |
+| `src/Modules/Teaching/.../Supervisor/StudentsEndpoint.cs` | 358 | أعلى ملف في `src/` |
 
-- أكبر ملف في `src/` = **301 سطر** (`src/Modules/Teaching/.../Teacher/SessionEndpoints.cs`).
-- أكبر ملف في `tests/` = **299 سطر** (`tests/Dar.IntegrationTests/Supervision/SupervisionAccessTests.cs`).
-- DomainEndpoints الأصلي (1,680) تم تقسيمه بالفعل إلى 14 partial تحت 400 سطر.
-- أي ملف يتجاوز 400 سطر لا تُضاف إليه ميزة جديدة قبل تقسيمه (Phase 2.8 = refactor مخصص).
+**تم تقسيمها (Z1) — لم تبقَ ملفات فوق 400:**
+
+- `AuthEndpoints.cs` 472 → 72 + `SignIn` 258 / `AdminUsers` 244 / `Helpers` 168 / `Session` 70.
+- `SystemAdminEndpoints.cs` 401 → 38 + 12 partial (`Insights` 345، `Trash` 253، `AuditTrash` 182، ...).
+- `SystemAdminEndpoints.Requests.cs` 408 → 117 + `RequestsReview` 150 / `RequestsEdit` 178.
+- `TeacherApp.tsx` 532 → 8 + `TeacherAppView` 222 + `useTeacherAppState` 378.
+- `teacherTypes.ts` 406 → 4 + `teacherTypesCore` 152 / `Live` 97 / `Supervisor` 200.
+- `useDarApplication.ts` 570 → 12 + `useDarApplicationState` 241 / `useDarActionsA` 276 / `useDarActionsB` 275.
+- `MeetCalendarRepository.cs` 424 → 236 + `Events` 200؛ `MeetBotJobRepository.cs` → 193/168/151.
+- `DomainEndpoints` الأصلي (1,680) مقسّم إلى 13 partial تحت 400 سطر.
+
+- أكبر ملف في `tests/` = **360 سطر** (`tests/Dar.IntegrationTests/Identity/LoginLockoutTests.cs`).
+- أكبر ملف npm code في `frontend/src/` = 401 (`SystemAdminView.tsx`)؛ `useTeacherAppState` 378.
+- سكربتات النشر ليست ضمن حد الملفات البرمجية لكن `deploy/update.sh` يبقى نقطة الدخول الواحدة (انظر `docs/11-deployment.md`)، وأي split له أجزاء مساعدة لا يغيّر ترتيب العمليات.
+- أي ملف يتجاوز 400 سطر لا تُضاف إليه ميزة جديدة قبل تقسيمه.
 
 ---
 

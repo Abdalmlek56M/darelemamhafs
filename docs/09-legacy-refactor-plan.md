@@ -1,6 +1,6 @@
 # Legacy Refactor & File Split Plan
 
-**Status:** Started 15 Nov 2026.
+**Status:** Historical plan (started 15 Nov 2026). **التنفيذ الفعلي (Z1 splits) اكتمل في Nov 2026** — الملفات >400 قُسّمت (Auth/SystemAdmin/Requests/TeacherApp/teacherTypes/useDarApplication/Meet repositories) وأدوات Windows/Test Center/runners أُزيلت. الحالة الحقيقية في `docs/04-engineering-standards.md` §6 و`docs/OVERNIGHT-REPORT.md`؛ هذا الملف يُحفظ لتوثيق القواعد والترتيب الأصلي.
 **Goal:** Split the legacy monolith into small, safe files **without changing behavior**, then move the behavior into `src/Modules/*`.
 
 ---

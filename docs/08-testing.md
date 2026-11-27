@@ -1,27 +1,27 @@
 # RIGX Dar — Testing
 
-**Status:** Baseline + الواقع الحالي (22 Nov 2026 — Docs Reset).
+**Status:** Baseline + الواقع الحالي (27 Nov 2026 — hardening sessions).
 **Scope:** Strategy, layers, data, environments, CI, what not to test.
 **Source of truth:** `docs/00-current-state.md` — يحدد ما هو منفّذ الآن.
 
 ---
 
-## 0. الواقع الحالي (22 Nov 2026)
+## 0. الواقع الحالي (27 Nov 2026)
 
 | Layer | الموجود | الحالة |
 |---|---|---|
-| Unit (.NET) | 16 حالة في `tests/Dar.UnitTests` (Money + PasswordHasher) | ✅ |
-| Integration (.NET) | 20 حالة في `tests/Dar.IntegrationTests` — Health (3)، SameOriginGuard (3)، Supervision (14) عبر Testcontainers `postgres:17` | ✅ في CI (يحتاج Docker) |
-| Frontend | 6 حالات Vitest في `frontend/src/application/selectors.test.ts` | ✅ |
-| Contract | غير موجود | ❌ Phase 2.5 |
-| E2E / Playwright | غير موجود | ❌ 2.5 (smoke) / 2.9 (كامل) |
+| Unit (.NET) | `tests/Dar.UnitTests` — Money، PasswordHasher، Pagination، MigrationChecksum، Meet (Crypto/Rules/Matcher/Revoke/Telegram)، EmailQueue | ✅ في CI |
+| Integration (.NET) | `tests/Dar.IntegrationTests` — Health، SameOriginGuard، Supervision، LoginLockout، TurnstileLogin، MeetMediaScope، PayrollLockReview، ReviewCorrectionStatus، ReviewOptionalNote، ScheduleOverlapConcurrency عبر Testcontainers `postgres:17` | ✅ في CI (يحتاج Docker) |
+| Frontend | **31 ملف Vitest / 89 اختبارًا** (`frontend/src/**/*.test.ts(x)`) — selectors/money/formatters/pagination/apiClient/outbox + Testing Library/jsdom لمكوّنات وهوكات (TeacherApp، useDarApplication، Supervisor…) | ✅ |
+| Contract | غير موجود — `packages/api-client/openapi.v1.json` ناقص (27 path مقابل 82 mapping في `src/`) وغير مستخدم في الواجهة | ❌ Phase 2.5 |
+| E2E / Playwright | غير موجود (staging موجود الآن لكن بلا suites) | ❌ 2.5 (smoke) / 2.9 (كامل) |
 | Visual / A11y | مراجعة يدوية فقط | ⚠️ |
-| Financial regression | `tests/regression` (C#) + `tests/regression/sql` | ❌ خارج CI — تُنقل في Phase 2.5 |
-| PowerShell runners | 36 في `tests/runners`؛ 11 يشيرون إلى `TestCenter.ps1` المؤرشف | ⚠️ تُؤرشف/تُحوَّل |
+| Financial / SQL regression | `tests/regression/` (node/bash suites) + `tests/regression/sql/*` | ✅ في CI (job `migrations`) |
+| PowerShell runners | **أُزيلت** مع `tests/runners`/`tests/catalog.json` (Tier 2 / 2.15) | ✅ |
 
-**آخر تحقق بناء (HEAD `43cf810`):** `dotnet build Dar.slnx` ✅ 0W/0E بالأعلام الآمنة (`-m:1 -nodeReuse:false`)؛ 16/16 unit ✅؛ 6/6 integration بلا DB ✅؛ 14 integration تحتاج Docker (غير متاح في جلسة التحقق)؛ `tsc -b` ✅؛ Vite build غير متحقق محليًا (قيود sandbox على esbuild). **يجب تشغيل البوابة كاملة على CI/جهاز غير مقيّد.**
+**آخر تحقق (Nov 2026):** `dotnet build Dar.slnx` ✅ 0W/0E؛ frontend `npm run test` 31/89 PASS و`npm run typecheck` exit 0 و`npm run build` OK؛ backend unit+integration يعملان عبر CI/`tests/run-regression.sh` (الـsandbox المحلي قد يحجب `dotnet test` بـ`testhost Win32Exception 5`؛ Docker غير متاح محليًا لاختبارات Testcontainers). الأرقام الرسمية (UNIT/SUITES/PASS + SHA) في `docs/OVERNIGHT-REPORT.md`.
 
-**حدود CI الحالي:** الوظائف موجودة لكن CI لا يلمس أي مسار مالي legacy ولا ينفّذ E2E/contract؛ الثقة في المسارات المالية تأتي من الاختبارات اليدوية/السابقة فقط حتى Phase 2.5.
+**حدود CI الحالي:** الـSQL regression المالي يعمل على قاعدة disposable في job `migrations`؛ لكن لا HTTP regression للمسارات المالية legacy ولا E2E/contract؛ توثيق الثقة في المسارات المالية يعتمد على suites الـregression + الاختبار اليدوي.
 
 ---
 
@@ -29,7 +29,7 @@
 
 > الاختبارات مشاريع داخل الحل (Solution)، لكنها ليست جزءًا من التطبيق المنشور.
 
-> **Legacy GUI Test Center is archived.** No test panel in the product. Individual `tests/runners/Verify-*.ps1` scripts remain only as conversion references; valuable scenarios move to xUnit/Testcontainers/Playwright.
+> **No legacy test panel/runners.** `tools/`، `desktop-host/`، `tests/runners/`، `tests/catalog.json` أُزيلت (Tier 2 / 2.15). السيناريوهات القيّمة نُقلت إلى `tests/` (xUnit/Testcontainers) و`tests/regression/` (node/bash).
 
 - **ليست تطبيقًا منفصلًا.** هي `tests/Unit`, `tests/Integration`, `tests/Contract`, `tests/E2E` داخل نفس الحل.
 - لا Test Panel في الواجهة.
@@ -45,8 +45,8 @@
 
 | Layer | Tool | Scope | Speed | الحالة |
 |---|---|---|---|---|
-| Unit | xUnit (C#), Vitest (TS) | domain rules, pure functions | fast | ✅ 16 + 6 |
-| Integration | xUnit + Testcontainers | API + PostgreSQL + transactions | medium | ✅ 20 |
+| Unit | xUnit (C#), Vitest (TS) | domain rules, pure functions | fast | ✅ backend unit + 89 Vitest |
+| Integration | xUnit + Testcontainers | API + PostgreSQL + transactions | medium | ✅ (job `backend`/CI) |
 | Contract | OpenAPI diff | API/client consistency | fast | ❌ Phase 2.5 |
 | E2E | Playwright | critical user journeys | slow | ❌ 2.5/2.9 |
 | Visual | Playwright screenshots | key screens/states | slow | ❌ |
@@ -162,29 +162,35 @@ tests/Unit/Attendance/AttendanceRulesTests.cs
 
 ### 6.1 Frontend — Vitest
 
-- `npm test` runs `vitest run` (6 حالات حاليًا).
+- `npm test` runs `vitest run` — **31 ملف / 89 اختبارًا** (آخر تحقق 27 Nov 2026).
 - `src/application/selectors.test.ts` يغطي: فلترة النص/الحالة للطلاب والمعلمات، مجاميع الشهر الحالي، **اقتراح الاستحقاق = `agreed_monthly_fee` بلا pro-rata** (ADR-0002)، ربح اللوحة، وصافي الحلقة.
-- لا مكوّنات/DOM داخل الاختبارات؛ تبقى pure selectors سريعة.
+- اختبارات lib: `money`، `formatters`، `pagination`، `listQuery`، `phone`، `idempotency`، `apiClient`، `userMessages`، `turnstile`، `portalHeaders`.
+- اختبارات offline: `offlineOutbox.migration` / `offlineOutbox.legacy` / `outboxPolicy` / `portalRequestCoverage`.
+- **Testing Library + jsdom** (بدأت 27 Nov 2026): `TeacherApp.characterization`، `TeacherApp.rtl`، `useDarApplication.characterization`، `useDarApplication.rtl`، `useDarApplication.sessionExpiry`، `SupervisorRequests.pendingCount`، `SupervisorWorkspace.demoBanner`، `TeacherHistory.format`، `TeacherNav`، `teacherTypes.characterization`.
 
 ---
 
 ## 7. Integration Tests — .NET
 
-**الحالي:** `tests/Dar.IntegrationTests` — 20 حالة عبر `WebApplicationFactory` + Testcontainers `postgres:17`:
+**الحالي:** `tests/Dar.IntegrationTests` — `WebApplicationFactory` + Testcontainers `postgres:17` (عدة ملفات؛ الأرقام الرسمية من CI/`tests/run-regression.sh`):
 
-- `HealthEndpointTests` (3): live/ready/database.
-- `SameOriginGuardTests` (3): رفض cross-origin على unsafe methods + dev origin المسموح.
-- `SupervisionAccessTests` (14): finance/scope على unpaid، adjust خارج النطاق 403، notifications scope، subscription scoped، notes-kind قبل LIMIT، اعتماد request يحوّل correction (75 دقيقة → 62.50 عند 50/ساعة)، صلاحية communications + `wa.me`، templates/banner.
+- `HealthEndpointTests`: live/ready/database.
+- `SameOriginGuardTests`: رفض cross-origin على unsafe methods.
+- `SupervisionAccessTests`: finance/scope على unpaid، adjust خارج النطاق 403، notifications scope، subscription scoped، notes-kind قبل LIMIT، اعتماد request يحوّل correction، صلاحية communications + `wa.me`، templates/banner.
+- `LoginLockoutTests` / `TurnstileLoginTests`: القفل التدريجي لكل حساب + Turnstile (تحتاج `DAR_TEST_DATABASE`/Docker).
+- `Meet/MeetMediaScopeTests`: نطاق التسجيلات للمشرفة (قائمة/تشغيل/خارج النطاق 404).
+- `Payroll/PayrollLockReviewTests`, `ReviewCorrectionStatusTests`, `ReviewOptionalNoteTests`: قفل الشهر + الحالة + الملاحظة الفاضية (المسارين).
+- `Schedule/ScheduleOverlapConcurrencyTests`: سباق طلبين متوازيين على تداخل المواعيد.
 - `SupervisionFixture`: يطبّق كل الـmigrations ويزرع حلقتين/معلمتين/طلاب/charges/payments/slots/attendance/إشعارات scoped.
-- Clean DB per test class (Testcontainers fresh).
+- Clean DB per test class (Testcontainers fresh) أو `DAR_TEST_DATABASE` على قاعدة disposable للسيرفر.
 
-**الهدف:** idempotency، concurrency (طلبان متوازيان)، قيود DB، ومسارات الـlegacy المالية بعد نقل regression — Phase 2.5.
+**الهدف:** idempotency، concurrency أوسع، قيود DB، وHTTP regression للمسارات المالية legacy — Phase 2.5.
 
 ---
 
 ## 8. Contract Tests (planned — Phase 2.5)
 
-**غير موجودة حاليًا.** `packages/api-client/openapi.v1.json` ناقص (27 path مقابل 52 endpoint فعلي في `src/`) و`@dar/api-client` غير مستخدم في الواجهة؛ الأنواع مكتوبة يدويًا مؤقتًا.
+**غير موجودة حاليًا.** `packages/api-client/openapi.v1.json` ناقص (27 path مقابل 82 mapping في `src/`) و`@dar/api-client` غير مستخدم في الواجهة؛ الأنواع مكتوبة يدويًا مؤقتًا.
 
 الهدف:
 - regenerate الـspec من `/api/openapi/v1.json` بعد تشغيل `src/Host/Dar.Api`.
@@ -195,7 +201,7 @@ tests/Unit/Attendance/AttendanceRulesTests.cs
 
 ## 9. E2E — Playwright (planned — smoke في 2.5، كامل في 2.9)
 
-**غير موجودة حاليًا.** بعد إنشاء staging. Critical journeys:
+**غير موجودة حاليًا.** staging موجود (`docs/staging-environment.md` — plain HTTP، IP allow-list) لكن لا suites بعد. Critical journeys:
 
 1. Login → dashboard.
 2. Create student → enroll in group.
@@ -253,23 +259,23 @@ Rules:
 
 ## 13. CI Gates
 
-**الحالي — `.github/workflows/ci.yml` (22 Nov 2026):**
+**الحالي — `.github/workflows/ci.yml` (27 Nov 2026):**
 
-- `backend`: build legacy + build `Dar.slnx` + `dotnet test` + **`bash -n` لكل `deploy/*.sh` و`deploy/scripts/*.sh`** (يكشف أخطاء syntax قبل أي push).
-- `migrations`: تطبيق كل الـmigrations على PostgreSQL 17 service، ثم: (أ) تأكيد أن عدد `web_schema_migrations` = عدد ملفات `database/*.sql`، (ب) تأكيد schema الـReverse/Void (أعمدة void + الدالتين + صلاحية `finance.void` + الفهرس الفريد الجزئي)، (ج) تأكيد حماية تداخل المواعيد (تريجران + الدوال)، (د) تشغيل `tests/regression/sql/financial_void_verify.sql` و`schedule_overlap_verify.sql` و`schedule_overlap_hardening_verify.sql` وفشل عند أي `FAIL`.
-- `frontend`: `npm ci` + **`npm run typecheck` (`tsc -b --force`)** + `npm test` + `npm run build`.
+- `backend`: build legacy + build `Dar.slnx` + `dotnet test Dar.slnx` + **`bash -n` لكل `deploy/*.sh` و`deploy/scripts/*.sh`** (يكشف أخطاء syntax قبل أي push).
+- `meet-recorder`: `npm ci` + `npm run typecheck` + `npm test` داخل `services/meet-recorder`.
+- `migrations`: تطبيق كل الـmigrations على PostgreSQL 17 service، ثم: (أ) تأكيد أن عدد `web_schema_migrations` = عدد ملفات `database/*.sql`، (ب) تأكيد schema الـReverse/Void، (ج) تأكيد حماية تداخل المواعيد، (د) تأكيد schema Meet، (هـ) تشغيل `tests/regression/sql/financial_void_verify.sql` و`schedule_overlap_verify.sql` و`schedule_overlap_hardening_verify.sql` وفشل عند أي `FAIL`.
+- `frontend`: `npm ci` + **`npm run typecheck` (`tsc -b --force`)** + `npm test` (31 ملف/89) + `npm run build`.
 - `api-client`: `npm ci` + typecheck + **`npm run generate` ثم `git diff --exit-code -- src/schema.d.ts`** (no-drift للـgenerated types).
-- `deployment`: `docker compose config` على الـstack المتقاعد فقط.
-- `security`: `dotnet list package --vulnerable` + `npm audit --omit=dev` + built-in secret scan (git-grep regex، ليس gitleaks).
-- **لا يزال ناقصًا:** E2E Playwright، contract diff الحقيقي مقابل API يعمل، تغطية HTTP للمسارات المالية legacy، deploy job + rollback verification (مؤجلة إلى 2.5-b لأنها تحتاج أسرار host/staging).
+- `security`: `dotnet list package --vulnerable` + `npm audit --omit=dev` (frontend + api-client) + built-in secret scan (git-grep regex، ليس gitleaks).
+- **لا Docker/Caddy validation** — ملفات الـstack أُزيلت من الريبو (Tier 2 / 2.15).
+- **لا يزال ناقصًا:** E2E Playwright، contract diff الحقيقي مقابل API يعمل، HTTP regression للمسارات المالية legacy، lint، deploy job + rollback verification (مؤجلة إلى 2.5-b لأنها تحتاج أسرار host/staging).
 - **أول تشغيل على GitHub لم يُتحقق منه بعد** — كل الخطوات الجديدة تحتاج run فعلي على runner.
 
 **المتبقي (Phase 2.5-b):**
 
 - `lint` للواجهة (غير مثبت — يحتاج قرار بإضافة ESLint).
 - Contract diff الحقيقي (مقارنة spec مولّد من API يعمل بالملف الملزم).
-- Playwright E2E smoke على staging.
-- نقل باقي اختبارات `tests/regression` (PowerShell) إلى test projects.
+- Playwright E2E smoke على staging (الموجود).
 - deploy job + rollback verification بعد rehearsal سكربتات النشر على host.
 
 No merge with failing tests, secrets, or contract drift.

@@ -147,4 +147,36 @@ As listed in the table; no item was blocked without a reason. Overnight time/reg
 
 ### Full regression
 
-FINAL batch-1 full regression is run on the commit that contains this section; the PASS line and SHA are attached to the final report and to the next report update.
+Batch-1 full regression PASS is recorded in the batch-1 section above (41 suites, UNIT 67/67, pushed as 4166fd0).
+
+## FINAL continuation batch 1 — pushed and verified
+
+Batch-1 full regression on `4166fd0` (the exact commit pushed): **UNIT 67/67, 41/41 suites EXIT=0, RESULT=PASS** (including `b7-cookie-size` and `b10-cookie-secure`). Push: `1d5255b..4166fd0  main -> main`; `git ls-remote origin main` = `4166fd06cd1a027524dc1cadf49d3deeabacba99`.
+
+## FINAL continuation batch 2 (27 Nov, not pushed until its own regression passes)
+
+| Item | Status | Evidence / tests | NOT VERIFIED |
+|---|---|---|---|
+| 3. Z2 audit-insert dedup (29 sites → one writer) | done (pending full regression) | new `backend/DarEltahfeez.Api/AuditLogWriter.cs`; grep `INSERT INTO audit_log` in backend = 1 (the writer); 2 private helpers delegate; characterization suite `z2-audit-writer` (7 cases) written green pre-refactor and re-run post-refactor + 10 existing audit suites, all exit 0 on a disposable PG17; both Release builds exit 0 | full host regression + staging |
+| 5. Tier 2.3 `enrollment_status_history` (migration 039) | done (pending full regression) | `database/039_enrollment_status_history.sql` (table, append-only guard, audit_log sync trigger, backfill + invariant assertions, synthetic snapshot rows, eligibility functions switched to history); comparison test `tier2-history` vs a verbatim copy of the old audit_log logic: 1,467 day cases + 72 month cases, **0 mismatches**; real migration CLI applied 001→040 on PG17 and 039 re-run is a no-op; audit_log content hash unchanged | full host regression; production migration |
+| 5. Tier 2.2 pg_trgm search (migration 040) | done (pending full regression) | `database/040_search_trgm.sql` (extension + 8 GIN trigram indexes on the exact expressions); `SqlSearchPattern` escapes `\ % _`; legacy + modular student search use it; suite `tier2-search` (8 cases) proves escaped wildcard behavior + `EXPLAIN` bitmap index scans on PG17 | full host regression; production extension/index creation |
+| 5. Tier 2.16/2.17 CI false-greens + shared tests/lib | done (pending full regression) | new `.github/workflows/regression.yml` with Postgres 17 service + negative "missing DB fails" checks; `ci.yml` now provides Postgres for `dotnet test` and every `tests/regression/sql/*.sql`; fixed the print-only permissions matrices, `review.mjs`, `financial_void_verify.sql`, `parity-q3`, `teacher_attendance_rate_snapshot`; 19 silent returns in .NET integration tests replaced by `IntegrationDatabase.Require()`; `tests/lib` single allow-list guard + helpers imported by 34 files; 48 node suites + 6 SQL suites wired; UI suites explicitly opt-in (`DAR_UI_SUITES=1`) and reported NOT_RUN when skipped | CI execution; Playwright UI suites (no playwright/SPA locally) |
+| 8a. `deploy/update.sh` split (625 → 49-line entry + 13 libs) | done (pending full regression) | `deploy/lib/update-*.sh` ≤97 lines each; all 26 original function bodies byte-identical; CLI parity 6/6; `bash -n` 15/15 and shellcheck 0 issues; fast `shell_check` gate added to the harness | not executed on a real deploy |
+| 8b + 9. deploy security fixes from self-review | done (pending full regression) | `setup-nginx.sh` certbot email from untracked `deploy/.env` (no committed real email); `setup-host-services.sh` DB name/user from `deploy/.env`; `deploy/.env.example` placeholders only; verified with stubbed runtime harness + bash -n | live host first deploy |
+| 7. Z3/Z4/Z5 docs sync | done (pending full regression) | 21 files: docs rewritten/de-staled against the code (00-current-state, 02-architecture, 03-security, 04, 06, 08, 11, 17, 23, README/docs index, README.md, deepseek.md, staging-environment, recorder README/.env.example, 3 historical checkpoints); migration count 40; ADR 0001–0008 listed; real domain/IP/DB/password values scrubbed to placeholders | docs are source-level verified only |
+| 9. Security self-review | done (report only) | 954 tracked files scanned: no live secrets/keys; doc-value leaks scrubbed; 187 endpoints / 100 mutating — every mutating endpoint has authorization or is a documented public/token-guarded one; findings recorded for owner: reset-candidates missing read/finance perms + scope (A1/A8), authenticated-only audit-events (A2), purge not owner-only (A3), users.manage can grant any permission (A9/C20), OpenAPI public on the app (A4), new API not issuing owner-only-role split; docs §19/§2 stale claims corrected | production host state, git history, CI scanner |
+| .gitignore `.tmp*` | done | stray git bundle removed; `.tmp*/` pattern widened to `.tmp*` so files cannot be committed | — |
+
+### Security review notes not fixed (owner decisions)
+
+- A1/A8: `GET /api/admin/reset-candidates*` only requires `trash.manage`, exposes names/billing across all circles; needs read/finance perms + scoping.
+- A2: `POST /api/admin/audit-events` is authenticated-only (audit pollution risk).
+- A3: permanent trash purge is `trash.manage` + entity delete, not owner-only (docs claim owner-only).
+- A9/C20: any `users.manage` holder can grant any permission including `users.manage`; no owner-only permission class.
+- A4: `/api/openapi/v1.json` is public on the app (only unproxied by nginx today).
+- C8/C9/C12/C13: no DB `statement_timeout`, no concurrency token, one `dar_app` role (no migrator/app/read-only split), Data Protection keys not certificate-protected — docs now marked as targets/gaps.
+
+### Full regression (batch 2)
+
+Run on the batch-2 HEAD before push; the PASS line, suite counts and SHA are recorded in the final report and in the next report update.
+
