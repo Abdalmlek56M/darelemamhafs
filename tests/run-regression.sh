@@ -162,6 +162,8 @@ run_suite tier1-teacher-state tests/regression/tier1-teacher-state/run.mjs q6
 run_suite tier1-migration-cleanup tests/regression/tier1-migration-cleanup/run.mjs generic
 run_suite tier1-migration-034 tests/regression/tier1-migration-034/run.mjs generic
 run_suite tier1-oauth-state tests/regression/tier1-oauth-state/run.mjs generic
+run_suite tier2-indexes tests/regression/tier2-indexes/run.mjs generic
+run_suite tier2-retention tests/regression/tier2-retention/run.mjs q6
 run_suite integrity-sql tests/regression/integrity-sql/run.mjs generic
 echo "RESULT=$([ "$FAILED" -eq 0 ] && echo PASS || echo FAIL)"
 exit "$FAILED"

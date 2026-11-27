@@ -3,6 +3,7 @@ using System.Threading.RateLimiting;
 using Dar.Api.Features.Health;
 using Dar.Api.Features.System.MigrateDatabase;
 using Dar.Api.Features.System.NotificationSync;
+using Dar.Api.Features.System.Retention;
 using Dar.Api.Infrastructure.Errors;
 using Dar.Api.Infrastructure.Security;
 using Dar.Modules.Identity;
@@ -82,6 +83,8 @@ builder.Services.AddSingleton<NpgsqlDataSource>(_ =>
 builder.Services.AddIdentityModule(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddSecretariatModule();
 builder.Services.AddMeetModule(builder.Configuration);
+builder.Services.AddScoped<Dar.Api.Features.System.Retention.DataRetentionService>();
+builder.Services.AddHostedService<Dar.Api.Features.System.Retention.DataRetentionWorker>();
 builder.Services.AddHostedService<NotificationSyncService>();
 
 var app = builder.Build();
@@ -99,6 +102,7 @@ app.MapOpenApi("/api/openapi/{documentName}.json");
 app.MapHealthEndpoints();
 app.MapIdentityEndpoints();
 app.MapNotificationSyncEndpoints();
+app.MapRetentionEndpoints();
 app.MapSecretariatEndpoints();
 app.MapTeachingEndpoints();
 app.MapMeetEndpoints();
