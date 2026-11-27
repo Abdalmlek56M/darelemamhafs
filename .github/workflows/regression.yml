@@ -55,6 +55,10 @@ jobs:
           node-version: "24"
       - name: Shared guard + missing-env contract (tests/lib)
         run: node tests/regression/test-lib-guard/run.mjs
+      - name: Docs migration count matches database/*.sql
+        # Fails when README.md / docs/00-current-state.md state a migration count (or 001→NNN
+        # range) that differs from database/*.sql, or when migration numbers are duplicated.
+        run: node tests/regression/docs-migration-count/run.mjs
       - name: Legacy safety-guard contract (refuses production DB/URLs)
         run: bash tests/regression/safety-guard-test.sh
       - name: Syntax gate — shell scripts
@@ -151,6 +155,7 @@ jobs:
             tests/regression/tier1-oauth-state/run.mjs
             tests/regression/tier2-indexes/run.mjs
             tests/regression/tier2-meet-cap/run.mjs
+            tests/regression/tier2-queries/run.mjs
           )
           for suite in "${suites[@]}"; do
             echo "== $suite =="

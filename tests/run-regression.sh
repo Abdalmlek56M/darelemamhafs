@@ -133,7 +133,7 @@ prepare_db() {
   # Apply post-baseline migrations to the disposable schema (production applies them via deploy).
   # 03[2-9] = the FINAL hardening migrations; 04[0-9] = Tier-2 additions (pg_trgm search, history...).
   local migration_file
-  for migration_file in "$ROOT"/database/03[2-9]_*.sql "$ROOT"/database/04[0-9]_*.sql; do
+  for migration_file in "$ROOT"/database/03[2-9]*.sql "$ROOT"/database/04[0-9]_*.sql; do
     [ -e "$migration_file" ] || continue
     sudo -u postgres psql -q -v ON_ERROR_STOP=1 -d "$DB" -f "$migration_file" >/dev/null || return 1
   done
@@ -143,6 +143,7 @@ start_apps() {
   cd "$APP/legacy"
   env ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS="http://127.0.0.1:$PORT_OLD" \
     ConnectionStrings__DarDatabase="$DBENV" Auth__SetupToken="$SETUP_TOKEN" Auth__RateLimit__PermitLimit=10000 \
+    Media__RootPath="$APP/media" \
     Database__ApplyMigrationsOnStartup=false TZ=UTC \
     dotnet DarEltahfeez.Api.dll > "$APP/$1-old.log" 2>&1 &
   OLD_PID=$!
@@ -191,7 +192,7 @@ suite_env() {
     "Q3_REPORT_PATH=$APP/q3-parity-report.md" "Q3_ALLOWED_MISMATCHES=$Q3_ALLOWED_MISMATCHES" "Q3_COMMIT=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
     "Q4_LEGACY_URL=http://127.0.0.1:$PORT_OLD" "Q4_SETUP_TOKEN=$SETUP_TOKEN" "Q4_PASSWORD=RegressionStrong!"
     "Q5_LEGACY_URL=http://127.0.0.1:$PORT_OLD" "Q5_NEW_URL=http://127.0.0.1:$PORT_NEW" "Q5_SETUP_TOKEN=$SETUP_TOKEN" "Q5_PASSWORD=RegressionStrong!"
-    "Q6_LEGACY_URL=http://127.0.0.1:$PORT_OLD" "Q6_NEW_URL=http://127.0.0.1:$PORT_NEW" "Q6_SETUP_TOKEN=$SETUP_TOKEN" "Q6_PASSWORD=RegressionStrong!" "Q6_MEET_INTERNAL_TOKEN=regression-internal-token"
+    "Q6_LEGACY_URL=http://127.0.0.1:$PORT_OLD" "Q6_NEW_URL=http://127.0.0.1:$PORT_NEW" "Q6_SETUP_TOKEN=$SETUP_TOKEN" "Q6_PASSWORD=RegressionStrong!" "Q6_MEET_INTERNAL_TOKEN=regression-internal-token" "Q6_MEDIA_ROOT=$APP/media"
     "P15_LEGACY_URL=http://127.0.0.1:$PORT_OLD" "P15_NEW_URL=http://127.0.0.1:$PORT_NEW" "P15_SETUP_TOKEN=$SETUP_TOKEN" "P15_PASSWORD=RegressionStrong!"
     "P17_BASE_URL=http://127.0.0.1:$PORT_OLD" "P17_NEW_BASE_URL=http://127.0.0.1:$PORT_NEW" "P17_TEST_PASSWORD=P17-StrongPass!" "P17_DAR_TEST_DATABASE=$DBENV"
     "P21_BASE_URL=http://127.0.0.1:$PORT_OLD" "P21_PASSWORD=P21-StrongPass!"
@@ -393,6 +394,12 @@ run_suite b10-cookie-secure tests/regression/b10-cookie-secure/run.mjs q6
 run_suite z2-audit-writer tests/regression/z2-audit-writer/run.mjs q6
 run_suite tier2-search tests/regression/tier2-search/run.mjs q6
 run_suite tier2-history tests/regression/tier2-history/run.mjs q6
+run_suite tier2-queries tests/regression/tier2-queries/run.mjs generic
+run_suite tier2-history-fk tests/regression/tier2-history-fk/run.mjs q6
+run_suite tier2-blobs tests/regression/tier2-blobs/run.mjs q6
+run_suite security-permissions tests/regression/security-permissions/run.mjs q6
+run_plain_suite docs-migration-count "node tests/regression/docs-migration-count/run.mjs"
+run_plain_suite tier2-deploy "node tests/regression/tier2-deploy/run.mjs"
 run_suite integrity-sql tests/regression/integrity-sql/run.mjs generic
 
 # --- P1-7 finance permission matrix (fixtures: seed.sql + 7 accounts) ------------------
