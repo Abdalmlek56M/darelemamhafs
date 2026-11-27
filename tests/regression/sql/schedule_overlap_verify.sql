@@ -640,8 +640,10 @@ BEGIN
     WHERE n.nspname = 'public' AND p.proname = 'dar_guard_schedule_slot_teacher_overlap';
     IF v_def IS NULL THEN
         PERFORM pg_temp.rec('S32', 'FAIL', 'دالة حارس الموعد غير موجودة');
-    ELSIF position('pg_advisory_xact_lock(867530912345' IN v_def) > 0 THEN
-        PERFORM pg_temp.rec('S32', 'PASS', 'حارس الموعد يستخدم قفلًا استشاريًا واحدًا لتسلسل التعديلات');
+    ELSIF position('dar_teacher_schedule_lock_key' IN v_def) > 0
+      AND position('pg_advisory_xact_lock' IN v_def) > 0
+      AND position('867530912345' IN v_def) = 0 THEN
+        PERFORM pg_temp.rec('S32', 'PASS', 'حارس الموعد يستخدم القفل الاستشاري لكل معلمة (القفل العام القديم أُزيل في 035)');
     ELSE
         PERFORM pg_temp.rec('S32', 'FAIL', 'حارس الموعد لا يستخدم القفل الاستشاري المتوقع');
     END IF;

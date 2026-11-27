@@ -2,7 +2,7 @@
 // Q-6 request review parity (FINAL 2.16): this suite used to always print ok:true.
 // It now compares the legacy and new review effects for every scenario, collects failures
 // and exits non-zero when any case diverges or does not reach the expected state.
-import { setup, review, insertRequest, seedAttendance, OLD, NEW } from './common.mjs';
+import { setup, review, insertRequest, seedAttendance, seedSession, OLD, NEW } from './common.mjs';
 
 const c = await setup();
 const results = [];
@@ -64,8 +64,13 @@ await expectReviewPair('correction_to_present', oldCorr, newCorr, 'approved');
 await expectReviewPair('absence_reject', insertRequest('absence', '2026-12-14'), insertRequest('absence', '2026-12-15'), 'rejected', false, 'no');
 
 // Approved absence must create the absent attendance and cancel the session on both sides.
-const absenceOld = await review(OLD, c.revOld, insertRequest('absence', '2026-12-20'));
-const absenceNew = await review(NEW, c.revNew, insertRequest('absence', '2026-12-21'));
+// The cancellation path only touches sessions that are actually in progress, so seed one.
+const absenceOldDate = '2026-12-20';
+const absenceNewDate = '2026-12-21';
+seedSession(absenceOldDate);
+seedSession(absenceNewDate);
+const absenceOld = await review(OLD, c.revOld, insertRequest('absence', absenceOldDate));
+const absenceNew = await review(NEW, c.revNew, insertRequest('absence', absenceNewDate));
 check('absence_approve.old_attendance_absent', absenceOld.db.attendance && absenceOld.db.attendance.status === 'absent', JSON.stringify(absenceOld.db.attendance));
 check('absence_approve.new_attendance_absent', absenceNew.db.attendance && absenceNew.db.attendance.status === 'absent', JSON.stringify(absenceNew.db.attendance));
 check('absence_approve.old_session_cancelled', absenceOld.db.session && absenceOld.db.session.status === 'cancelled', JSON.stringify(absenceOld.db.session && absenceOld.db.session.status));
@@ -78,7 +83,9 @@ check('correction_approve.old_applied', corrOld.db.attendance && Number(corrOld.
 check('correction_approve.new_applied', corrNew.db.attendance && Number(corrNew.db.attendance.duration_minutes) === 45 && Number(corrNew.db.attendance.payable_amount) === 45, JSON.stringify(corrNew.db.attendance));
 
 // A rejected request keeps the session in progress and creates no attendance effect.
-const rejectOld = await review(OLD, c.revOld, insertRequest('absence', '2027-01-03'), false, 'no');
+const rejectDate = '2027-01-03';
+seedSession(rejectDate);
+const rejectOld = await review(OLD, c.revOld, insertRequest('absence', rejectDate), false, 'no');
 check('reject.old_session_in_progress', rejectOld.db.session && rejectOld.db.session.status === 'in_progress', JSON.stringify(rejectOld.db.session && rejectOld.db.session.status));
 check('reject.old_request_rejected', rejectOld.db.request && rejectOld.db.request.status === 'rejected', JSON.stringify(rejectOld.db.request && rejectOld.db.request.status));
 check('reject.old_no_attendance', rejectOld.db.attendance === null, JSON.stringify(rejectOld.db.attendance));

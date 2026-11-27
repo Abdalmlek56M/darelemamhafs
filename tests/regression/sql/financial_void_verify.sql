@@ -56,6 +56,12 @@ BEGIN
     INSERT INTO app_users(id,username,display_name,password_hash) VALUES
         ('11111111-1111-4111-8111-111111111111','vo_actor','منفذ الإلغاء','x'),
         ('11111111-1111-4111-8111-222222222222','vo_editor','محرر مالي','x');
+    -- The disposable schema template is schema-only, so seed the catalog rows this script needs
+    -- (production seeds them through migrations 002/017/018/024).
+    INSERT INTO permissions(code,name_ar) VALUES
+        ('finance.edit','تعديل المالية'),
+        ('finance.void','إلغاء مالي')
+    ON CONFLICT (code) DO NOTHING;
     INSERT INTO user_permissions(user_id,permission_code) VALUES
         ('11111111-1111-4111-8111-222222222222','finance.edit');
     INSERT INTO roles(id,code,name_ar) VALUES

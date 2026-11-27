@@ -90,9 +90,9 @@ BEGIN
     ELSIF position('dar_teacher_schedule_lock_key' IN v_def) > 0
       AND position('pg_advisory_xact_lock' IN v_def) > 0
       AND position('transaction_isolation' IN v_def) > 0
-      AND position('867530912345' IN v_def) > 0
+      AND position('867530912345' IN v_def) = 0
       AND position('LEAST(' IN v_def) > 0 THEN
-        PERFORM pg_temp.rec('H01','PASS','حارس الموعد: قفل لكل معلمة + قفل عام متوافق + ترتيب مفاتيح + حارس عزل READ COMMITTED');
+        PERFORM pg_temp.rec('H01','PASS','حارس الموعد: قفل لكل معلمة + إزالة القفل العام القديم (035) + ترتيب مفاتيح + حارس عزل READ COMMITTED');
     ELSE
         PERFORM pg_temp.rec('H01','FAIL','تعريف حارس الموعد لا يحتوي كل عناصر الحماية المتوقعة');
     END IF;
@@ -111,7 +111,7 @@ BEGIN
     ELSIF position('dar_teacher_schedule_lock_key' IN v_def) > 0
       AND position('pg_advisory_xact_lock' IN v_def) > 0
       AND position('transaction_isolation' IN v_def) > 0
-      AND position('867530912345' IN v_def) > 0
+      AND position('867530912345' IN v_def) = 0
       AND position('LEAST(' IN v_def) > 0
       AND position('OLD.teacher_id' IN v_def) > 0 THEN
         PERFORM pg_temp.rec('H02','PASS','حارس الحلقة: قفل لكل معلمة + ترتيب مفاتيح قديم/جديد + حارس عزل READ COMMITTED');

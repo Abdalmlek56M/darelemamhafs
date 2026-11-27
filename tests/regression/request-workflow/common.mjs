@@ -61,6 +61,13 @@ export function seedAttendance(date) {
     + q(a) + "," + q(SLOT) + "," + q(CIRCLE) + "," + q(TA) + "," + q(date) + ",'10:00',60,'present',60,60," + q(ADMIN) + "," + q(s) + ",60,'manual');");
   return a;
 }
+export function seedSession(date, status = 'in_progress') {
+  const s = randomUUID();
+  one("INSERT INTO teacher_sessions(id,teacher_id,circle_id,schedule_slot_id,session_date,started_at,status,scheduled_duration_minutes) VALUES ("
+    + q(s) + "," + q(TA) + "," + q(CIRCLE) + "," + q(SLOT) + "," + q(date) + ",now()-INTERVAL '1 hour'," + q(status) + ",60);");
+  return s;
+}
+
 export function snapshot(requestId) {
   return one("SELECT jsonb_build_object('request',(SELECT to_jsonb(r) FROM attendance_requests r WHERE id=" + q(requestId)
     + "),'attendance',(SELECT to_jsonb(a) FROM teacher_attendance a WHERE schedule_slot_id=" + q(SLOT)

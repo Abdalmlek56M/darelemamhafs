@@ -229,7 +229,7 @@ const snapshotSql = `SELECT jsonb_build_object(
 const backfillCircle = one(`INSERT INTO public.circles(circle_code,name,monthly_fee,is_active,starts_on)
   VALUES ('T23-BF','T23 backfill',100,TRUE,DATE ${q(m0)}) RETURNING id;`);
 const backfillEnrollment = one(`INSERT INTO public.circle_enrollments(student_id,circle_id,starts_on,agreed_monthly_fee,status)
-  SELECT id, ${q(backfillCircle)}, DATE ${q(m0)}, 100, 'active' FROM public.students WHERE student_code='T23-S1';`);
+  SELECT id, ${q(backfillCircle)}, DATE ${q(m0)}, 100, 'active' FROM public.students WHERE student_code='T23-S1' RETURNING id;`);
 one('ALTER TABLE public.audit_log DISABLE TRIGGER trg_audit_log_enrollment_status_history;');
 const backfillAudit = one(`INSERT INTO public.audit_log(action_code,entity_type,entity_id,details,occurred_at)
   VALUES ('enrollment.status.baseline','enrollment',${q(backfillEnrollment)},
