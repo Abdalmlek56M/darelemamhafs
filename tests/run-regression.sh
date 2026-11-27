@@ -66,7 +66,7 @@ start_apps() {
   OLD_PID=$!
   cd "$APP/new"
   env ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS="http://127.0.0.1:$PORT_NEW" \
-    ConnectionStrings__Default="$DBENV" Database__ApplyMigrationsOnStartup=false TZ=UTC Auth__RateLimit__PermitLimit=10000 Meet__EncryptionKey=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+    ConnectionStrings__Default="$DBENV" Database__ApplyMigrationsOnStartup=false TZ=UTC Auth__RateLimit__PermitLimit=10000 Meet__EncryptionKey=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= Meet__InternalToken=regression-internal-token \
     dotnet Dar.Api.dll > "$APP/$1-new.log" 2>&1 &
   NEW_PID=$!
   for _ in $(seq 1 60); do
@@ -101,7 +101,7 @@ run_suite() {
   if [ "$mode" = "q6" ]; then
     sudo -u deploy env "$common" Q6_LEGACY_URL="http://127.0.0.1:$PORT_OLD" \
       Q6_NEW_URL="http://127.0.0.1:$PORT_NEW" Q6_SETUP_TOKEN="regression-setup" \
-      Q6_PASSWORD="RegressionStrong!" node "$file" > "$APP/$name.json" 2> "$APP/$name.err"
+      Q6_PASSWORD="RegressionStrong!" Q6_MEET_INTERNAL_TOKEN="regression-internal-token" node "$file" > "$APP/$name.json" 2> "$APP/$name.err"
     rc=$?
   else
     sudo -u deploy env "$common" Q1_LEGACY_URL="http://127.0.0.1:$PORT_OLD" \
@@ -146,6 +146,8 @@ run_suite tier0-profit tests/regression/tier0-profit/run.mjs q6
 run_suite tier0-meet-settings tests/regression/tier0-meet-settings/run.mjs q6
 run_suite repo-secrets tests/regression/repo-secrets/run.mjs q6
 run_suite tier0-sessions tests/regression/tier0-sessions/run.mjs q6
+run_suite z1-auth-characterization tests/regression/z1-auth-characterization/run.mjs q6
+run_suite z1-bot-repo-characterization tests/regression/z1-bot-repo-characterization/run.mjs q6
 run_suite backup-source tests/regression/backup-source/run.mjs generic
 run_suite tier1-permission-catalog tests/regression/tier1-permission-catalog/run.mjs q6
 run_suite tier1-trash-purge tests/regression/tier1-trash-purge/run.mjs q6

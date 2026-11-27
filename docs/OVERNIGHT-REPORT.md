@@ -63,6 +63,16 @@ Batch commits also include suite wiring/report: `7d0d8eb`, `47a9674`, report com
 | Z2 server-only money (remove frontend profit formulas/fallback) | done | `0c13823` | `tier1-profit-server` + frontend build/tests | no browser E2E of the dashboard |
 | Z2 one sleep helper in recorder | done | `9586de5` | recorder typecheck/tests | none |
 
+
+## Z1 (characterization first)
+
+| Item | Status | Commit | Tests | NOT VERIFIED |
+|---|---|---|---|---|
+| Z1 characterization: AuthEndpoints.cs | in progress | pending | `z1-auth-characterization` | browser E2E not run |
+| Z1 characterization: MeetBotJobRepository.cs | in progress | pending | `z1-bot-repo-characterization` | real bot not run |
+| Z1 characterization: teacherTypes.ts | pending | pending | typecheck/type test | type-only |
+| Z1 characterization: useDarApplication.ts / TeacherApp.tsx | pending | pending | render smoke tests | React hook/component E2E not run |
+
 ## NOT VERIFIED (all Tier-1 work)
 
 - No deployment; production timers, systemd units, migration 034/035, real backups, real browser downloads and live Telegram/Google/recorder flows were not exercised.
