@@ -7,6 +7,7 @@ import { promisify } from 'node:util'
 import type { BotConfig } from '../config.js'
 import type { Logger } from '../logger.js'
 import { ManagedProcess } from './process.js'
+import { buildCaptureArguments } from './captureArgs.js'
 
 const run = promisify(execFile)
 
@@ -211,38 +212,13 @@ export class ScreenCapture {
   }
 
   private buildArguments(display: string, audioSource: string): string[] {
-    const { width, height, framerate, videoBitrate, audioBitrate } = this.config
-    const args = [
-      '-hide_banner', '-nostdin', '-loglevel', 'warning', '-y',
-      '-progress', 'pipe:1', '-stats_period', '10',
-      '-thread_queue_size', '512',
-      '-f', 'x11grab', '-draw_mouse', '0',
-      '-framerate', String(framerate),
-      '-video_size', `${width}x${height}`,
-      '-i', display,
-      '-thread_queue_size', '1024',
-      // Keep PulseAudio's own (sample-count) timestamps: they are smooth, while wall-clock
-      // timestamps exposed every burst as a 60-300ms hole. aresample=async compensates the
-      // sink's small clock drift by inserting/removing samples instead of leaving gaps.
-      '-f', 'pulse', '-fragment_size', '8192', '-i', audioSource,
-      '-map', '0:v:0', '-map', '1:a:0',
-      '-c:v', 'libx264', '-preset', this.config.videoPreset, '-tune', 'zerolatency',
-      '-threads', String(this.config.videoThreads),
-      '-pix_fmt', 'yuv420p', '-b:v', videoBitrate, '-g', String(framerate * 2),
-      '-c:a', 'aac', '-b:a', audioBitrate, '-ar', '48000', '-ac', '2',
-      '-af', 'aresample=async=1:min_hard_comp=0.01:first_pts=0'
-    ]
-    if (this.durationSeconds !== undefined) args.push('-t', String(this.durationSeconds))
-    args.push(
-      '-f', 'mp4', this.rawPath,
-      '-f', 'hls', '-hls_time', '2', '-hls_list_size', '0',
-      '-hls_flags', 'independent_segments',
-      '-hls_segment_filename', join(this.hlsDir, 'seg%04d.ts'),
-      join(this.hlsDir, 'index.m3u8')
-    )
-    return args
+    return buildCaptureArguments(this.config, display, audioSource, {
+      rawPath: this.rawPath,
+      hlsDir: this.hlsDir,
+      hlsIndex: join(this.hlsDir, 'index.m3u8'),
+      durationSeconds: this.durationSeconds
+    })
   }
-
   /** Stops with a WAV on disk: encode it once to AAC/MP4 (fast, after the lesson) and drop the WAV. */
   private async finalizeAudioOnly(): Promise<CaptureResult> {
     const wav = await stat(this.audioTapPath).catch(() => null)
@@ -291,6 +267,8 @@ export class ScreenCapture {
     const posterPath = await this.writePoster()
     const sha256 = await this.hashFile(this.mp4Path)
     const segments = (await readdir(this.hlsDir).catch(() => [] as string[])).filter((name) => name.endsWith('.ts')).length
+    // FINAL 1.20: audio.wav is diagnostic only; never leave it next to the video after finalize.
+    await unlink(this.audioTapPath).catch(() => undefined)
 
     const result: CaptureResult = {
       mp4Path: this.mp4Path,

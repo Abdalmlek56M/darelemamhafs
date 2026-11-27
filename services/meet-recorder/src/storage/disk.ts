@@ -9,6 +9,11 @@ export async function freeGigabytes(path: string): Promise<number> {
   return Math.floor((stats.bavail * stats.bsize) / GB)
 }
 
+/** FINAL 1.20: the disk is checked during recording too, not only at start. */
+export function shouldStopForDisk(freeGb: number, stopBelowGb: number): boolean {
+  return freeGb < stopBelowGb
+}
+
 /**
  * ADR-0007: never start a recording when the disk is below the owner's threshold.
  * Failing here keeps the site and PostgreSQL safe instead of filling the disk.
