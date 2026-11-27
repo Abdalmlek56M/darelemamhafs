@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ApiError, USER_MESSAGES, isArabicUserMessage, loginErrorMessage, normalizeUserMessage } from './userMessages'
+import { ApiError, LOAD_FAILURE_MESSAGE, USER_MESSAGES, isArabicUserMessage, loginErrorMessage, normalizeUserMessage } from './userMessages'
 
 const technical = /HTTP\s*\d|Failed to fetch|Internal Server Error|Exception|stack trace|Npgsql|PostgreSQL|SQLSTATE/i
 
@@ -17,6 +17,19 @@ describe('central user messages', () => {
     expect(normalizeUserMessage('', 503)).toBe(USER_MESSAGES.server)
     expect(normalizeUserMessage(null, 401)).toBe(USER_MESSAGES.unauthorized)
     expect(normalizeUserMessage(null, 429)).toBe(USER_MESSAGES.rate_limited)
+  })
+
+  it('separates read (load) failures from write (save) failures', () => {
+    expect(normalizeUserMessage('Internal Server Error', 500, { intent: 'read' })).toBe(LOAD_FAILURE_MESSAGE)
+    expect(normalizeUserMessage('', 502, { intent: 'read' })).toBe(LOAD_FAILURE_MESSAGE)
+    expect(LOAD_FAILURE_MESSAGE).toMatch(/تعذر تحميل البيانات/)
+    expect(LOAD_FAILURE_MESSAGE).not.toContain('لم يتم حفظ')
+    expect(USER_MESSAGES.server).toContain('لم يتم حفظ التغييرات')
+    // Writes keep the existing save-failure message (default intent).
+    expect(normalizeUserMessage('Internal Server Error', 500)).toBe(USER_MESSAGES.server)
+    expect(normalizeUserMessage('Internal Server Error', 500, { intent: 'write' })).toBe(USER_MESSAGES.server)
+    // A real Arabic server message still wins for reads as well.
+    expect(normalizeUserMessage('تعذر فتح ملف الإيصال المحفوظ.', 500, { intent: 'read' })).toBe('تعذر فتح ملف الإيصال المحفوظ.')
   })
 
   it('never returns a technical/English fallback', () => {

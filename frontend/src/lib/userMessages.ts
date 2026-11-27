@@ -68,10 +68,15 @@ export function userErrorCode(status?: number, message?: unknown): UserErrorCode
   return 'unknown'
 }
 
+/** Failures while loading (GET) must not claim that the user's changes were not saved. */
+export const LOAD_FAILURE_MESSAGE = 'تعذر تحميل البيانات. حاول مرة أخرى بعد قليل.'
+
 /** Keep Arabic messages from the server; replace English/technical/empty messages with the central table. */
-export function normalizeUserMessage(message: unknown, status?: number): string {
+export function normalizeUserMessage(message: unknown, status?: number, options?: { intent?: 'read' | 'write' }): string {
   if (isArabicUserMessage(message)) return message.trim()
-  return USER_MESSAGES[userErrorCode(status, message)]
+  const code = userErrorCode(status, message)
+  if (code === 'server' && options?.intent === 'read') return LOAD_FAILURE_MESSAGE
+  return USER_MESSAGES[code]
 }
 
 /** Login 401 means bad credentials, not an expired session. */

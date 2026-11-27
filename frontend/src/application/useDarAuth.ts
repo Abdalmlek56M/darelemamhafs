@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Branding, Gate, HistoryData, LoginCredentials, Notice, Page, Session, Student } from '../domain/types'
 import { request } from '../services/apiClient'
-import { ApiError, loginErrorMessage } from '../lib/userMessages'
+import { ApiError, USER_MESSAGES, loginErrorMessage } from '../lib/userMessages'
+import { setSessionExpiryListener } from '../lib/sessionExpiry'
 
 type SelectedStudentPreview = { id: string; fullName: string; studentCode: string }
 
@@ -39,6 +40,31 @@ export default function useDarAuth({
 }: DarAuthOptions) {
   const [setup, setSetup] = useState({ username: 'admin', displayName: 'مدير الدار', password: '', confirmPassword: '' })
   const [login, setLogin] = useState<LoginCredentials>({ username: '', password: '', rememberMe: false })
+  // Only a server-confirmed session counts: a 401 from any authenticated request
+  // drops the client state and returns to the login screen instead of leaving the
+  // shell rendered with a stale in-memory profile.
+  const activeSessionRef = useRef(false)
+  const expireSessionRef = useRef<() => void>(() => undefined)
+
+  useEffect(() => {
+    expireSessionRef.current = () => {
+      if (!activeSessionRef.current) return
+      activeSessionRef.current = false
+      setSession(null)
+      setGate('login')
+      setPage('dashboard')
+      setHistory(null)
+      setSelectedStudent(null)
+      setSelectedStudentPreview(null)
+      onSessionCleared?.()
+      setToast({ tone: 'error', text: USER_MESSAGES.unauthorized })
+    }
+  })
+
+  useEffect(() => {
+    setSessionExpiryListener(() => expireSessionRef.current())
+    return () => setSessionExpiryListener(null)
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -58,6 +84,7 @@ export default function useDarAuth({
           const me = await request<Session>('/api/auth/me')
           if (!mounted) return
           setSession(me)
+          activeSessionRef.current = true
           setFirstPage(me)
           setGate('ready')
         } catch { if (mounted) setGate('login') }
@@ -83,6 +110,7 @@ export default function useDarAuth({
         body: JSON.stringify({ username: setup.username, displayName: setup.displayName, password: setup.password }),
       })
       setSession(created)
+      activeSessionRef.current = true
       setFirstPage(created)
       setGate('ready')
       setToast({ tone: 'success', text: 'تم إنشاء حساب المدير وتأمين لوحة الإدارة. احتفظ بكلمة المرور في مكان آمن.' })
@@ -109,6 +137,7 @@ export default function useDarAuth({
       }
       setLogin(current => ({ ...current, password: '', rememberMe: credentials.rememberMe }))
       setSession(signedIn)
+      activeSessionRef.current = true
       setFirstPage(signedIn)
       setGate('ready')
       setToast({ tone: 'success', text: `أهلًا ${signedIn.displayName}. تم تسجيل الدخول.` })
@@ -125,6 +154,7 @@ export default function useDarAuth({
   const doLogin = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); await loginWithCredentials(login) }
   const quickLogin = async (credentials: LoginCredentials) => loginWithCredentials({ ...credentials, rememberMe: true })
   const logout = async () => {
+    activeSessionRef.current = false
     try { await request('/api/auth/logout', { method: 'POST' }) } catch { /* local state is still cleared */ }
     setSession(null)
     setGate('login')

@@ -135,7 +135,8 @@ export default function App() {
 
   if (gate === 'checking') return <ConnectionCheckingView branding={branding} />
   if (gate === 'setup' || gate === 'login') return <AuthPage mode={gate} branding={branding} setup={setup} setSetup={setSetup} login={login} setLogin={setLogin} saving={saving} onSetup={doSetup} onLogin={doLogin} onQuickLogin={quickLogin} toast={toast} clearToast={() => setToast(null)} />
-  if (!session) return <ConnectionCheckingView branding={branding} />
+  // The authenticated shell requires a live, server-confirmed session (never a stored profile alone).
+  if (gate !== 'ready' || !session) return <ConnectionCheckingView branding={branding} />
 
   const navButton = (item: (typeof visiblePages)[number], onSelect: () => void, keyPrefix = '') => {
     const Icon = item.icon

@@ -20,12 +20,12 @@ export default function StudentHistoryDialog({ ctx }: Props) {
     setReceiptLoading(true); setReceiptError('')
     try {
       const response = await fetch(`/api/payments/${paymentId}/receipt`, { credentials: 'include', cache: 'no-store' })
-      if (!response.ok) { let message: unknown = null; try { const body = await response.json(); message = body?.message ?? null } catch { /* not JSON */ }; throw new Error(normalizeUserMessage(message, response.status)) }
+      if (!response.ok) { let message: unknown = null; try { const body = await response.json(); message = body?.message ?? null } catch { /* not JSON */ }; throw new Error(normalizeUserMessage(message, response.status, { intent: 'read' })) }
       const blob = await response.blob()
       if (!blob.type.startsWith('image/')) throw new Error('صيغة الإيصال المحفوظ غير مناسبة للعرض كصورة.')
       const url = URL.createObjectURL(blob)
       setReceiptPreview({ url, paymentId })
-    } catch (error) { const message = normalizeUserMessage(error instanceof Error ? error.message : null); setReceiptError(message); ctx.notifySystem('error', message) }
+    } catch (error) { const message = normalizeUserMessage(error instanceof Error ? error.message : null, undefined, { intent: 'read' }); setReceiptError(message); ctx.notifySystem('error', message) }
     finally { setReceiptLoading(false) }
   }
   if (!history) {

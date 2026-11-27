@@ -16,15 +16,21 @@ export default function SupervisorRequests({ demo, onReviewed }: Props) {
   const [appliedStatus, setAppliedStatus] = useState<Status>('pending')
   const [busy, setBusy] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  // Kept apart from the paged list so switching to "الكل" never replaces a real
+  // pending count with a placeholder.
+  const [pendingTotal, setPendingTotal] = useState<number | null>(null)
 
   const fetchRequests = useCallback(async (page: number, pageSize: number) => {
     if (demo) {
       const rows = appliedStatus === 'pending'
         ? demoRequests.filter((item) => item.status === 'pending')
         : demoRequests
-      return { items: rows, meta: defaultMeta(rows.length, 1, pageSize) }
+      const meta = defaultMeta(rows.length, 1, pageSize)
+      if (appliedStatus === 'pending') setPendingTotal(meta.total)
+      return { items: rows, meta }
     }
     const response = await teacherApi.supervisorRequestsPage({ status: appliedStatus, page, pageSize })
+    if (appliedStatus === 'pending') setPendingTotal(response.meta.total)
     return { items: response.data.requests, meta: response.meta }
   }, [demo, appliedStatus])
   const requestsPage = usePagedResource<SupervisorAttendanceRequest>({ fetcher: fetchRequests, deps: [demo, appliedStatus] })
@@ -59,7 +65,7 @@ export default function SupervisorRequests({ demo, onReviewed }: Props) {
       </div>
 
       <div className="sup-segment">
-        <button className={status === 'pending' ? 'active' : ''} onClick={() => changeStatus('pending')}>قيد المراجعة ({appliedStatus === 'pending' ? requestsPage.meta.total : '—'})</button>
+        <button className={status === 'pending' ? 'active' : ''} onClick={() => changeStatus('pending')}>قيد المراجعة{pendingTotal === null ? '' : ` (${pendingTotal})`}</button>
         <button className={status === 'all' ? 'active' : ''} onClick={() => changeStatus('all')}>الكل</button>
       </div>
 

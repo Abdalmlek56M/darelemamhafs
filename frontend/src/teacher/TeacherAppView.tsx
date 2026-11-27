@@ -140,6 +140,7 @@ export default function TeacherAppView(props: TeacherAppState) {
             onRequests={() => setPage('requests')}
           />
         )}
+        {page === 'live' && !activeSessionId && <div className="t-empty">لا توجد حلقة جارية.</div>}
         {page === 'live' && activeSessionId && (
           <TeacherLive
             slot={liveSlot}
@@ -154,6 +155,7 @@ export default function TeacherAppView(props: TeacherAppState) {
             onEnd={end}
           />
         )}
+        {page === 'roster' && !activeSessionId && <div className="t-empty">لا توجد حلقة جارية.</div>}
         {page === 'roster' && activeSessionId && (
           <TeacherRoster
             roster={roster}

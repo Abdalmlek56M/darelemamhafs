@@ -56,10 +56,13 @@ const sectionTitles: Record<Section, string> = {
   unpaid: 'المتأخرات',
 }
 
+const DEMO_STORAGE_KEY = 'dar-supervisor-demo'
+
 function initialDemo() {
   try {
     if (new URLSearchParams(window.location.search).get('demo') === '1') return true
-    return localStorage.getItem('dar-supervisor-demo') === '1'
+    // sessionStorage only: a demo mode must not stay sticky across browser sessions.
+    return sessionStorage.getItem(DEMO_STORAGE_KEY) === '1'
   } catch {
     return false
   }
@@ -82,7 +85,10 @@ export default function SupervisorWorkspace(props: Props) {
 
   useEffect(() => {
     try {
-      localStorage.setItem('dar-supervisor-demo', demo ? '1' : '0')
+      sessionStorage.setItem(DEMO_STORAGE_KEY, demo ? '1' : '0')
+      // Older builds kept this flag in localStorage, which left demo data enabled
+      // silently on later visits; drop the legacy key.
+      localStorage.removeItem(DEMO_STORAGE_KEY)
       const url = new URL(window.location.href)
       if (demo) url.searchParams.set('demo', '1')
       else url.searchParams.delete('demo')
@@ -184,9 +190,9 @@ export default function SupervisorWorkspace(props: Props) {
         </header>
 
         {demo && (
-          <div className="sup-demo-banner">
+          <div className="sup-demo-banner" role="status" aria-live="polite">
             <Sparkles size={15} />
-            <span>أنت تشاهد بيانات تجريبية لعرض الشكل النهائي. لا يتم حفظ أي تعديلات.</span>
+            <span><strong>بيانات تجريبية</strong> — أنت تشاهد بيانات تجريبية لعرض الشكل النهائي. لا يتم حفظ أي تعديلات.</span>
             <button onClick={toggleDemo}>العودة للبيانات الحقيقية</button>
           </div>
         )}

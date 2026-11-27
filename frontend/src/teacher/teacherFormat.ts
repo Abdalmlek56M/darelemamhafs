@@ -4,10 +4,10 @@ export function money(value: number | null | undefined) {
   return `${(value ?? 0).toFixed(2)} ج.م`
 }
 
+/** One unit per value: every duration is shown in minutes, never as hours:minutes. */
 export function minutesLabel(totalMinutes: number) {
   const minutes = Math.max(0, Math.floor(totalMinutes))
-  const hours = Math.floor(minutes / 60)
-  return hours > 0 ? `${hours}:${String(minutes % 60).padStart(2, '0')}` : `${minutes} د`
+  return `${minutes} د`
 }
 
 export function elapsedMinutes(startedAt: string | null | undefined) {

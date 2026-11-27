@@ -1,6 +1,7 @@
 import { ApiError, isArabicUserMessage, normalizeUserMessage, userErrorCode } from '../lib/userMessages'
 import { PORTAL_PAGE_SIZE, pagedItemCount, parsePagedMeta, type PagedResponse } from '../lib/pagination'
 import { portalRequestHeaders } from '../lib/portalHeaders'
+import { notifySessionExpired } from '../lib/sessionExpiry'
 
 const api = (path: string) => path
 
@@ -20,7 +21,12 @@ function serverMessages(body: unknown): string[] {
 
 type ParsedError = { message: string; serverMessage: string | null }
 
-async function readError(response: Response): Promise<ParsedError> {
+/** GET/load failures use the read message; mutations keep the save-failure message. */
+function errorIntent(init?: RequestInit): 'read' | 'write' {
+  return init?.method && init.method.toUpperCase() !== 'GET' ? 'write' : 'read'
+}
+
+async function readError(response: Response, intent: 'read' | 'write'): Promise<ParsedError> {
   let body: unknown = null
   try { body = await response.json() } catch { /* non-JSON error */ }
   const messages = serverMessages(body)
@@ -31,7 +37,7 @@ async function readError(response: Response): Promise<ParsedError> {
     return { message, serverMessage: message }
   }
   const raw = messages.join(' ')
-  return { message: normalizeUserMessage(raw, response.status), serverMessage: null }
+  return { message: normalizeUserMessage(raw, response.status, { intent }), serverMessage: null }
 }
 
 async function send(path: string, init?: RequestInit): Promise<Response> {
@@ -47,7 +53,8 @@ async function send(path: string, init?: RequestInit): Promise<Response> {
     throw new ApiError(normalizeUserMessage(error instanceof Error ? error.message : null, 0), 0, 'network')
   }
   if (!response.ok) {
-    const parsed = await readError(response)
+    if (response.status === 401) notifySessionExpired()
+    const parsed = await readError(response, errorIntent(init))
     throw new ApiError(parsed.message, response.status, userErrorCode(response.status, parsed.message), parsed.serverMessage ?? undefined)
   }
   return response
@@ -78,7 +85,8 @@ export async function requestForm<T>(path: string, form: FormData, init?: Reques
     throw new ApiError(normalizeUserMessage(error instanceof Error ? error.message : null, 0), 0, 'network')
   }
   if (!response.ok) {
-    const parsed = await readError(response)
+    if (response.status === 401) notifySessionExpired()
+    const parsed = await readError(response, 'write')
     throw new ApiError(parsed.message, response.status, userErrorCode(response.status, parsed.message), parsed.serverMessage ?? undefined)
   }
   return await response.json() as T

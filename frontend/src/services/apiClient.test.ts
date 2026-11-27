@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { request, requestPage } from './apiClient'
+import { LOAD_FAILURE_MESSAGE, USER_MESSAGES } from '../lib/userMessages'
 
 const realFetch = globalThis.fetch
 
@@ -14,6 +15,13 @@ describe('apiClient error normalization', () => {
   it('maps English 500 bodies to an Arabic server message but keeps status', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: 'Internal Server Error' }), { status: 500 })) as typeof fetch
     await expect(request('/api/test')).rejects.toMatchObject({ status: 500, message: expect.stringMatching(/[\u0600-\u06FF]/) })
+  })
+
+  it('uses the load-failure message for failed reads and the save-failure message for failed writes', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: 'Internal Server Error' }), { status: 500 })) as typeof fetch
+    await expect(request('/api/students')).rejects.toMatchObject({ status: 500, message: LOAD_FAILURE_MESSAGE })
+    await expect(request('/api/students', { method: 'POST', body: '{}' })).rejects.toMatchObject({ status: 500, message: USER_MESSAGES.server })
+    await expect(requestPage('/api/students?page=1')).rejects.toMatchObject({ status: 500, message: LOAD_FAILURE_MESSAGE })
   })
 
   it('maps network failures to a retry-safe status 0 and Arabic message', async () => {

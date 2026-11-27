@@ -38,7 +38,12 @@ export default function TeacherNav({ page, unread, canTeacher, canRequests, acti
             className={page === item.id ? 'active' : ''}
             aria-current={page === item.id ? 'page' : undefined}
             disabled={item.disabled}
-            onClick={() => item.id === 'roster' && activeSessionId ? onOpenRoster(activeSessionId) : onNavigate(item.id)}
+            title={item.disabled ? 'لا توجد حلقة جارية' : undefined}
+            onClick={() => {
+              if (item.disabled) return
+              if (item.id === 'roster' && activeSessionId) onOpenRoster(activeSessionId)
+              else onNavigate(item.id)
+            }}
           >
             <Icon size={20} />
             <span>{item.label}</span>
