@@ -154,7 +154,7 @@ public static partial class DomainEndpoints
         if (financeVisible)
         {
             await using(var cmd=db.CreateCommand("""
-              SELECT mc.id,mc.billing_month,mc.amount_due,mc.note,c.name,p.id,p.amount,p.paid_at,p.method,p.reference,p.note,(p.receipt_data IS NOT NULL),mc.voided_at,mc.void_reason,p.voided_at,p.void_reason,
+              SELECT mc.id,mc.billing_month,mc.amount_due,mc.note,c.name,p.id,p.amount,p.paid_at,p.method,p.reference,p.note,(p.receipt_file_path IS NOT NULL OR p.receipt_data IS NOT NULL),mc.voided_at,mc.void_reason,p.voided_at,p.void_reason,
                      CASE
                        WHEN ce.is_trashed OR s.is_trashed THEN 'التحاق الطالب أو ملفه محذوف.'
                        WHEN ce.status <> 'active' THEN 'اشتراك الطالب غير نشط.'

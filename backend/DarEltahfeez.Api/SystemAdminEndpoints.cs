@@ -26,6 +26,7 @@ public static partial class SystemAdminEndpoints
         MapBrandingAndProfile(app);
         MapAuditAndTrash(app);
         MapBackupsAndExport(app);
+        MapMediaMaintenance(app);
     }
 
     private sealed record BrandingResponse(string BrandName, string? LogoDataUrl, string? FacebookUrl, string? TiktokUrl, string? WhatsappUrl);

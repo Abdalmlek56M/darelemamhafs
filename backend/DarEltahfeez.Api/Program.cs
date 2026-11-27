@@ -1,6 +1,7 @@
 using System.Net;
 using System.Threading.RateLimiting;
 using DarEltahfeez.Api;
+using DarEltahfeez.Api.Media;
 using DarEltahfeez.Api.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -112,6 +113,18 @@ builder.Services.AddSingleton(sp =>
 });
 
 builder.Services.AddSingleton<SystemAdminService>();
+
+// FINAL Tier 2.5: receipts, branding logo and avatars are stored as files under a configurable
+// root (Media:RootPath / env Media__RootPath). Program.cs creates the store at startup so a bad
+// or read-only root fails fast instead of surfacing as a 500 on the first upload.
+var mediaOptions = MediaOptionsBinder.FromConfiguration(builder.Configuration);
+builder.Services.AddSingleton(mediaOptions);
+builder.Services.AddSingleton<IMediaFileStore, MediaFileStore>();
+builder.Services.AddSingleton<IReceiptImageProcessor, PassThroughReceiptImageProcessor>();
+builder.Services.AddSingleton<MediaBackfillService>();
+if (mediaOptions.BackfillOnStartup)
+    builder.Services.AddHostedService<MediaBackfillWorker>();
+
 builder.Services.AddHostedService<DarEltahfeez.Api.Services.TrashPurgeWorker>();
 
 // ADR-0006: the admin session is shared with Dar.Api (/api/v1/meet/*). Both APIs must use
@@ -198,6 +211,11 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+
+// Fail fast (and leave an operator-visible log line) when the media root is missing/unwritable.
+var mediaStore = app.Services.GetRequiredService<IMediaFileStore>();
+app.Logger.LogInformation("Media file storage root resolved to {MediaRoot}", mediaStore.RootPath);
+
 app.UseForwardedHeaders();
 app.Use(async (context, next) =>
 {

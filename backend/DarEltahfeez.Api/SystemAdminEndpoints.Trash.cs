@@ -103,10 +103,17 @@ public static partial class SystemAdminEndpoints
         catch { await tx.RollbackAsync(ct); throw; }
     }
 
-    private static async Task<List<object>> ReadResetCandidatesAsync(NpgsqlDataSource db, string sql, CancellationToken ct)
+    private static async Task<List<object>> ReadResetCandidatesAsync(
+        NpgsqlDataSource db, string sql, CancellationToken ct,
+        Dar.Common.Permissions.AccessScope? scope = null)
     {
         var rows = new List<object>();
         await using var cmd = db.CreateCommand(sql);
+        if (scope is { All: false })
+        {
+            cmd.Parameters.AddWithValue("scopeCircles", scope.CircleIds);
+            cmd.Parameters.AddWithValue("scopeTeachers", scope.TeacherIds);
+        }
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct)) rows.Add(new { id = reader.GetGuid(0), label = reader.IsDBNull(1) ? "سجل" : reader.GetString(1) });
         return rows;
@@ -223,7 +230,7 @@ public static partial class SystemAdminEndpoints
 
     private static async Task<string?> ReadBrandingAuditSnapshotAsync(NpgsqlDataSource db, CancellationToken ct)
     {
-        await using var cmd = db.CreateCommand("SELECT jsonb_build_object('brand_name',brand_name,'has_logo',logo_data IS NOT NULL,'logo_content_type',logo_content_type,'facebook_url',facebook_url,'tiktok_url',tiktok_url,'whatsapp_url',whatsapp_url,'trash_retention_days',trash_retention_days,'whatsapp_template_absence',whatsapp_template_absence,'whatsapp_template_unpaid',whatsapp_template_unpaid,'whatsapp_template_teacher_followup',whatsapp_template_teacher_followup,'whatsapp_template_student_followup',whatsapp_template_student_followup,'teacher_notes_banner',teacher_notes_banner,'teacher_notes_banner_active',teacher_notes_banner_active)::text FROM school_settings WHERE id=1;");
+        await using var cmd = db.CreateCommand("SELECT jsonb_build_object('brand_name',brand_name,'has_logo',(logo_data IS NOT NULL OR logo_file_path IS NOT NULL),'logo_content_type',logo_content_type,'facebook_url',facebook_url,'tiktok_url',tiktok_url,'whatsapp_url',whatsapp_url,'trash_retention_days',trash_retention_days,'whatsapp_template_absence',whatsapp_template_absence,'whatsapp_template_unpaid',whatsapp_template_unpaid,'whatsapp_template_teacher_followup',whatsapp_template_teacher_followup,'whatsapp_template_student_followup',whatsapp_template_student_followup,'teacher_notes_banner',teacher_notes_banner,'teacher_notes_banner_active',teacher_notes_banner_active)::text FROM school_settings WHERE id=1;");
         return (string?)await cmd.ExecuteScalarAsync(ct);
     }
 

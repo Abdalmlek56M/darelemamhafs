@@ -35,8 +35,6 @@ public static partial class DomainEndpoints
         """;
 
     private const string StudentProjection = "SELECT " + StudentSelectColumns + "\nFROM students s";
-    private const string StudentProjectionWithTotal =
-        "SELECT " + StudentSelectColumns + ",\nCOUNT(*) OVER() AS total\nFROM students s";
 
     public static void Map(WebApplication app)
     {
@@ -46,6 +44,7 @@ public static partial class DomainEndpoints
         MapEnrollments(app);
         MapScheduleAndAttendance(app);
         MapCollections(app);
+        MapReceipts(app);
         MapAdvertisingExpenses(app);
         MapOperatingExpenses(app);
         MapReports(app);
