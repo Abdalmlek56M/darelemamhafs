@@ -25,7 +25,10 @@ import { assertSafeTargets, pgEnv, psqlFile } from '../../lib/index.mjs';
 
 const CONN = process.env.DAR_TEST_DATABASE || '';
 const ROOT = process.cwd();
-const MIGRATION = 'database/039_enrollment_status_history.sql';
+const MIGRATIONS = [
+  'database/039a_enrollment_status_history_table.sql',
+  'database/039b_enrollment_status_history_backfill.sql',
+];
 const fixture = (name) => fileURLToPath(new URL('./' + name, import.meta.url));
 assertSafeTargets({ db: CONN, urls: [OLD, NEW], label: 'TIER2_HISTORY_FAIL', requireDb: true, requireUrls: true });
 
@@ -38,12 +41,16 @@ const day = (date, offset) => {
 };
 
 function applyMigration() {
-  const run = spawnSync('psql', ['-X', '-q', '-v', 'ON_ERROR_STOP=1', '-1', '-f', MIGRATION],
-    { cwd: ROOT, env: pgEnv(CONN), encoding: 'utf8' });
-  assert.equal(run.status, 0, 're-applying ' + MIGRATION + ' failed: ' + (run.stderr || '').slice(0, 900));
-  assert.match(run.stderr || '', /enrollment_status_history ready/,
+  let stderr = '';
+  for (const migration of MIGRATIONS) {
+    const run = spawnSync('psql', ['-X', '-q', '-v', 'ON_ERROR_STOP=1', '-1', '-f', migration],
+      { cwd: ROOT, env: pgEnv(CONN), encoding: 'utf8' });
+    assert.equal(run.status, 0, 're-applying ' + migration + ' failed: ' + (run.stderr || '').slice(0, 900));
+    stderr += run.stderr || '';
+  }
+  assert.match(stderr, /enrollment_status_history ready/,
     'migration did not reach its invariant/backfill summary');
-  return run.stderr || '';
+  return stderr;
 }
 
 const progress = await setup();

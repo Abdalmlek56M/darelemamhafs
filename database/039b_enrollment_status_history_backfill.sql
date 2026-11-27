@@ -1,33 +1,21 @@
--- FINAL Tier 2.3 -- explicit enrollment status history.
+-- FINAL Tier 2.3 (part B/2) -- explicit enrollment status history: backfill, invariants,
+-- synthetic snapshot rows and switch of the eligibility functions.
 --
--- WHY: public.dar_enrollment_status_at_date() and
--- public.dar_enrollment_is_attendance_eligible_on_date() are evaluated per enrollment and per
--- calendar day by attendance rosters, session summaries and monthly charge eligibility. They used
--- to scan public.audit_log, cast details JSON keys (details->>'effectiveOn')::date on every call
--- and re-sort the matching lifecycle rows. That is the largest scale trap in the eligibility path:
--- the cost grows with the audit trail, not with the enrollment being checked.
+-- Depends on 039a (table, append-only guard and the audit_log INSERT sync trigger). The sync
+-- trigger is installed BEFORE this half runs, so any lifecycle audit row inserted while the
+-- backfill is running is materialised by the trigger; the backfill INSERT .. ON CONFLICT
+-- (source_audit_id) DO NOTHING only fills rows that existed before the trigger. That ordering is
+-- what keeps the split safe without a long global lock.
 --
--- WHAT: this migration materialises exactly the lifecycle rows those functions parsed into
--- public.enrollment_status_history, backfills it from audit_log, keeps it append-only in sync with
--- a trigger on audit_log INSERT (so no existing or future writer can silently miss it), and
--- switches the two date-effective functions to read the new table. Return names, argument lists,
--- return types and the legacy fallback semantics are preserved byte for byte, so no caller changes.
+-- LOCK/RUNTIME: the SHARE ROW EXCLUSIVE lock below is held for this file's transaction only.
+-- It blocks concurrent audit_log INSERT/UPDATE/DELETE (audit_log is append-only anyway) while the
+-- backfill scan/insert, synthetic snapshot rows and invariant assertions run; readers keep
+-- working. The measured cost on a disposable PostgreSQL 17 database is documented in ADR-0009
+-- together with the production catalog estimate; keep the backfill set-based so the hold time
+-- scales with the lifecycle audit rows, not with the whole audit_log.
 --
--- audit_log IS NEVER MODIFIED OR PRUNED HERE: it stays the append-only source of truth and the
--- unique source_audit_id back-reference on every real history row keeps full traceability.
---
--- SYNTHETIC ROWS: enrollments that predate any lifecycle audit row (legacy rows created by direct
--- SQL/imports, or by endpoints that only wrote a circle-level audit row such as the modular
--- supervisor "add students" endpoint) get one-time synthetic snapshot rows. They are traceability
--- rows only -- the eligibility functions deliberately ignore rows with source_audit_id IS NULL,
--- because the date-varying legacy fallback ("paused rows were active before CURRENT_DATE", "ended
--- rows were active until ends_on") cannot be represented by a static effective date. Ignoring
--- synthetic rows keeps the functions bit-for-bit identical to the legacy audit-based behaviour
--- while still recording what was observed when this migration ran.
---
--- IDEMPOTENT: CREATE TABLE/INDEX IF NOT EXISTS, ON CONFLICT (source_audit_id) DO NOTHING and
--- NOT EXISTS guards for the synthetic rows. Re-running the file keeps all counts stable and leaves
--- audit_log untouched.
+-- IDEMPOTENT: re-running this file is a no-op (ON CONFLICT + NOT EXISTS guards + stable counts),
+-- and audit_log is never modified or pruned here: it stays the append-only source of truth.
 
 -- Block concurrent audit writers for the duration of the migration transaction so no lifecycle row
 -- can be inserted between the backfill snapshot and the moment the sync trigger becomes active.
@@ -38,102 +26,6 @@ BEGIN
     EXECUTE 'LOCK TABLE public.audit_log IN SHARE ROW EXCLUSIVE MODE';
 END;
 $lock$;
-
-CREATE TABLE IF NOT EXISTS public.enrollment_status_history (
-    id BIGSERIAL PRIMARY KEY,
-    enrollment_id UUID NOT NULL,
-    -- Mirrors audit_log.details->>'status' exactly (including NULL) so the functions' COALESCE
-    -- fallback behaves identically for malformed legacy rows. App lifecycles write active/paused/ended.
-    status TEXT,
-    -- The date the status change took effect (audit_log.details->>'effectiveOn')::date.
-    effective_at DATE NOT NULL,
-    -- The audit row's wall-clock timestamp; part of the exact legacy ORDER BY tie-breaker.
-    occurred_at TIMESTAMPTZ NOT NULL,
-    action_code VARCHAR(100) NOT NULL,
-    reason TEXT,
-    -- The audit_log row this row was materialised from. NULL only for synthetic snapshot rows.
-    source_audit_id BIGINT UNIQUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT enrollment_status_history_enrollment_fkey
-        FOREIGN KEY (enrollment_id) REFERENCES public.circle_enrollments(id) ON DELETE RESTRICT,
-    CONSTRAINT enrollment_status_history_source_audit_fkey
-        FOREIGN KEY (source_audit_id) REFERENCES public.audit_log(id) ON DELETE RESTRICT
-);
-
--- Hot lookup: latest real state on/before a date, ordered exactly like the legacy audit query.
-CREATE INDEX IF NOT EXISTS ix_enrollment_status_history_lookup
-    ON public.enrollment_status_history (enrollment_id, effective_at DESC, occurred_at DESC, source_audit_id DESC)
-    WHERE source_audit_id IS NOT NULL;
-
--- Supports synthetic-row existence checks and the enrollment foreign-key reverse lookup.
-CREATE INDEX IF NOT EXISTS ix_enrollment_status_history_enrollment
-    ON public.enrollment_status_history (enrollment_id);
-
--- This table is a history table, not mutable business state: rows are only ever appended.
-CREATE OR REPLACE FUNCTION public.dar_enrollment_status_history_append_only()
-RETURNS trigger
-LANGUAGE plpgsql
-SET search_path = pg_catalog, public
-AS $function$
-BEGIN
-    RAISE EXCEPTION 'enrollment_status_history is append-only; % is not allowed', TG_OP;
-END;
-$function$;
-
-DROP TRIGGER IF EXISTS trg_enrollment_status_history_append_only ON public.enrollment_status_history;
-CREATE TRIGGER trg_enrollment_status_history_append_only
-    BEFORE UPDATE OR DELETE ON public.enrollment_status_history
-    FOR EACH ROW
-    EXECUTE FUNCTION public.dar_enrollment_status_history_append_only();
-
--- Keep the materialised history in sync with every writer of enrollment lifecycle audit rows,
--- including the legacy DomainEndpoints lifecycle helpers and any future modular/back-office path.
--- The trigger only copies the two keys the old functions parsed; rows without a usable
--- effectiveOn are ignored exactly like the legacy WHERE clause ignored them.
-CREATE OR REPLACE FUNCTION public.dar_sync_enrollment_status_history()
-RETURNS trigger
-LANGUAGE plpgsql
-SET search_path = pg_catalog, public
-AS $function$
-DECLARE
-    v_effective_at date;
-BEGIN
-    IF NEW.entity_type IS DISTINCT FROM 'enrollment' OR NEW.entity_id IS NULL THEN
-        RETURN NEW;
-    END IF;
-    IF NEW.action_code IS NULL
-       OR NEW.action_code NOT IN ('enrollment.status.baseline','enrollment.pause','enrollment.resume','enrollment.end') THEN
-        RETURN NEW;
-    END IF;
-
-    BEGIN
-        v_effective_at := NULLIF(NEW.details->>'effectiveOn','')::date;
-    EXCEPTION WHEN others THEN
-        -- An unparseable effectiveOn makes the row unusable for the legacy functions too; skip it
-        -- rather than aborting a business transaction whose audit row is already valid evidence.
-        RETURN NEW;
-    END;
-
-    IF v_effective_at IS NULL THEN
-        RETURN NEW;
-    END IF;
-
-    INSERT INTO public.enrollment_status_history
-        (enrollment_id, status, effective_at, occurred_at, action_code, reason, source_audit_id)
-    SELECT NEW.entity_id, NEW.details->>'status', v_effective_at, NEW.occurred_at,
-           NEW.action_code, NULLIF(NEW.details->>'reason',''), NEW.id
-    WHERE EXISTS (SELECT 1 FROM public.circle_enrollments ce WHERE ce.id = NEW.entity_id)
-    ON CONFLICT (source_audit_id) DO NOTHING;
-
-    RETURN NEW;
-END;
-$function$;
-
-DROP TRIGGER IF EXISTS trg_audit_log_enrollment_status_history ON public.audit_log;
-CREATE TRIGGER trg_audit_log_enrollment_status_history
-    AFTER INSERT ON public.audit_log
-    FOR EACH ROW
-    EXECUTE FUNCTION public.dar_sync_enrollment_status_history();
 
 -- Backfill + invariants + one-time synthetic snapshot rows.
 DO $migration$
@@ -393,15 +285,3 @@ AS $function$
     );
 $function$;
 
-COMMENT ON TABLE public.enrollment_status_history IS
-    'Append-only materialised enrollment lifecycle events. Real rows (source_audit_id IS NOT NULL) mirror the enrollment lifecycle audit_log rows the eligibility functions used to parse; synthetic rows (initial/snapshot) record pre-audit legacy state and are ignored by the eligibility functions. audit_log remains the source of truth and is never pruned.';
-COMMENT ON COLUMN public.enrollment_status_history.status IS
-    'Exact copy of audit_log.details->>''status'' (active/paused/ended for app rows; NULL mirrors malformed legacy evidence so the functions'' COALESCE fallback is identical).';
-COMMENT ON COLUMN public.enrollment_status_history.effective_at IS
-    'Exact copy of (audit_log.details->>''effectiveOn'')::date: the date the new status takes effect.';
-COMMENT ON COLUMN public.enrollment_status_history.occurred_at IS
-    'Exact copy of audit_log.occurred_at; second tie-breaker in the legacy ORDER BY.';
-COMMENT ON COLUMN public.enrollment_status_history.source_audit_id IS
-    'Back-reference to audit_log.id. NULL only for one-time synthetic initial/snapshot rows.';
-COMMENT ON COLUMN public.enrollment_status_history.action_code IS
-    'Original audit action code (enrollment.status.baseline / pause / resume / end) or a synthetic action code for snapshot rows.';
