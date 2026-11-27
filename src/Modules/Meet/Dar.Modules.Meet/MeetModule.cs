@@ -29,14 +29,6 @@ public static class MeetModule
         services.AddHostedService<Workers.MeetAlertNotifier>();
         services.AddHttpClient("meet-telegram", client => client.Timeout = TimeSpan.FromSeconds(15));
 
-        services.AddAuthorization(options =>
-        {
-            foreach (var permission in MeetPermissions.All)
-            {
-                options.AddPolicy(permission.Code, policy =>
-                    policy.RequireAuthenticatedUser().RequireClaim("permission", permission.Code));
-            }
-        });
 
         return services;
     }

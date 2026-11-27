@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Using Include="Dar.Common.Domain" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\..\Common\Dar.Common\Dar.Common.csproj" />
   </ItemGroup>
 

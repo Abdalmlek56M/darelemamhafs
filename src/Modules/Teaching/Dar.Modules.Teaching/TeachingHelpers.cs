@@ -4,22 +4,6 @@ using Npgsql;
 
 namespace Dar.Modules.Teaching;
 
-public static class CairoTime
-{
-    private static readonly TimeZoneInfo Zone = ResolveZone();
-
-    private static TimeZoneInfo ResolveZone()
-    {
-        try { return TimeZoneInfo.FindSystemTimeZoneById("Africa/Cairo"); }
-        catch (TimeZoneNotFoundException) { return TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time"); }
-    }
-
-    public static DateTimeOffset Now() => TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, Zone);
-    public static DateOnly Today() => DateOnly.FromDateTime(Now().DateTime);
-    public static TimeOnly NowTime() => TimeOnly.FromDateTime(Now().DateTime);
-    public static TimeOnly ToLocalTime(DateTimeOffset value) => TimeOnly.FromDateTime(TimeZoneInfo.ConvertTime(value, Zone).DateTime);
-}
-
 public static class PayrollLock
 {
     public const string LockedMessage = "مسير رواتب هذا الشهر مقفل. افتح المسير قبل تعديل الحضور أو الأجر.";

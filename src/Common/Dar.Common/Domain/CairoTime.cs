@@ -1,11 +1,9 @@
 namespace Dar.Common.Domain;
 
-/// <summary>FINAL 1.11: the operational day is Africa/Cairo, independent of the server/browser clock.</summary>
+/// <summary>Single Cairo wall-clock helper for every module (FINAL Z2).</summary>
 public static class CairoTime
 {
     private static readonly TimeZoneInfo Zone = ResolveZone();
-
-    public static DateOnly Today() => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, Zone));
 
     private static TimeZoneInfo ResolveZone()
     {
@@ -17,4 +15,9 @@ public static class CairoTime
         }
         return TimeZoneInfo.Utc;
     }
+
+    public static DateTimeOffset Now() => TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, Zone);
+    public static DateOnly Today() => DateOnly.FromDateTime(Now().DateTime);
+    public static TimeOnly NowTime() => TimeOnly.FromDateTime(Now().DateTime);
+    public static TimeOnly ToLocalTime(DateTimeOffset value) => TimeOnly.FromDateTime(TimeZoneInfo.ConvertTime(value, Zone).DateTime);
 }
