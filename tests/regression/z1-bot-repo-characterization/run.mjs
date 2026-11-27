@@ -26,6 +26,7 @@ for (const field of ['status', 'pending', 'active', 'stale', 'staleAfterSeconds'
   assert.ok(field in healthBody, 'health missing ' + field);
 }
 
+one('INSERT INTO meet_settings(id) VALUES (TRUE) ON CONFLICT (id) DO NOTHING;');
 const emptyClaim = await internal('POST', '/internal/meet/jobs/claim', {});
 assert.equal(emptyClaim.status, 204, 'empty claim should be 204, got ' + emptyClaim.status + ' ' + emptyClaim.text.slice(0, 200));
 

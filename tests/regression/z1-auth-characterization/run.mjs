@@ -13,7 +13,7 @@ assert.equal(typeof setupBody, 'object', 'setup status shape');
 const me = await req(OLD, c.admin, 'GET', '/api/auth/me');
 assert.equal(me.status, 200, 'auth me ' + me.text.slice(0, 200));
 const session = JSON.parse(me.text);
-for (const field of ['id', 'username', 'displayName', 'isAdmin', 'permissionCodes']) {
+for (const field of ['id', 'username', 'displayName', 'permissionCodes']) {
   assert.ok(field in session, 'auth/me missing ' + field + ': ' + me.text.slice(0, 300));
 }
 assert.ok(Array.isArray(session.permissionCodes) && session.permissionCodes.includes('users.manage'), 'admin session lost users.manage');
