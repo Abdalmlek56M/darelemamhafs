@@ -3,6 +3,11 @@ import type { Logger } from '../logger.js'
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
+/** FINAL 1.22: only controls whose whole label is an admit action are clicked. */
+export function isAdmitControlLabel(label: string): boolean {
+  return /^(admit|admit all|let in|let them in)$/i.test(label.replace(/\\s+/g, ' ').trim())
+}
+
 /**
  * Switches the live meeting to "Open" access through the host controls panel, so nobody
  * has to ask to be admitted. Meet only exposes this to the host, so it is best effort:

@@ -39,7 +39,7 @@ Batch commits also include suite wiring/report: `7d0d8eb`, `47a9674`, report com
 | 1.18 meet link before launch/exact host | done | `a35a76e` | `link.test.ts` | live Meet not run |
 | 1.19 status retry + local outbox | done | `9946cfa` | `outbox.test.ts` | live API outage not run |
 | 1.20 wav delete/disk check/HLS retention | done | `4b6264f` | `retention.test.ts`, `captureArgs.test.ts` | real recording not run |
-| 1.21 idle consecutive confirmations | in progress | pending | `idle.test.ts` | live participant UI not run |
+| 1.21 idle consecutive confirmations | done | `9f6efbe` | `idle.test.ts` | live participant UI not run |
 | 1.22 restrict/configurable auto-admit | in progress | pending | `admit.test.ts` | live admit UI not run |
 | 1.23 wire state machine + tests + CI | in progress | pending | state tracker/config/poller/capture tests, CI job | CI run not observed |
 | 1.24 startup recovery + automation flag | in progress | pending | retention tests, README risk note | server .runtime dirs not observed |
