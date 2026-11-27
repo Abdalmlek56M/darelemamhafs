@@ -24,15 +24,22 @@ async function loginNew(username) {
 }
 
 // FINAL 1.13: ending a session must not overwrite a manually corrected attendance row.
+// A dedicated teacher/circle/slot keeps this independent from the users q6 already linked.
+const teacherId = crypto.randomUUID();
+const circleId = crypto.randomUUID();
+const slotId = crypto.randomUUID();
+one(`INSERT INTO teachers(id,teacher_code,full_name,status,hourly_rate) VALUES (${q(teacherId)},'T1-END','End Session Teacher','active',60);`);
+one(`INSERT INTO circles(id,circle_code,name,teacher_id,monthly_fee,is_active,starts_on) VALUES (${q(circleId)},'T1-END-C','End Session Circle',${q(teacherId)},0,TRUE,DATE '2026-01-01');`);
+one(`INSERT INTO circle_schedule_slots(id,circle_id,day_of_week,starts_at,duration_minutes,is_active) VALUES (${q(slotId)},${q(circleId)},1,'10:00',60,TRUE);`);
 const teacherUser = await createUser('t1_teacher_end', ['teacher.portal', 'teacher.attendance']);
-one('UPDATE app_users SET teacher_id=' + q(c.teacherId) + ' WHERE id=' + q(teacherUser) + ';');
+one('UPDATE app_users SET teacher_id=' + q(teacherId) + ' WHERE id=' + q(teacherUser) + ';');
 const teacherCookie = await loginNew('t1_teacher_end');
 const date = '2027-01-05';
 const sessionId = one(`INSERT INTO teacher_sessions(id,teacher_id,circle_id,schedule_slot_id,session_date,started_at,status,scheduled_duration_minutes)
-  VALUES (gen_random_uuid(),${q(c.teacherId)},${q(c.circleId)},${q(c.slotId)},DATE '${date}',now()-INTERVAL '30 minutes','in_progress',60) RETURNING id;`);
+  VALUES (gen_random_uuid(),${q(teacherId)},${q(circleId)},${q(slotId)},DATE '${date}',now()-INTERVAL '30 minutes','in_progress',60) RETURNING id;`);
 const manualAttendance = one(`INSERT INTO teacher_attendance(id,schedule_slot_id,circle_id,teacher_id,session_date,scheduled_start,
   duration_minutes,status,hourly_rate_snapshot,payable_amount,marked_by,teacher_session_id,actual_duration_minutes,pay_basis)
-  VALUES (gen_random_uuid(),${q(c.slotId)},${q(c.circleId)},${q(c.teacherId)},DATE '${date}','10:00',45,'present',60,45,${q(c.adminId)},NULL,45,'manual') RETURNING id;`);
+  VALUES (gen_random_uuid(),${q(slotId)},${q(circleId)},${q(teacherId)},DATE '${date}','10:00',45,'present',60,45,${q(c.adminId)},NULL,45,'manual') RETURNING id;`);
 
 const ended = await req(NEW, teacherCookie, 'POST', `/api/v1/teacher/sessions/${sessionId}/end`, { note: 'manual preserved' });
 assert.equal(ended.status, 200, 'end session ' + ended.text.slice(0, 240));
