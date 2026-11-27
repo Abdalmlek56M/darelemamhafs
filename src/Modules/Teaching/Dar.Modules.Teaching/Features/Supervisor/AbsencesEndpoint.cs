@@ -40,6 +40,12 @@ public static class AbsencesEndpoint
             LEFT JOIN teachers t ON t.id = c.teacher_id
             WHERE sa.session_date = @date AND sa.is_trashed = FALSE
               AND sa.status IN ('absent', 'excused')
+              -- FINAL 1.13: a lesson that is still in progress is not an absence yet.
+              AND NOT EXISTS (
+                  SELECT 1 FROM teacher_sessions ts
+                  WHERE ts.schedule_slot_id = sa.schedule_slot_id AND ts.session_date = sa.session_date
+                    AND ts.status = 'in_progress'
+              )
               AND (@all OR c.id = ANY(@circles))
             ORDER BY c.name, s.full_name, s.id
             LIMIT @take OFFSET @skip;
@@ -88,6 +94,11 @@ public static class AbsencesEndpoint
               AND NOT EXISTS (
                   SELECT 1 FROM teacher_attendance ta
                   WHERE ta.schedule_slot_id = ss.id AND ta.session_date = @date AND ta.is_trashed = FALSE
+              )
+              -- FINAL 1.13: do not report a teacher as absent while the session is in progress.
+              AND NOT EXISTS (
+                  SELECT 1 FROM teacher_sessions ts
+                  WHERE ts.schedule_slot_id = ss.id AND ts.session_date = @date AND ts.status = 'in_progress'
               )
             ORDER BY ss.starts_at, t.full_name
             LIMIT 300;

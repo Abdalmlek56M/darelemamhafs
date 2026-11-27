@@ -278,7 +278,8 @@ public static class SessionEndpoints
                 pay_basis=EXCLUDED.pay_basis,
                 overtime_minutes=EXCLUDED.overtime_minutes,
                 undertime_minutes=EXCLUDED.undertime_minutes,
-                is_trashed=FALSE;
+                is_trashed=FALSE
+            WHERE teacher_attendance.teacher_session_id = EXCLUDED.teacher_session_id;
             """, connection, transaction))
         {
             attendance.Parameters.AddWithValue("payable", pay.PayableMinutes);

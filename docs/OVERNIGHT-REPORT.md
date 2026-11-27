@@ -45,6 +45,16 @@ Batch commits also include suite wiring/report: `7d0d8eb`, `47a9674`, report com
 | 1.24 startup recovery + automation flag | done | `ce59134` | retention tests, README risk note | server .runtime dirs not observed |
 | 1.25 nginx /internal 404 | done | `0d8309c` | `bash -n setup-nginx.sh` | live nginx not reloaded |
 
+
+## Tier 1 completion batch
+
+| Item | Status | Commit | Tests | NOT VERIFIED |
+|---|---|---|---|---|
+| 1.13 end-session/absent state | in progress | pending | `tier1-teacher-state` | correction-request edge cases remain blocked |
+| 1.15 OAuth state replay + revoke + SMTP queue | in progress | pending | `MeetOAuthRevokeTests`, `EmailQueueTests`, `tier1-oauth-state` | live Google/SMTP not run |
+| 1.17 pagination envelope unify | in progress | pending | `pagination.test.ts` | backend response shapes not migrated |
+| migration 034 safety | in progress | pending | `tier1-migration-034` | production migration not run |
+
 ## NOT VERIFIED (all Tier-1 work)
 
 - No deployment; production timers, systemd units, migration 034/035, real backups, real browser downloads and live Telegram/Google/recorder flows were not exercised.

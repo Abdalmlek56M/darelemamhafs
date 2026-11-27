@@ -157,7 +157,10 @@ run_suite tier1-expense-trashed tests/regression/tier1-expense-trashed/run.mjs q
 run_suite tier1-unique-race tests/regression/tier1-unique-race/run.mjs q6
 run_suite tier1-money-audit tests/regression/tier1-money-audit/run.mjs q6
 run_suite tier1-notification-sync tests/regression/tier1-notification-sync/run.mjs q6
+run_suite tier1-teacher-state tests/regression/tier1-teacher-state/run.mjs q6
 run_suite tier1-migration-cleanup tests/regression/tier1-migration-cleanup/run.mjs generic
+run_suite tier1-migration-034 tests/regression/tier1-migration-034/run.mjs generic
+run_suite tier1-oauth-state tests/regression/tier1-oauth-state/run.mjs generic
 run_suite integrity-sql tests/regression/integrity-sql/run.mjs generic
 echo "RESULT=$([ "$FAILED" -eq 0 ] && echo PASS || echo FAIL)"
 exit "$FAILED"
