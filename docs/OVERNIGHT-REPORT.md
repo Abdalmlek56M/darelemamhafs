@@ -125,3 +125,26 @@ Batch commits also include suite wiring/report: `7d0d8eb`, `47a9674`, report com
 ## BLOCKED summary
 
 As listed in the table; no item was blocked without a reason. Overnight time/regression budget ended before Tier 2/3/Z1/Z2/Z3-5.
+
+## FINAL continuation (27 Nov 2026, starting from `1d5255b`)
+
+| Item | Status | Commit(s) | Evidence / tests | NOT VERIFIED |
+|---|---|---|---|---|
+| 0. staging: remove `X-Setup-Token` header | done (staging only, no repo commit) | — | vhost has 0 token header lines, `nginx -t` OK, reload rc=0; `POST /api/setup/admin` without token = **403** (token still required); `/health=200`, setup status `needsInitialAdmin=false`; `/srv/dar-staging/STAGING.md` updated | browser re-test by owner |
+| B7 (cookie size) failing test | done | `c7bad78` | `tests/regression/b7-cookie-size` on test-only HEAD: `EXIT=1`, "admin session cookie is 10881 bytes across 4 Set-Cookie header(s) with 200 permissions (limit 1500)" | — |
+| B7 slim admin cookie (permissions out of ticket) | done | `f750897` | after fix: `b7-cookie-size EXIT=0`, `RESULT=PASS`, `{"ok":true,"cases":6,"cookieBytes":614,"cookieHeaders":1,"permissions":200}`; ADR-0008; docs/03-security §27 | staging not redeployed; real browser not exercised |
+| B10 (Secure cookie on http) failing test | done | `166f885` | `tests/regression/b10-cookie-secure` on test-only HEAD: `EXIT=1`, "over plain HTTP the session cookie must not be Secure" | — |
+| B10 scheme-aware Secure flag | done | `73780bf` | after fix: `b10-cookie-secure EXIT=0`, `RESULT=PASS`, `{"ok":true,"cases":5}`; production nginx scheme/redirect verified read-only on the server; docs/03-security §28 | real production HTTPS browser not exercised |
+| B1/B2/B4/B5/B9/B11 UI bugs | done | `32dbfa4` | frontend `npm test`: 31 files / 89 tests PASS (baseline 24/72); `tsc -b --force` exit 0; `npm run build` OK; the 11 new/updated behavior tests failed against the old code first | supervisor/teacher browser flows after a staging redeploy |
+| B3 zero-minute pay minimum | NOT IMPLEMENTED (owner decision) | — | — | owner will decide |
+
+### AllScope answer (item 2 question)
+
+`ScopeLoader.LoadAsync` returns `AccessScope.AllScope` in two cases (src/Common/Dar.Common/Permissions/ScopeLoader.cs):
+
+1. `principal.HasClaim("permission", "users.manage")` — effectively an administrator capability: a holder can create users, grant any permission and reset passwords, so it can already self-escalate; treating it as all-scope adds no new privilege, but it should be documented as an **admin-only** permission, not a normal supervisor one.
+2. **Any account with no rows in `app_user_scopes`** (line 30) — this is a fail-open default: a supervisor/teacher account that was never assigned scopes sees the whole dataset. This contradicts the deny-by-default rule (FINAL 0.6 for the legacy filter) and should become deny/empty scope or an explicit `all` scope row; it needs a behavior decision + test, so it is recorded as **REMAINING** rather than changed silently.
+
+### Full regression
+
+FINAL batch-1 full regression is run on the commit that contains this section; the PASS line and SHA are attached to the final report and to the next report update.
