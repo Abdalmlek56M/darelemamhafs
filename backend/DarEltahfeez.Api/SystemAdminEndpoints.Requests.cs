@@ -11,6 +11,7 @@ public static partial class SystemAdminEndpoints
 {
     internal static void MapRequests(WebApplication app)
     {
+        MapPagedResetCandidates(app);
         MapRequestReview(app);
         MapRequestEdit(app);
     }

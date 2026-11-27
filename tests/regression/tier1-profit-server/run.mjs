@@ -19,7 +19,7 @@ const selectors = readFileSync('frontend/src/application/selectors.ts', 'utf8');
 for (const removed of ['getDashboardProfit', 'getTeacherPaySummary', 'getCircleProfitSummary']) {
   assert.equal(selectors.includes('export function ' + removed), false, removed + ' local money formula still exists');
 }
-const application = readFileSync('frontend/src/application/useDarApplication.ts', 'utf8');
+const application = [readFileSync('frontend/src/application/useDarApplication.ts', 'utf8'), readFileSync('frontend/src/application/useDarApplicationState.ts', 'utf8'), readFileSync('frontend/src/application/useDarActionsA.ts', 'utf8'), readFileSync('frontend/src/application/useDarActionsB.ts', 'utf8')].join('\n');
 assert.equal(application.includes('localDashboardProfit'), false, 'dashboard still merges a local formula');
 assert.match(application, /serverProfit\?\.dashboard/, 'dashboard is not rendered from the server summary');
 assert.match(readFileSync('frontend/src/application/useProfitSummary.ts', 'utf8'), /\/api\/summary\/profit/, 'frontend does not call the server summary endpoint');
