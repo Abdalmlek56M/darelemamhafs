@@ -155,6 +155,7 @@ public sealed class MeetCrypto
         }
 
         userId = state.U;
+        stateNonce = state.N;
         return true;
     }
 
