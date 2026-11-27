@@ -70,7 +70,7 @@ Batch commits also include suite wiring/report: `7d0d8eb`, `47a9674`, report com
 |---|---|---|---|---|
 | Z1 characterization: AuthEndpoints.cs | in progress | pending | `z1-auth-characterization` | browser E2E not run |
 | Z1 characterization: MeetBotJobRepository.cs | in progress | pending | `z1-bot-repo-characterization` | real bot not run |
-| Z1 characterization: teacherTypes.ts | pending | pending | typecheck/type test | type-only |
+| Z1 characterization: teacherTypes.ts | done (split 152/97/198 + barrel) | pending | typecheck + ``teacherTypes.characterization.test.ts`` | type-only |
 | Z1 characterization: useDarApplication.ts / TeacherApp.tsx | pending | pending | render smoke tests | React hook/component E2E not run |
 
 ## NOT VERIFIED (all Tier-1 work)
