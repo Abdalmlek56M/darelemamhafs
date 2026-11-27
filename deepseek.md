@@ -77,7 +77,7 @@
 - **Phase 1.7.1:** Trash permissions + OTP pepper — ✅ per-entity trash checks (limited `trash.manage` user gets 403 for financial/student operations); OTP pepper now fails closed outside Development; all 10 legacy `MapDelete` endpoints removed.
 - **Phase 1.8:** Host + domain deployment stack — ✅ `deploy/` Dockerfiles + Compose + Caddy; images built and local stack smoke-tested (16 migrations, both APIs healthy). Cross-platform backup path + `pg_dump` support added. Legacy live/ready health, last-admin guard, and per-email OTP throttle added.
 - **Phase 1.9:** Frontend Vitest — ✅ 7 selector tests; `npm test` in CI.
-- **Phase 1.10:** Live deployment — ✅ Contabo VPS `31.220.76.171` is live at **https://dar-elemam-hafs.rigxhardware.com** on **Nginx + Certbot + systemd + host PostgreSQL 17 + .NET 10**; 16 migrations restored, both APIs healthy, admin login verified, first backup created. Docker/Caddy stack retired; volumes retained.
+- **Phase 1.10:** Live deployment — ✅ Contabo VPS `<server-ip>` is live at **https://<deployment-host>** on **Nginx + Certbot + systemd + host PostgreSQL 17 + .NET 10**; 16 migrations restored, both APIs healthy, admin login verified, first backup created. Docker/Caddy stack retired; volumes retained.
 - **Phase 1.11:** Host hardening — ✅ UFW, key-only SSH, fail2ban, unattended upgrades, Certbot certificate, daily backup timer. Cloudflare DNS-01 renewal works (dry-run passed); GitHub deploy key added and `/opt/dar` tracks `origin/main` (`git pull` verified). Admin password rotated and temporary file deleted. Google Drive offsite backup configured and restore-tested (local + remote 30-day retention). Pending: dedicated rclone OAuth client ID + Cloudflare token rotation.
 - **Phase 1.12:** Teacher portal requirements — ✅ captured in `docs/13-teacher-portal-requirements.md` + `docs/14-ui-audit-and-mobile-direction.md`; 5-screen interactive sample at `docs/ui-sample/teacher-portal.html`. Password minimum lowered to 6 (owner request); desktop auto-start/connection controls removed. Sample approved with modifications; implementation in Phase 1.14.
 - **Phase 1.13:** Legacy reuse audit — ✅ `docs/15-legacy-reuse-audit.md` confirms students, schedule, teacher/student attendance, payroll math, charges/payments/receipts/collections, and the audit log already exist. Reuse them; do not rebuild. P0 decisions: 15-minute minimum, explicit `Africa/Cairo` date handling, and `app_users.teacher_id`.
@@ -418,3 +418,12 @@ Date: DD Mon YYYY
 8. **2.7–2.9** أمان وتنظيف وجودة إطلاق.
 
 المؤجل بقرار المالك: الإنجليزية، القيد المزدوج، مسير/قسائم الرواتب، خصومات/خطط رسوم، إيصالات مرقّمة، بوابة ولي الأمر.
+
+---
+
+## Current hardening state (Nov 2026)
+
+- Repo `main` includes the hardening work: Tier 0, recorder hardening, Z1 partial splits, Z2 server-authoritative money, Tier 2 indexes/retention, and docs sync. Migration files are now **001→038** (`database/` is the source of truth).
+- Plan and decisions: [docs/23-hardening-plan.md](docs/23-hardening-plan.md) and [docs/03-security.md](docs/03-security.md).
+- **Production is not the same as `main`:** no deploy was performed during the hardening sessions. Check the deployed SHA/backups before claiming any production behaviour.
+- **BLOCKED/NOT DONE:** `useDarApplication.ts` and `TeacherApp.tsx` still need splitting; Z2 audit/permission dedup; Tier 3; Z3 full docs rewrite; Z4 full rewrite of this file; Z5 final recorder docs. The live domain is configured only through `DAR_DOMAIN` in `deploy/.env` and must not be committed.
