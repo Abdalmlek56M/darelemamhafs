@@ -398,3 +398,21 @@ The retired Windows desktop tooling was the only home of some operational checks
   كوكي الإدارة < 1500 بايت، ثم `/api/auth/me` (200 صلاحية) ومسار محمي بالـpolicy يعملان.
 - **NOT VERIFIED:** إعادة نشر staging لم تحدث في هذه الجولة، ولم يُختبر متصفح حقيقي ضد
   الكوكي النحيفة. أثر الإنتاج موثق في ADR-0008: لا كسر للجلسات الحالية، ولا حاجة لإعادة دخول.
+
+## 28. كوكي الجلسة يتبع الـscheme (FINAL B10)
+
+- الخلل من الاختبار الحي على staging: التطبيق كان يضع `Secure` على كوكي الجلسة خارج بيئة
+  Development (`CookieSecurePolicy.Always`)، وstaging يشغّل كود Production لكنه يُخدم على
+  HTTP، فالمتصفح يرفض تخزين/إرسال الكوكي وكل الطلبات بعد "تذكّرني" ترجع 401.
+- الحل: `options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest` في legacy. الإنتاج
+  يظل آمنًا: nginx الإنتاج يوجّه 301 من :80 إلى :443، ويضيف `X-Forwarded-Proto: https` دائمًا
+  (deploy/nginx/dar-elemam-hafs.conf)، والتطبيق يثق بالـproxy loopback فقط
+  (`ForwardedHeaders` + `X-Real-IP`)، فيرى الطلب https ويضع Secure.
+- Regression: `tests/regression/b10-cookie-secure` يشغّل نسخة legacy ببيئة Production على
+  HTTP: كوكي الدخول بدون `Secure` ويعمل `/api/auth/me`، ونفس الطلب مع
+  `X-Forwarded-Proto: https` (محاكاة proxy الإنتاج) يرجع كوكي `Secure`.
+- **NOT VERIFIED:** نشر production الفعلي وتصفح حقيقي عبر HTTPS لم يُجرَّبا في هذه الجولة؛
+  تأكدنا من إعداد nginx الإنتاج للـscheme/redirect من ملف الـvhost على السيرفر (قراءة فقط).
+- ملاحظة نطاق: `dar_session` في الـAPI الجديد لا يزال يستخدم `Secure` خارج Development
+  (خارج بند B10 المحدد)؛ staging يستخدم shim `proxy_cookie_flags ... nosecure` في nginx حتى
+  ينتقل إلى HTTPS، وأي نشر production جديد لـnew API يجب أن يتحقق من الـscheme بنفس الأسلوب.

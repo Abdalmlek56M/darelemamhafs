@@ -235,7 +235,7 @@ RFC 9457 ProblemDetails for every failure:
 
 - **المسار الحالي:** username/password (PBKDF2-SHA256, 210k iterations) + cookie sessions. لا SMS.
 - Email OTP paths مُنفّذة في Identity module وتحتاج SMTP + pepper؛ **Google مؤجل**؛ password fallback يبقى حتى تُجمع إيميلات الحسابات.
-- كوكيز منفصلة لكل host: `DarEltahfeez.Admin` (SameSite=Strict) للـlegacy، و`dar_session` (SameSite=Lax) للـnew API. كلاهما `HttpOnly` + `Secure` خارج Development.
+- كوكيز منفصلة لكل host: `DarEltahfeez.Admin` (SameSite=Strict) للـlegacy — الـticket يحمل الهوية و`session_version` فقط والصلاحيات تُقرأ من `user_permissions` في كل طلب (ADR-0008)، و`dar_session` (SameSite=Lax) للـnew API. كلاهما `HttpOnly`. الـlegacy `Secure` يتبع scheme (`SameAsRequest`): Secure دائمًا خلف HTTPS الإنتاج (nginx يضيف `X-Forwarded-Proto: https`) ولا يظهر على HTTP staging؛ الـnew API لا يزال `Secure` خارج Development (راجع B10 في docs/03-security.md).
 - Revocation: `session_version` bump عند تغيير كلمة المرور/إزالة صلاحية، ويُتحقق منه في الـhostين.
 - CSRF: **لا يوجد token** — الحماية الحالية origin/referer guard على الطلبات غير الآمنة + SameSite + لا CORS.
 - Rate limit: 10/دقيقة لكل IP على مسارات auth. **لا lockout لكل حساب بعد**.

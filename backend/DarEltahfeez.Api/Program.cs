@@ -128,7 +128,11 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.Name = "DarEltahfeez.Admin";
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Strict;
-        options.Cookie.SecurePolicy = (builder.Environment.IsDevelopment() || desktopLocalMode) ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+        // FINAL B10: the Secure flag must follow the request scheme. Production nginx terminates
+        // TLS, always forwards X-Forwarded-Proto: https (deploy/nginx/dar-elemam-hafs.conf) and
+        // redirects :80 to :443, so production cookies stay Secure; plain-HTTP staging no longer
+        // issues a Secure cookie that the browser drops ("remember me" sessions returned 401).
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
         options.Events.OnValidatePrincipal = AuthEndpoints.ValidatePrincipalAsync;
