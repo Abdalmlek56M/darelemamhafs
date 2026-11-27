@@ -61,7 +61,7 @@ Batch commits also include suite wiring/report: `7d0d8eb`, `47a9674`, report com
 | Item | Status | Commit | Tests | NOT VERIFIED |
 |---|---|---|---|---|
 | Z2 server-only money (remove frontend profit formulas/fallback) | done | `0c13823` | `tier1-profit-server` + frontend build/tests | no browser E2E of the dashboard |
-| Z2 one sleep helper in recorder | in progress | pending | recorder typecheck/tests | none |
+| Z2 one sleep helper in recorder | done | `9586de5` | recorder typecheck/tests | none |
 
 ## NOT VERIFIED (all Tier-1 work)
 
