@@ -4,7 +4,7 @@ import type { Theme, Branding, Page, Gate, StudentStatus, TeacherStatus, Session
 import { defaultBranding, weekDays, blankAdExpense, blankOperatingExpense, blankStudent, blankTeacher, blankCircle, blankEnrollment, blankCharge, blankPayment } from '../domain/defaults'
 import { FINANCE_VOID_PERMISSION, VOID_REASON_MAX_LENGTH, VOID_REASON_MIN_LENGTH } from '../system/constants'
 import { statusLabels } from '../domain/labels'
-import { localDateString, localDateKey, currentMonth, formatTime12 } from '../lib/dates'
+import { cairoToday, cairoMonthKey } from '../lib/cairoDate'
 import { formatDate, money } from '../lib/formatters'
 import { safeDownload, toCsv, makeReportSvg } from '../lib/reportExports'
 import { request, requestForm } from '../services/apiClient'
@@ -66,7 +66,7 @@ export function useDarApplicationState() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [circleRoster, setCircleRoster] = useState<CircleStudent[]>([])
-  const [currentMonthValue, setCurrentMonthValue] = useState(currentMonth())
+  const [currentMonthValue, setCurrentMonthValue] = useState(cairoMonthKey())
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | StudentStatus>('all')
   const [teacherFilter, setTeacherFilter] = useState<'all' | TeacherStatus>('all')
@@ -82,7 +82,7 @@ export function useDarApplicationState() {
   const [enrollmentModal, setEnrollmentModal] = useState(false)
   const [enrollmentForm, setEnrollmentForm] = useState<EnrollmentForm>(blankEnrollment())
   const [endingEnrollment, setEndingEnrollment] = useState<{ enrollmentId: string; studentId: string; studentName: string; circleId: string; circleName: string } | null>(null)
-  const [endEnrollmentDate, setEndEnrollmentDate] = useState(localDateString())
+  const [endEnrollmentDate, setEndEnrollmentDate] = useState(cairoToday())
   const [chargeModal, setChargeModal] = useState(false)
   const [editingChargeId, setEditingChargeId] = useState<string | null>(null)
   const [chargeForm, setChargeForm] = useState<ChargeForm>(blankCharge())

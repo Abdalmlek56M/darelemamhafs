@@ -1,16 +1,12 @@
-import { todayCairo } from './supervisorFormat'
+import { addCairoDays, cairoToday } from '../lib/cairoDate'
 import type {
   SupervisorAbsencesResponse, SupervisorAttendanceRequest, SupervisorCircle, SupervisorCircleDetailResponse,
   SupervisorLiveResponse, SupervisorStudent, SupervisorStudentAttendanceRow, SupervisorStudentDetailResponse,
   SupervisorTeacher, SupervisorTeacherAttendanceRow, SupervisorTeacherDetailResponse, SupervisorTeacherNote, SupervisorUnpaidResponse,
 } from './teacherTypes'
 
-const today = todayCairo()
-const day = (offset: number) => {
-  const value = new Date(`${today}T12:00:00Z`)
-  value.setUTCDate(value.getUTCDate() + offset)
-  return value.toISOString().slice(0, 10)
-}
+const today = cairoToday()
+const day = (offset: number) => addCairoDays(today, offset)
 
 export const demoStudents: SupervisorStudent[] = [
   { id: 'demo-s1', studentCode: 'ST-1001', fullName: 'مريم أحمد', phone: '01012345678', guardianName: 'أحمد سعيد', guardianPhone: '01098765432', status: 'active', joinedOn: day(-120), subscriptionStatus: 'paid', circles: ['حلقة النور'] },
@@ -113,7 +109,7 @@ export function demoStudentDetail(id: string): SupervisorStudentDetailResponse {
       id: student.id, studentCode: student.studentCode, fullName: student.fullName, phone: student.phone,
       guardianName: student.guardianName, guardianPhone: student.guardianPhone, status: student.status,
       joinedOn: student.joinedOn, notes: null,
-      circles: student.circles.map((name, index) => ({ id: `demo-c${index + 1}`, name })),
+      circles: student.circles.map((name) => ({ id: demoCircles.find((circle) => circle.name === name)?.id ?? name, name })),
     },
     period: { from: day(-30), to: today },
     attendance: { present: 18, absent: 2, excused: 1, marked: 21, rate: 85.7 },
@@ -147,7 +143,8 @@ export function demoTeacherDetail(id: string): SupervisorTeacherDetailResponse {
 
 export function demoCircleDetail(id: string): SupervisorCircleDetailResponse {
   const circle = demoCircles.find((item) => item.id === id) ?? demoCircles[0]
-  const roster = circle.name === 'حلقة النور' ? demoStudents.slice(0, 3) : demoStudents.slice(2, 5)
+  // Resolve the roster by the demo circle id, never by a display-name match.
+  const roster = circle.id === 'demo-c1' ? demoStudents.slice(0, 3) : demoStudents.slice(2, 5)
   return {
     circle: { id: circle.id, name: circle.name, teacherId: circle.teacherId, teacherName: circle.teacherName, isActive: circle.isActive, startsOn: circle.startsOn, monthlyFee: null },
     studentCount: roster.length,

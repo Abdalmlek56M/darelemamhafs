@@ -4,7 +4,6 @@ import type { Theme, Branding, Page, Gate, StudentStatus, TeacherStatus, Session
 import { defaultBranding, weekDays, blankAdExpense, blankOperatingExpense, blankStudent, blankTeacher, blankCircle, blankEnrollment, blankCharge, blankPayment } from '../domain/defaults'
 import { FINANCE_VOID_PERMISSION, VOID_REASON_MAX_LENGTH, VOID_REASON_MIN_LENGTH } from '../system/constants'
 import { statusLabels } from '../domain/labels'
-import { localDateString, localDateKey, currentMonth, formatTime12 } from '../lib/dates'
 import { formatDate, money } from '../lib/formatters'
 import { safeDownload, toCsv, makeReportSvg } from '../lib/reportExports'
 import { request, requestForm } from '../services/apiClient'
@@ -33,6 +32,7 @@ import {
 import { confirmAction } from '../components/common/confirmService'
 import useProfitSummary, { type ProfitDashboardSummary } from './useProfitSummary'
 import { parseMoneyInput } from '../lib/money'
+import { remainingAmountForCharge, validatePaymentAmount } from '../lib/validation'
 
 
 import type { DarApplicationState } from './useDarApplicationState'
@@ -166,9 +166,10 @@ export function useDarActionsB(state: DarApplicationState, actionsA: ReturnType<
   const savePayment = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const key = paymentIdempotencyKeyRef.current ??= newIdempotencyKey()
-    const parsedAmount = parseMoneyInput(paymentForm.amount)
-    if (!parsedAmount.ok) { setToast({ tone: 'error', text: parsedAmount.error }); return }
-    const data = { ...paymentForm, amount: parsedAmount.value, method: paymentForm.method || null, reference: paymentForm.reference.trim() || null, note: paymentForm.note.trim() || null }
+    // Defense in depth: the dialog validates first, and the API re-checks the balance.
+    const validation = validatePaymentAmount(paymentForm.amount, remainingAmountForCharge(collections, paymentForm.monthlyChargeId))
+    if (!validation.ok) { setToast({ tone: 'error', text: validation.error }); return }
+    const data = { ...paymentForm, amount: validation.value, method: paymentForm.method || null, reference: paymentForm.reference.trim() || null, note: paymentForm.note.trim() || null }
     setSaving(true)
     try {
       if (paymentReceipt) {

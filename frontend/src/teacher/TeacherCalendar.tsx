@@ -1,4 +1,6 @@
 import { formatTime12 } from '../lib/dates'
+import { addCairoDays, cairoToday } from '../lib/cairoDate'
+import { formatDate } from '../lib/formatters'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { teacherApi, TeacherApiError } from './teacherApi'
@@ -12,23 +14,8 @@ type Props = {
 
 const weekDays = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
 
-function cairoToday() {
-  try {
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
-  } catch {
-    return new Date().toISOString().slice(0, 10)
-  }
-}
-
-function dateLabel(value: string) {
-  const date = new Date(`${value}T12:00:00`)
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'long' }).format(date)
-}
-
 function shiftDate(value: string, days: number) {
-  const date = new Date(`${value}T12:00:00`)
-  date.setDate(date.getDate() + days)
-  return date.toISOString().slice(0, 10)
+  return addCairoDays(value, days)
 }
 
 function statusLabel(session: TeacherCalendarSession) {
@@ -97,7 +84,7 @@ export default function TeacherCalendar({ onBack, onOpenLive, onOpenRoster }: Pr
             <article className={`t-calendar-day ${day.date === today ? 'is-today' : ''}`} key={day.date}>
               <div className="t-calendar-day-head">
                 <span>{weekDays[day.dayOfWeek] ?? ''}</span>
-                <strong>{dateLabel(day.date)}</strong>
+                <strong>{formatDate(day.date)}</strong>
               </div>
               {day.sessions.length === 0 && <p className="t-calendar-empty">لا حلقات</p>}
               {day.sessions.map((session) => (

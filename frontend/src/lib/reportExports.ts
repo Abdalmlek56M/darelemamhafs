@@ -1,9 +1,10 @@
 import type { CollectionRow } from '../domain/types'
 import { payLabels } from '../domain/labels'
 import { money } from './formatters'
+import { escapeCsvCell } from './csv'
 
 export function safeDownload(filename: string, text: string, mime = 'text/plain;charset=utf-8') { const blob = new Blob([text], { type: mime }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url) }
-export function toCsv(rows: CollectionRow[]) { const columns: [string, (r: CollectionRow) => string | number][] = [['الطالب', r => r.studentName], ['كود الطالب', r => r.studentCode], ['الحلقة', r => r.circleName], ['المعلمة', r => r.teacherName], ['الشهر', r => r.billingMonth], ['الرسوم المستحقة', r => r.amountDue], ['المدفوع', r => r.paidAmount], ['المتبقي', r => r.balance], ['الحالة', r => payLabels[r.paymentStatus]]]; const quote = (v: string | number) => `"${String(v).replaceAll('"', '""')}"`; return '\ufeff' + [columns.map(c => quote(c[0])).join(','), ...rows.map(r => columns.map(c => quote(c[1](r))).join(','))].join('\r\n') }
+export function toCsv(rows: CollectionRow[]) { const columns: [string, (r: CollectionRow) => string | number][] = [['الطالب', r => r.studentName], ['كود الطالب', r => r.studentCode], ['الحلقة', r => r.circleName], ['المعلمة', r => r.teacherName], ['الشهر', r => r.billingMonth], ['الرسوم المستحقة', r => r.amountDue], ['المدفوع', r => r.paidAmount], ['المتبقي', r => r.balance], ['الحالة', r => payLabels[r.paymentStatus]]]; return '\ufeff' + [columns.map(c => escapeCsvCell(c[0])).join(','), ...rows.map(r => columns.map(c => escapeCsvCell(c[1](r))).join(','))].join('\r\n') }
 export function makeReportSvg(title: string, month: string, rows: CollectionRow[], totals: { due: number; paid: number; balance: number }) {
   const esc = (s: string) => s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')
   const width = 1320, rowH = 42, height = 300 + rows.length * rowH

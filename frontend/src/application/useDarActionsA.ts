@@ -4,7 +4,8 @@ import type { Theme, Branding, Page, Gate, StudentStatus, TeacherStatus, Session
 import { defaultBranding, weekDays, blankAdExpense, blankOperatingExpense, blankStudent, blankTeacher, blankCircle, blankEnrollment, blankCharge, blankPayment } from '../domain/defaults'
 import { FINANCE_VOID_PERMISSION, VOID_REASON_MAX_LENGTH, VOID_REASON_MIN_LENGTH } from '../system/constants'
 import { statusLabels } from '../domain/labels'
-import { localDateString, localDateKey, currentMonth, formatTime12 } from '../lib/dates'
+import { formatTime12 } from '../lib/dates'
+import { cairoToday } from '../lib/cairoDate'
 import { formatDate, money } from '../lib/formatters'
 import { safeDownload, toCsv, makeReportSvg } from '../lib/reportExports'
 import { request, requestForm } from '../services/apiClient'
@@ -210,7 +211,7 @@ export function useDarActionsA(state: DarApplicationState) {
       setToast({ tone: 'info', text: 'تم تسجيل الالتحاق، لكن تعذر تحديث القوائم. اضغط تحديث للمراجعة.' })
     }
   }
-  const endEnrollment = async (enrollmentId: string, studentId: string, studentName = 'الطالب', circleName = 'الحلقة', circleId = selectedCircle?.id ?? '') => { setEndEnrollmentDate(localDateString()); setEndingEnrollment({ enrollmentId, studentId, studentName, circleId, circleName }) }
+  const endEnrollment = async (enrollmentId: string, studentId: string, studentName = 'الطالب', circleName = 'الحلقة', circleId = selectedCircle?.id ?? '') => { setEndEnrollmentDate(cairoToday()); setEndingEnrollment({ enrollmentId, studentId, studentName, circleId, circleName }) }
   const refreshEnrollmentViews = async (circleId: string, studentId?: string) => {
     await Promise.all([loadStudents(), loadCircles(), loadCollections()])
     if (studentId && selectedStudent?.id === studentId && history) {
@@ -224,7 +225,7 @@ export function useDarActionsA(state: DarApplicationState) {
     if (!(await confirmAction({ title: 'تأكيد تسجيل الحضور', message: `سيتم إيقاف التحاق ${studentName} في حلقة ${circleName} اعتبارًا من اليوم فقط. لن تتأثر التحاقاته في الحلقات الأخرى، وسيُمنع تسجيل حضور جديد لهذا الالتحاق خلال فترة الإيقاف. هل تريد المتابعة؟`, confirmLabel: 'متابعة' }))) return
     setSaving(true)
     try {
-      await request(`/api/enrollments/${enrollmentId}/pause`, { method: 'PATCH', body: JSON.stringify({ effectiveOn: localDateString(), reason: null }) })
+      await request(`/api/enrollments/${enrollmentId}/pause`, { method: 'PATCH', body: JSON.stringify({ effectiveOn: cairoToday(), reason: null }) })
       await refreshEnrollmentViews(circleId, studentId)
       setToast({ tone: 'success', text: `تم إيقاف التحاق ${studentName} في ${circleName} مؤقتًا.` })
     } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر إيقاف الالتحاق.' }) }
@@ -234,7 +235,7 @@ export function useDarActionsA(state: DarApplicationState) {
     if (!(await confirmAction({ title: 'تأكيد العملية', message: `سيُستأنف التحاق ${studentName} في حلقة ${circleName} اعتبارًا من اليوم. لن تتأثر حالة التحاقه في الحلقات الأخرى. هل تريد المتابعة؟`, confirmLabel: 'متابعة' }))) return
     setSaving(true)
     try {
-      await request(`/api/enrollments/${enrollmentId}/resume`, { method: 'PATCH', body: JSON.stringify({ effectiveOn: localDateString(), reason: null }) })
+      await request(`/api/enrollments/${enrollmentId}/resume`, { method: 'PATCH', body: JSON.stringify({ effectiveOn: cairoToday(), reason: null }) })
       await refreshEnrollmentViews(circleId, studentId)
       setToast({ tone: 'success', text: `تم استئناف التحاق ${studentName} في ${circleName}.` })
     } catch (error) { setToast({ tone: 'error', text: error instanceof Error ? error.message : 'تعذر استئناف الالتحاق.' }) }
@@ -242,7 +243,7 @@ export function useDarActionsA(state: DarApplicationState) {
   }
   const confirmEndEnrollment = async () => {
     if (!endingEnrollment) return
-    if (!endEnrollmentDate || endEnrollmentDate > localDateString()) { setToast({ tone: 'error', text: 'اختَر تاريخ نهاية مسجلًا اليوم أو قبله.' }); return }
+    if (!endEnrollmentDate || endEnrollmentDate > cairoToday()) { setToast({ tone: 'error', text: 'اختَر تاريخ نهاية مسجلًا اليوم أو قبله.' }); return }
     setSaving(true)
     const ending = endingEnrollment
     try {

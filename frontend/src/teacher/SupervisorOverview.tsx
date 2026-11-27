@@ -20,7 +20,7 @@ type Props = {
   canFinance: boolean
   canCorrect: boolean
   onNavigate: (section: Section) => void
-  onDemo: () => void
+  onDemo?: () => void
 }
 
 export default function SupervisorOverview({
@@ -144,8 +144,9 @@ export default function SupervisorOverview({
       {!loading && (students + circles + teachers === 0) && (
         <div className="sup-empty-card">
           <strong>لا توجد بيانات تشغيلية بعد</strong>
-          <p>ابدأ بعرض نموذج كامل بالبيانات التجريبية لمعاينة الشكل النهائي، ثم أوقفه للعودة إلى بياناتك الحقيقية.</p>
-          <button className="sup-primary" onClick={onDemo}>عرض نموذج بالبيانات</button>
+          {onDemo
+            ? <><p>ابدأ بعرض نموذج كامل بالبيانات التجريبية لمعاينة الشكل النهائي، ثم أوقفه للعودة إلى بياناتك الحقيقية.</p><button className="sup-primary" onClick={onDemo}>عرض نموذج بالبيانات</button></>
+            : <p>ستظهر هنا بيانات الحلقات والحضور والطلاب بعد تسجيلها.</p>}
         </div>
       )}
 

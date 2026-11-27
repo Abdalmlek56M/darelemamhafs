@@ -1,3 +1,5 @@
+import type { SessionStatus } from '../domain/types'
+
 export type SupervisorSession = {
   sessionId: string
   circleName: string
@@ -7,7 +9,7 @@ export type SupervisorSession = {
   scheduledMinutes: number
   startedAt: string
   endedAt: string | null
-  status: string
+  status: SessionStatus
   actualMinutes: number
   lateMinutes: number
   overtimeMinutes: number

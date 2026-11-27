@@ -1,8 +1,17 @@
+import { cairoDayKey } from '../lib/cairoDate'
+
 export const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
 export { formatTime12 } from '../lib/dates'
 
 export function dateLabel(value: string | null | undefined) {
   if (!value) return '—'
+  // Instants (createdAt/markedAt) are UTC: render their Cairo calendar date.
+  if (value.includes('T')) {
+    const dayKey = cairoDayKey(new Date(value))
+    if (!dayKey) return '—'
+    const [year, month, day] = dayKey.split('-')
+    return `${day}/${month}/${year}`
+  }
   const parts = value.slice(0, 10).split('-')
   if (parts.length !== 3) return value
   return `${parts[2]}/${parts[1]}/${parts[0]}`
@@ -39,14 +48,7 @@ export function percent(value: number | null | undefined) {
   return value === null || value === undefined ? '—' : `${value}%`
 }
 
-export function todayCairo() {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Africa/Cairo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date())
-}
+export { cairoToday as todayCairo } from '../lib/cairoDate'
 
 export function whatsappHref(phone: string | null | undefined, message: string) {
   if (!phone) return null

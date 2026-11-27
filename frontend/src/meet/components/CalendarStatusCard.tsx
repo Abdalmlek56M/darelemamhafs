@@ -1,3 +1,4 @@
+import { CAIRO_TIME_ZONE } from '../../lib/cairoDate'
 import { AlertTriangle, CalendarCheck2, CalendarSync, Link2, RefreshCw, ShieldCheck, Unplug } from 'lucide-react'
 import type { MeetCalendarStatus, MeetSettings } from '../types'
 
@@ -16,7 +17,7 @@ function lastSyncLabel(value: string | null) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return new Intl.DateTimeFormat('ar-EG-u-nu-latn', {
-    timeZone: 'Africa/Cairo',
+    timeZone: CAIRO_TIME_ZONE,
     day: 'numeric',
     month: 'short',
     year: 'numeric',

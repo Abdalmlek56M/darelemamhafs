@@ -1,10 +1,11 @@
+import { cairoYearMonth } from '../../lib/cairoDate'
+
 const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
 
 function parseMonthValue(value: string): { year: number; month: number } {
   const match = /^(\d{4})-(\d{2})$/.exec(value ?? '')
   if (match) return { year: Number(match[1]), month: Math.min(12, Math.max(1, Number(match[2]))) }
-  const now = new Date()
-  return { year: now.getFullYear(), month: now.getMonth() + 1 }
+  return cairoYearMonth()
 }
 
 function formatMonthValue(year: number, month: number): string {
@@ -19,7 +20,7 @@ type Props = { value: string; onChange: (value: string) => void; ariaLabel?: str
  */
 export default function MonthPicker({ value, onChange, ariaLabel = 'الشهر', disabled = false }: Props) {
   const { year, month } = parseMonthValue(value)
-  const thisYear = new Date().getFullYear()
+  const thisYear = cairoYearMonth().year
   const firstYear = Math.min(year, 2024)
   const lastYear = Math.max(year, thisYear + 2)
   const years: number[] = []

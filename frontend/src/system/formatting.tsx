@@ -1,10 +1,12 @@
+import { CAIRO_TIME_ZONE } from '../lib/cairoDate'
+
 export function formatDate(value: string | null | undefined) {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return value.includes('T')
-    ? new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' }).format(date)
-    : new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
+    ? new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: CAIRO_TIME_ZONE }).format(date)
+    : new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric', timeZone: CAIRO_TIME_ZONE }).format(new Date(`${value.slice(0, 10)}T12:00:00Z`))
 }
 
 export function bytes(value: number | null) {

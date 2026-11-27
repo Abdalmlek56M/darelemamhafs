@@ -3,7 +3,8 @@ import { motion } from 'framer-motion'
 import { Archive, BookOpen, CalendarDays, CheckCircle2, Clock3, GraduationCap, Plus, Trash2, Wallet, X, CalendarClock, BellRing, BellOff, UserCheck, UsersRound, Pencil, Save } from 'lucide-react'
 import Field from '../components/common/Field'
 import { weekDays } from '../domain/defaults'
-import { formatTime12, remainingLabel, localDateKey } from '../lib/dates'
+import { formatTime12, remainingLabel } from '../lib/dates'
+import { cairoDayKey } from '../lib/cairoDate'
 import Empty from '../components/common/EmptyState'
 import MonthPicker from '../components/common/MonthPicker'
 import ResponsiveTable, { type ResponsiveColumn } from '../components/common/ResponsiveTable'
@@ -293,7 +294,7 @@ export default function SchedulePage({ ctx }: Props) {
 <Clock3 size={14}/>{formatTime12(slot.startsAt)} · {slot.durationMinutes} دقيقة</p>
 <div className="countdown-label">{slot.isRunning?'الوقت المتبقي من الحلقة':'متبقي على الحلقة'}</div>
 <div className="countdown-value">{slot.isRunning?remainingLabel(slot.endsAt.getTime()-ctx.clockNow):remainingLabel(slot.target.getTime()-ctx.clockNow)}</div>
-<small>{formatDate(localDateKey(slot.target))}</small>
+<small>{formatDate(cairoDayKey(slot.target))}</small>
 <div className={`schedule-alert-state ${ctx.isScheduleAlertEnabled(slot.id)?'is-alert-enabled':'is-alert-disabled'}`}>
 <BellRing size={12}/>{ctx.isScheduleAlertEnabled(slot.id)?'التنبيه مفعّل':'التنبيه متوقف'}</div>
 </article>)}{visibleNextSessions.length===0&&<div className="panel glass">

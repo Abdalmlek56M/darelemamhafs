@@ -7,6 +7,7 @@ import { ADMIN_PAGE_SIZE } from '../lib/pagination'
 import type { AdminAttendanceRequest, AdminRequestsResponse } from '../system/types'
 import type { DarApplicationContext } from '../application/useDarApplication'
 import { confirmAction } from '../components/common/confirmService'
+import { formatDate } from '../lib/formatters'
 
 type Props = { ctx: DarApplicationContext }
 type Filter = 'pending' | 'approved' | 'rejected' | 'all'
@@ -22,12 +23,6 @@ const statusLabels: Record<string, string> = {
   approved: 'معتمد',
   rejected: 'مرفوض',
   cancelled: 'ملغي',
-}
-
-function dateLabel(value: string | null) {
-  if (!value) return '—'
-  const date = new Date(`${value}T12:00:00`)
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
 }
 
 function createdLabel(value: string) {
@@ -192,7 +187,7 @@ export default function AdminRequestsPage({ ctx }: Props) {
             <h3>{item.teacherName} · {item.circleName}</h3>
             <p>{item.reason}</p>
             <div className="admin-request-meta">
-              <span>تاريخ الحصة: {dateLabel(item.date)}</span>
+              <span>تاريخ الحصة: {formatDate(item.date)}</span>
               {item.type === 'correction' && item.payload && <CorrectionPayload payload={item.payload} />}
               {item.reviewedAt && <span>تمت المراجعة: {createdLabel(item.reviewedAt)}</span>}
               {item.reviewNote && <span>ملاحظة المراجعة: {item.reviewNote}</span>}

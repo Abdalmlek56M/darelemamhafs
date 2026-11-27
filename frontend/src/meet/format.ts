@@ -1,6 +1,9 @@
 import type { MeetEvent, MeetFilter, MeetRecordingMode } from './types'
+import { CAIRO_TIME_ZONE } from '../lib/cairoDate'
 
-const CAIRO = 'Africa/Cairo'
+const CAIRO = CAIRO_TIME_ZONE
+
+export { cairoDayKey } from '../lib/cairoDate'
 
 /** Calendar times are stored in UTC and always displayed in Africa/Cairo (docs/01). */
 export function cairoDateTime(value: string): string {
@@ -24,22 +27,6 @@ export function cairoTime(value: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date)
-}
-
-export function cairoDayKey(value: string | Date): string {
-  const date = typeof value === 'string' ? new Date(value) : value
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: CAIRO,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date)
-}
-
-export function addDays(base: Date, days: number): Date {
-  const next = new Date(base)
-  next.setDate(next.getDate() + days)
-  return next
 }
 
 export const filterLabels: Record<MeetFilter, string> = {

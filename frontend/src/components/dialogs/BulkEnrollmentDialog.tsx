@@ -3,7 +3,7 @@ import { CheckCircle2, Search, Users, X } from 'lucide-react'
 import Modal from '../common/Modal'
 import Field from '../common/Field'
 import { request } from '../../services/apiClient'
-import { localDateString } from '../../lib/dates'
+import { cairoToday } from '../../lib/cairoDate'
 import type { Circle } from '../../domain/types'
 import type { DarApplicationContext } from '../../application/useDarApplication'
 
@@ -30,7 +30,7 @@ export default function BulkEnrollmentDialog({ ctx, circle, close }: Props) {
   const [selected, setSelected] = useState<string[]>([])
   const [fees, setFees] = useState<Record<string, string>>({})
   const [bulkFee, setBulkFee] = useState(defaultFee)
-  const [startsOn, setStartsOn] = useState(localDateString())
+  const [startsOn, setStartsOn] = useState(cairoToday())
   const [allowClosed, setAllowClosed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)

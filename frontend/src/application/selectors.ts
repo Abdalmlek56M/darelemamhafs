@@ -10,7 +10,8 @@ import type {
   StudentStatus,
   TeacherStatus,
 } from '../domain/types'
-import { localDateKey, timeLabel, sessionDateTime } from '../lib/dates'
+import { timeLabel } from '../lib/dates'
+import { addCairoDays, cairoDayKey, cairoInstant, dayKeyWeekday } from '../lib/cairoDate'
 
 export type MonthSession = {
   slot: ScheduleSlot
@@ -20,23 +21,21 @@ export type MonthSession = {
 }
 
 export function getNextSessions(scheduleSlots: ScheduleSlot[], circles: Circle[], clockNow: number) {
-  const todayKey = localDateKey(new Date(clockNow))
+  const todayKey = cairoDayKey(new Date(clockNow))
   return scheduleSlots
     .filter(slot => slot.isActive && slot.circleIsActive !== false)
     .map(slot => {
-      const [hour, minute] = timeLabel(slot.startsAt).split(':').map(Number)
-      const circleStart = circles.find(circle => circle.id === slot.circleId)?.startsOn
+      const startTime = timeLabel(slot.startsAt)
+      const circleStart = circles.find(circle => circle.id === slot.circleId)?.startsOn?.slice(0, 10)
       // Start from the later of today and the circle's declared start date.
       // This avoids skipping or miscalculating weekdays when the start date is in the future.
       const baselineKey = circleStart && circleStart > todayKey ? circleStart : todayKey
-      const target = new Date(`${baselineKey}T12:00:00`)
-      const offset = (slot.dayOfWeek - target.getDay() + 7) % 7
-      target.setDate(target.getDate() + offset)
-      target.setHours(hour, minute, 0, 0)
+      const firstKey = addCairoDays(baselineKey, (slot.dayOfWeek - dayKeyWeekday(baselineKey) + 7) % 7)
+      let target = cairoInstant(firstKey, startTime)
       let endsAt = new Date(target.getTime() + slot.durationMinutes * 60_000)
-      const isRunning = localDateKey(target) === todayKey && target.getTime() <= clockNow && clockNow < endsAt.getTime()
+      const isRunning = cairoDayKey(target) === todayKey && target.getTime() <= clockNow && clockNow < endsAt.getTime()
       if (target.getTime() <= clockNow && !isRunning) {
-        target.setDate(target.getDate() + 7)
+        target = cairoInstant(addCairoDays(firstKey, 7), startTime)
         endsAt = new Date(target.getTime() + slot.durationMinutes * 60_000)
       }
       return { ...slot, target, endsAt, isRunning }
@@ -51,7 +50,7 @@ export function getMonthSessions(
 ): MonthSession[] {
   const [year, month] = currentMonthValue.split('-').map(Number)
   if (!year || !month) return []
-  const count = new Date(year, month, 0).getDate()
+  const count = new Date(Date.UTC(year, month, 0)).getUTCDate()
   const indexed = new Map<string, MonthSession>()
   const slotById = new Map<string, ScheduleSlot>(scheduleSlots.map(slot => [slot.id, slot] as const))
   const attendanceIndex = new Map<string, AttendanceRow>(
@@ -62,14 +61,14 @@ export function getMonthSessions(
 
   // Active slots create the expected weekly occurrences for the selected month.
   for (let day = 1; day <= count; day++) {
-    const dateObj = new Date(year, month - 1, day)
     const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    const weekday = dayKeyWeekday(date)
     for (const slot of scheduleSlots) {
-      if (!slot.isActive || slot.dayOfWeek !== dateObj.getDay()) continue
+      if (!slot.isActive || slot.dayOfWeek !== weekday) continue
       // Include recurring dates before startsOn as clearly marked historical candidates.
       // Administrators may need to enter backdated attendance; the UI labels these rows.
       const key = `${slot.id}|${date}`
-      indexed.set(key, { slot, date, target: sessionDateTime(date, slot.startsAt), attendance: attendanceIndex.get(key) })
+      indexed.set(key, { slot, date, target: cairoInstant(date, slot.startsAt), attendance: attendanceIndex.get(key) })
     }
   }
 
@@ -82,7 +81,7 @@ export function getMonthSessions(
     const key = `${slot.id}|${date}`
     const existing = indexed.get(key)
     if (existing) existing.attendance = attendance
-    else indexed.set(key, { slot, date, target: sessionDateTime(date, attendance.startsAt || slot.startsAt), attendance })
+    else indexed.set(key, { slot, date, target: cairoInstant(date, attendance.startsAt || slot.startsAt), attendance })
   }
 
   return [...indexed.values()].sort((a, b) => b.target.getTime() - a.target.getTime())
@@ -134,6 +133,16 @@ export function getFilteredTeachers(teachers: Teacher[], query: string, teacherF
       .some(x => x.toLocaleLowerCase('ar').includes(term))) &&
       (teacherFilter === 'all' || t.status === teacherFilter)
   })
+}
+
+/**
+ * Resolve one of a teacher's circle names to its circle record. Teacher DTOs only
+ * expose circle names, so scope by the teacher id and refuse ambiguous matches
+ * instead of opening an arbitrary circle that happens to share the name.
+ */
+export function findTeacherCircleByName(circles: Circle[], teacherId: string, name: string): Circle | undefined {
+  const matches = circles.filter(circle => circle.name === name)
+  return matches.find(circle => circle.teacherId === teacherId) ?? (matches.length === 1 ? matches[0] : undefined)
 }
 
 export function getCurrentMonthTotals(collections: CollectionRow[]) {

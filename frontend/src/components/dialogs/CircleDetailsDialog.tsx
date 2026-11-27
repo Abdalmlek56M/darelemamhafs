@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import Modal from '../common/Modal'
 import { formatDate, money } from '../../lib/formatters'
-import { formatTime12, localDateKey, localDateString } from '../../lib/dates'
+import { formatTime12 } from '../../lib/dates'
+import { addCairoDays, cairoToday, cairoWeekday, dayKeyWeekday } from '../../lib/cairoDate'
 import { Archive, CheckCircle2, Pause, Play, Plus, RefreshCw, Users } from 'lucide-react'
 import Empty from '../common/EmptyState'
 import ResponsiveTable, { type ResponsiveColumn } from '../common/ResponsiveTable'
@@ -15,13 +16,16 @@ import type { ScheduleSlot } from '../../domain/types'
 type Props = { ctx: DarApplicationContext }
 
 function recentDatesForWeekday(dayOfWeek: number, count = 52) {
-  const date = new Date()
-  date.setHours(12, 0, 0, 0)
-  const daysBack = (date.getDay() - dayOfWeek + 7) % 7
-  date.setDate(date.getDate() - daysBack)
-  return Array.from({ length: count }, (_, index) => { const occurrence = new Date(date); occurrence.setDate(date.getDate() - index * 7); return localDateKey(occurrence) })
+  // Latest occurrence of the weekday on the Cairo calendar (never the device one).
+  const latest = addCairoDays(cairoToday(), -((cairoWeekday() - dayOfWeek + 7) % 7))
+  return Array.from({ length: count }, (_, index) => addCairoDays(latest, -index * 7))
 }
-function mostRecentDateForWeekday(dayOfWeek: number, startsOn?: string) { const latest = recentDatesForWeekday(dayOfWeek, 1)[0]; if (!startsOn || latest >= startsOn) return latest; const first = new Date(`${startsOn}T12:00:00`); first.setDate(first.getDate() + ((dayOfWeek - first.getDay() + 7) % 7)); return localDateKey(first) }
+function mostRecentDateForWeekday(dayOfWeek: number, startsOn?: string) {
+  const latest = recentDatesForWeekday(dayOfWeek, 1)[0]
+  const start = startsOn?.slice(0, 10)
+  if (!start || latest >= start) return latest
+  return addCairoDays(start, (dayOfWeek - dayKeyWeekday(start) + 7) % 7)
+}
 
 export default function CircleDetailsDialog({ ctx }: Props) {
   const selectedCircle = ctx.selectedCircle
@@ -29,12 +33,12 @@ export default function CircleDetailsDialog({ ctx }: Props) {
   const defaultSlot = circleSlots[0] ?? null
   const [attendancePickerOpen, setAttendancePickerOpen] = useState(false)
   const [attendanceSlotId, setAttendanceSlotId] = useState('')
-  const [attendanceDate, setAttendanceDate] = useState(() => defaultSlot ? mostRecentDateForWeekday(defaultSlot.dayOfWeek, selectedCircle?.startsOn) : localDateString())
+  const [attendanceDate, setAttendanceDate] = useState(() => defaultSlot ? mostRecentDateForWeekday(defaultSlot.dayOfWeek, selectedCircle?.startsOn) : cairoToday())
   const [attendanceDialogSession, setAttendanceDialogSession] = useState<{ slot: ScheduleSlot; date: string } | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const selectedSlot = circleSlots.find(slot => slot.id === attendanceSlotId) ?? circleSlots[0] ?? null
-    const selectedDateMatchesSlot = Boolean(selectedSlot && attendanceDate && new Date(`${attendanceDate}T12:00:00`).getDay() === selectedSlot.dayOfWeek)
-  useEffect(() => { setAttendanceSlotId(''); setAttendanceDate(defaultSlot ? mostRecentDateForWeekday(defaultSlot.dayOfWeek, selectedCircle?.startsOn) : localDateString()); setAttendancePickerOpen(false); setAttendanceDialogSession(null) }, [selectedCircle?.id, defaultSlot?.id])
+    const selectedDateMatchesSlot = Boolean(selectedSlot && attendanceDate && dayKeyWeekday(attendanceDate) === selectedSlot.dayOfWeek)
+  useEffect(() => { setAttendanceSlotId(''); setAttendanceDate(defaultSlot ? mostRecentDateForWeekday(defaultSlot.dayOfWeek, selectedCircle?.startsOn) : cairoToday()); setAttendancePickerOpen(false); setAttendanceDialogSession(null) }, [selectedCircle?.id, defaultSlot?.id])
   if (!selectedCircle) return null
   const rosterColumns: ResponsiveColumn<(typeof ctx.circleRoster)[number]>[] = [
     {
@@ -97,7 +101,7 @@ export default function CircleDetailsDialog({ ctx }: Props) {
 <small>يُقترح تلقائيًا آخر موعد يوافق جدول الحلقة. يمكنك تغييره لتسجيل حضور قديم، بما في ذلك تاريخ قبل اليوم إن كان السجل التاريخي يحتاج تصحيحًا.</small>
 </label>
           <div className="attendance-launcher-actions">
-<button className="primary-button" type="button" disabled={!selectedSlot||!attendanceDate||attendanceDate>localDateString()} onClick={() => { if (selectedSlot && attendanceDate) void openStudentAttendance(selectedSlot) }}>
+<button className="primary-button" type="button" disabled={!selectedSlot||!attendanceDate||attendanceDate>cairoToday()} onClick={() => { if (selectedSlot && attendanceDate) void openStudentAttendance(selectedSlot) }}>
 <Users size={15}/> فتح كشف الطلاب</button>
 </div>
 <small className="attendance-selected-session">الموعد المختار: {selectedSlot?`${['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][selectedSlot.dayOfWeek]} · ${formatTime12(selectedSlot.startsAt)} · ${selectedSlot.durationMinutes} دقيقة`:'—'} — التاريخ {attendanceDate||'—'}. يُقترح تلقائيًا حسب الموعد، ويمكن تغييره لتسجيل حضور قديم.</small>{selectedSlot&&attendanceDate&&!selectedDateMatchesSlot&&<span className="error-inline">التاريخ المختار لا يوافق يوم الموعد الأسبوعي ({['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][selectedSlot.dayOfWeek]}). اختَر تاريخًا صحيحًا أو غيّر الموعد.</span>}

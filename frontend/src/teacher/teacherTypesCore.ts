@@ -1,3 +1,5 @@
+import type { NotificationSeverity, SessionStatus } from '../domain/types'
+
 export type Page = 'home' | 'live' | 'roster' | 'notifications' | 'supervisor' | 'subscriptions' | 'account' | 'requests' | 'calendar' | 'history'
 
 export type TeacherSession = {
@@ -23,7 +25,7 @@ export type Slot = {
   minutesUntilStart: number | null
   lateMinutes: number
   sessionId: string | null
-  sessionStatus: string | null
+  sessionStatus: SessionStatus | null
   startedAt: string | null
   endedAt: string | null
   actualDurationMinutes: number | null
@@ -46,7 +48,7 @@ export type TodayResponse = {
 
 export type StartResponse = {
   sessionId: string
-  status: string
+  status: SessionStatus
   resumed: boolean
   scheduledDurationMinutes: number
   circleName: string
@@ -56,7 +58,7 @@ export type StartResponse = {
 
 export type EndResponse = {
   sessionId: string
-  status: string
+  status: SessionStatus
   alreadyEnded: boolean
   actualDurationMinutes: number
   payableDurationMinutes: number
@@ -135,7 +137,7 @@ export type AppNotification = {
   id: string
   category: string
   status: 'open' | 'resolved'
-  severity: string
+  severity: NotificationSeverity
   title: string
   body: string
   actionUrl: string | null

@@ -16,6 +16,7 @@ import { AuditValue, actionLabel, bytes, displayScopes, downloadBlob, entityLabe
 import type { AdminSettings, AuditRecord, BackupRecord, ResetCandidate, ResetCandidates, ResetType, TrashRecord } from './system/types'
 import MonthPicker from './components/common/MonthPicker'
 import { confirmAction } from './components/common/confirmService'
+import { CAIRO_TIME_ZONE, cairoDayKey, cairoMonthKey, cairoToday } from './lib/cairoDate'
 
 type Props = { permissions: string[]; branding: Branding; onBrandingSaved: (value: Branding) => void; notify: (tone: 'success' | 'error' | 'info', text: string) => void; reportData: { circles: Circle[]; teachers: Teacher[]; students: Student[]; currentMonth: string } }
 type Tab = SystemTab
@@ -49,7 +50,7 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [clearLogo, setClearLogo] = useState(false)
   const [auditRows, setAuditRows] = useState<AuditRecord[]>([])
-  const [auditMonth, setAuditMonth] = useState(() => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}` })
+  const [auditMonth, setAuditMonth] = useState(() => cairoMonthKey())
   const [auditPage, setAuditPage] = useState(1)
   const [auditTotal, setAuditTotal] = useState(0)
   const [selectedAudit, setSelectedAudit] = useState<AuditRecord | null>(null)
@@ -74,11 +75,8 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
 
   const auditDayGroups = useMemo(() => {
     const keyFor = (value: string) => {
-      const date = new Date(value)
-      if (Number.isNaN(date.getTime())) return value.slice(0, 10)
-      const parts = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date)
-      const get = (type: string) => parts.find(part => part.type === type)?.value ?? '00'
-      return `${get('year')}-${get('month')}-${get('day')}`
+      const key = cairoDayKey(new Date(value))
+      return key || value.slice(0, 10)
     }
     const grouped = new Map<string, AuditRecord[]>()
     for (const row of auditRows) {
@@ -89,7 +87,7 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
     }
     return Array.from(grouped.entries()).sort((a,b) => b[0].localeCompare(a[0])).map(([key, rows]) => ({
       key,
-      label: new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'full' }).format(new Date(`${key}T12:00:00`)),
+      label: new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'full', timeZone: CAIRO_TIME_ZONE }).format(new Date(`${key}T12:00:00Z`)),
       rows: rows.sort((a,b) => b.occurredAt.localeCompare(a.occurredAt) || b.id-a.id),
     }))
   }, [auditRows])
@@ -248,7 +246,7 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
         }
       }
       const payload = await api<any>(`/api/admin/export?${params.toString()}`)
-      const date = new Date().toISOString().slice(0,10)
+      const date = cairoToday()
       const safeLabel = (recordLabel || 'البيانات').replace(/[^\p{L}\p{N}-]+/gu, '-').replace(/^-+|-+$/g,'').slice(0,60)
       const name = `دار-الإمام-حفص-${safeLabel}-${date}.${mode}`
       if (mode === 'json') downloadBlob(name, new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' }))
@@ -391,7 +389,7 @@ export default function SystemAdminView({ permissions, branding, onBrandingSaved
   </section>
 }
 function AuditMonthSummary({ month, total, dayCount }: { month: string; total: number; dayCount: number }) {
-  const label = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric' }).format(new Date(`${month}-01T12:00:00`))
+  const label = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric', timeZone: CAIRO_TIME_ZONE }).format(new Date(`${month}-01T12:00:00Z`))
   return (
     <div className="audit-month-summary">
       <strong>{label}</strong>

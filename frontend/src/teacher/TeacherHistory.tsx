@@ -3,6 +3,7 @@ import { ArrowRight, Clock3, History, LogIn, RefreshCw, Users } from 'lucide-rea
 import { teacherApi } from './teacherApi'
 import type { TeacherHistoryAttendance, TeacherHistoryLogin, TeacherHistorySession } from './teacherCalendarTypes'
 import { minutesLabel, money } from './teacherFormat'
+import { formatDate } from '../lib/formatters'
 import Pager from '../components/common/Pager'
 import { usePagedResource } from '../hooks/usePagedResource'
 
@@ -22,11 +23,6 @@ function dateTime(value: string | null) {
   if (!value) return '—'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' }).format(date)
-}
-
-function dateOnly(value: string) {
-  const date = new Date(`${value}T12:00:00`)
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
 }
 
 function deviceLabel(userAgent: string | null) {
@@ -84,7 +80,7 @@ export default function TeacherHistory({ onBack }: Props) {
               <div className="t-history-card-head">
                 <strong>{session.circleName}</strong>
                 <span className={`t-badge ${session.status === 'completed' ? 't-badge-ok' : session.status === 'cancelled' ? 't-badge-bad' : ''}`}>{statusLabels[session.status] ?? session.status}</span>
-                <time>{dateOnly(session.date)}</time>
+                <time>{formatDate(session.date)}</time>
               </div>
               <div className="t-history-meta">
                 <span><Clock3 size={12} /> {dateTime(session.startedAt)} — {session.endedAt ? dateTime(session.endedAt) : 'لم تُنهَ'}</span>
@@ -111,7 +107,7 @@ export default function TeacherHistory({ onBack }: Props) {
               <div className="t-history-card-head">
                 <strong>{row.circleName}</strong>
                 <span className={`t-badge ${row.status === 'present' ? 't-badge-ok' : row.status === 'absent' ? 't-badge-bad' : ''}`}>{statusLabels[row.status] ?? row.status}</span>
-                <time>{dateOnly(row.date)}</time>
+                <time>{formatDate(row.date)}</time>
               </div>
               <div className="t-history-meta">
                 <span>المدة: {minutesLabel(row.durationMinutes)}</span>

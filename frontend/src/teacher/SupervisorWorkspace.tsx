@@ -15,6 +15,7 @@ import SupervisorRequests from './SupervisorRequests'
 import SupervisorNotificationsDrawer from './SupervisorNotificationsDrawer'
 import type { TeacherSession } from './teacherTypes'
 import LazyBoundary from '../components/common/LazyBoundary'
+import { clearDemoState, DEMO_STORAGE_KEY, demoModeAllowed, readDemoMode, storeDemoMode } from './demoMode'
 import './supervisor.css'
 
 const ZZErrorBomb = import.meta.env.VITE_ZZ_TEST_ERRORS === '1' ? lazy(() => import('../test/ErrorBomb')) : null
@@ -56,18 +57,6 @@ const sectionTitles: Record<Section, string> = {
   unpaid: 'المتأخرات',
 }
 
-const DEMO_STORAGE_KEY = 'dar-supervisor-demo'
-
-function initialDemo() {
-  try {
-    if (new URLSearchParams(window.location.search).get('demo') === '1') return true
-    // sessionStorage only: a demo mode must not stay sticky across browser sessions.
-    return sessionStorage.getItem(DEMO_STORAGE_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
 export default function SupervisorWorkspace(props: Props) {
   const {
     session, unread, canTeacherPortal, canLive, canAbsences, canStudents, canAddStudents, canStudentsNotes,
@@ -79,13 +68,16 @@ export default function SupervisorWorkspace(props: Props) {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [localUnread, setLocalUnread] = useState(unread)
   const [focus, setFocus] = useState<{ section: Section; id: string } | null>(null)
-  const [demo, setDemo] = useState(initialDemo)
+  // Demo datasets are a preview aid: production builds disable them unless VITE_ENABLE_DEMO=1.
+  const demoAvailable = demoModeAllowed(import.meta.env)
+  const [demo, setDemo] = useState(() => readDemoMode(window.location.search, sessionStorage, demoAvailable))
 
   useEffect(() => { setLocalUnread(unread) }, [unread])
 
   useEffect(() => {
+    if (!demoAvailable) return
     try {
-      sessionStorage.setItem(DEMO_STORAGE_KEY, demo ? '1' : '0')
+      storeDemoMode(demo, sessionStorage)
       // Older builds kept this flag in localStorage, which left demo data enabled
       // silently on later visits; drop the legacy key.
       localStorage.removeItem(DEMO_STORAGE_KEY)
@@ -94,7 +86,7 @@ export default function SupervisorWorkspace(props: Props) {
       else url.searchParams.delete('demo')
       window.history.replaceState({}, '', url)
     } catch { /* demo preference is optional */ }
-  }, [demo])
+  }, [demo, demoAvailable])
 
   const navItems = useMemo(() => [
     { id: 'overview' as Section, label: 'نظرة عامة', icon: LayoutDashboard, show: true },
@@ -124,7 +116,18 @@ export default function SupervisorWorkspace(props: Props) {
     setSection('circles')
   }
 
-  const toggleDemo = () => setDemo((value) => !value)
+  const toggleDemo = () => { if (demoAvailable) setDemo((value) => !value) }
+
+  // Logout must not leak demo state into the next account/session on this tab.
+  const handleLogout = () => {
+    clearDemoState(sessionStorage, localStorage)
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('demo')
+      window.history.replaceState({}, '', url)
+    } catch { /* the URL is best-effort */ }
+    onLogout()
+  }
 
   const mobilePrimary = [
     { id: 'overview' as Section, label: 'الرئيسية', icon: LayoutDashboard, show: true },
@@ -135,7 +138,7 @@ export default function SupervisorWorkspace(props: Props) {
 
   const renderSection = () => {
     if (section === 'overview') {
-      return <SupervisorOverview demo={demo} canStudents={canStudents} canCircles={canCircles} canTeachers={canTeachers} canAbsences={canAbsences} canUnpaid={canUnpaid} canFinance={canFinance} canCorrect={canCorrect} onNavigate={go} onDemo={toggleDemo} />
+      return <SupervisorOverview demo={demo} canStudents={canStudents} canCircles={canCircles} canTeachers={canTeachers} canAbsences={canAbsences} canUnpaid={canUnpaid} canFinance={canFinance} canCorrect={canCorrect} onNavigate={go} onDemo={demoAvailable ? toggleDemo : undefined} />
     }
     if (section === 'students') return <SupervisorStudents demo={demo} canNote={canStudentsNotes} onOpenCircle={openCircle} canCommunicate={canCommunicate} />
     if (section === 'circles') return <SupervisorCircles demo={demo} onOpenTeacher={openTeacher} focusId={focus?.section === 'circles' ? focus.id : undefined} onFocusConsumed={() => setFocus(null)} canAddStudents={canAddStudents} />
@@ -165,16 +168,16 @@ export default function SupervisorWorkspace(props: Props) {
           })}
         </nav>
         <div className="sup-side-extra">
-          <button className={section === 'overview' && demo ? 'active' : ''} onClick={toggleDemo}>
+          {demoAvailable && <button className={section === 'overview' && demo ? 'active' : ''} onClick={toggleDemo}>
             <Sparkles size={18} /><span>{demo ? 'إيقاف البيانات التجريبية' : 'عرض نموذج بالبيانات'}</span>
-          </button>
+          </button>}
           <button onClick={() => setNotificationsOpen(true)}><Bell size={18} /><span>التنبيهات</span>{localUnread > 0 && <em>{localUnread}</em>}</button>
           <button onClick={onAccount}><UserRound size={18} /><span>حسابي</span></button>
           {canTeacherPortal && onBackToTeacher && <button onClick={onBackToTeacher}><GraduationCap size={18} /><span>بوابة المعلمة</span></button>}
         </div>
         <div className="sup-side-foot">
           <div className="sup-user"><span>{session.displayName.slice(0, 1)}</span><div><strong>{session.displayName}</strong><small>@{session.username}</small></div></div>
-          <button className="sup-logout" onClick={onLogout} aria-label="تسجيل الخروج"><LogOut size={17} /></button>
+          <button className="sup-logout" onClick={handleLogout} aria-label="تسجيل الخروج"><LogOut size={17} /></button>
         </div>
       </aside>
 
@@ -226,9 +229,9 @@ export default function SupervisorWorkspace(props: Props) {
               <button onClick={() => { setMoreOpen(false); setNotificationsOpen(true) }}><Bell size={19} /><span>التنبيهات</span>{localUnread > 0 && <em>{localUnread}</em>}</button>
               <button onClick={() => { setMoreOpen(false); onAccount() }}><UserRound size={19} /><span>حسابي</span></button>
               {canTeacherPortal && onBackToTeacher && <button onClick={() => { setMoreOpen(false); onBackToTeacher() }}><GraduationCap size={19} /><span>بوابة المعلمة</span></button>}
-              <button onClick={() => { toggleDemo(); setMoreOpen(false) }}><Sparkles size={19} /><span>{demo ? 'إيقاف البيانات التجريبية' : 'عرض نموذج بالبيانات'}</span></button>
+              {demoAvailable && <button onClick={() => { toggleDemo(); setMoreOpen(false) }}><Sparkles size={19} /><span>{demo ? 'إيقاف البيانات التجريبية' : 'عرض نموذج بالبيانات'}</span></button>}
             </div>
-            <button className="sup-sheet-logout" onClick={onLogout}><LogOut size={17} /> تسجيل الخروج</button>
+            <button className="sup-sheet-logout" onClick={handleLogout}><LogOut size={17} /> تسجيل الخروج</button>
           </div>
         </div>
       )}

@@ -5,6 +5,16 @@ export type Page = 'dashboard' | 'notifications' | 'requests' | 'students' | 'te
 export type Gate = 'checking' | 'setup' | 'login' | 'ready'
 export type StudentStatus = 'active' | 'paused' | 'withdrawn' | 'archived'
 export type TeacherStatus = 'active' | 'inactive' | 'archived'
+/** Severity shown by the admin/teacher notification centers. */
+export type NotificationSeverity = 'info' | 'warning' | 'critical'
+/** Saved teacher-attendance state (supervisor attendance rows use "missing"/"scheduled" for unmarked past/future slots). */
+export type TeacherAttendanceMark = 'present' | 'absent' | 'cancelled' | 'missing' | 'scheduled'
+/** Saved student-attendance state. */
+export type StudentAttendanceMark = 'present' | 'absent' | 'excused'
+/** Lifecycle of a teaching session. */
+export type SessionStatus = 'scheduled' | 'in_progress' | 'awaiting_attendance' | 'completed' | 'cancelled'
+/** Enrollment lifecycle for a student inside one circle. */
+export type EnrollmentStatus = 'active' | 'paused' | 'ended'
 export type Session = { id: string; username: string; displayName: string; permissionCodes: string[]; teacherId?: string | null }
 export type Student = {
   id: string; studentCode: string; fullName: string; ageYears: number | null; phone: string | null

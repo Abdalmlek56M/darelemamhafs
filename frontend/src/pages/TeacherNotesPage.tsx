@@ -4,14 +4,10 @@ import { api } from '../system/api'
 import { requestPage } from '../services/apiClient'
 import Pager from '../components/common/Pager'
 import { ADMIN_PAGE_SIZE } from '../lib/pagination'
+import { formatDate } from '../lib/formatters'
 import type { AdminTeacherNote, AdminTeacherNotesResponse } from '../system/types'
 
 type Kind = 'all' | 'session' | 'student'
-
-function dateLabel(value: string) {
-  const date = new Date(`${value}T12:00:00`)
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
-}
 
 export default function TeacherNotesPage() {
   const [data, setData] = useState<AdminTeacherNotesResponse | null>(null)
@@ -93,7 +89,7 @@ export default function TeacherNotesPage() {
               <tbody>
                 {notes.map((item, index) => (
                   <tr key={`${item.date}-${item.teacherId}-${index}`}>
-                    <td>{dateLabel(item.date)}</td>
+                    <td>{formatDate(item.date)}</td>
                     <td><strong>{item.teacherName}</strong></td>
                     <td>{item.circleName}</td>
                     <td><span className={`admin-note-kind kind-${item.kind}`}><MessageSquareText size={12} /> {item.kind === 'session' ? 'حصة' : 'طالبة'}</span></td>
@@ -113,7 +109,7 @@ export default function TeacherNotesPage() {
           <article className="admin-note-card" key={`${item.date}-${item.teacherId}-${index}`}>
             <div className="admin-note-card-head">
               <span className={`admin-note-kind kind-${item.kind}`}><MessageSquareText size={12} /> {item.kind === 'session' ? 'ملاحظة حصة' : 'ملاحظة طالبة'}</span>
-              <time>{dateLabel(item.date)}</time>
+              <time>{formatDate(item.date)}</time>
             </div>
             <strong>{item.teacherName} · {item.circleName}</strong>
             {item.studentName && <small>{item.studentName} {item.studentCode ? `(${item.studentCode})` : ''}</small>}

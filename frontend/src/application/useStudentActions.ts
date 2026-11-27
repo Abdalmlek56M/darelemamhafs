@@ -12,7 +12,8 @@ import type {
 } from '../domain/types'
 import { blankStudent } from '../domain/defaults'
 import { statusLabels } from '../domain/labels'
-import { localDateString } from '../lib/dates'
+import { cairoToday } from '../lib/cairoDate'
+import { validateNewStudentStatus } from '../lib/validation'
 import { request } from '../services/apiClient'
 import { confirmAction } from '../components/common/confirmService'
 
@@ -117,7 +118,7 @@ export default function useStudentActions({
       phone: student.phone ?? '',
       guardianName: student.guardianName ?? '',
       guardianPhone: student.guardianPhone ?? '',
-      joinedOn: localDateString(),
+      joinedOn: cairoToday(),
       status: 'active',
       notes: '',
     })
@@ -144,6 +145,8 @@ export default function useStudentActions({
 
   const saveStudent = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const statusError = validateNewStudentStatus(studentForm.status, Boolean(editingStudent))
+    if (statusError) { setToast({ tone: 'error', text: statusError }); return }
     setSaving(true)
     try {
       await request(editingStudent ? `/api/students/${editingStudent.id}` : '/api/students', {
@@ -174,7 +177,7 @@ export default function useStudentActions({
     try {
       await request(`/api/students/${student.id}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status, ...(status === 'withdrawn' ? { effectiveOn: localDateString() } : {}) }),
+        body: JSON.stringify({ status, ...(status === 'withdrawn' ? { effectiveOn: cairoToday() } : {}) }),
       })
       await Promise.all([loadStudents(), loadCircles(), loadCollections()])
       setToast({

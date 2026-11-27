@@ -1,5 +1,6 @@
 import type { CircleProfitSummary, TeacherPaySummary } from '../domain/types'
 import { safeDownload } from '../lib/reportExports'
+import { toCsvText } from '../lib/csv'
 
 type DashboardProfit = {
   billed: number
@@ -52,10 +53,9 @@ export function downloadProfitSummary({
     rows.push([`الحلقة: ${circle.circleName} | المصروفات المرتبطة`, circle.linkedExpenses])
     rows.push([`الحلقة: ${circle.circleName} | الصافي التقديري`, circle.net])
   }
-  const quote = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`
   safeDownload(
     `نتيجة-تشغيل-الدار-${currentMonthValue}.csv`,
-    '\ufeff' + rows.map(row => row.map(quote).join(',')).join('\r\n'),
+    toCsvText(rows),
     'text/csv;charset=utf-8',
   )
 }

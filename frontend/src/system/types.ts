@@ -1,4 +1,4 @@
-import type { Branding } from '../domain/types'
+import type { Branding, NotificationSeverity } from '../domain/types'
 
 export type AdminSettings = Branding & {
   trashRetentionDays: number
@@ -15,7 +15,7 @@ export type AdminNotification = {
   id: string
   category: string
   status: 'open' | 'resolved'
-  severity: 'info' | 'warning' | 'critical' | string
+  severity: NotificationSeverity
   title: string
   body: string
   actionUrl: string | null

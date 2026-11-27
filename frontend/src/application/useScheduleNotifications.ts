@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Gate, Notice, ScheduleSlot } from '../domain/types'
-import { localDateString, remainingLabel, sessionDateTime } from '../lib/dates'
+import { remainingLabel } from '../lib/dates'
+import { cairoInstant, cairoToday, cairoWeekday } from '../lib/cairoDate'
 import {
   playNotificationSound,
   readNotificationSound,
@@ -109,8 +110,9 @@ export default function useScheduleNotifications({ gate, scheduleSlots, setToast
 
   useEffect(() => {
     if (gate !== 'ready' || !scheduleSlots.length || !scheduleNotificationsEnabled) return
-    const date = localDateString()
-    const day = new Date(clockNow).getDay()
+    const date = cairoToday()
+    // Reminders must follow the Cairo weekday, not the device timezone.
+    const day = cairoWeekday(new Date(clockNow))
     const fireAlert = (title: string, body: string, key: string) => {
       if (firedClassAlertsRef.current.has(key)) return
       try { if (localStorage.getItem(key)) return } catch { /* Fall back to the in-memory key set. */ }
@@ -126,7 +128,7 @@ export default function useScheduleNotifications({ gate, scheduleSlots, setToast
     for (const slot of scheduleSlots) {
       // Inactive slots are kept for historical attendance; they must not keep firing reminders.
       if (!slot.isActive || !isScheduleAlertEnabled(slot.id) || slot.dayOfWeek !== day) continue
-      const target = sessionDateTime(date, slot.startsAt).getTime()
+      const target = cairoInstant(date, slot.startsAt).getTime()
       const minutesRemaining = target - clockNow
       const reminderKey = `dar-class-reminder10:${slot.id}:${date}`
       if (minutesRemaining > 0 && minutesRemaining <= 10 * 60 * 1000) {

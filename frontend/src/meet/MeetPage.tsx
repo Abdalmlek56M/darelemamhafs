@@ -11,7 +11,8 @@ import RecordingsPanel from './components/RecordingsPanel'
 import BotControlCard from './components/BotControlCard'
 import LinkEventDialog from './components/LinkEventDialog'
 import CreateEventDialog, { type CreateEventInput } from './components/CreateEventDialog'
-import { addDays, cairoDayKey } from './format'
+import { cairoDayKey } from './format'
+import { addCairoDays, cairoToday } from '../lib/cairoDate'
 import type {
   MeetCalendarStatus,
   MeetCircleSetting,
@@ -45,8 +46,8 @@ export default function MeetPage({ ctx }: Props) {
   const [filter, setFilter] = useState<MeetFilter>('all')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [from, setFrom] = useState(() => cairoDayKey(addDays(new Date(), -7)))
-  const [to, setTo] = useState(() => cairoDayKey(addDays(new Date(), 45)))
+  const [from, setFrom] = useState(() => addCairoDays(cairoToday(), -7))
+  const [to, setTo] = useState(() => addCairoDays(cairoToday(), 45))
   const [showAll, setShowAll] = useState(false)
   const meetOnly = !showAll
   const [tab, setTab] = useState<Tab>('events')
@@ -378,7 +379,7 @@ export default function MeetPage({ ctx }: Props) {
 
     {createOpen && <CreateEventDialog
       circles={circles}
-      today={cairoDayKey(new Date())}
+      today={cairoToday()}
       saving={creating}
       close={() => setCreateOpen(false)}
       save={(input) => void createEvent(input)}

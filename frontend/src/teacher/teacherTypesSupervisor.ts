@@ -1,4 +1,5 @@
 import type { SupervisorSubscription } from './teacherTypesLive'
+import type { EnrollmentStatus, StudentAttendanceMark, StudentStatus, TeacherAttendanceMark, TeacherStatus } from '../domain/types'
 
 export type AttendanceRequest = {
   id: string
@@ -44,7 +45,7 @@ export type SupervisorStudent = {
   phone: string | null
   guardianName: string | null
   guardianPhone: string | null
-  status: string
+  status: StudentStatus
   joinedOn: string
   subscriptionStatus: 'paid' | 'partial' | 'unpaid' | 'not-set'
   circles: string[]
@@ -60,14 +61,14 @@ export type SupervisorStudentDetailResponse = {
     phone: string | null
     guardianName: string | null
     guardianPhone: string | null
-    status: string
+    status: StudentStatus
     joinedOn: string
     notes: string | null
     circles: { id: string; name: string }[]
   }
   period: { from: string; to: string }
   attendance: { present: number; absent: number; excused: number; marked: number; rate: number | null }
-  history: { date: string; circleName: string; startsAt: string; status: string; note: string | null }[]
+  history: { date: string; circleName: string; startsAt: string; status: StudentAttendanceMark; note: string | null }[]
   notes: SupervisionNote[]
   subscription: SupervisorSubscription[] | null
 }
@@ -105,20 +106,20 @@ export type SupervisorCircleDetailResponse = {
     fullName: string
     guardianName: string | null
     guardianPhone: string | null
-    studentStatus: string
-    enrollmentStatus: string
+    studentStatus: StudentStatus
+    enrollmentStatus: EnrollmentStatus
     enrolledOn: string
   }[]
   schedule: SupervisorScheduleEntry[]
   sessions: {
     date: string
-    status: string
+    status: TeacherAttendanceMark
     startsAt: string
     durationMinutes: number
     note: string | null
     presentStudents: number
     missingStudents: number
-    studentAttendance: { studentName: string; studentCode: string; status: string; note: string | null }[]
+    studentAttendance: { studentName: string; studentCode: string; status: StudentAttendanceMark; note: string | null }[]
   }[]
 }
 
@@ -126,7 +127,7 @@ export type SupervisorTeacher = {
   id: string
   fullName: string
   phone: string | null
-  status: string
+  status: TeacherStatus
   hourlyRate: number | null
   circleCount: number
   studentCount: number
@@ -137,7 +138,7 @@ export type SupervisorTeacher = {
 export type SupervisorTeachersResponse = { count: number; month: string; teachers: SupervisorTeacher[] }
 
 export type SupervisorTeacherDetailResponse = {
-  teacher: { id: string; fullName: string; phone: string | null; status: string; hourlyRate: number | null }
+  teacher: { id: string; fullName: string; phone: string | null; status: TeacherStatus; hourlyRate: number | null }
   period: { from: string; to: string }
   attendance: {
     scheduled: number
@@ -155,7 +156,7 @@ export type SupervisorTeacherDetailResponse = {
     date: string
     circleName: string
     startsAt: string
-    status: string
+    status: TeacherAttendanceMark
     durationMinutes: number
     actualMinutes: number | null
     overtimeMinutes: number
@@ -177,7 +178,7 @@ export type SupervisorTeacherAttendanceRow = {
   startsAt: string
   durationMinutes: number
   attendanceId: string | null
-  status: string
+  status: TeacherAttendanceMark
   payableMinutes: number | null
   actualMinutes: number | null
   overtimeMinutes: number
@@ -194,7 +195,7 @@ export type SupervisorStudentAttendanceRow = {
   circleId: string
   circleName: string
   startsAt: string
-  status: string
+  status: StudentAttendanceMark
   note: string | null
 }
 

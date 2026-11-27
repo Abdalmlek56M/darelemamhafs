@@ -1,4 +1,5 @@
 import { formatTime12 } from '../lib/dates'
+import { CAIRO_TIME_ZONE } from '../lib/cairoDate'
 
 export function money(value: number | null | undefined) {
   return `${(value ?? 0).toFixed(2)} ج.م`
@@ -16,11 +17,11 @@ export function elapsedMinutes(startedAt: string | null | undefined) {
 }
 
 export function localTime(value: string) {
-  return new Date(value).toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Africa/Cairo' })
+  return new Intl.DateTimeFormat('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: CAIRO_TIME_ZONE }).format(new Date(value))
 }
 
 export function localDate(value: string) {
-  return new Date(`${value}T12:00:00`).toLocaleDateString('ar-EG-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long' })
+  return new Intl.DateTimeFormat('ar-EG-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', timeZone: CAIRO_TIME_ZONE }).format(new Date(`${value}T12:00:00Z`))
 }
 
 export function enrollmentStatusLabel(value: string) {

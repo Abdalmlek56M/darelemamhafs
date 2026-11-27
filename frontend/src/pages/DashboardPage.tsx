@@ -8,6 +8,7 @@ import ResponsiveTable, { type ResponsiveColumn } from '../components/common/Res
 import { weekDays } from '../domain/defaults'
 import { formatTime12, remainingLabel } from '../lib/dates'
 import type { DarApplicationContext } from '../application/useDarApplication'
+import { findTeacherCircleByName } from '../application/selectors'
 
 
 type Props = { ctx: DarApplicationContext }
@@ -209,7 +210,7 @@ export default function DashboardPage({ ctx }: Props) {
 <div className="assigned-circles-list">{ctx.teachers.filter(t=>t.circleCount>0).map(t=>
 <div className="assigned-teacher-row" key={t.id}>
 <strong>{t.fullName}</strong>
-<div>{t.circleNames.split('، ').map((name,index)=>{const circle=ctx.circles.find(c=>c.name===name);return <span className="teacher-circle-item" key={`${t.id}-${index}`}>{ctx.has('circles.read')&&circle?<button className="text-link" onClick={()=>void ctx.openCircleDetails(circle)}>{name}</button>:name}{index<t.circleNames.split('، ').length-1?'، ':''}</span>})}</div>
+<div>{t.circleNames.split('، ').map((name,index)=>{const circle=findTeacherCircleByName(ctx.circles,t.id,name);return <span className="teacher-circle-item" key={`${t.id}-${index}`}>{ctx.has('circles.read')&&circle?<button className="text-link" onClick={()=>void ctx.openCircleDetails(circle)}>{name}</button>:name}{index<t.circleNames.split('، ').length-1?'، ':''}</span>})}</div>
 </div>)}{ctx.teachers.filter(t=>t.circleCount>0).length===0&&<p className="muted-text">لم تُسند حلقات لأي معلمة حتى الآن.</p>}</div>{ctx.has('teachers.create')&&<button className="secondary-button" onClick={()=>ctx.changePage('teachers')}>إدارة المعلمات <ArrowLeft size={15}/>
 </button>}</article>}{(ctx.has('schedule.read')||ctx.has('schedule.edit'))&&<article className="panel glass dashboard-schedule-panel">
 <div className="panel-heading">

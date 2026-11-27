@@ -1,3 +1,5 @@
+import type { SessionStatus, TeacherAttendanceMark } from '../domain/types'
+
 export type TeacherCalendarSession = {
   slotId: string
   circleId: string
@@ -6,7 +8,7 @@ export type TeacherCalendarSession = {
   durationMinutes: number
   studentCount: number
   sessionId: string | null
-  sessionStatus: string | null
+  sessionStatus: SessionStatus | null
   startedAt: string | null
   endedAt: string | null
   actualMinutes: number | null
@@ -32,7 +34,7 @@ export type TeacherHistorySession = {
   id: string
   date: string
   circleName: string
-  status: string
+  status: SessionStatus
   startedAt: string
   endedAt: string | null
   scheduledMinutes: number
@@ -50,7 +52,7 @@ export type TeacherHistoryAttendance = {
   id: string
   date: string
   circleName: string
-  status: string
+  status: TeacherAttendanceMark
   durationMinutes: number
   payableAmount: number | null
   note: string | null

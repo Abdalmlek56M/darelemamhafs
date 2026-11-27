@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { AdExpense, AttendanceRow, Circle, CollectionRow, OperatingExpense, Student, Teacher } from '../domain/types'
+import type { AdExpense, AttendanceRow, Circle, CollectionRow, OperatingExpense, ScheduleSlot, Student, Teacher } from '../domain/types'
 import type { MonthSession } from './selectors'
 import {
+  findTeacherCircleByName,
+  getNextSessions,
   getCurrentMonthTotals,
   getFilteredStudents,
   getFilteredTeachers,
@@ -38,6 +40,36 @@ const teacher = (overrides: Partial<Teacher>): Teacher => ({
   notes: '',
   circleNames: 'حلقة النور',
   circleCount: 1,
+  ...overrides,
+})
+
+
+
+const scheduleSlot = (overrides: Partial<ScheduleSlot>): ScheduleSlot => ({
+  id: 'slot1',
+  circleId: 'cir1',
+  circleName: 'حلقة النور',
+  teacherId: 't1',
+  teacherName: 'معلمة تجريبية',
+  dayOfWeek: 6,
+  startsAt: '10:00',
+  durationMinutes: 60,
+  isActive: true,
+  circleIsActive: true,
+  ...overrides,
+})
+
+const circle = (overrides: Partial<Circle>): Circle => ({
+  id: 'cir1',
+  circleCode: 'CIR-1',
+  name: 'حلقة النور',
+  teacherId: 't1',
+  teacherName: 'معلمة تجريبية',
+  monthlyFee: 300,
+  scheduleText: null,
+  isActive: true,
+  activeStudentCount: 1,
+  startsOn: '2026-01-01',
   ...overrides,
 })
 
@@ -102,5 +134,36 @@ describe('selectors', () => {
     })
 
     expect(getSuggestedMonthlyCharge(row)).toBe(250)
+  })
+  it('resolves a teacher circle by name without opening another teacher same-named circle', () => {
+    const circles = [
+      circle({ id: 'c1', name: 'حلقة النور', teacherId: 't1' }),
+      circle({ id: 'c2', name: 'حلقة النور', teacherId: 't2' }),
+    ]
+
+    expect(findTeacherCircleByName(circles, 't1', 'حلقة النور')?.id).toBe('c1')
+    expect(findTeacherCircleByName(circles, 't2', 'حلقة النور')?.id).toBe('c2')
+  })
+
+  it('falls back to a unique circle name but refuses ambiguous duplicates', () => {
+    const circles = [
+      circle({ id: 'c1', name: 'حلقة النور', teacherId: 't1' }),
+      circle({ id: 'c2', name: 'حلقة الفرقان', teacherId: 't2' }),
+      circle({ id: 'c3', name: 'حلقة الفرقان', teacherId: 't3' }),
+    ]
+
+    expect(findTeacherCircleByName(circles, 't1', 'حلقة النور')?.id).toBe('c1')
+    expect(findTeacherCircleByName(circles, 't1', 'حلقة الفرقان')).toBeUndefined()
+    expect(findTeacherCircleByName(circles, 't9', 'غير موجودة')).toBeUndefined()
+  })
+  it('computes the next session weekday from the Cairo calendar at a midnight boundary', () => {
+    // 2026-11-27 22:30Z = Saturday 2026-11-28 00:30 Cairo, while New York is still Friday 27.
+    const clockNow = Date.parse('2026-11-27T22:30:00Z')
+    const [saturday] = getNextSessions([scheduleSlot({ dayOfWeek: 6 })], [], clockNow)
+    expect(saturday.target.toISOString()).toBe('2026-11-28T08:00:00.000Z')
+    expect(saturday.isRunning).toBe(false)
+
+    const [sunday] = getNextSessions([scheduleSlot({ dayOfWeek: 0 })], [], clockNow)
+    expect(sunday.target.toISOString()).toBe('2026-11-29T08:00:00.000Z')
   })
 })

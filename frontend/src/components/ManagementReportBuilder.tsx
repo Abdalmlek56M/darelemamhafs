@@ -3,6 +3,7 @@ import { BookOpen, CalendarDays, CheckSquare2, FileText, GraduationCap, LoaderCi
 import type { AdExpense, AttendanceRow, Circle, CircleStudent, CollectionRow, HistoryData, OperatingExpense, Student, StudentAttendanceRow, Teacher } from '../domain/types'
 import { formatDate, money } from '../lib/formatters'
 import { formatTime12 } from '../lib/dates'
+import { CAIRO_TIME_ZONE, cairoMonthKey } from '../lib/cairoDate'
 import MonthPicker from './common/MonthPicker'
 
 type ReportKind = 'school' | 'circles' | 'teacher' | 'teacher-attendance' | 'student-attendance' | 'student'
@@ -33,8 +34,8 @@ function esc(value: unknown): string {
   return String(value ?? '—').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;')
 }
 function monthName(month: string) {
-  const date = new Date(`${month}-01T12:00:00`)
-  return Number.isNaN(date.getTime()) ? month : new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric' }).format(date)
+  const date = new Date(`${month}-01T12:00:00Z`)
+  return Number.isNaN(date.getTime()) ? month : new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric', timeZone: CAIRO_TIME_ZONE }).format(date)
 }
 function statusLabel(value: string | null | undefined) {
   const labels: Record<string, string> = {
@@ -54,7 +55,7 @@ function table(headers: string[], rows: unknown[][], emptyText = 'لا توجد 
 function metric(label: string, value: string | number) { return `<div class="metric"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>` }
 function heading(label: string, note = '') { return `<div class="section-heading"><h2>${esc(label)}</h2>${note ? `<p>${esc(note)}</p>` : ''}</div>` }
 function monthHeader(schoolName: string, title: string, month: string, subTitle = '') {
-  return `<header class="report-header"><div class="brand-mark">دار الإمام حفص</div><div><h1>${esc(title)}</h1><p>${esc(schoolName)} · ${esc(monthName(month))}</p>${subTitle ? `<small>${esc(subTitle)}</small>` : ''}</div><div class="generated">تاريخ التقرير<br><strong>${esc(new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date()))}</strong></div></header>`
+  return `<header class="report-header"><div class="brand-mark">دار الإمام حفص</div><div><h1>${esc(title)}</h1><p>${esc(schoolName)} · ${esc(monthName(month))}</p>${subTitle ? `<small>${esc(subTitle)}</small>` : ''}</div><div class="generated">تاريخ التقرير<br><strong>${esc(new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric', timeZone: CAIRO_TIME_ZONE }).format(new Date()))}</strong></div></header>`
 }
 
 function buildSchoolReport(schoolName: string, month: string, circles: Circle[], teachers: Teacher[], students: Student[], data: MonthData, permissions: string[], audience: ReportAudience) {
@@ -279,13 +280,13 @@ function htmlDocument(schoolName: string, title: string, month: string, kind: Re
   const pageSize = kind === 'school' ? 'A4 landscape' : 'A4 portrait'
   return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} - ${esc(schoolName)} - ${esc(month)}</title><style>
   *{box-sizing:border-box}html{background:#fff}body{font-family:Tahoma,Arial,sans-serif;color:#172536;background:#fff;margin:22px;font-size:12px;line-height:1.65}h1{font-size:23px;line-height:1.45;margin:0 0 4px;color:#172536}h2{font-size:16px;margin:0;color:#203b56}p{margin:5px 0}.report-header{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;border-bottom:3px solid #177b70;padding-bottom:15px;margin-bottom:18px}.brand-mark{display:grid;place-items:center;min-width:82px;height:82px;border-radius:16px;background:#eef6f5;color:#176b62;font-size:12px;font-weight:bold;padding:8px;text-align:center;border:1px solid #d3e8e4}.report-header p{color:#536579;font-size:12px}.report-header small{color:#63748a}.generated{font-size:10px;color:#68798c;text-align:left;white-space:nowrap}.generated strong{font-size:11px;color:#21364c}.section-heading{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:18px 0 9px;break-after:avoid}.section-heading p{font-size:10px;color:#66778a;margin:0}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:8px 0 16px}.metric{display:flex;flex-direction:column;gap:5px;padding:11px 12px;border:1px solid #d8e0e8;border-radius:10px;background:#f8fafc;min-width:0}.metric span{font-size:10px;color:#5a6b7d}.metric strong{font-size:15px;font-weight:700;color:#203a54;overflow-wrap:anywhere}.table-wrap{width:100%;overflow:visible}table{width:100%;border-collapse:collapse;table-layout:auto;font-size:10.5px;margin-bottom:12px}thead{display:table-header-group}th,td{padding:7px 8px;border:1px solid #d1dbe5;text-align:right;vertical-align:top;overflow-wrap:anywhere}th{background:#e9eff5;color:#21384f;font-weight:bold;white-space:normal}tbody tr:nth-child(even){background:#f8fafc}tr{break-inside:avoid;page-break-inside:avoid}.empty{text-align:center;color:#738196;padding:16px}.detail-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0 14px}.detail-strip>div{display:grid;gap:4px;padding:10px;border:1px solid #d8e0e8;border-radius:9px;background:#fff;min-width:0}.detail-strip span{color:#66778a;font-size:10px}.detail-strip strong{font-size:12px;overflow-wrap:anywhere}.report-page{break-inside:auto}.report-page.new-page{break-before:page;page-break-before:always}.report-warning{font-size:10px;color:#8a4b14;background:#fff6e8;border-right:3px solid #d28a36;padding:8px 10px;margin:6px 0 12px}.note{font-size:10px;color:#66778a;border-top:1px solid #d9e1e8;padding-top:10px;margin-top:18px}.report-footer{font-size:9px;color:#8290a0;border-top:1px solid #d9e1e8;margin-top:20px;padding-top:8px}.print-actions{display:flex;justify-content:flex-start;gap:8px;margin-bottom:15px}.print-actions button{border:0;border-radius:8px;padding:10px 14px;background:#176b62;color:white;font:inherit;cursor:pointer}.report-content{max-width:1200px;margin:0 auto}@page{size:${pageSize};margin:12mm}@media print{body{margin:0;font-size:10px}.print-actions{display:none!important}.report-header{margin-bottom:12px}.metrics{gap:6px}.metric{padding:8px 9px}.metric strong{font-size:13px}th,td{padding:5px 6px}.section-heading{margin-top:12px}.report-footer{position:static}}@media(max-width:700px){.report-header{grid-template-columns:auto 1fr}.generated{grid-column:1/-1;text-align:right}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.detail-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  </style></head><body><div class="print-actions"><button type="button" data-print-report>طباعة / حفظ PDF</button></div><main class="report-content">${content}<footer class="report-footer">${esc(schoolName)} · ${esc(title)} · ${esc(monthName(month))} · ${esc(new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date()))}</footer></main></body></html>`
+  </style></head><body><div class="print-actions"><button type="button" data-print-report>طباعة / حفظ PDF</button></div><main class="report-content">${content}<footer class="report-footer">${esc(schoolName)} · ${esc(title)} · ${esc(monthName(month))} · ${esc(new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric', timeZone: CAIRO_TIME_ZONE }).format(new Date()))}</footer></main></body></html>`
 }
 
 export default function ManagementReportBuilder({ schoolName, currentMonth, circles, teachers, students, permissions, notify }: Props) {
   const [kind, setKind] = useState<ReportKind>('school')
   const [audience, setAudience] = useState<ReportAudience>('internal')
-  const [month, setMonth] = useState(currentMonth || new Date().toISOString().slice(0,7))
+  const [month, setMonth] = useState(currentMonth || cairoMonthKey())
   const [circleIds, setCircleIds] = useState<string[]>([])
   const [teacherId, setTeacherId] = useState('')
   const [studentId, setStudentId] = useState('')
