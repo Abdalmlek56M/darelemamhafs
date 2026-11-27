@@ -86,7 +86,7 @@
 
 - `backend/DarEltahfeez.Api/MoneyRules.cs`
 - `src/Common/Dar.Common/Domain/Money.cs` (`TryCalculateTeacherSessionPay`)
-- `database/017_teacher_portal.sql` (قيود المدة 1–360 و`payable_duration_minutes`)
+- `database/017_teacher_portal.sql` و`database/042_zero_minute_session_pay.sql` (قيود المدة 0–360 لـ`payable_duration_minutes` و`teacher_attendance.duration_minutes`؛ صفر دقيقة فعلية = صفر أجر)
 - `backend/DarEltahfeez.Api/DomainEndpoints.ScheduleAttendance.cs`
 - `backend/DarEltahfeez.Api/DomainEndpoints.Collections.cs`
 - `frontend/src/application/selectors.ts` (`getSuggestedMonthlyCharge`)

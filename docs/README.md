@@ -77,7 +77,7 @@
 - **`main`:** دفعات التحصين (Tier 0/1، Z1 splits، Z2، Tier 2، B7/B10/UI) مدموجة؛ التفاصيل في `docs/OVERNIGHT-REPORT.md`.
 - **الواجهة:** React 19 + Vite (نهائي) — `/`، `/management`، `/teacher`، `/supervisor`؛ **31 ملف / 89 اختبار Vitest** (Testing Library + jsdom).
 - **Backend:** legacy API (كل الدومين) + new API `/api/v1` (Identity + Secretariat + Teaching + Meet)؛ unit + integration (Testcontainers).
-- **الترحيلات:** **42** في المستودع (001→041؛ 039 مقسمة 039a/039b؛ 041 أحدث ملف)؛ الإنتاج على 26 حتى النشر القادم.
+- **الترحيلات:** **43** في المستودع (001→042؛ 039 مقسمة 039a/039b؛ 042 أحدث ملف)؛ الإنتاج على 26 حتى النشر القادم.
 - **staging:** موجود على نفس الـhost (منفصل DB/مجلدات/منافذ/vhost + IP allow-list؛ تفاصيل في `staging-environment.md`).
 - **التالي:** نشر دفعة التحصين إلى staging ثم الإنتاج (بموافقة المالك)؛ Z2 dedup المتبقي؛ Tier 3؛ E2E contract.
 - **مؤجل بقرار المالك:** الإنجليزية، القيد المزدوج، مسير/قسائم الرواتب، خصومات/خطط رسوم، إيصالات مرقّمة، بوابة ولي الأمر، تطبيق الموبايل (24)، منصة LiveKit (22/25).
