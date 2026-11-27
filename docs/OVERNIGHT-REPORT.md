@@ -36,7 +36,7 @@ Batch commits also include suite wiring/report: `7d0d8eb`, `47a9674`, report com
 
 | Item | Status | Commit | Tests | NOT VERIFIED |
 |---|---|---|---|---|
-| 1.18 meet link before launch/exact host | in progress | pending | `link.test.ts` | live Meet not run |
+| 1.18 meet link before launch/exact host | done | `a35a76e` | `link.test.ts` | live Meet not run |
 | 1.19 status retry + local outbox | in progress | pending | `outbox.test.ts` | live API outage not run |
 | 1.20 wav delete/disk check/HLS retention | in progress | pending | `retention.test.ts`, `captureArgs.test.ts` | real recording not run |
 | 1.21 idle consecutive confirmations | in progress | pending | `idle.test.ts` | live participant UI not run |
