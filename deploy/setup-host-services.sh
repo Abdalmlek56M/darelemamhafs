@@ -5,7 +5,10 @@
 # Purpose : write /etc/dar/*.env and the two Dar systemd units, then start or
 #           restart dar-legacy (5080) and dar-api (5081) and verify /health/ready.
 # Requires: root, or the deploy user with passwordless sudo.
-#           deploy/.env with POSTGRES_PASSWORD + OTP_PEPPER (see deploy/.env.example).
+#           deploy/.env with POSTGRES_DB, POSTGRES_PASSWORD + OTP_PEPPER (see
+#           deploy/.env.example). POSTGRES_DB must name the database that
+#           deploy/setup-host-db.sh creates (it reads the same variable).
+#           POSTGRES_USER defaults to dar_app, the role setup-host-db.sh creates.
 #           Published binaries in /opt/dar/app/legacy and /opt/dar/app/api
 #           (run deploy/update.sh first on a fresh host, or pass --skip-start).
 # Usage   : sudo bash deploy/setup-host-services.sh [--skip-start]
@@ -71,6 +74,8 @@ if [ ! -r "$ENV_FILE" ]; then
   exit 1
 fi
 
+POSTGRES_DB="$(sed -n 's/^POSTGRES_DB=//p' "$ENV_FILE" | head -n 1)"
+POSTGRES_USER="$(sed -n 's/^POSTGRES_USER=//p' "$ENV_FILE" | head -n 1)"
 POSTGRES_PASSWORD="$(sed -n 's/^POSTGRES_PASSWORD=//p' "$ENV_FILE" | head -n 1)"
 OTP_PEPPER="$(sed -n 's/^OTP_PEPPER=//p' "$ENV_FILE" | head -n 1)"
 SMTP_HOST="$(sed -n 's/^SMTP_HOST=//p' "$ENV_FILE" | head -n 1)"
@@ -83,6 +88,16 @@ GOOGLE_CLIENT_ID="$(sed -n 's/^GOOGLE_CLIENT_ID=//p' "$ENV_FILE" | head -n 1)"
 DAR_DOMAIN_VALUE="$(sed -n 's/^DAR_DOMAIN=//p' "$ENV_FILE" | head -n 1 || true)"
 [ -n "$DAR_DOMAIN_VALUE" ] || DAR_DOMAIN_VALUE="deployment.example.invalid"
 
+if [ -z "$POSTGRES_DB" ]; then
+  echo "POSTGRES_DB is missing from $ENV_FILE." >&2
+  echo "deploy/setup-host-db.sh creates the database named by POSTGRES_DB; set it first." >&2
+  exit 1
+fi
+[ -n "$POSTGRES_USER" ] || POSTGRES_USER=dar_app
+if [ "$POSTGRES_USER" != "dar_app" ]; then
+  echo "WARN: POSTGRES_USER=$POSTGRES_USER in $ENV_FILE, but deploy/setup-host-db.sh creates only the dar_app role." >&2
+  echo "      The generated /etc/dar/*.env will use this user; create the role manually or set POSTGRES_USER=dar_app." >&2
+fi
 if [ -z "$POSTGRES_PASSWORD" ] || [ "$POSTGRES_PASSWORD" = "change-me-hex" ]; then
   echo "POSTGRES_PASSWORD is missing or still the example value in $ENV_FILE." >&2
   exit 1
@@ -95,7 +110,7 @@ fi
 [ -n "$SMTP_PORT" ] || SMTP_PORT=587
 [ -n "$SMTP_ENABLE_SSL" ] || SMTP_ENABLE_SSL=true
 
-DB="Host=127.0.0.1;Port=5432;Database=dar_database;Username=dar_app;Password=$POSTGRES_PASSWORD"
+DB="Host=127.0.0.1;Port=5432;Database=$POSTGRES_DB;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD"
 
 echo "==> Service user"
 if ! id dar >/dev/null 2>&1; then

@@ -5,7 +5,9 @@
 # Purpose : write /etc/nginx/sites-available/dar-elemam-hafs from the canonical
 #           template in this script, enable it, validate nginx -t and reload.
 # Requires: root, or the deploy user with passwordless sudo.
-#           deploy/.env with DAR_DOMAIN (or pass --domain).
+#           deploy/.env with DAR_DOMAIN (or pass --domain) and CERTBOT_EMAIL.
+#           CERTBOT_EMAIL is only required while no Let's Encrypt certificate
+#           exists yet: it is used for the printed Certbot command.
 # Usage   : sudo bash deploy/setup-nginx.sh [--domain HOST] [--skip-smoke]
 # Behaviour:
 #   * If the Let's Encrypt certificate already exists, the full TLS server block
@@ -32,6 +34,7 @@ CERT_ROOT="/etc/letsencrypt/live"
 BACKUP_STAMP="$(date +%Y%m%d-%H%M%S)"
 CONFIG_BACKUP_DIR="/var/backups/dar-config/$BACKUP_STAMP"
 DOMAIN=""
+CERTBOT_EMAIL=""
 SKIP_SMOKE=0
 REAL_IP_MODE=${DAR_REAL_IP_MODE:-cloudflare}
 
@@ -45,6 +48,9 @@ Usage: setup-nginx.sh [--domain HOST] [--skip-smoke] [--real-ip-mode direct|clou
                  deploy/nginx/cloudflare-realip.conf (CF ranges + CF-Connecting-IP) so nginx's
                  $remote_addr is the real client; direct trusts no proxy header.
   --help         Show this help.
+
+Reads DAR_DOMAIN from deploy/.env (or --domain) and CERTBOT_EMAIL from
+deploy/.env; CERTBOT_EMAIL is required only while no certificate exists yet.
 USAGE
 }
 
@@ -93,11 +99,21 @@ if [ -z "$DOMAIN" ]; then
   echo 'DAR_DOMAIN (or --domain) is required.' >&2
   exit 2
 fi
+# Certbot account email lives in the untracked deploy/.env; never commit a real
+# address (deploy/.env.example only carries a placeholder).
+if [ -r "$ENV_FILE" ]; then
+  CERTBOT_EMAIL="$(sed -n 's/^CERTBOT_EMAIL=//p' "$ENV_FILE" | head -n 1)"
+fi
 if [ "$REAL_IP_MODE" != "cloudflare" ] && [ "$REAL_IP_MODE" != "direct" ]; then
   echo "REAL_IP_MODE must be direct or cloudflare (got $REAL_IP_MODE)" >&2
   exit 2
 fi
 CERT_FILE="$CERT_ROOT/$DOMAIN/fullchain.pem"
+if [ ! -f "$CERT_FILE" ] && [ -z "$CERTBOT_EMAIL" ]; then
+  echo "CERTBOT_EMAIL is required in $ENV_FILE while no certificate exists for $DOMAIN." >&2
+  echo "Add CERTBOT_EMAIL=<your Let's Encrypt account email> to deploy/.env (see deploy/.env.example)." >&2
+  exit 2
+fi
 
 render_tls_config() {
   cat <<'NGINX'
@@ -325,7 +341,7 @@ fi
 
 if [ "$TLS_ENABLED" -eq 0 ]; then
   echo "==> Next step: issue the certificate with Certbot:"
-  echo "    sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m admin@rigxhardware.com --redirect"
+  echo "    sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m $CERTBOT_EMAIL --redirect"
 fi
 
 echo "NGINX_OK domain=$DOMAIN tls=$TLS_ENABLED"
