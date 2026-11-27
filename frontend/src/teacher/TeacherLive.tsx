@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Clock3, Square } from 'lucide-react'
 import type { Slot } from './teacherTypes'
 import { localTime, money, timeRange } from './teacherFormat'
+import { teacherLivePayableMinutes } from './teacherLivePay'
 
 type Props = {
   slot: Slot | null
@@ -38,7 +39,7 @@ export default function TeacherLive({ slot, hourlyRate, scheduledMinutes, starte
     return Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 60000))
   }, [startedAt, tick])
 
-  const payable = actual >= scheduledMinutes ? scheduledMinutes : Math.max(1, actual)
+  const payable = teacherLivePayableMinutes(scheduledMinutes, actual)
   const amount = payable * hourlyRate / 60
   const overtime = Math.max(0, actual - scheduledMinutes)
   const undertime = Math.max(0, scheduledMinutes - actual)

@@ -76,13 +76,30 @@ public sealed class MoneyTests
     }
 
     [Fact]
-    public void TeacherSessionPay_ZeroActual_PaysOneMinuteMinimum()
+    public void TeacherSessionPay_ZeroActual_PaysZero()
     {
+        // Owner decision (FINAL B3): zero actual whole minutes == zero pay, no 1-minute minimum.
         var ok = Money.TryCalculateTeacherSessionPay(100m, 60, 0, out var result);
+
+        Assert.True(ok);
+        Assert.Equal(0, result.ActualMinutes);
+        Assert.Equal(0, result.PayableMinutes);
+        Assert.Equal(0, result.OvertimeMinutes);
+        Assert.Equal(60, result.UndertimeMinutes);
+        Assert.Equal("actual", result.PayBasis);
+        Assert.Equal(0m, result.PayableAmount);
+    }
+
+    [Fact]
+    public void TeacherSessionPay_OneActual_PaysExactlyOneMinute()
+    {
+        // Boundary: one actual minute is still paid (no minimum, but no rounding up beyond actual).
+        var ok = Money.TryCalculateTeacherSessionPay(100m, 60, 1, out var result);
 
         Assert.True(ok);
         Assert.Equal(1, result.PayableMinutes);
         Assert.Equal(59, result.UndertimeMinutes);
+        Assert.Equal("actual", result.PayBasis);
         Assert.Equal(1.67m, result.PayableAmount);
     }
 

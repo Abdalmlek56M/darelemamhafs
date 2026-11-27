@@ -308,7 +308,7 @@ public static class SessionEndpoints
         var message = pay.ActualMinutes >= scheduled
             ? $"انتهت بعد الموعد بـ {pay.OvertimeMinutes} دقيقة. تم احتساب مدة الحلقة {scheduled} دقيقة."
             : pay.ActualMinutes == 0
-                ? "أقل من دقيقة — احتُسبت دقيقة واحدة."
+                ? "أقل من دقيقة — لم تُحتسب أي دقيقة (الأجر صفر)."
                 : $"انتهت قبل الموعد بـ {pay.UndertimeMinutes} دقيقة. تم احتساب الوقت الفعلي {pay.PayableMinutes} دقيقة.";
 
         return Results.Ok(new
