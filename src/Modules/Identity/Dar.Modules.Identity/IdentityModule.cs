@@ -50,6 +50,9 @@ public static class IdentityModule
                 : ActivatorUtilities.CreateInstance<SmtpEmailSender>(sp);
         });
 
+        services.AddSingleton<EmailQueue>();
+        services.AddHostedService(sp => sp.GetRequiredService<EmailQueue>());
+
         services.AddHttpClient();
         services.AddMemoryCache();
         services.AddSingleton<TurnstileVerifier>();

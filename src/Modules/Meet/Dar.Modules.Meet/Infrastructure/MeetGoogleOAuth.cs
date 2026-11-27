@@ -14,10 +14,21 @@ public sealed record GoogleRefreshOutcome(GoogleTokenResult? Token, string? Erro
 /// package is not part of this installation's offline feed (ADR-0007), and the three
 /// calls we need are small enough to keep dependency-free and unit testable.
 /// </summary>
-public sealed class MeetGoogleOAuth(IOptions<MeetOptions> options)
+public sealed class MeetGoogleOAuth
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
-    private MeetOptions Options => options.Value;
+    private readonly HttpClient _http;
+    private readonly IOptions<MeetOptions> _options;
+
+    public MeetGoogleOAuth(IOptions<MeetOptions> options)
+        : this(options, new HttpClient { Timeout = TimeSpan.FromSeconds(30) }) { }
+
+    public MeetGoogleOAuth(IOptions<MeetOptions> options, HttpClient http)
+    {
+        _options = options;
+        _http = http;
+    }
+
+    private MeetOptions Options => _options.Value;
 
     public string BuildAuthorizationUrl(string state)
     {
@@ -110,13 +121,30 @@ public sealed class MeetGoogleOAuth(IOptions<MeetOptions> options)
         }
     }
 
+    /// <summary>FINAL 1.15: best-effort revocation of the Google grant on disconnect.</summary>
+    public async Task<bool> RevokeAsync(string? token, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return false;
+        try
+        {
+            using var content = new FormUrlEncodedContent(new Dictionary<string, string> { ["token"] = token });
+            using var response = await _http.PostAsync("https://oauth2.googleapis.com/revoke", content, ct);
+            // Google returns 400 for an already-invalid/expired token; treat it as gone.
+            return response.IsSuccessStatusCode || (int)response.StatusCode == 400;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            return false;
+        }
+    }
+
     public async Task<string?> GetAccountEmailAsync(string accessToken, CancellationToken ct)
     {
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, "https://www.googleapis.com/oauth2/v3/userinfo");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-            using var response = await Http.SendAsync(request, ct);
+            using var response = await _http.SendAsync(request, ct);
             if (!response.IsSuccessStatusCode) return null;
             await using var stream = await response.Content.ReadAsStreamAsync(ct);
             using var document = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
@@ -135,7 +163,7 @@ public sealed class MeetGoogleOAuth(IOptions<MeetOptions> options)
         try
         {
             using var content = new FormUrlEncodedContent(form);
-            using var response = await Http.PostAsync("https://oauth2.googleapis.com/token", content, ct);
+            using var response = await _http.PostAsync("https://oauth2.googleapis.com/token", content, ct);
             await using var stream = await response.Content.ReadAsStreamAsync(ct);
             try
             {

@@ -52,9 +52,22 @@ public class MeetCryptoTests
 
         var state = crypto.CreateState(userId, now);
 
-        Assert.True(crypto.TryReadState(state, now.AddMinutes(1), out var parsed, out var error));
+        Assert.True(crypto.TryReadState(state, now.AddMinutes(1), out var parsed, out _, out var error));
         Assert.Null(error);
         Assert.Equal(userId, parsed);
+    }
+
+    [Fact]
+    public void StateCarriesAUniqueOneTimeNonce()
+    {
+        var crypto = Crypto();
+        var now = DateTimeOffset.UtcNow;
+        var first = crypto.CreateState(Guid.NewGuid(), now);
+        var second = crypto.CreateState(Guid.NewGuid(), now);
+        Assert.True(crypto.TryReadState(first, now, out _, out var nonce1, out _));
+        Assert.True(crypto.TryReadState(second, now, out _, out var nonce2, out _));
+        Assert.NotEqual(Guid.Empty, nonce1);
+        Assert.NotEqual(nonce1, nonce2);
     }
 
     [Fact]
@@ -64,7 +77,7 @@ public class MeetCryptoTests
         var state = crypto.CreateState(Guid.NewGuid(), DateTimeOffset.UtcNow);
         var tampered = state[..^1] + (state[^1] == 'A' ? 'B' : 'A');
 
-        Assert.False(crypto.TryReadState(tampered, DateTimeOffset.UtcNow, out _, out var error));
+        Assert.False(crypto.TryReadState(tampered, DateTimeOffset.UtcNow, out _, out _, out var error));
         Assert.NotNull(error);
     }
 
@@ -75,7 +88,7 @@ public class MeetCryptoTests
         var now = DateTimeOffset.UtcNow;
         var state = crypto.CreateState(Guid.NewGuid(), now);
 
-        Assert.False(crypto.TryReadState(state, now.AddMinutes(30), out _, out var error));
+        Assert.False(crypto.TryReadState(state, now.AddMinutes(30), out _, out _, out var error));
         Assert.Contains("مهلة", error);
     }
 
@@ -83,7 +96,7 @@ public class MeetCryptoTests
     public void StateSignedByAnotherKeyIsRejected()
     {
         var state = Crypto().CreateState(Guid.NewGuid(), DateTimeOffset.UtcNow);
-        Assert.False(Crypto().TryReadState(state, DateTimeOffset.UtcNow, out _, out _));
+        Assert.False(Crypto().TryReadState(state, DateTimeOffset.UtcNow, out _, out _, out _));
     }
 
     [Fact]

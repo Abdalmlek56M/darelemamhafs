@@ -11,7 +11,7 @@ public sealed record RequestEmailOtpRequest(string Email);
 
 public sealed class RequestEmailOtpHandler(
     IIdentityRepository repository,
-    IEmailSender emailSender,
+    EmailQueue emailQueue,
     OtpCodeHasher codeHasher,
     IConfiguration configuration,
     ILogger<RequestEmailOtpHandler> logger)
@@ -58,6 +58,7 @@ public sealed class RequestEmailOtpHandler(
             ipAddress,
             cancellationToken);
 
-        await emailSender.SendLoginCodeAsync(email, code, cancellationToken);
+        // FINAL 1.15: deliver via the background queue, never inline on the request thread.
+        emailQueue.Enqueue(email, code);
     }
 }

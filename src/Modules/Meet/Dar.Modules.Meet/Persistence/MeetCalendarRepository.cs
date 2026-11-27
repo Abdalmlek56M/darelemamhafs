@@ -14,6 +14,19 @@ public sealed class MeetCalendarRepository(NpgsqlDataSource dataSource)
         last_sync_at, last_full_sync_at, last_error_code, last_error_message, consecutive_failures, status
         """;
 
+    /// <summary>FINAL 1.15: returns false when this OAuth state nonce was already consumed.</summary>
+    public async Task<bool> TryConsumeOAuthStateAsync(Guid nonce, CancellationToken ct)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO meet_oauth_states(nonce, consumed_at) VALUES(@nonce, now())
+            ON CONFLICT (nonce) DO NOTHING
+            RETURNING nonce;
+            """, connection);
+        command.Parameters.AddWithValue("nonce", nonce);
+        return await command.ExecuteScalarAsync(ct) is not null;
+    }
+
     public async Task<MeetAccount?> GetActiveAccountAsync(CancellationToken ct)
     {
         await using var connection = await dataSource.OpenConnectionAsync(ct);

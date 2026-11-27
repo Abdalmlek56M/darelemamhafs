@@ -90,14 +90,15 @@ public sealed class MeetCrypto
 
     public string CreateState(Guid userId, DateTimeOffset now)
     {
-        var payload = JsonSerializer.SerializeToUtf8Bytes(new StatePayload(userId, now.Add(_stateLifetime).ToUnixTimeSeconds()));
+        var payload = JsonSerializer.SerializeToUtf8Bytes(new StatePayload(userId, now.Add(_stateLifetime).ToUnixTimeSeconds(), Guid.NewGuid()));
         var mac = Sign(payload);
         return WebEncoders.Base64UrlEncode(payload) + "." + WebEncoders.Base64UrlEncode(mac);
     }
 
-    public bool TryReadState(string? token, DateTimeOffset now, out Guid userId, out string? error)
+    public bool TryReadState(string? token, DateTimeOffset now, out Guid userId, out Guid stateNonce, out string? error)
     {
         userId = Guid.Empty;
+        stateNonce = Guid.Empty;
         error = null;
         if (string.IsNullOrWhiteSpace(token) || !IsReady)
         {
@@ -141,7 +142,7 @@ public sealed class MeetCrypto
             state = null;
         }
 
-        if (state is null || state.U == Guid.Empty)
+        if (state is null || state.U == Guid.Empty || state.N == Guid.Empty)
         {
             error = "حالة الربط غير صالحة. أعد المحاولة من جديد.";
             return false;
@@ -171,5 +172,6 @@ public sealed class MeetCrypto
         _key ?? throw new InvalidOperationException(
             "Meet:EncryptionKey is not configured. Recording endpoints stay disabled until a 32-byte base64 key is provided.");
 
-    private sealed record StatePayload(Guid U, long E);
+    /// <summary>N is a one-time nonce; the callback consumes it in the database (FINAL 1.15).</summary>
+    private sealed record StatePayload(Guid U, long E, Guid N);
 }

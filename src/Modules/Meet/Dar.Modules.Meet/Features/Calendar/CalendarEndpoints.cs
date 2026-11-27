@@ -89,7 +89,10 @@ public static class CalendarEndpoints
         var settings = options.Value;
 
         if (!string.IsNullOrWhiteSpace(error)) return Redirect(settings, "denied");
-        if (!crypto.TryReadState(state, DateTimeOffset.UtcNow, out var userId, out _))
+        if (!crypto.TryReadState(state, DateTimeOffset.UtcNow, out var userId, out var stateNonce, out _))
+            return Redirect(settings, "invalid_state");
+        // FINAL 1.15: a signed state is still single-use; replaying the callback must fail.
+        if (!await repository.TryConsumeOAuthStateAsync(stateNonce, ct))
             return Redirect(settings, "invalid_state");
         if (string.IsNullOrWhiteSpace(code)) return Redirect(settings, "invalid_code");
 
@@ -154,21 +157,31 @@ public static class CalendarEndpoints
 
     private static async Task<IResult> DisconnectAsync(
         MeetCalendarRepository repository,
+        MeetCrypto crypto,
+        MeetGoogleOAuth oauth,
+        ILoggerFactory loggerFactory,
         NpgsqlDataSource dataSource,
         ClaimsPrincipal principal,
         HttpContext http,
         CancellationToken ct)
     {
+        var logger = loggerFactory.CreateLogger("Dar.Modules.Meet.CalendarDisconnect");
         var account = await repository.GetActiveAccountAsync(ct);
+        var googleRevoked = false;
+        if (account is not null && crypto.TryDecrypt(account.EncryptedRefreshToken, out var refreshToken))
+        {
+            googleRevoked = await oauth.RevokeAsync(refreshToken, ct);
+            if (!googleRevoked) logger.LogWarning("Google token revocation failed; disconnecting locally anyway");
+        }
         await repository.RevokeAccountsAsync(ct);
         if (account is not null)
         {
             await MeetAudit.WriteAsync(
                 dataSource, principal, "meet.calendar.disconnect", "meet_calendar_account", account.Id,
-                new { account.AccountEmail }, http.Request.Path.ToString(), http.Request.Method, ct);
+                new { account.AccountEmail, googleRevoked }, http.Request.Path.ToString(), http.Request.Method, ct);
         }
 
-        return Results.Ok(new { ok = true });
+        return Results.Ok(new { ok = true, googleRevoked });
     }
 
     private static IResult Redirect(MeetOptions settings, string result)
