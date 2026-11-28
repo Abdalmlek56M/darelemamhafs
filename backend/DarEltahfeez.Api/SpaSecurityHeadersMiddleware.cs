@@ -35,6 +35,8 @@ public sealed class SpaSecurityHeadersMiddleware(RequestDelegate next)
         "/supervisor/",
         "/management",
         "/management/",
+        "/login",
+        "/login/",
     };
 
     /// <summary>The only client routes that may receive the SPA shell; everything else is a real 404.</summary>

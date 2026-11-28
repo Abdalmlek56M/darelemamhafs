@@ -7,10 +7,12 @@ import './styles/index.css'
 
 const AdminApp = lazy(() => import('./App'))
 const HomePage = lazy(() => import('./home/HomePage'))
+const UnifiedLoginPage = lazy(() => import('./pages/UnifiedLoginPage'))
 const TeacherApp = lazy(() => import('./teacher/TeacherApp'))
 const ZZErrorBomb = import.meta.env.VITE_ZZ_TEST_ERRORS === '1' ? lazy(() => import('./test/ErrorBomb')) : null
 const path = window.location.pathname
 const isHome = path === '/' || path === '/home'
+const isLogin = path === '/login' || path === '/login/'
 const isSupervisor = path === '/supervisor' || path.startsWith('/supervisor/')
 const isTeacher = path === '/teacher' || path.startsWith('/teacher/')
 
@@ -19,6 +21,13 @@ if (isHome) {
     <React.StrictMode><RootErrorBoundary page="الرئيسية" homeHref="/">
       {ZZErrorBomb && <ZZErrorBomb scope="app" />}
       <LazyBoundary page="الرئيسية" label="جارٍ تحميل الصفحة…"><HomePage /></LazyBoundary>
+    </RootErrorBoundary></React.StrictMode>,
+  )
+} else if (isLogin) {
+  createRoot(document.getElementById('root')!).render(
+    <React.StrictMode><RootErrorBoundary page="تسجيل الدخول" homeHref="/login">
+      {ZZErrorBomb && <ZZErrorBomb scope="app" />}
+      <LazyBoundary page="تسجيل الدخول" label="جارٍ تحميل صفحة الدخول…"><UnifiedLoginPage /></LazyBoundary>
     </RootErrorBoundary></React.StrictMode>,
   )
 } else if (isTeacher || isSupervisor) {
@@ -45,6 +54,7 @@ if (isHome) {
 
 function currentPageName() {
   if (isHome) return 'الرئيسية'
+  if (isLogin) return 'تسجيل الدخول'
   if (isSupervisor) return 'بوابة المشرفة'
   if (isTeacher) return 'بوابة المعلمة'
   return 'لوحة الإدارة'
