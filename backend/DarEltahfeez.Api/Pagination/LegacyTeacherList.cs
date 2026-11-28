@@ -14,6 +14,7 @@ public static partial class DomainEndpoints
         SELECT t.id,t.teacher_code,t.full_name,t.phone,t.hourly_rate,t.status,t.notes,t.created_at,t.updated_at,
                circles.circle_names AS circle_names,
                circles.circle_count AS circle_count,
+               t.gender,
                COUNT(*) OVER() AS total
         FROM teachers t
         LEFT JOIN LATERAL (

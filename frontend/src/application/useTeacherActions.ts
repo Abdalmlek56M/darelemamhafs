@@ -131,6 +131,7 @@ export default function useTeacherActions({
       hourlyRate: String(teacher.hourlyRate ?? ''),
       status: teacher.status,
       notes: teacher.notes ?? '',
+      gender: teacher.gender ?? '',
     })
     setTeacherModal(true)
   }
@@ -148,6 +149,7 @@ export default function useTeacherActions({
           phone: teacherForm.phone.trim() || null,
           status: teacherForm.status,
           notes: teacherForm.notes.trim() || null,
+          gender: teacherForm.gender || null,
           // Never send the string-backed form value: the API binds decimal? and rejects
           // numeric strings, and non-finance users must omit the field entirely.
           ...(canEditFinancials ? { hourlyRate: Number(teacherForm.hourlyRate) } : {}),

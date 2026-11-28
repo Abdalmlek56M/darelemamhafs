@@ -2,6 +2,8 @@ import Modal from '../common/Modal'
 import Field from '../common/Field'
 import { permissionGroups, knownPermissionNames } from '../../domain/permissions'
 import ModalActions from '../common/ModalActions'
+import type { Gender } from '../../domain/types'
+import { genderLabels } from '../../domain/labels'
 import type { DarApplicationContext } from '../../application/useDarApplication'
 
 type Props = { ctx: DarApplicationContext }
@@ -28,6 +30,12 @@ export default function UserDialog({ ctx }: Props) {
           </Field>
           <Field label="اسم العرض *">
             <input required maxLength={160} value={form.displayName} onChange={(event) => update({ displayName: event.target.value })} />
+          </Field>
+          <Field label="الجنس">
+            <select value={form.gender ?? ''} onChange={(event) => update({ gender: event.target.value as '' | Gender })}>
+              <option value="">غير محدد</option>
+              {Object.entries(genderLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
           </Field>
           <Field label={`كلمة المرور ${editing ? '(اتركها فارغة دون تغيير)' : '(6 أحرف على الأقل)'} *`} wide={!editing}>
             <input

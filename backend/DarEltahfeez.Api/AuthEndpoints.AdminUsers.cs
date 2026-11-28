@@ -26,16 +26,20 @@ public static partial class AuthEndpoints
             if (linkError is not null) return linkError;
             if (request.IsLocked && string.IsNullOrWhiteSpace(request.LockReason))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["lockReason"] = ["اكتب سبب قفل الحساب."] });
+            var normalizedGender = string.IsNullOrWhiteSpace(request.Gender) ? null : request.Gender.Trim().ToLowerInvariant();
+            if (normalizedGender is not null && normalizedGender is not ("male" or "female"))
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["gender"] = ["اختر جنسًا صحيحًا."] });
             var id = Guid.NewGuid();
             await using var connection = await db.OpenConnectionAsync(ct);
             await using var transaction = await connection.BeginTransactionAsync(ct);
             try
             {
                 await using (var insert = new NpgsqlCommand("""
-                    INSERT INTO app_users(id, username, display_name, password_hash, is_active, is_locked, teacher_id, locked_at, lock_reason)
+                    INSERT INTO app_users(id, username, display_name, password_hash, is_active, is_locked, teacher_id, locked_at, lock_reason, gender)
                     VALUES (@id, @username, @display, @hash, TRUE, @locked, @teacher,
                             CASE WHEN @locked THEN now() ELSE NULL END,
-                            CASE WHEN @locked THEN @lockReason ELSE NULL END);
+                            CASE WHEN @locked THEN @lockReason ELSE NULL END,
+                            @gender);
                     """, connection, transaction))
                 {
                     insert.Parameters.AddWithValue("id", id);
@@ -45,11 +49,12 @@ public static partial class AuthEndpoints
                     insert.Parameters.AddWithValue("locked", request.IsLocked);
                     AddNullable(insert, "teacher", request.TeacherId);
                     AddNullable(insert, "lockReason", request.IsLocked ? request.LockReason?.Trim() : null);
+                    AddNullable(insert, "gender", normalizedGender);
                     await insert.ExecuteNonQueryAsync(ct);
                 }
                 await ReplacePermissions(connection, transaction, id, request.PermissionCodes, ct);
                 await transaction.CommitAsync(ct);
-                return Results.Created($"/api/admin/users/{id}", new { id, username = request.Username.Trim().ToLowerInvariant(), displayName = request.DisplayName.Trim(), isActive = true, isLocked = request.IsLocked, teacherId = request.TeacherId, permissionCodes = request.PermissionCodes });
+                return Results.Created($"/api/admin/users/{id}", new { id, username = request.Username.Trim().ToLowerInvariant(), displayName = request.DisplayName.Trim(), isActive = true, isLocked = request.IsLocked, teacherId = request.TeacherId, gender = normalizedGender, permissionCodes = request.PermissionCodes });
             }
             catch (PostgresException ex) when (ex.SqlState == "23505")
             {
@@ -78,6 +83,9 @@ public static partial class AuthEndpoints
                 return Results.Conflict(new { message = "لا يمكن تعطيل آخر حساب مدير أو إزالة صلاحية إدارة الحسابات منه. أضف مديرًا آخر أولًا." });
             if (!string.IsNullOrEmpty(request.Password) && request.Password.Length < 6)
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["password"] = ["كلمة المرور الجديدة يجب ألا تقل عن 6 أحرف."] });
+            var normalizedGender = string.IsNullOrWhiteSpace(request.Gender) ? null : request.Gender.Trim().ToLowerInvariant();
+            if (normalizedGender is not null && normalizedGender is not ("male" or "female"))
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["gender"] = ["اختر جنسًا صحيحًا."] });
 
             await using var connection = await db.OpenConnectionAsync(ct);
             await using var transaction = await connection.BeginTransactionAsync(ct);
@@ -85,21 +93,22 @@ public static partial class AuthEndpoints
             {
                 var bumpSession = !request.IsActive || !string.IsNullOrEmpty(request.Password);
                 var sql = string.IsNullOrEmpty(request.Password)
-                    ? "UPDATE app_users SET username=@username, display_name=@display, is_active=@active, session_version=session_version+CASE WHEN @bump THEN 1 ELSE 0 END, updated_at=now() WHERE id=@id;"
-                    : "UPDATE app_users SET username=@username, display_name=@display, is_active=@active, password_hash=@hash, session_version=session_version+CASE WHEN @bump THEN 1 ELSE 0 END, updated_at=now() WHERE id=@id;";
+                    ? "UPDATE app_users SET username=@username, display_name=@display, is_active=@active, gender=@gender, session_version=session_version+CASE WHEN @bump THEN 1 ELSE 0 END, updated_at=now() WHERE id=@id;"
+                    : "UPDATE app_users SET username=@username, display_name=@display, is_active=@active, gender=@gender, password_hash=@hash, session_version=session_version+CASE WHEN @bump THEN 1 ELSE 0 END, updated_at=now() WHERE id=@id;";
                 await using (var update = new NpgsqlCommand(sql, connection, transaction))
                 {
                     update.Parameters.AddWithValue("id", id);
                     update.Parameters.AddWithValue("username", request.Username.Trim().ToLowerInvariant());
                     update.Parameters.AddWithValue("display", request.DisplayName.Trim());
                     update.Parameters.AddWithValue("active", request.IsActive);
+                    AddNullable(update, "gender", normalizedGender);
                     update.Parameters.AddWithValue("bump", bumpSession);
                     if (!string.IsNullOrEmpty(request.Password)) update.Parameters.AddWithValue("hash", Passwords.Hash(request.Password));
                     if (await update.ExecuteNonQueryAsync(ct) == 0) return Results.NotFound();
                 }
                 await ReplacePermissions(connection, transaction, id, request.PermissionCodes, ct);
                 await transaction.CommitAsync(ct);
-                return Results.Ok(new { id, username = request.Username.Trim().ToLowerInvariant(), displayName = request.DisplayName.Trim(), isActive = request.IsActive, permissionCodes = request.PermissionCodes });
+                return Results.Ok(new { id, username = request.Username.Trim().ToLowerInvariant(), displayName = request.DisplayName.Trim(), isActive = request.IsActive, gender = normalizedGender, permissionCodes = request.PermissionCodes });
             }
             catch (PostgresException ex) when (ex.SqlState == "23505")
             {

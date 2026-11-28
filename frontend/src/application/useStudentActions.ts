@@ -121,6 +121,8 @@ export default function useStudentActions({
       joinedOn: cairoToday(),
       status: 'active',
       notes: '',
+      gender: student.gender ?? '',
+      guardianGender: student.guardianGender ?? '',
     })
     setStudentModal(true)
     setToast({ tone: 'info', text: 'تم نسخ البيانات الأساسية فقط. راجع الاسم والكود قبل الحفظ؛ لن تُنسخ الالتحاقات أو الحضور أو المدفوعات أو الملاحظات السابقة.' })
@@ -139,6 +141,8 @@ export default function useStudentActions({
       joinedOn: student.joinedOn.slice(0, 10),
       status: student.status,
       notes: student.notes ?? '',
+      gender: student.gender ?? '',
+      guardianGender: student.guardianGender ?? '',
     })
     setStudentModal(true)
   }
@@ -159,6 +163,8 @@ export default function useStudentActions({
           guardianName: studentForm.guardianName.trim() || null,
           guardianPhone: studentForm.guardianPhone.trim() || null,
           notes: studentForm.notes.trim() || null,
+          gender: studentForm.gender || null,
+          guardianGender: studentForm.guardianGender || null,
         }),
       })
       setStudentModal(false)

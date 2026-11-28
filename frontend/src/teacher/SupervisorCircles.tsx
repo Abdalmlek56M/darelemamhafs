@@ -62,7 +62,7 @@ export default function SupervisorCircles({ demo = false, onOpenTeacher, focusId
           <tbody>
             {circles.map((circle) => (
               <tr key={circle.id} onClick={() => setSelected(circle)} tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && setSelected(circle)}>
-                <td><span className="sup-person"><span className="sup-person-avatar">{circle.name.slice(0, 1)}</span><strong>{circle.name}</strong></span></td>
+                <td><span className="sup-person"><span className="sup-person-avatar">{circle.name.slice(0, 1)}</span><strong>{circle.name}</strong>{circle.circleType === 'individual' && <small className="sub-cell">فردية</small>}{circle.isChildren && <small className="sub-cell">أطفال</small>}</span></td>
                 <td>{circle.teacherId && circle.teacherName ? <button className="sup-link" onClick={(event) => { event.stopPropagation(); onOpenTeacher?.(circle.teacherId!) }}>{circle.teacherName}</button> : '—'}</td>
                 <td>{circle.studentCount}</td>
                 <td>{circle.schedule.map((slot) => `${dayNames[slot.dayOfWeek]} ${formatTime12(slot.startsAt)}`).join(' · ') || '—'}</td>

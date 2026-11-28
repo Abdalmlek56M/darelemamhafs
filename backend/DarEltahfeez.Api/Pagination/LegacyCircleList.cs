@@ -12,7 +12,7 @@ public static partial class DomainEndpoints
     /// </summary>
     private const string LegacyCircleListSql = """
         SELECT c.id,c.circle_code,c.name,c.teacher_id,COALESCE(t.full_name,''),c.monthly_fee,c.schedule_text,c.is_active,c.created_at,c.updated_at,
-               active_students.student_count AS active_student_count,c.starts_on,
+               active_students.student_count AS active_student_count,c.starts_on,c.circle_type,c.is_children,
                COUNT(*) OVER() AS total
         FROM circles c
         LEFT JOIN teachers t ON t.id=c.teacher_id

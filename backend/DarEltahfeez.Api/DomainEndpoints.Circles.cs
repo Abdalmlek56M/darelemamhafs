@@ -68,9 +68,10 @@ public static partial class DomainEndpoints
             var code=string.IsNullOrWhiteSpace(request.CircleCode)?NewCode("CIR"):request.CircleCode.Trim();
             try
             {
-                await using var cmd=db.CreateCommand("INSERT INTO circles(circle_code,name,teacher_id,monthly_fee,schedule_text,is_active,starts_on) VALUES(@code,@name,@teacher,@fee,@schedule,@active,@starts) RETURNING id;");
+                await using var cmd=db.CreateCommand("INSERT INTO circles(circle_code,name,teacher_id,monthly_fee,schedule_text,is_active,starts_on,circle_type,is_children) VALUES(@code,@name,@teacher,@fee,@schedule,@active,@starts,@circleType,@isChildren) RETURNING id;");
                 cmd.Parameters.AddWithValue("code",code);cmd.Parameters.AddWithValue("name",request.Name.Trim()); AddNullableGuid(cmd,"teacher",request.TeacherId);
                 cmd.Parameters.AddWithValue("fee",monthlyFee);AddNullable(cmd,"schedule",request.ScheduleText);cmd.Parameters.AddWithValue("active",request.IsActive);cmd.Parameters.AddWithValue("starts",request.StartsOn);
+                cmd.Parameters.AddWithValue("circleType",NormalizeCircleType(request.CircleType));cmd.Parameters.AddWithValue("isChildren",request.IsChildren);
                 var id=(Guid)(await cmd.ExecuteScalarAsync(ct)??throw new InvalidOperationException("لم يرجع سجل الحلقة."));
                 return Results.Created($"/api/circles/{id}",await LoadCircle(db,id,CanReadFinance(principal),ct));
             }
@@ -92,9 +93,10 @@ public static partial class DomainEndpoints
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["monthlyFee"] = ["رسوم الحلقة تتجاوز الحد المسموح أو لا يمكن تمثيلها بدقة منزلتين عشريتين."] }); monthlyFee = normalizedFee; }
             try
             {
-                await using var cmd=db.CreateCommand("UPDATE circles SET circle_code=COALESCE(NULLIF(@code,''),circle_code),name=@name,teacher_id=@teacher,monthly_fee=COALESCE(@fee,monthly_fee),schedule_text=@schedule,is_active=@active,starts_on=@starts,updated_at=now() WHERE id=@id AND is_trashed=FALSE;");
+                await using var cmd=db.CreateCommand("UPDATE circles SET circle_code=COALESCE(NULLIF(@code,''),circle_code),name=@name,teacher_id=@teacher,monthly_fee=COALESCE(@fee,monthly_fee),schedule_text=@schedule,is_active=@active,starts_on=@starts,circle_type=@circleType,is_children=@isChildren,updated_at=now() WHERE id=@id AND is_trashed=FALSE;");
                 cmd.Parameters.AddWithValue("id",id);cmd.Parameters.AddWithValue("code",request.CircleCode?.Trim()??string.Empty);cmd.Parameters.AddWithValue("name",request.Name.Trim());AddNullableGuid(cmd,"teacher",request.TeacherId);
                 cmd.Parameters.AddWithValue("fee",monthlyFee.HasValue ? (object)monthlyFee.Value : DBNull.Value);AddNullable(cmd,"schedule",request.ScheduleText);cmd.Parameters.AddWithValue("active",request.IsActive);cmd.Parameters.AddWithValue("starts",request.StartsOn);
+                cmd.Parameters.AddWithValue("circleType",NormalizeCircleType(request.CircleType));cmd.Parameters.AddWithValue("isChildren",request.IsChildren);
                 if(await cmd.ExecuteNonQueryAsync(ct)==0)return Results.NotFound();
                 return Results.Ok(await LoadCircle(db,id,CanReadFinance(principal),ct));
             }
@@ -107,7 +109,7 @@ public static partial class DomainEndpoints
         }).RequireAuthorization("circles.edit").AddEndpointFilter<ScopedAccessEndpointFilter>();
         route.MapPost("/with-schedule", async Task<IResult> (CircleWithScheduleRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
-            var circleRequest = new CircleWriteRequest(request.CircleCode, request.Name, request.TeacherId, request.MonthlyFee, request.ScheduleText, request.IsActive, request.StartsOn);
+            var circleRequest = new CircleWriteRequest(request.CircleCode, request.Name, request.TeacherId, request.MonthlyFee, request.ScheduleText, request.IsActive, request.StartsOn, request.CircleType, request.IsChildren);
             var errors = ValidateCircle(circleRequest);
             if (errors is not null) return Results.ValidationProblem(errors);
             var drafts = request.Slots ?? [];
@@ -127,7 +129,7 @@ public static partial class DomainEndpoints
             try
             {
                 Guid circleId;
-                await using (var insert = new NpgsqlCommand("INSERT INTO circles(circle_code,name,teacher_id,monthly_fee,schedule_text,is_active,starts_on) VALUES(@code,@name,@teacher,@fee,@schedule,@active,@starts) RETURNING id;", conn, tx))
+                await using (var insert = new NpgsqlCommand("INSERT INTO circles(circle_code,name,teacher_id,monthly_fee,schedule_text,is_active,starts_on,circle_type,is_children) VALUES(@code,@name,@teacher,@fee,@schedule,@active,@starts,@circleType,@isChildren) RETURNING id;", conn, tx))
                 {
                     insert.Parameters.AddWithValue("code", code);
                     insert.Parameters.AddWithValue("name", request.Name.Trim());
@@ -136,6 +138,8 @@ public static partial class DomainEndpoints
                     AddNullable(insert, "schedule", request.ScheduleText);
                     insert.Parameters.AddWithValue("active", request.IsActive);
                     insert.Parameters.AddWithValue("starts", request.StartsOn);
+                    insert.Parameters.AddWithValue("circleType", NormalizeCircleType(request.CircleType));
+                    insert.Parameters.AddWithValue("isChildren", request.IsChildren);
                     circleId = (Guid)(await insert.ExecuteScalarAsync(ct) ?? throw new InvalidOperationException("لم يرجع سجل الحلقة."));
                 }
                 var savedSlots = await InsertScheduleDraftsAsync(conn, tx, circleId, drafts, principal, ct);
@@ -170,7 +174,7 @@ public static partial class DomainEndpoints
 
         route.MapPut("/{id:guid}/with-schedule", async Task<IResult> (Guid id, CircleWithScheduleRequest request, ClaimsPrincipal principal, NpgsqlDataSource db, CancellationToken ct) =>
         {
-            var circleRequest = new CircleWriteRequest(request.CircleCode, request.Name, request.TeacherId, request.MonthlyFee, request.ScheduleText, request.IsActive, request.StartsOn);
+            var circleRequest = new CircleWriteRequest(request.CircleCode, request.Name, request.TeacherId, request.MonthlyFee, request.ScheduleText, request.IsActive, request.StartsOn, request.CircleType, request.IsChildren);
             var errors = ValidateCircle(circleRequest);
             if (errors is not null) return Results.ValidationProblem(errors);
             var drafts = request.Slots ?? [];
@@ -201,7 +205,7 @@ public static partial class DomainEndpoints
                         return Results.NotFound(new { message = "الحلقة غير موجودة أو موجودة في المهملات." });
                     }
                 }
-                await using (var update = new NpgsqlCommand("UPDATE circles SET circle_code=COALESCE(NULLIF(@code,''),circle_code),name=@name,teacher_id=@teacher,monthly_fee=COALESCE(@fee,monthly_fee),schedule_text=@schedule,is_active=@active,starts_on=@starts,updated_at=now() WHERE id=@id AND is_trashed=FALSE;", conn, tx))
+                await using (var update = new NpgsqlCommand("UPDATE circles SET circle_code=COALESCE(NULLIF(@code,''),circle_code),name=@name,teacher_id=@teacher,monthly_fee=COALESCE(@fee,monthly_fee),schedule_text=@schedule,is_active=@active,starts_on=@starts,circle_type=@circleType,is_children=@isChildren,updated_at=now() WHERE id=@id AND is_trashed=FALSE;", conn, tx))
                 {
                     update.Parameters.AddWithValue("id", id);
                     update.Parameters.AddWithValue("code", request.CircleCode?.Trim() ?? string.Empty);
@@ -211,6 +215,8 @@ public static partial class DomainEndpoints
                     AddNullable(update, "schedule", request.ScheduleText);
                     update.Parameters.AddWithValue("active", request.IsActive);
                     update.Parameters.AddWithValue("starts", request.StartsOn);
+                    update.Parameters.AddWithValue("circleType", NormalizeCircleType(request.CircleType));
+                    update.Parameters.AddWithValue("isChildren", request.IsChildren);
                     await update.ExecuteNonQueryAsync(ct);
                 }
                 // FINAL 1.5: a with-schedule update replaces the weekly plan; only live rows are

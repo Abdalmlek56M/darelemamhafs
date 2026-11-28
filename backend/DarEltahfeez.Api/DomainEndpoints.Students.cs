@@ -29,8 +29,8 @@ public static partial class DomainEndpoints
             try
             {
                 await using var cmd = db.CreateCommand("""
-                    INSERT INTO students(student_code, full_name, age_years, phone, guardian_name, guardian_phone, joined_on, status, notes)
-                    VALUES(@code, @name, @age, @phone, @guardian, @guardianPhone, @joined, @status, @notes)
+                    INSERT INTO students(student_code, full_name, age_years, phone, guardian_name, guardian_phone, joined_on, status, notes, gender, guardian_gender)
+                    VALUES(@code, @name, @age, @phone, @guardian, @guardianPhone, @joined, @status, @notes, @gender, @guardianGender)
                     RETURNING id;
                     """);
                 AddStudentParams(cmd, request, code);
@@ -61,7 +61,7 @@ public static partial class DomainEndpoints
                 await using var cmd = db.CreateCommand("""
                     UPDATE students SET student_code=COALESCE(NULLIF(@code,''),student_code), full_name=@name, age_years=@age,
                         phone=@phone, guardian_name=@guardian, guardian_phone=@guardianPhone, joined_on=@joined,
-                        notes=@notes, updated_at=now()
+                        notes=@notes, gender=@gender, guardian_gender=@guardianGender, updated_at=now()
                     WHERE id=@id AND is_trashed=FALSE;
                     """);
                 AddStudentParams(cmd, request, request.StudentCode?.Trim() ?? string.Empty);

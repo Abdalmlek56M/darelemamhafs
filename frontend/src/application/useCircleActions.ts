@@ -119,6 +119,8 @@ export default function useCircleActions({
       scheduleText: circle.scheduleText ?? '',
       isActive: circle.isActive,
       startsOn: circle.startsOn,
+      circleType: circle.circleType ?? 'group',
+      isChildren: Boolean(circle.isChildren),
     })
     setCircleModal(true)
   }
@@ -166,6 +168,8 @@ export default function useCircleActions({
       scheduleText: circleForm.scheduleText.trim() || null,
       isActive: circleForm.isActive,
       startsOn: circleForm.startsOn,
+      circleType: circleForm.circleType,
+      isChildren: circleForm.isChildren,
       // The form stores the fee as text; send a number only when the caller may edit finance.
       ...(canEditFinancials ? { monthlyFee: Number(circleForm.monthlyFee) } : {}),
       slots: normalizedDrafts,

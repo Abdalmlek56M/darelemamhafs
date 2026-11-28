@@ -16,6 +16,7 @@ public static partial class AuthEndpoints
                              WHERE s.user_id = app_users.id AND s.scope_type = 'circle'), ARRAY[]::uuid[]) AS scope_circles,
                    COALESCE((SELECT array_agg(scope_id) FROM app_user_scopes s
                              WHERE s.user_id = app_users.id AND s.scope_type = 'teacher'), ARRAY[]::uuid[]) AS scope_teachers,
+                   gender,
                    COUNT(*) OVER() AS total
             FROM app_users
             ORDER BY created_at, username, id
@@ -44,7 +45,8 @@ public static partial class AuthEndpoints
                 reader.GetFieldValue<DateTimeOffset>(7),
                 [],
                 reader.GetFieldValue<Guid[]>(8),
-                reader.GetFieldValue<Guid[]>(9)));
+                reader.GetFieldValue<Guid[]>(9),
+                reader.IsDBNull(10) ? null : reader.GetString(10)));
         }
         await reader.DisposeAsync();
         total = await PaginationRules.EnsureTotalAsync(cmd, total, paged, ct);

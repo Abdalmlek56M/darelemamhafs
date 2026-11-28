@@ -18,14 +18,15 @@ public static partial class DomainEndpoints
         await using var cmd=db.CreateCommand("""
           SELECT t.id,t.teacher_code,t.full_name,t.phone,t.hourly_rate,t.status,t.notes,t.created_at,t.updated_at,
               COALESCE((SELECT string_agg(c.name,'، ' ORDER BY c.name) FROM circles c WHERE c.teacher_id=t.id AND c.is_trashed=FALSE), ''),
-              (SELECT COUNT(*) FROM circles c WHERE c.teacher_id=t.id AND c.is_trashed=FALSE)
+              (SELECT COUNT(*) FROM circles c WHERE c.teacher_id=t.id AND c.is_trashed=FALSE),
+              t.gender
           FROM teachers t WHERE t.id=@id AND t.is_trashed=FALSE;
           """);cmd.Parameters.AddWithValue("id",id);await using var reader=await cmd.ExecuteReaderAsync(ct);return await reader.ReadAsync(ct)?ReadTeacher(reader,financeVisible):null;
     }
 
     private static async Task<CircleResponse?> LoadCircle(NpgsqlDataSource db,Guid id,bool financeVisible,CancellationToken ct)
     {
-        await using var cmd=db.CreateCommand("SELECT c.id,c.circle_code,c.name,c.teacher_id,COALESCE(t.full_name,''),c.monthly_fee,c.schedule_text,c.is_active,c.created_at,c.updated_at,(SELECT COUNT(*) FROM circle_enrollments ce WHERE ce.circle_id=c.id AND ce.status='active' AND ce.is_trashed=FALSE),c.starts_on FROM circles c LEFT JOIN teachers t ON t.id=c.teacher_id WHERE c.id=@id AND c.is_trashed=FALSE;");
+        await using var cmd=db.CreateCommand("SELECT c.id,c.circle_code,c.name,c.teacher_id,COALESCE(t.full_name,''),c.monthly_fee,c.schedule_text,c.is_active,c.created_at,c.updated_at,(SELECT COUNT(*) FROM circle_enrollments ce WHERE ce.circle_id=c.id AND ce.status='active' AND ce.is_trashed=FALSE),c.starts_on,c.circle_type,c.is_children FROM circles c LEFT JOIN teachers t ON t.id=c.teacher_id WHERE c.id=@id AND c.is_trashed=FALSE;");
         cmd.Parameters.AddWithValue("id",id);await using var reader=await cmd.ExecuteReaderAsync(ct);return await reader.ReadAsync(ct)?ReadCircle(reader,financeVisible):null;
     }
 
@@ -229,7 +230,7 @@ public static partial class DomainEndpoints
         PaginationHeaderWriter.Write(http.Response, attendanceTotal, paging, attendance.Count, paged);
         return Results.Ok(new {student,enrollments,charges=charges.Values.Select(c=>c.ToResponse()),notes,attendance,attendanceVisible,attendanceTotal,notesTotal,financeVisible=principal.HasClaim("permission","finance.read")});
     }
-    private static StudentResponse ReadStudent(NpgsqlDataReader r,bool financeVisible)=>new(r.GetGuid(0),r.GetString(1),r.GetString(2),r.IsDBNull(3)?null:r.GetInt32(3),r.IsDBNull(4)?null:r.GetString(4),r.IsDBNull(5)?null:r.GetString(5),r.IsDBNull(6)?null:r.GetString(6),r.GetFieldValue<DateOnly>(7),r.GetString(8),r.IsDBNull(9)?null:r.GetString(9),r.GetFieldValue<DateTimeOffset>(10),r.GetFieldValue<DateTimeOffset>(11),r.GetString(12),financeVisible?r.GetDecimal(13):null,financeVisible?r.GetDecimal(14):null,financeVisible?r.GetString(15):null);
-    private static TeacherResponse ReadTeacher(NpgsqlDataReader r,bool financeVisible)=>new(r.GetGuid(0),r.GetString(1),r.GetString(2),r.IsDBNull(3)?null:r.GetString(3),financeVisible?r.GetDecimal(4):null,r.GetString(5),r.IsDBNull(6)?null:r.GetString(6),r.GetFieldValue<DateTimeOffset>(7),r.GetFieldValue<DateTimeOffset>(8),r.GetString(9),r.GetInt64(10));
-    private static CircleResponse ReadCircle(NpgsqlDataReader r,bool financeVisible)=>new(r.GetGuid(0),r.GetString(1),r.GetString(2),r.IsDBNull(3)?null:r.GetGuid(3),r.GetString(4),financeVisible?r.GetDecimal(5):null,r.IsDBNull(6)?null:r.GetString(6),r.GetBoolean(7),r.GetFieldValue<DateTimeOffset>(8),r.GetFieldValue<DateTimeOffset>(9),r.GetInt64(10),r.GetFieldValue<DateOnly>(11));
+    private static StudentResponse ReadStudent(NpgsqlDataReader r,bool financeVisible)=>new(r.GetGuid(0),r.GetString(1),r.GetString(2),r.IsDBNull(3)?null:r.GetInt32(3),r.IsDBNull(4)?null:r.GetString(4),r.IsDBNull(5)?null:r.GetString(5),r.IsDBNull(6)?null:r.GetString(6),r.GetFieldValue<DateOnly>(7),r.GetString(8),r.IsDBNull(9)?null:r.GetString(9),r.GetFieldValue<DateTimeOffset>(10),r.GetFieldValue<DateTimeOffset>(11),r.GetString(12),financeVisible?r.GetDecimal(13):null,financeVisible?r.GetDecimal(14):null,financeVisible?r.GetString(15):null,r.IsDBNull(16)?null:r.GetString(16),r.IsDBNull(17)?null:r.GetString(17));
+    private static TeacherResponse ReadTeacher(NpgsqlDataReader r,bool financeVisible)=>new(r.GetGuid(0),r.GetString(1),r.GetString(2),r.IsDBNull(3)?null:r.GetString(3),financeVisible?r.GetDecimal(4):null,r.GetString(5),r.IsDBNull(6)?null:r.GetString(6),r.GetFieldValue<DateTimeOffset>(7),r.GetFieldValue<DateTimeOffset>(8),r.GetString(9),r.GetInt64(10),r.IsDBNull(11)?null:r.GetString(11));
+    private static CircleResponse ReadCircle(NpgsqlDataReader r,bool financeVisible)=>new(r.GetGuid(0),r.GetString(1),r.GetString(2),r.IsDBNull(3)?null:r.GetGuid(3),r.GetString(4),financeVisible?r.GetDecimal(5):null,r.IsDBNull(6)?null:r.GetString(6),r.GetBoolean(7),r.GetFieldValue<DateTimeOffset>(8),r.GetFieldValue<DateTimeOffset>(9),r.GetInt64(10),r.GetFieldValue<DateOnly>(11),r.GetString(12),r.GetBoolean(13));
 }

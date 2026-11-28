@@ -18,6 +18,8 @@ public static partial class DomainEndpoints
         if(r.Notes?.Length>10000)e["notes"]=["الملاحظات طويلة جدًا."];
         string[] statuses=["active","paused","withdrawn","archived"];if(!statuses.Contains(r.Status,StringComparer.Ordinal))e["status"]=["اختر حالة صحيحة للطالب."];
         if(r.JoinedOn==default)e["joinedOn"]=["تاريخ الالتحاق غير صحيح."];
+        if(IsInvalidGender(r.Gender))e["gender"]=["اختر جنسًا صحيحًا."];
+        if(IsInvalidGender(r.GuardianGender))e["guardianGender"]=["اختر جنس ولي الأمر بشكل صحيح."];
         return e.Count==0?null:e;
     }
     private static Dictionary<string,string[]>? ValidateTeacher(TeacherWriteRequest r)
@@ -27,6 +29,7 @@ public static partial class DomainEndpoints
         if(r.HourlyRate is < 0)e["hourlyRate"]=["أجر الساعة لا يمكن أن يكون سالبًا."];
         if(HasInvalidPhoneChars(r.Phone))e["phone"]=["رقم الهاتف يجب أن يحتوي أرقامًا فقط مع الرموز + - ( ) والمسافات، بحد أقصى 40 حرفًا."];
         if(!new[]{"active","inactive","archived"}.Contains(r.Status,StringComparer.Ordinal))e["status"]=["حالة المعلمة غير صحيحة."];
+        if(IsInvalidGender(r.Gender))e["gender"]=["اختر جنسًا صحيحًا."];
         return e.Count==0?null:e;
     }
     private static Dictionary<string,string[]>? ValidateCircle(CircleWriteRequest r)
@@ -36,8 +39,22 @@ public static partial class DomainEndpoints
         if(r.MonthlyFee is < 0)e["monthlyFee"]=["الرسوم لا يمكن أن تكون سالبة."];
         if(r.ScheduleText?.Length>300)e["scheduleText"]=["وصف المواعيد يجب ألا يتجاوز 300 حرف."];
         if(r.StartsOn==default)e["startsOn"]=["حدد تاريخ بدء الحلقة الفعلي."];
+        if(!new[]{"individual","group"}.Contains(NormalizeCircleType(r.CircleType),StringComparer.Ordinal))e["circleType"]=["اختر نوع الحلقة (فردية أو جماعية)."];
         return e.Count==0?null:e;
     }
+
+    private static bool IsInvalidGender(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        var normalized = value.Trim().ToLowerInvariant();
+        return normalized is not ("male" or "female");
+    }
+
+    private static string? NormalizeGender(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToLowerInvariant();
+
+    private static string NormalizeCircleType(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "group" : value.Trim().ToLowerInvariant();
 
     private static bool HasInvalidPhoneChars(string? value)
     {
@@ -50,6 +67,7 @@ public static partial class DomainEndpoints
         cmd.Parameters.AddWithValue("code",code);cmd.Parameters.AddWithValue("name",r.FullName.Trim());cmd.Parameters.AddWithValue("age",r.AgeYears is null?(object)DBNull.Value:r.AgeYears.Value);
         AddNullable(cmd,"phone",r.Phone);AddNullable(cmd,"guardian",r.GuardianName);AddNullable(cmd,"guardianPhone",r.GuardianPhone);
         cmd.Parameters.AddWithValue("joined",r.JoinedOn);cmd.Parameters.AddWithValue("status",r.Status);AddNullable(cmd,"notes",r.Notes);
+        AddNullable(cmd,"gender",NormalizeGender(r.Gender));AddNullable(cmd,"guardianGender",NormalizeGender(r.GuardianGender));
     }
     private static void AddNullable(NpgsqlCommand cmd,string name,string? value)=>cmd.Parameters.AddWithValue(name,string.IsNullOrWhiteSpace(value)?DBNull.Value:value.Trim());
     private static void AddNullableGuid(NpgsqlCommand cmd, string name, Guid? value)

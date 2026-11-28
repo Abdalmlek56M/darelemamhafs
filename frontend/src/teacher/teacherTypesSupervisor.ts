@@ -84,6 +84,8 @@ export type SupervisorCircle = {
   startsOn: string
   monthlyFee: number | null
   studentCount: number
+  circleType?: 'individual' | 'group'
+  isChildren?: boolean
   schedule: SupervisorScheduleEntry[]
 }
 

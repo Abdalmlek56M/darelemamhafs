@@ -5,6 +5,8 @@ export type Page = 'dashboard' | 'notifications' | 'requests' | 'members' | 'stu
 export type Gate = 'checking' | 'setup' | 'login' | 'ready'
 export type StudentStatus = 'active' | 'paused' | 'withdrawn' | 'archived'
 export type TeacherStatus = 'active' | 'inactive' | 'archived'
+export type Gender = 'male' | 'female'
+export type CircleType = 'individual' | 'group'
 /** Severity shown by the admin/teacher notification centers. */
 export type NotificationSeverity = 'info' | 'warning' | 'critical'
 /** Saved teacher-attendance state (supervisor attendance rows use "missing"/"scheduled" for unmarked past/future slots). */
@@ -21,16 +23,17 @@ export type Student = {
   guardianName: string | null; guardianPhone: string | null; joinedOn: string; status: StudentStatus
   notes: string | null; createdAt: string; updatedAt: string; circleNames: string
   currentMonthDue: number | null; currentMonthPaid: number | null; currentMonthPaymentStatus: 'not-set' | 'unpaid' | 'partial' | 'paid' | null
+  gender?: Gender | null; guardianGender?: Gender | null
 }
-export type Teacher = { id: string; teacherCode: string; fullName: string; phone: string | null; hourlyRate: number | null; status: TeacherStatus; notes: string | null; circleNames: string; circleCount: number }
+export type Teacher = { id: string; teacherCode: string; fullName: string; phone: string | null; hourlyRate: number | null; status: TeacherStatus; notes: string | null; circleNames: string; circleCount: number; gender?: Gender | null }
 export type TeacherHistoryCircle = { id: string; circleCode: string; name: string; monthlyFee: number | null; isActive: boolean; activeStudentCount: number }
 export type TeacherHistoryScheduleSlot = { id: string; circleId: string; circleName: string; dayOfWeek: number; startsAt: string; durationMinutes: number; isActive: boolean }
 export type TeacherHistoryAttendance = { id: string; scheduleSlotId: string | null; sessionDate: string; circleName: string; startsAt: string; durationMinutes: number; status: 'present' | 'absent' | 'cancelled'; hourlyRateSnapshot: number | null; payableAmount: number | null; note: string | null; markedAt: string; presentStudentsCount: number }
 export type TeacherHistoryData = { teacher: Teacher; circles: TeacherHistoryCircle[]; scheduleSlots: TeacherHistoryScheduleSlot[]; attendance: TeacherHistoryAttendance[]; notes: { id: string; noteText: string; createdAt: string; createdBy: string }[]; attendanceVisible: boolean; circlesVisible: boolean; financeVisible: boolean; attendanceLimit: number; totals: { presentSessions: number; totalHours: number; payableTotal: number | null } | null }
-export type Circle = { id: string; circleCode: string; name: string; teacherId: string | null; teacherName: string; monthlyFee: number | null; scheduleText: string | null; isActive: boolean; activeStudentCount: number; startsOn: string }
+export type Circle = { id: string; circleCode: string; name: string; teacherId: string | null; teacherName: string; monthlyFee: number | null; scheduleText: string | null; isActive: boolean; activeStudentCount: number; startsOn: string; circleType?: CircleType; isChildren?: boolean }
 export type CollectionRow = { enrollmentId: string; chargeId: string | null; studentId: string; studentCode: string; studentName: string; circleId: string; circleName: string; teacherName: string; agreedMonthlyFee: number; amountDue: number; paidAmount: number; balance: number; note: string | null; paymentStatus: 'not-set' | 'unpaid' | 'partial' | 'paid'; billingMonth: string; enrollmentStartsOn: string; enrollmentEndsOn: string | null; circleStartsOn: string }
 export type Permission = { code: string; nameAr: string }
-export type AdminUser = { id: string; username: string; displayName: string; isActive: boolean; isLocked: boolean; teacherId: string | null; lockReason: string | null; permissionCodes: string[]; scopeCircleIds: string[]; scopeTeacherIds: string[]; createdAt: string }
+export type AdminUser = { id: string; username: string; displayName: string; isActive: boolean; isLocked: boolean; teacherId: string | null; lockReason: string | null; permissionCodes: string[]; scopeCircleIds: string[]; scopeTeacherIds: string[]; createdAt: string; gender?: Gender | null }
 export type SavedReport = { id: string; title: string; billingMonth: string; createdAt: string }
 export type HistoryPayment = { id: string; amount: number; paidAt: string; method: string | null; reference: string | null; note: string | null; hasReceipt?: boolean; voidedAt?: string | null; voidReason?: string | null; voidBlockedReason?: string | null }
 export type HistoryCharge = { id: string; billingMonth: string; amountDue: number; paidAmount: number; balance: number; note: string | null; circleName: string; payments: HistoryPayment[]; voidedAt?: string | null; voidReason?: string | null }
@@ -44,14 +47,14 @@ export type VoidTargetKind = 'charge' | 'payment'
 /** Record selected for a Void/Reverse action — the record is kept, never deleted (ADR-0005). */
 export type VoidTarget = { kind: VoidTargetKind; id: string; label: string; studentId?: string }
 export type Notice = { tone: 'success' | 'error' | 'info'; text: string }
-export type StudentForm = { studentCode: string; fullName: string; ageYears: string; phone: string; guardianName: string; guardianPhone: string; joinedOn: string; status: StudentStatus; notes: string }
-export type TeacherForm = { teacherCode: string; fullName: string; phone: string; hourlyRate: string; status: TeacherStatus; notes: string }
-export type CircleForm = { circleCode: string; name: string; teacherId: string; monthlyFee: string; scheduleText: string; isActive: boolean; startsOn: string }
+export type StudentForm = { studentCode: string; fullName: string; ageYears: string; phone: string; guardianName: string; guardianPhone: string; joinedOn: string; status: StudentStatus; notes: string; gender: '' | Gender; guardianGender: '' | Gender }
+export type TeacherForm = { teacherCode: string; fullName: string; phone: string; hourlyRate: string; status: TeacherStatus; notes: string; gender: '' | Gender }
+export type CircleForm = { circleCode: string; name: string; teacherId: string; monthlyFee: string; scheduleText: string; isActive: boolean; startsOn: string; circleType: CircleType; isChildren: boolean }
 export type CircleScheduleDraft = { dayOfWeek: string; startsAt: string; durationMinutes: string }
 export type EnrollmentForm = { studentId: string; circleId: string; startsOn: string; agreedMonthlyFee: string; allowClosedCircle: boolean }
 export type ChargeForm = { enrollmentId: string; billingMonth: string; amountDue: string; note: string }
 export type PaymentForm = { monthlyChargeId: string; amount: string; method: string; reference: string; note: string }
-export type UserForm = { id?: string; username: string; displayName: string; password: string; isActive: boolean; permissionCodes: string[]; teacherId?: string | null; isLocked?: boolean; lockReason?: string; scopeCircleIds: string[]; scopeTeacherIds: string[] }
+export type UserForm = { id?: string; username: string; displayName: string; password: string; isActive: boolean; permissionCodes: string[]; teacherId?: string | null; isLocked?: boolean; lockReason?: string; scopeCircleIds: string[]; scopeTeacherIds: string[]; gender?: '' | Gender }
 export type ReportSnapshot = { id: string; title: string; billingMonth: string; createdAt: string; snapshot: { schoolName: string; billingMonth: string; generatedAt: string; rows: CollectionRow[]; totalDue: number; totalPaid: number; totalBalance: number; rowCount: number } }
 export type ScheduleSlot = { id: string; circleId: string; circleName: string; teacherId: string | null; teacherName: string; dayOfWeek: number; startsAt: string; durationMinutes: number; isActive: boolean; circleIsActive?: boolean }
 export type AttendanceRow = { id: string; scheduleSlotId: string | null; circleId: string; circleName: string; teacherId: string; teacherName: string; sessionDate: string; startsAt: string; durationMinutes: number; status: 'present' | 'absent' | 'cancelled'; hourlyRateSnapshot: number | null; payableAmount: number | null; note: string | null; markedAt: string }

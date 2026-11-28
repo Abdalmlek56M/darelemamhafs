@@ -22,7 +22,7 @@ export default function useUserActions({
   const openUserCreate = () => {
     closeDetailLayers()
     setEditingUser(null)
-    setUserForm({ username: '', displayName: '', password: '', isActive: true, permissionCodes: ['dashboard.read'], teacherId: null, isLocked: false, lockReason: '', scopeCircleIds: [], scopeTeacherIds: [] })
+    setUserForm({ username: '', displayName: '', password: '', isActive: true, permissionCodes: ['dashboard.read'], teacherId: null, isLocked: false, lockReason: '', scopeCircleIds: [], scopeTeacherIds: [], gender: '' })
     setUserModal(true)
   }
 
@@ -41,6 +41,7 @@ export default function useUserActions({
       lockReason: user.lockReason ?? '',
       scopeCircleIds: [...(user.scopeCircleIds ?? [])],
       scopeTeacherIds: [...(user.scopeTeacherIds ?? [])],
+      gender: user.gender ?? '',
     })
     setUserModal(true)
   }
@@ -53,6 +54,7 @@ export default function useUserActions({
         ...userForm,
         password: userForm.password || null,
         teacherId: userForm.teacherId || null,
+        gender: userForm.gender || null,
         isLocked: !!userForm.isLocked,
         lockReason: userForm.isLocked ? userForm.lockReason || null : null,
       }

@@ -13,7 +13,9 @@ public static class CirclesEndpoint
         bool IsActive,
         DateOnly StartsOn,
         decimal? MonthlyFee,
-        int StudentCount);
+        int StudentCount,
+        string CircleType,
+        bool IsChildren);
 
     public static async Task<IResult> List(
         string? search,
@@ -40,6 +42,7 @@ public static class CirclesEndpoint
                    CASE WHEN @finance THEN c.monthly_fee ELSE NULL END,
                    (SELECT COUNT(*) FROM circle_enrollments ce
                      WHERE ce.circle_id = c.id AND ce.is_trashed = FALSE AND ce.status = 'active') AS students,
+                   c.circle_type, c.is_children,
                    COUNT(*) OVER() AS total
             FROM circles c
             LEFT JOIN teachers t ON t.id = c.teacher_id AND t.is_trashed = FALSE
@@ -70,7 +73,9 @@ public static class CirclesEndpoint
                     reader.GetBoolean(4),
                     reader.GetFieldValue<DateOnly>(5),
                     reader.IsDBNull(6) ? null : reader.GetDecimal(6),
-                    (int)reader.GetInt64(7)));
+                    (int)reader.GetInt64(7),
+                    reader.GetString(8),
+                    reader.GetBoolean(9)));
             }
             await reader.DisposeAsync();
             total = await PaginationRules.EnsureTotalAsync(command, total, paged, ct);
@@ -117,6 +122,8 @@ public static class CirclesEndpoint
                 startsOn = circle.StartsOn,
                 monthlyFee = circle.MonthlyFee,
                 studentCount = circle.StudentCount,
+                circleType = circle.CircleType,
+                isChildren = circle.IsChildren,
                 schedule
             };
         }).ToArray();

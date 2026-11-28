@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { motion } from 'framer-motion'
 import { BookOpen, Eye, GraduationCap, Pencil, Plus, Search, Trash2, Users, Wallet } from 'lucide-react'
 import { money } from '../lib/formatters'
+import { circleTypeLabels } from '../domain/labels'
 import type { Circle } from '../domain/types'
 import Empty from '../components/common/EmptyState'
 import Pager from '../components/common/Pager'
@@ -41,7 +42,7 @@ export default function CirclesPage({ ctx }: Props) {
     </div>
     <div className="circle-card-grid">
       {circlesPage.items.map((circle) => <article className="circle-card glass" key={circle.id}>
-        <div className="circle-card-top"><span className="stat-icon"><BookOpen size={20}/></span><span className={`status-pill ${circle.isActive?'status-active':'status-archived'}`}>{circle.isActive?'نشطة':'متوقفة'}</span></div>
+        <div className="circle-card-top"><span className="stat-icon"><BookOpen size={20}/></span><div className="circle-badges"><span className="status-pill">{circleTypeLabels[circle.circleType ?? 'group']}</span>{circle.isChildren && <span className="status-pill">أطفال</span>}<span className={`status-pill ${circle.isActive?'status-active':'status-archived'}`}>{circle.isActive?'نشطة':'متوقفة'}</span></div></div>
         <button className="text-link circle-title" onClick={()=>void ctx.openCircleDetails(circle)}>{circle.name}</button>
         <p className="circle-meta"><GraduationCap size={14}/>{circle.teacherName||'لم تُحدد معلمة'}</p>
         <p className="circle-meta"><Users size={14}/>{circle.activeStudentCount} طالب نشط</p>

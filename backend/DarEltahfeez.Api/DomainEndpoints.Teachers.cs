@@ -38,9 +38,10 @@ public static partial class DomainEndpoints
             var code = string.IsNullOrWhiteSpace(request.TeacherCode) ? NewCode("TCH") : request.TeacherCode.Trim();
             try
             {
-                await using var cmd = db.CreateCommand("INSERT INTO teachers(teacher_code,full_name,phone,hourly_rate,status,notes) VALUES(@code,@name,@phone,@rate,@status,@notes) RETURNING id;");
+                await using var cmd = db.CreateCommand("INSERT INTO teachers(teacher_code,full_name,phone,hourly_rate,status,notes,gender) VALUES(@code,@name,@phone,@rate,@status,@notes,@gender) RETURNING id;");
                 cmd.Parameters.AddWithValue("code", code); cmd.Parameters.AddWithValue("name", request.FullName.Trim()); AddNullable(cmd,"phone",request.Phone);
                 cmd.Parameters.AddWithValue("rate", hourlyRate); cmd.Parameters.AddWithValue("status", request.Status); AddNullable(cmd,"notes",request.Notes);
+                AddNullable(cmd,"gender",NormalizeGender(request.Gender));
                 var id=(Guid)(await cmd.ExecuteScalarAsync(ct) ?? throw new InvalidOperationException("لم يرجع سجل المعلمة."));
                 return Results.Created($"/api/teachers/{id}", await LoadTeacher(db,id,CanReadFinance(principal),ct));
             }
@@ -57,9 +58,10 @@ public static partial class DomainEndpoints
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["hourlyRate"] = ["أجر الساعة يتجاوز الحد المسموح أو لا يمكن تمثيله بدقة منزلتين عشريتين."] }); hourlyRate = normalizedRate; }
             try
             {
-                await using var cmd=db.CreateCommand("UPDATE teachers SET teacher_code=COALESCE(NULLIF(@code,''),teacher_code),full_name=@name,phone=@phone,hourly_rate=COALESCE(@rate,hourly_rate),status=@status,notes=@notes,updated_at=now() WHERE id=@id AND is_trashed=FALSE;");
+                await using var cmd=db.CreateCommand("UPDATE teachers SET teacher_code=COALESCE(NULLIF(@code,''),teacher_code),full_name=@name,phone=@phone,hourly_rate=COALESCE(@rate,hourly_rate),status=@status,notes=@notes,gender=@gender,updated_at=now() WHERE id=@id AND is_trashed=FALSE;");
                 cmd.Parameters.AddWithValue("id",id); cmd.Parameters.AddWithValue("code",request.TeacherCode?.Trim()??string.Empty); cmd.Parameters.AddWithValue("name",request.FullName.Trim()); AddNullable(cmd,"phone",request.Phone);
                 cmd.Parameters.AddWithValue("rate",hourlyRate.HasValue ? (object)hourlyRate.Value : DBNull.Value); cmd.Parameters.AddWithValue("status",request.Status); AddNullable(cmd,"notes",request.Notes);
+                AddNullable(cmd,"gender",NormalizeGender(request.Gender));
                 if(await cmd.ExecuteNonQueryAsync(ct)==0) return Results.NotFound();
                 return Results.Ok(await LoadTeacher(db,id,CanReadFinance(principal),ct));
             }

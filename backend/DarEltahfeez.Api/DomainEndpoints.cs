@@ -31,7 +31,8 @@ public static partial class DomainEndpoints
                                 JOIN circle_enrollments ce ON ce.id=mc.enrollment_id
                                 WHERE ce.student_id=s.id AND ce.is_trashed=FALSE AND mc.is_trashed=FALSE AND mc.voided_at IS NULL AND p.is_trashed=FALSE AND p.voided_at IS NULL AND mc.billing_month=date_trunc('month', CURRENT_DATE)::date), 0) > 0 THEN 'partial'
                  ELSE 'unpaid'
-               END AS current_month_payment_status
+               END AS current_month_payment_status,
+               s.gender, s.guardian_gender
         """;
 
     private const string StudentProjection = "SELECT " + StudentSelectColumns + "\nFROM students s";
@@ -67,21 +68,21 @@ public static partial class DomainEndpoints
 
 }
 
-public sealed record StudentWriteRequest(string? StudentCode,string FullName,int? AgeYears,string? Phone,string? GuardianName,string? GuardianPhone,DateOnly JoinedOn,string Status,string? Notes);
+public sealed record StudentWriteRequest(string? StudentCode,string FullName,int? AgeYears,string? Phone,string? GuardianName,string? GuardianPhone,DateOnly JoinedOn,string Status,string? Notes,string? Gender=null,string? GuardianGender=null);
 public sealed record StudentStatusRequest(string Status, DateOnly? EffectiveOn = null);
-public sealed record StudentResponse(Guid Id,string StudentCode,string FullName,int? AgeYears,string? Phone,string? GuardianName,string? GuardianPhone,DateOnly JoinedOn,string Status,string? Notes,DateTimeOffset CreatedAt,DateTimeOffset UpdatedAt,string CircleNames,decimal? CurrentMonthDue,decimal? CurrentMonthPaid,string? CurrentMonthPaymentStatus);
+public sealed record StudentResponse(Guid Id,string StudentCode,string FullName,int? AgeYears,string? Phone,string? GuardianName,string? GuardianPhone,DateOnly JoinedOn,string Status,string? Notes,DateTimeOffset CreatedAt,DateTimeOffset UpdatedAt,string CircleNames,decimal? CurrentMonthDue,decimal? CurrentMonthPaid,string? CurrentMonthPaymentStatus,string? Gender=null,string? GuardianGender=null);
 public sealed record StudentNoteRequest(string NoteText);
 public sealed record StudentNoteResponse(Guid Id,string NoteText,DateTimeOffset CreatedAt,string CreatedBy);
-public sealed record TeacherWriteRequest(string? TeacherCode,string FullName,string? Phone,decimal? HourlyRate,string Status,string? Notes);
-public sealed record TeacherResponse(Guid Id,string TeacherCode,string FullName,string? Phone,decimal? HourlyRate,string Status,string? Notes,DateTimeOffset CreatedAt,DateTimeOffset UpdatedAt,string CircleNames,long CircleCount);
-public sealed record CircleWriteRequest(string? CircleCode,string Name,Guid? TeacherId,decimal? MonthlyFee,string? ScheduleText,bool IsActive,DateOnly StartsOn);
-public sealed record CircleResponse(Guid Id,string CircleCode,string Name,Guid? TeacherId,string TeacherName,decimal? MonthlyFee,string? ScheduleText,bool IsActive,DateTimeOffset CreatedAt,DateTimeOffset UpdatedAt,long ActiveStudentCount,DateOnly StartsOn);
+public sealed record TeacherWriteRequest(string? TeacherCode,string FullName,string? Phone,decimal? HourlyRate,string Status,string? Notes,string? Gender=null);
+public sealed record TeacherResponse(Guid Id,string TeacherCode,string FullName,string? Phone,decimal? HourlyRate,string Status,string? Notes,DateTimeOffset CreatedAt,DateTimeOffset UpdatedAt,string CircleNames,long CircleCount,string? Gender=null);
+public sealed record CircleWriteRequest(string? CircleCode,string Name,Guid? TeacherId,decimal? MonthlyFee,string? ScheduleText,bool IsActive,DateOnly StartsOn,string CircleType="group",bool IsChildren=false);
+public sealed record CircleResponse(Guid Id,string CircleCode,string Name,Guid? TeacherId,string TeacherName,decimal? MonthlyFee,string? ScheduleText,bool IsActive,DateTimeOffset CreatedAt,DateTimeOffset UpdatedAt,long ActiveStudentCount,DateOnly StartsOn,string CircleType="group",bool IsChildren=false);
 public sealed record EnrollmentWriteRequest(Guid StudentId,Guid CircleId,DateOnly StartsOn,decimal? AgreedMonthlyFee,bool AllowClosedCircle = false);
 public sealed record EnrollmentEndRequest(DateOnly? EndsOn);
 public sealed record EnrollmentStatusChangeRequest(DateOnly? EffectiveOn, string? Reason);
 public sealed record ScheduleSlotWriteRequest(Guid CircleId,int DayOfWeek,string StartsAt,int DurationMinutes);
 public sealed record ScheduleSlotDraft(int DayOfWeek,string StartsAt,int DurationMinutes);
-public sealed record CircleWithScheduleRequest(string? CircleCode,string Name,Guid? TeacherId,decimal? MonthlyFee,string? ScheduleText,bool IsActive,DateOnly StartsOn,IReadOnlyList<ScheduleSlotDraft>? Slots);
+public sealed record CircleWithScheduleRequest(string? CircleCode,string Name,Guid? TeacherId,decimal? MonthlyFee,string? ScheduleText,bool IsActive,DateOnly StartsOn,IReadOnlyList<ScheduleSlotDraft>? Slots,string CircleType="group",bool IsChildren=false);
 public sealed record ScheduleSlotUpdateRequest(int DayOfWeek,string StartsAt,int DurationMinutes,bool? IsActive=null);
 public sealed record TeacherAttendanceMarkRequest(Guid ScheduleSlotId,DateOnly SessionDate,string Status,string? Note,Guid? TeacherId = null);
 public sealed record TeacherAttendanceDurationRequest(int DurationMinutes);

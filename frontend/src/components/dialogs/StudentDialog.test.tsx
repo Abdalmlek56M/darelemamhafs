@@ -17,6 +17,8 @@ function studentForm(status: StudentStatus): StudentForm {
     joinedOn: '2026-11-28',
     status,
     notes: '',
+    gender: '',
+    guardianGender: '',
   }
 }
 

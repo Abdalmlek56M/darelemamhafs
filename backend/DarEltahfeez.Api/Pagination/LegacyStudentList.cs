@@ -18,7 +18,7 @@ public static partial class DomainEndpoints
     private const string LegacyStudentListSql = """
         WITH filtered AS (
             SELECT s.id, s.student_code, s.full_name, s.age_years, s.phone, s.guardian_name, s.guardian_phone,
-                   s.joined_on, s.status, s.notes, s.created_at, s.updated_at
+                   s.joined_on, s.status, s.notes, s.created_at, s.updated_at, s.gender, s.guardian_gender
             FROM students s
             WHERE s.is_trashed=FALSE
               AND (@search = '' OR s.full_name ILIKE @like OR s.student_code ILIKE @like OR COALESCE(s.phone,'') ILIKE @like
@@ -43,6 +43,7 @@ public static partial class DomainEndpoints
                  WHEN COALESCE(fin.paid, 0) > 0 THEN 'partial'
                  ELSE 'unpaid'
                END,
+               p.gender, p.guardian_gender,
                counted.n AS total
         FROM page p
         CROSS JOIN counted
