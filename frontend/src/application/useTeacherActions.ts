@@ -150,11 +150,15 @@ export default function useTeacherActions({
           status: teacherForm.status,
           notes: teacherForm.notes.trim() || null,
           gender: teacherForm.gender || null,
+          ...(!editingTeacher && teacherForm.username?.trim()
+            ? { username: teacherForm.username.trim(), password: teacherForm.password ?? '' }
+            : {}),
           // Never send the string-backed form value: the API binds decimal? and rejects
           // numeric strings, and non-finance users must omit the field entirely.
           ...(canEditFinancials ? { hourlyRate: Number(teacherForm.hourlyRate) } : {}),
         }),
       })
+      setTeacherForm(blankTeacher())
       setTeacherModal(false)
       await Promise.all([loadTeachers(), loadCircles()])
       setToast({ tone: 'success', text: editingTeacher ? 'تم تعديل بيانات المعلمة.' : 'تمت إضافة المعلمة.' })

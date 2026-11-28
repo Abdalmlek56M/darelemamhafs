@@ -165,8 +165,12 @@ export default function useStudentActions({
           notes: studentForm.notes.trim() || null,
           gender: studentForm.gender || null,
           guardianGender: studentForm.guardianGender || null,
+          ...(!editingStudent && studentForm.accountUsername?.trim()
+            ? { accountUsername: studentForm.accountUsername.trim(), accountPassword: studentForm.accountPassword ?? '' }
+            : {}),
         }),
       })
+      setStudentForm(blankStudent())
       setStudentModal(false)
       await loadStudents()
       if (selectedStudent?.id) await openHistory(selectedStudent.id)

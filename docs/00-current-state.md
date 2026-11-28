@@ -22,7 +22,7 @@
 | الواجهة | **React 19 + Vite + TypeScript** + CSS tokens + framer-motion — **لا Next.js** (القرار ملغي نهائيًا، ADR-0001) |
 | Backend (قديم) | ASP.NET Core 10 Minimal API — `backend/DarEltahfeez.Api` على 5080 (يخدم الـSPA + كل الـdomain APIs) |
 | Backend (جديد) | `Dar.slnx`: `src/Host/Dar.Api` على 5081 — `/api/v1/*` (Identity + Secretariat + Teaching + Meet) |
-| قاعدة البيانات | PostgreSQL 17 — `public` schema — **44 migration في المستودع (001→043؛ 039 مقسمة 039a/039b؛ 043 أحدث ملف)** |
+| قاعدة البيانات | PostgreSQL 17 — `public` schema — **45 migration في المستودع (001→044؛ 039 مقسمة 039a/039b؛ 044 أحدث ملف)** |
 | النشر | Ubuntu 24.04 + Nginx + Certbot + systemd + منافذ داخلية 5080/5081؛ staging منفصل على نفس الـhost (`docs/staging-environment.md`) |
 | الاختبارات | backend unit + integration (Testcontainers) + 48 suite في `tests/run-regression.sh`؛ frontend **47 ملف / 155 اختبار Vitest** (Testing Library + jsdom) |
 | اللغة | العربية فقط الآن — الإنجليزية مؤجلة (ADR-0004) |
@@ -52,7 +52,7 @@
 | `backend/DarEltahfeez.Api/` | 77 ملف C# — 105 route mapping — كل الإدارة/المالية/الحضور/التقارير (partials بعد Z1) | لا يزال مصدر معظم الوظائف |
 | `src/Host/Dar.Api/` + `src/Modules/*` | 128 ملف C# — Identity/Secretariat/Teaching/**Meet** — 82 route mapping | هوست جديد + وحدات؛ Meet = تقويم Google + أحداث + نطاق تسجيل (3.1) |
 | `frontend/src/` | 180 ملف TS/TSX (82 ts + 98 tsx) — SPA واحدة تحمل admin + teacher + supervisor + home | admin: `App.tsx`/`SystemAdminView.tsx`/`pages/` + `meet/` — teacher/supervisor: `teacher/` |
-| `database/` | 44 ملف SQL مرتّب + ledger في `web_schema_migrations` | legacy `schema_migrations` متوقف عند 16 |
+| `database/` | 45 ملف SQL مرتّب + ledger في `web_schema_migrations` | legacy `schema_migrations` متوقف عند 16 |
 | `tests/` | UnitTests + IntegrationTests (Testcontainers) + `tests/regression` (node/bash، 48 suite) | PowerShell runners/catalog **أُزيلت** |
 | `deploy/` | Nginx/systemd/backup/setup/update scripts + `deploy/lib` (split قيد التنفيذ) | Docker/Caddy stack حُذف من الريبو (2.15) |
 | `services/meet-recorder/` | بوت التسجيل (Node 24 + TypeScript) — 26 ملف src | خدمة `dar-meet-bot` + `dar-meet.slice` (3.2) |

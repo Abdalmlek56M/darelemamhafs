@@ -26,23 +26,45 @@ public static partial class DomainEndpoints
             var errors = ValidateStudent(request);
             if (errors is not null) return Results.ValidationProblem(errors);
             var code = string.IsNullOrWhiteSpace(request.StudentCode) ? NewCode("STU") : request.StudentCode.Trim();
+            var wantsAccount = !string.IsNullOrWhiteSpace(request.AccountUsername) || !string.IsNullOrWhiteSpace(request.AccountPassword);
+            if (wantsAccount)
+            {
+                if (!principal.HasClaim("permission", "users.manage")) return Results.Forbid();
+                var accountErrors = AuthEndpoints.ValidateLinkedAccountCredentials(request.AccountUsername, request.AccountPassword, "accountUsername", "accountPassword");
+                if (accountErrors is not null) return Results.ValidationProblem(accountErrors);
+            }
+            await using var conn = await db.OpenConnectionAsync(ct);
+            await using var tx = await conn.BeginTransactionAsync(ct);
             try
             {
-                await using var cmd = db.CreateCommand("""
+                await using var cmd = new NpgsqlCommand("""
                     INSERT INTO students(student_code, full_name, age_years, phone, guardian_name, guardian_phone, joined_on, status, notes, gender, guardian_gender)
                     VALUES(@code, @name, @age, @phone, @guardian, @guardianPhone, @joined, @status, @notes, @gender, @guardianGender)
                     RETURNING id;
-                    """);
+                    """, conn, tx);
                 AddStudentParams(cmd, request, code);
                 // FINAL 1.11: new students get the server's Africa/Cairo day, not the browser date.
                 cmd.Parameters["joined"].Value = Dar.Common.Domain.CairoTime.Today();
                 var id = (Guid)(await cmd.ExecuteScalarAsync(ct) ?? throw new InvalidOperationException("لم يرجع سجل الطالب بعد الحفظ."));
+                if (wantsAccount)
+                {
+                    var displayName = string.IsNullOrWhiteSpace(request.GuardianName) ? request.FullName.Trim() : request.GuardianName.Trim();
+                    await AuthEndpoints.CreateLinkedUserAccountAsync(
+                        conn, tx, request.AccountUsername!, displayName, request.AccountPassword!,
+                        ["account.password.self"], studentId: id, guardianName: request.GuardianName,
+                        guardianPhone: request.GuardianPhone, gender: NormalizeGender(request.GuardianGender), ct: ct);
+                }
+                await tx.CommitAsync(ct);
                 var saved = await LoadStudent(db, id, CanReadFinance(principal), ct);
                 return Results.Created($"/api/students/{id}", saved);
             }
             catch (PostgresException ex) when (ex.SqlState == "23505")
             {
-                return Results.Conflict(new { message = "كود الطالب مستخدم بالفعل. اختَر كودًا مختلفًا." });
+                await tx.RollbackAsync(ct);
+                var message = ex.ConstraintName?.Contains("username", StringComparison.OrdinalIgnoreCase) == true
+                    ? "اسم المستخدم مستخدم بالفعل."
+                    : "كود الطالب مستخدم بالفعل. اختَر كودًا مختلفًا.";
+                return Results.Conflict(new { message });
             }
         }).RequireAuthorization("students.create").AddEndpointFilter<ScopedAccessEndpointFilter>();
 

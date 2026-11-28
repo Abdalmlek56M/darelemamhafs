@@ -44,5 +44,7 @@ describe('Mission 2 gender and circle type/children fields', () => {
 
     render(<TeacherDialog ctx={ctx} />)
     expect(screen.getByLabelText('الجنس')).toBeTruthy()
+    expect(screen.getByLabelText('اسم المستخدم (حساب المعلمة)')).toBeTruthy()
+    expect(screen.getByLabelText('كلمة المرور (6 أحرف على الأقل)')).toBeTruthy()
   })
 })

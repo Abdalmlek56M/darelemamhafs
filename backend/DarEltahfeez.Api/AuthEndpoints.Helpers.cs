@@ -188,4 +188,50 @@ public static partial class AuthEndpoints
         cmd.Parameters.AddWithValue("id", id);
         return (bool)(await cmd.ExecuteScalarAsync(ct) ?? false);
     }
+
+    internal static Dictionary<string, string[]>? ValidateLinkedAccountCredentials(string? username, string? password, string usernameKey = "username", string passwordKey = "password")
+    {
+        var errors = new Dictionary<string, string[]>();
+        var trimmed = username?.Trim() ?? string.Empty;
+        if (trimmed.Length < 3 || trimmed.Length > 100)
+            errors[usernameKey] = ["اسم المستخدم يجب أن يكون بين 3 و100 حرف."];
+        if (string.IsNullOrEmpty(password) || password.Length < 6 || password.Length > 200)
+            errors[passwordKey] = ["كلمة المرور يجب ألا تقل عن 6 أحرف وألا تتجاوز 200 حرف."];
+        return errors.Count == 0 ? null : errors;
+    }
+
+    internal static async Task<Guid> CreateLinkedUserAccountAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string username,
+        string displayName,
+        string password,
+        string[] permissionCodes,
+        Guid? teacherId = null,
+        Guid? studentId = null,
+        string? guardianName = null,
+        string? guardianPhone = null,
+        string? gender = null,
+        CancellationToken ct = default)
+    {
+        var userId = Guid.NewGuid();
+        await using (var insert = new NpgsqlCommand("""
+            INSERT INTO app_users(id, username, display_name, password_hash, is_active, is_locked, teacher_id, student_id, guardian_name, guardian_phone, gender)
+            VALUES (@id, @username, @display, @hash, TRUE, FALSE, @teacher, @student, @guardianName, @guardianPhone, @gender);
+            """, connection, transaction))
+        {
+            insert.Parameters.AddWithValue("id", userId);
+            insert.Parameters.AddWithValue("username", username.Trim().ToLowerInvariant());
+            insert.Parameters.AddWithValue("display", displayName.Trim());
+            insert.Parameters.AddWithValue("hash", Passwords.Hash(password));
+            AddNullable(insert, "teacher", teacherId);
+            AddNullable(insert, "student", studentId);
+            AddNullable(insert, "guardianName", string.IsNullOrWhiteSpace(guardianName) ? null : guardianName.Trim());
+            AddNullable(insert, "guardianPhone", string.IsNullOrWhiteSpace(guardianPhone) ? null : guardianPhone.Trim());
+            AddNullable(insert, "gender", string.IsNullOrWhiteSpace(gender) ? null : gender.Trim().ToLowerInvariant());
+            await insert.ExecuteNonQueryAsync(ct);
+        }
+        await ReplacePermissions(connection, transaction, userId, permissionCodes, ct);
+        return userId;
+    }
 }

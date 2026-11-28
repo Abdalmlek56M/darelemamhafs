@@ -47,8 +47,8 @@ export type VoidTargetKind = 'charge' | 'payment'
 /** Record selected for a Void/Reverse action — the record is kept, never deleted (ADR-0005). */
 export type VoidTarget = { kind: VoidTargetKind; id: string; label: string; studentId?: string }
 export type Notice = { tone: 'success' | 'error' | 'info'; text: string }
-export type StudentForm = { studentCode: string; fullName: string; ageYears: string; phone: string; guardianName: string; guardianPhone: string; joinedOn: string; status: StudentStatus; notes: string; gender: '' | Gender; guardianGender: '' | Gender }
-export type TeacherForm = { teacherCode: string; fullName: string; phone: string; hourlyRate: string; status: TeacherStatus; notes: string; gender: '' | Gender }
+export type StudentForm = { studentCode: string; fullName: string; ageYears: string; phone: string; guardianName: string; guardianPhone: string; joinedOn: string; status: StudentStatus; notes: string; gender: '' | Gender; guardianGender: '' | Gender; accountUsername?: string; accountPassword?: string }
+export type TeacherForm = { teacherCode: string; fullName: string; phone: string; hourlyRate: string; status: TeacherStatus; notes: string; gender: '' | Gender; username?: string; password?: string }
 export type CircleForm = { circleCode: string; name: string; teacherId: string; monthlyFee: string; scheduleText: string; isActive: boolean; startsOn: string; circleType: CircleType; isChildren: boolean }
 export type CircleScheduleDraft = { dayOfWeek: string; startsAt: string; durationMinutes: string }
 export type EnrollmentForm = { studentId: string; circleId: string; startsOn: string; agreedMonthlyFee: string; allowClosedCircle: boolean }

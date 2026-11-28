@@ -68,12 +68,12 @@ public static partial class DomainEndpoints
 
 }
 
-public sealed record StudentWriteRequest(string? StudentCode,string FullName,int? AgeYears,string? Phone,string? GuardianName,string? GuardianPhone,DateOnly JoinedOn,string Status,string? Notes,string? Gender=null,string? GuardianGender=null);
+public sealed record StudentWriteRequest(string? StudentCode,string FullName,int? AgeYears,string? Phone,string? GuardianName,string? GuardianPhone,DateOnly JoinedOn,string Status,string? Notes,string? Gender=null,string? GuardianGender=null,string? AccountUsername=null,string? AccountPassword=null);
 public sealed record StudentStatusRequest(string Status, DateOnly? EffectiveOn = null);
 public sealed record StudentResponse(Guid Id,string StudentCode,string FullName,int? AgeYears,string? Phone,string? GuardianName,string? GuardianPhone,DateOnly JoinedOn,string Status,string? Notes,DateTimeOffset CreatedAt,DateTimeOffset UpdatedAt,string CircleNames,decimal? CurrentMonthDue,decimal? CurrentMonthPaid,string? CurrentMonthPaymentStatus,string? Gender=null,string? GuardianGender=null);
 public sealed record StudentNoteRequest(string NoteText);
 public sealed record StudentNoteResponse(Guid Id,string NoteText,DateTimeOffset CreatedAt,string CreatedBy);
-public sealed record TeacherWriteRequest(string? TeacherCode,string FullName,string? Phone,decimal? HourlyRate,string Status,string? Notes,string? Gender=null);
+public sealed record TeacherWriteRequest(string? TeacherCode,string FullName,string? Phone,decimal? HourlyRate,string Status,string? Notes,string? Gender=null,string? Username=null,string? Password=null);
 public sealed record TeacherResponse(Guid Id,string TeacherCode,string FullName,string? Phone,decimal? HourlyRate,string Status,string? Notes,DateTimeOffset CreatedAt,DateTimeOffset UpdatedAt,string CircleNames,long CircleCount,string? Gender=null);
 public sealed record CircleWriteRequest(string? CircleCode,string Name,Guid? TeacherId,decimal? MonthlyFee,string? ScheduleText,bool IsActive,DateOnly StartsOn,string CircleType="group",bool IsChildren=false);
 public sealed record CircleResponse(Guid Id,string CircleCode,string Name,Guid? TeacherId,string TeacherName,decimal? MonthlyFee,string? ScheduleText,bool IsActive,DateTimeOffset CreatedAt,DateTimeOffset UpdatedAt,long ActiveStudentCount,DateOnly StartsOn,string CircleType="group",bool IsChildren=false);
