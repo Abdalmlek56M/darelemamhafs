@@ -17,6 +17,7 @@ import { request } from './services/apiClient'
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 const AdminRequestsPage = lazy(() => import('./pages/AdminRequestsPage'))
+const MembersPage = lazy(() => import('./pages/MembersPage'))
 const StudentsPage = lazy(() => import('./pages/StudentsPage'))
 const TeachersPage = lazy(() => import('./pages/TeachersPage'))
 const TeacherNotesPage = lazy(() => import('./pages/TeacherNotesPage'))
@@ -33,6 +34,7 @@ const mobileNavLabels: Record<string, string> = {
   dashboard: 'الرئيسية',
   notifications: 'الإشعارات',
   requests: 'الطلبات',
+  members: 'الأعضاء',
   students: 'الطلاب',
   teachers: 'المعلمات',
   'teacher-notes': 'ملاحظات',
@@ -169,6 +171,7 @@ export default function App() {
         {page === 'dashboard' && has('dashboard.read') && <DashboardPage ctx={ctx} />}
         {page === 'notifications' && has('dashboard.read') && <NotificationsPage ctx={ctx} />}
         {page === 'requests' && has('attendance.edit') && <AdminRequestsPage ctx={ctx} />}
+        {page === 'members' && <MembersPage ctx={ctx} />}
         {page === 'students' && <StudentsPage ctx={ctx} />}
         {page === 'teachers' && <TeachersPage ctx={ctx} />}
         {page === 'teacher-notes' && has('teachers.read') && <TeacherNotesPage />}

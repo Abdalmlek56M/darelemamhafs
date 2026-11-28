@@ -5,6 +5,7 @@ export const navItems: { id: Page; label: string; icon: typeof LayoutDashboard; 
   { id: 'dashboard', label: 'لوحة التحكم', icon: LayoutDashboard, permission: 'dashboard.read' },
   { id: 'notifications', label: 'الإشعارات', icon: Bell, permission: 'dashboard.read' },
   { id: 'requests', label: 'طلبات المعلمات', icon: ClipboardCheck, permission: 'attendance.edit' },
+  { id: 'members', label: 'الأعضاء', icon: Users, permission: 'students.read' },
   { id: 'students', label: 'الطلاب', icon: Users, permission: 'students.read' },
   { id: 'teachers', label: 'المعلمات', icon: GraduationCap, permission: 'teachers.read' },
   { id: 'teacher-notes', label: 'ملاحظات المعلمات', icon: MessageSquareText, permission: 'teachers.read' },

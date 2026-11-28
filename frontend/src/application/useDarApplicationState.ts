@@ -137,6 +137,7 @@ export function useDarApplicationState() {
   const serverProfit = useProfitSummary(currentMonthValue, gate === 'ready' && Boolean(session) && has('finance.read'))
   const canOpenPage = useCallback((id: Page, codes: string[]) => {
     if (id === 'dashboard') return codes.includes('dashboard.read')
+    if (id === 'members') return ['students.read', 'teachers.read', 'users.manage'].some(code => codes.includes(code))
     if (id === 'students') return ['students.read','students.create','students.edit','students.delete'].some(code => codes.includes(code))
     if (id === 'teachers') return ['teachers.read','teachers.create','teachers.edit','teachers.delete'].some(code => codes.includes(code))
     if (id === 'circles') return ['circles.read','circles.create','circles.edit','circles.delete'].some(code => codes.includes(code))
