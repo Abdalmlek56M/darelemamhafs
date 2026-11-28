@@ -65,6 +65,14 @@ export function useLiveKitRoom(options: Options) {
   const canShareScreen = options.role === 'host' || (!options.isChildren && options.allowStudentScreenshare)
   const canUseCamera = options.role === 'host' || !options.isChildren
 
+  useEffect(() => {
+    const room = roomRef.current
+    if (!room || room.state !== ConnectionState.Connected) return
+    if (!canUnmuteMic && micOn) {
+      void room.localParticipant.setMicrophoneEnabled(false)
+    }
+  }, [canUnmuteMic, micOn])
+
   const syncParticipants = useCallback((room: Room) => {
     const next: LiveParticipantTile[] = [buildTile(room.localParticipant, true)]
     for (const remote of room.remoteParticipants.values()) {

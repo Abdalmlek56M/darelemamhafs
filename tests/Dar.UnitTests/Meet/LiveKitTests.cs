@@ -99,6 +99,18 @@ public sealed class LiveKitTests
         Assert.Empty(mutedSources);
     }
 
+    [Fact]
+    public void AllowedModerationActions_includes_all_host_controls()
+    {
+        Assert.Contains("mute", LiveKitHostControlEndpoints.AllowedModerationActions);
+        Assert.Contains("unmute", LiveKitHostControlEndpoints.AllowedModerationActions);
+        Assert.Contains("remove", LiveKitHostControlEndpoints.AllowedModerationActions);
+        Assert.Contains("ban", LiveKitHostControlEndpoints.AllowedModerationActions);
+        Assert.Contains("admit", LiveKitHostControlEndpoints.AllowedModerationActions);
+        Assert.Contains("deny", LiveKitHostControlEndpoints.AllowedModerationActions);
+        Assert.DoesNotContain("promote", LiveKitHostControlEndpoints.AllowedModerationActions);
+    }
+
     private static JsonElement DecodeJwtPayload(string jwt)
     {
         var parts = jwt.Split('.');

@@ -54,6 +54,7 @@ public static class MeetModule
         internalGroup.MapMeetBotJobs();
         app.MapLiveKitRoomEndpoints();
         app.MapLiveKitAccessEndpoints();
+        app.MapLiveKitHostControlEndpoints();
 
         return app;
     }

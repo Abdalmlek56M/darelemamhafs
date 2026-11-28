@@ -241,6 +241,56 @@ public sealed class LiveKitRoomRepository(NpgsqlDataSource db)
         return await GetRoomByInviteCodeAsync(inviteCode, ct);
     }
 
+    public async Task ModerateParticipantAsync(Guid roomId, Guid targetUserId, string action, CancellationToken ct)
+    {
+        var sql = action switch
+        {
+            "mute" => "UPDATE livekit_room_participants SET muted_by_host = TRUE, updated_at = now() WHERE room_id = @rid AND user_id = @uid;",
+            "unmute" => "UPDATE livekit_room_participants SET muted_by_host = FALSE, updated_at = now() WHERE room_id = @rid AND user_id = @uid;",
+            "admit" => "UPDATE livekit_room_participants SET admission_status = 'admitted', updated_at = now() WHERE room_id = @rid AND user_id = @uid;",
+            "deny" => "UPDATE livekit_room_participants SET admission_status = 'denied', is_connected = FALSE, updated_at = now() WHERE room_id = @rid AND user_id = @uid;",
+            "remove" => "UPDATE livekit_room_participants SET is_connected = FALSE, updated_at = now() WHERE room_id = @rid AND user_id = @uid;",
+            "ban" => "UPDATE livekit_room_participants SET admission_status = 'banned', is_connected = FALSE, updated_at = now() WHERE room_id = @rid AND user_id = @uid;",
+            _ => throw new ArgumentOutOfRangeException(nameof(action)),
+        };
+        await using var cmd = db.CreateCommand(sql);
+        cmd.Parameters.AddWithValue("rid", roomId);
+        cmd.Parameters.AddWithValue("uid", targetUserId);
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task EndRoomAsync(Guid roomId, CancellationToken ct)
+    {
+        await using var conn = await db.OpenConnectionAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
+        await using (var closeParts = new NpgsqlCommand("""
+            UPDATE livekit_room_participants
+            SET attended_seconds = attended_seconds + CASE
+                    WHEN is_connected AND last_joined_at IS NOT NULL
+                    THEN GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - last_joined_at)))::int)
+                    ELSE 0
+                END,
+                is_connected = FALSE,
+                last_left_at = CASE WHEN is_connected THEN now() ELSE last_left_at END,
+                updated_at = now()
+            WHERE room_id = @rid;
+            """, conn, tx))
+        {
+            closeParts.Parameters.AddWithValue("rid", roomId);
+            await closeParts.ExecuteNonQueryAsync(ct);
+        }
+        await using (var endCmd = new NpgsqlCommand("""
+            UPDATE livekit_rooms
+            SET status = 'ended', ended_at = COALESCE(ended_at, now())
+            WHERE id = @rid;
+            """, conn, tx))
+        {
+            endCmd.Parameters.AddWithValue("rid", roomId);
+            await endCmd.ExecuteNonQueryAsync(ct);
+        }
+        await tx.CommitAsync(ct);
+    }
+
     private const string RoomSelect = """
         SELECT r.id, r.room_name, r.invite_code, r.circle_id, c.name, c.teacher_id, c.is_children,
                r.session_id, r.title, r.access_mode, r.waiting_room_enabled, r.allow_student_screenshare,

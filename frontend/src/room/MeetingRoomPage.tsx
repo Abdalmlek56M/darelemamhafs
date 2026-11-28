@@ -156,6 +156,12 @@ export default function MeetingRoomPage() {
       onSendReaction={(emoji) => void live.sendReaction(emoji)}
       onSendChat={(text) => live.sendChat(text)}
       onLeave={() => { void live.leaveRoom().finally(() => window.location.assign('/login')) }}
+      onEndRoom={role === 'host' ? () => {
+        void roomApi.endRoom(inviteCode).then(() => setEndedNotice('تم إنهاء الاجتماع للجميع.')).catch(() => undefined)
+      } : undefined}
+      onModerate={role === 'host' ? (action, targetUserId) => {
+        void roomApi.hostAction(inviteCode, action, targetUserId).then(() => refreshParticipants()).catch(() => undefined)
+      } : undefined}
       onUpdateAccess={(patch: { accessMode: RoomAccessMode; waitingRoomEnabled: boolean; allowStudentScreenshare: boolean }) => {
         void roomApi.updateAccess(inviteCode, patch).then(setRoom).catch(() => undefined)
       }}

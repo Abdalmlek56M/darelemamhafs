@@ -81,4 +81,61 @@ describe('MeetingRoomView (Mission 3)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'إرسال' }))
     expect(onSendChat).toHaveBeenCalledWith('السلام عليكم')
   })
+
+  it('renders host controls for waiting room admit/deny, mute, remove, ban, and end meeting', () => {
+    const onModerate = vi.fn()
+    const onEndRoom = vi.fn()
+
+    render(
+      <MeetingRoomView
+        room={baseRoom}
+        role="host"
+        tiles={[
+          { identity: 'h-1', name: 'المعلمة', isLocal: true, isHost: true, micEnabled: true, cameraEnabled: false, screenEnabled: false, videoTrack: null, screenTrack: null, audioTrack: null },
+          { identity: 's-1', name: 'سارة', isLocal: false, isHost: false, micEnabled: true, cameraEnabled: false, screenEnabled: false, videoTrack: null, screenTrack: null, audioTrack: null },
+        ]}
+        dbParticipants={[
+          { userId: 's-1', username: 's1', displayName: 'سارة', role: 'participant', admissionStatus: 'admitted', mutedByHost: false, firstJoinedAt: null, lastJoinedAt: null, lastLeftAt: null, attendedSeconds: 60, attendedMinutes: 1, isConnected: true },
+          { userId: 'w-1', username: 'w1', displayName: 'زائرة منتظرة', role: 'participant', admissionStatus: 'pending', mutedByHost: false, firstJoinedAt: null, lastJoinedAt: null, lastLeftAt: null, attendedSeconds: 0, attendedMinutes: 0, isConnected: false },
+        ]}
+        micOn={true}
+        cameraOn={false}
+        screenOn={false}
+        handRaised={false}
+        canUnmuteMic={true}
+        canUseCamera={true}
+        canShareScreen={true}
+        raisedHands={{}}
+        chat={[]}
+        reactions={[]}
+        onToggleMic={vi.fn()}
+        onToggleCamera={vi.fn()}
+        onToggleScreenShare={vi.fn()}
+        onToggleHand={vi.fn()}
+        onSendReaction={vi.fn()}
+        onSendChat={vi.fn(async () => {})}
+        onLeave={vi.fn()}
+        onModerate={onModerate}
+        onEndRoom={onEndRoom}
+      />,
+    )
+
+    fireEvent.click(screen.getByTitle('قبول'))
+    expect(onModerate).toHaveBeenCalledWith('admit', 'w-1')
+
+    fireEvent.click(screen.getByTitle('رفض'))
+    expect(onModerate).toHaveBeenCalledWith('deny', 'w-1')
+
+    fireEvent.click(screen.getByTitle('كتم الصوت'))
+    expect(onModerate).toHaveBeenCalledWith('mute', 's-1')
+
+    fireEvent.click(screen.getByTitle('إزالة'))
+    expect(onModerate).toHaveBeenCalledWith('remove', 's-1')
+
+    fireEvent.click(screen.getByTitle('حظر'))
+    expect(onModerate).toHaveBeenCalledWith('ban', 's-1')
+
+    fireEvent.click(screen.getByRole('button', { name: /إنهاء للجميع/ }))
+    expect(onEndRoom).toHaveBeenCalledTimes(1)
+  })
 })
