@@ -45,7 +45,7 @@ export default function TeachersPage({ ctx }: Props) {
         <span><strong>{teacher.fullName}</strong><small>{teacher.teacherCode} · فتح الملف</small></span>
       </button>,
     },
-    { key: 'phone', header: 'الهاتف', ltr: true, render: (teacher) => teacher.phone || '—' },
+    { key: 'phone', header: 'الهاتف', ltr: true, className: 'cell-center', render: (teacher) => teacher.phone || '—' },
     ...(ctx.has('finance.read') ? [{
       key: 'rate', header: 'أجر الساعة',
       render: (teacher: Teacher) => <><strong>{money(teacher.hourlyRate)}</strong><small className="sub-cell">لكل ساعة</small></>,

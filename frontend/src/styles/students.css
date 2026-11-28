@@ -119,3 +119,5 @@
   .toast { bottom:12px;left:12px; }
 }
 
+
+.students-table th.cell-center, .students-table td.cell-center { text-align: center; }
