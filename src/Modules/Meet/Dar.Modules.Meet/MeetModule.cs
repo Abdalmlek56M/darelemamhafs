@@ -6,6 +6,7 @@ using Dar.Modules.Meet.Features.Control;
 using Dar.Modules.Meet.Features.Internal;
 using Dar.Modules.Meet.Features.Media;
 using Dar.Modules.Meet.Infrastructure;
+using Dar.Modules.Meet.LiveKit;
 using Dar.Modules.Meet.Persistence;
 
 namespace Dar.Modules.Meet;
@@ -28,6 +29,11 @@ public static class MeetModule
         services.AddHostedService<Workers.MeetSchedulerWorker>();
         services.AddHostedService<Workers.MeetAlertNotifier>();
         services.AddHttpClient("meet-telegram", client => client.Timeout = TimeSpan.FromSeconds(15));
+        services.AddHttpClient("livekit-server", client => client.Timeout = TimeSpan.FromSeconds(10));
+        services.AddSingleton(_ => LiveKitOptions.FromConfiguration(configuration));
+        services.AddSingleton<LiveKitTokenService>();
+        services.AddSingleton<LiveKitServerClient>();
+        services.AddScoped<LiveKitRoomRepository>();
 
 
         return services;
@@ -46,6 +52,7 @@ public static class MeetModule
         // every call needs the service token (Meet__InternalToken).
         var internalGroup = app.MapGroup("/internal/meet").WithTags("meet-internal");
         internalGroup.MapMeetBotJobs();
+        app.MapLiveKitRoomEndpoints();
 
         return app;
     }

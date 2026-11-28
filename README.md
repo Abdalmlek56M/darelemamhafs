@@ -12,7 +12,7 @@
 | الواجهة | **React 19 + Vite 6 + TypeScript** — SPA واحدة. **لا Next.js** (القرار ملغي — ADR-0001) |
 | Backend (legacy) | ASP.NET Core 10 Minimal API — `backend/DarEltahfeez.Api` على 5080 (يخدم الـSPA + معظم الـAPIs) |
 | Backend (new) | `Dar.slnx`: `src/Host/Dar.Api` على 5081 — `/api/v1/*` (Identity + Secretariat + Teaching + Meet) |
-| قاعدة البيانات | PostgreSQL 17 — **45 migration في المستودع** (001→044؛ 039 مقسمة 039a/039b؛ 044 أحدث ملف) — ledger `web_schema_migrations` |
+| قاعدة البيانات | PostgreSQL 17 — **46 migration في المستودع** (001→045؛ 039 مقسمة 039a/039b؛ 045 أحدث ملف) — ledger `web_schema_migrations` |
 | النشر | Ubuntu 24.04 + Nginx + Certbot + systemd (Docker/Caddy متقاعد وملفاته حُذفت من الريبو) |
 | اللغة | العربية فقط الآن؛ الإنجليزية مؤجلة (ADR-0004) |
 | الخزنة | خزنة + إيرادات + مصروفات + تقفيل شهري؛ **بدون قيد مزدوج** (ADR-0003) |
@@ -48,7 +48,7 @@ src/Modules/Identity       users/sessions/OTP/password
 src/Modules/Secretariat    students
 src/Modules/Teaching       teacher + supervisor + notifications + communication
 src/Modules/Meet           Google Calendar + events + recordings + bot control plane
-database/                  45 ordered SQL migrations
+database/                  46 ordered SQL migrations
 tests/                     Dar.UnitTests + Dar.IntegrationTests
 services/meet-recorder/    Dar meet recorder bot (Node 24 + Playwright + FFmpeg)
 frontend/                  React 19 + Vite SPA (admin + teacher + supervisor + home)

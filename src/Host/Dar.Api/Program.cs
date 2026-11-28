@@ -88,6 +88,7 @@ builder.Services.AddHostedService<Dar.Api.Features.System.Retention.DataRetentio
 builder.Services.AddHostedService<NotificationSyncService>();
 
 var app = builder.Build();
+app.Services.GetRequiredService<Dar.Modules.Meet.LiveKit.LiveKitOptions>().LogStatus(app.Logger);
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
