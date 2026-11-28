@@ -6,6 +6,7 @@ import type {
 } from './teacherTypes'
 import { loginErrorMessage } from '../lib/userMessages'
 import { useTeacherOutbox } from './useTeacherOutbox'
+import { roomApi } from '../room/roomApi'
 
 function has(session: TeacherSession | null, permission: string) {
   return !!session?.permissionCodes.includes(permission)
@@ -215,6 +216,8 @@ export function useTeacherAppState(mode: 'teacher' | 'supervisor') {
     setError(null)
     try {
       const started = await teacherApi.start(slot.id)
+      // Auto-link teacher/session to the circle's LiveKit room when meetings are configured.
+      void roomApi.openCircleRoom({ circleId: slot.circleId, sessionId: started.sessionId }).catch(() => undefined)
       setActiveSessionId(started.sessionId)
       const data = await loadToday()
       setActiveSlot(data?.slots.find((item) => item.sessionId === started.sessionId) ?? { ...slot, sessionId: started.sessionId, sessionStatus: started.status })

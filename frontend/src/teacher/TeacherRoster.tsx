@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Check, Search, Users, WifiOff } from 'lucide-react'
 import type { EndResponse, RosterResponse, RosterStudent, Slot } from './teacherTypes'
 import { enrollmentStatusLabel, money } from './teacherFormat'
+import { roomApi } from '../room/roomApi'
 
 type Status = 'present' | 'excused' | 'absent'
 type Props = {
@@ -36,6 +37,22 @@ export default function TeacherRoster({ roster, slot, endResult, hourlyRate, loa
   const [marks, setMarks] = useState<Record<string, Status>>({})
   const [query, setQuery] = useState('')
   const [success, setSuccess] = useState<{ present: number; excused: number; absent: number; total: number; queued?: boolean } | null>(null)
+  const [suggestions, setSuggestions] = useState<Map<string, { attendedMinutes: number; suggestedStatus: 'present' | 'absent' }>>(new Map())
+
+  useEffect(() => {
+    const sid = roster?.sessionId
+    if (!sid) { setSuggestions(new Map()); return }
+    let active = true
+    void roomApi.sessionSuggestedAttendance(sid)
+      .then((res) => {
+        if (!active) return
+        const map = new Map<string, { attendedMinutes: number; suggestedStatus: 'present' | 'absent' }>()
+        for (const s of res.students) map.set(s.studentId, { attendedMinutes: s.attendedMinutes, suggestedStatus: s.suggestedStatus })
+        setSuggestions(map)
+      })
+      .catch(() => { if (active) setSuggestions(new Map()) })
+    return () => { active = false }
+  }, [roster?.sessionId])
 
   const students = roster?.students ?? []
   const eligibleStudents = useMemo(() => students.filter((student) => student.eligibleForDate), [students])
@@ -82,6 +99,16 @@ export default function TeacherRoster({ roster, slot, endResult, hourlyRate, loa
     for (const student of eligibleStudents) next[student.enrollmentId] = status
     setMarks(next)
   }
+  const applySuggestions = () => {
+    setMarks((current) => {
+      const next = { ...current }
+      for (const student of eligibleStudents) {
+        const s = suggestions.get(student.studentId)
+        if (s) next[student.enrollmentId] = s.suggestedStatus
+      }
+      return next
+    })
+  }
 
   const submit = async () => {
     try {
@@ -120,15 +147,23 @@ export default function TeacherRoster({ roster, slot, endResult, hourlyRate, loa
         <button onClick={() => setAll('present')} disabled={counts.total === 0}>الكل حاضر</button>
         <button onClick={() => setAll('excused')} disabled={counts.total === 0}>الكل بعذر</button>
         <button onClick={() => setAll('absent')} disabled={counts.total === 0}>الكل غائب</button>
+        {suggestions.size > 0 && <button type="button" onClick={applySuggestions}>تطبيق اقتراحات الغرفة</button>}
       </div>
 
       <div className="t-roster">
         {filtered.map((student) => {
           const status = marks[student.enrollmentId] ?? 'present'
+          const suggestion = suggestions.get(student.studentId)
           return (
             <div className="t-student" key={student.enrollmentId}>
               <span className="t-avatar">{student.studentName.slice(0, 1)}</span>
-              <div className="t-student-copy"><strong>{student.studentName}</strong><small>{student.studentCode} · {enrollmentStatusLabel(student.enrollmentStatus)}</small></div>
+              <div className="t-student-copy">
+                <strong>{student.studentName}</strong>
+                <small>
+                  {student.studentCode} · {enrollmentStatusLabel(student.enrollmentStatus)}
+                  {suggestion && ` · ${suggestion.attendedMinutes} د في الغرفة`}
+                </small>
+              </div>
               <div className="t-status-toggle" role="group" aria-label={`حالة ${student.studentName}`}>
                 {(['present', 'excused', 'absent'] as Status[]).map((value) => (
                   <button key={value} className={`${value} ${status === value ? 'selected' : ''}`} onClick={() => setStudent(student, value)} aria-pressed={status === value}>

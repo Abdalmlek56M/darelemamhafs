@@ -291,6 +291,107 @@ public sealed class LiveKitRoomRepository(NpgsqlDataSource db)
         await tx.CommitAsync(ct);
     }
 
+    public async Task<int> RecordAttendanceEventAsync(Guid roomId, Guid userId, string kind, CancellationToken ct)
+    {
+        var sql = kind switch
+        {
+            "join" => """
+                UPDATE livekit_room_participants
+                SET first_joined_at = COALESCE(first_joined_at, now()),
+                    last_joined_at = now(),
+                    is_connected = TRUE,
+                    updated_at = now()
+                WHERE room_id = @rid AND user_id = @uid AND admission_status = 'admitted'
+                RETURNING attended_seconds;
+                """,
+            "heartbeat" => """
+                UPDATE livekit_room_participants
+                SET attended_seconds = attended_seconds + CASE
+                        WHEN is_connected AND last_joined_at IS NOT NULL
+                        THEN GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - last_joined_at)))::int)
+                        ELSE 0
+                    END,
+                    last_joined_at = now(),
+                    is_connected = TRUE,
+                    updated_at = now()
+                WHERE room_id = @rid AND user_id = @uid AND admission_status = 'admitted'
+                RETURNING attended_seconds;
+                """,
+            "leave" => """
+                UPDATE livekit_room_participants
+                SET attended_seconds = attended_seconds + CASE
+                        WHEN is_connected AND last_joined_at IS NOT NULL
+                        THEN GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - last_joined_at)))::int)
+                        ELSE 0
+                    END,
+                    last_left_at = now(),
+                    is_connected = FALSE,
+                    updated_at = now()
+                WHERE room_id = @rid AND user_id = @uid
+                RETURNING attended_seconds;
+                """,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+        };
+
+        await using var cmd = db.CreateCommand(sql);
+        cmd.Parameters.AddWithValue("rid", roomId);
+        cmd.Parameters.AddWithValue("uid", userId);
+        var result = await cmd.ExecuteScalarAsync(ct);
+        return result is int seconds ? seconds : 0;
+    }
+
+    public async Task<(Guid? RoomId, int TeacherAttendedMinutes, IReadOnlyList<(Guid StudentId, Guid UserId, int AttendedMinutes, string SuggestedStatus)> Students)>
+        GetSessionAttendanceSuggestionsAsync(Guid sessionId, CancellationToken ct)
+    {
+        await using var roomCmd = db.CreateCommand("""
+            SELECT r.id
+            FROM livekit_rooms r
+            WHERE r.session_id = @sid
+            ORDER BY r.created_at DESC
+            LIMIT 1;
+            """);
+        roomCmd.Parameters.AddWithValue("sid", sessionId);
+        var roomObj = await roomCmd.ExecuteScalarAsync(ct);
+        if (roomObj is not Guid roomId)
+            return (null, 0, []);
+
+        var teacherSeconds = 0;
+        var students = new List<(Guid, Guid, int, string)>();
+        await using var partCmd = db.CreateCommand("""
+            SELECT p.role, p.user_id, u.student_id,
+                   p.attended_seconds + CASE
+                       WHEN p.is_connected AND p.last_joined_at IS NOT NULL
+                       THEN GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - p.last_joined_at)))::int)
+                       ELSE 0
+                   END AS effective_seconds
+            FROM livekit_room_participants p
+            JOIN app_users u ON u.id = p.user_id
+            WHERE p.room_id = @rid;
+            """);
+        partCmd.Parameters.AddWithValue("rid", roomId);
+        await using var reader = await partCmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            var role = reader.GetString(0);
+            var userId = reader.GetGuid(1);
+            var studentId = reader.IsDBNull(2) ? (Guid?)null : reader.GetGuid(2);
+            var seconds = reader.GetInt32(3);
+            var minutes = (int)Math.Round(seconds / 60.0, MidpointRounding.AwayFromZero);
+
+            if (role == "host")
+            {
+                teacherSeconds = Math.Max(teacherSeconds, seconds);
+            }
+            else if (studentId.HasValue)
+            {
+                students.Add((studentId.Value, userId, minutes, LiveKitRoomPolicy.SuggestAttendanceStatus(seconds)));
+            }
+        }
+
+        var teacherMinutes = (int)Math.Round(teacherSeconds / 60.0, MidpointRounding.AwayFromZero);
+        return (roomId, teacherMinutes, students);
+    }
+
     private const string RoomSelect = """
         SELECT r.id, r.room_name, r.invite_code, r.circle_id, c.name, c.teacher_id, c.is_children,
                r.session_id, r.title, r.access_mode, r.waiting_room_enabled, r.allow_student_screenshare,

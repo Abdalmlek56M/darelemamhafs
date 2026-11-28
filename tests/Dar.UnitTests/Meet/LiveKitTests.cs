@@ -111,6 +111,15 @@ public sealed class LiveKitTests
         Assert.DoesNotContain("promote", LiveKitHostControlEndpoints.AllowedModerationActions);
     }
 
+    [Fact]
+    public void SuggestAttendanceStatus_returns_present_at_least_60_seconds_and_absent_otherwise()
+    {
+        Assert.Equal("absent", LiveKitRoomPolicy.SuggestAttendanceStatus(0));
+        Assert.Equal("absent", LiveKitRoomPolicy.SuggestAttendanceStatus(59));
+        Assert.Equal("present", LiveKitRoomPolicy.SuggestAttendanceStatus(60));
+        Assert.Equal("present", LiveKitRoomPolicy.SuggestAttendanceStatus(1800));
+    }
+
     private static JsonElement DecodeJwtPayload(string jwt)
     {
         var parts = jwt.Split('.');

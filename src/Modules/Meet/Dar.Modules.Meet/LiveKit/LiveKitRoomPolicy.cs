@@ -80,4 +80,7 @@ public static class LiveKitRoomPolicy
             ? ["camera", "microphone", "screen_share"]
             : ["camera", "microphone"];
     }
+
+    public static string SuggestAttendanceStatus(int attendedSeconds) =>
+        attendedSeconds >= 60 ? "present" : "absent";
 }

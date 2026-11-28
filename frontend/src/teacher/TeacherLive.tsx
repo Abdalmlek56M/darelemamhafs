@@ -1,9 +1,10 @@
 import { formatTime12 } from '../lib/dates'
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowRight, Clock3, Square } from 'lucide-react'
+import { ArrowRight, Clock3, Square, Video } from 'lucide-react'
 import type { Slot } from './teacherTypes'
 import { localTime, money, timeRange } from './teacherFormat'
 import { teacherLivePayableMinutes } from './teacherLivePay'
+import { roomApi } from '../room/roomApi'
 
 type Props = {
   slot: Slot | null
@@ -24,10 +25,22 @@ function clock(startedAt: string | null) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
-export default function TeacherLive({ slot, hourlyRate, scheduledMinutes, startedAt, busy, error, canEarnings, onBack, onEnd }: Props) {
+export default function TeacherLive({ slot, sessionId, hourlyRate, scheduledMinutes, startedAt, busy, error, canEarnings, onBack, onEnd }: Props) {
   const [tick, setTick] = useState(0)
   const [finishOpen, setFinishOpen] = useState(false)
   const [note, setNote] = useState('')
+  const [roomError, setRoomError] = useState<string | null>(null)
+
+  const openCircleMeeting = async () => {
+    if (!slot) return
+    setRoomError(null)
+    try {
+      const room = await roomApi.openCircleRoom({ circleId: slot.circleId, sessionId })
+      window.open(`/room/${room.inviteCode}`, '_blank', 'noopener')
+    } catch (err) {
+      setRoomError(err instanceof Error ? err.message : 'تعذر فتح غرفة الحلقة.')
+    }
+  }
 
   useEffect(() => {
     const timer = window.setInterval(() => setTick((value) => value + 1), 1000)
@@ -79,6 +92,13 @@ export default function TeacherLive({ slot, hourlyRate, scheduledMinutes, starte
       )}
 
       {canEarnings && <p className="t-hint">إذا تجاوزتِ المدة الأساسية يُحتسب الأجر على المدة الأساسية، والزيادة تُسجل للمراجعة. إذا انتهيتِ مبكرًا يُحتسب الوقت الفعلي.</p>}
+
+      {slot && (
+        <button type="button" className="t-secondary" onClick={() => void openCircleMeeting()}>
+          <Video size={17} /> دخول غرفة الحلقة المباشرة
+        </button>
+      )}
+      {roomError && <p className="t-error">{roomError}</p>}
 
       <button className="t-primary t-danger" onClick={() => setFinishOpen(true)} disabled={busy}>
         <Square size={17} /> إنهاء الحلقة

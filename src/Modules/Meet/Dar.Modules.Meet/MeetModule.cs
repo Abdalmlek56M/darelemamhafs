@@ -55,6 +55,7 @@ public static class MeetModule
         app.MapLiveKitRoomEndpoints();
         app.MapLiveKitAccessEndpoints();
         app.MapLiveKitHostControlEndpoints();
+        app.MapLiveKitAttendanceEndpoints();
 
         return app;
     }
