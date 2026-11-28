@@ -97,10 +97,13 @@ export default function useDarAuth({
           try {
             const v1 = await request<{ permissions?: string[]; permissionCodes?: string[] }>('/api/v1/auth/me')
             if (!mounted) return
-            const target = resolvePortalPath(v1.permissions ?? v1.permissionCodes ?? [])
-            if (target !== '/management') {
-              window.location.replace(target)
-              return
+            const v1Perms = v1.permissions ?? v1.permissionCodes
+            if (Array.isArray(v1Perms) && v1Perms.length > 0) {
+              const target = resolvePortalPath(v1Perms)
+              if (target !== '/management') {
+                window.location.replace(target)
+                return
+              }
             }
           } catch { /* no v1 session */ }
           if (mounted) setGate('login')

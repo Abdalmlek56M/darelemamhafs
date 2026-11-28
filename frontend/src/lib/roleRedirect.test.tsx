@@ -17,6 +17,11 @@ describe('resolvePortalPath', () => {
   it('routes teachers to /teacher', () => {
     expect(resolvePortalPath(['teacher.portal', 'teacher.attendance'])).toBe('/teacher')
   })
+
+  it('routes guardian/student accounts (only account.password.self) to /portal', () => {
+    expect(resolvePortalPath(['account.password.self'])).toBe('/portal')
+    expect(resolvePortalPath([])).toBe('/portal')
+  })
 })
 
 describe('HomePage', () => {

@@ -10,11 +10,11 @@ const ADMIN_PERMISSIONS = [
   'settings.manage',
 ]
 
-export type PortalPath = '/management' | '/supervisor' | '/teacher'
+export type PortalPath = '/management' | '/supervisor' | '/teacher' | '/portal'
 
 /**
  * Resolves the target portal path for an authenticated user based on their permissions.
- * Priority: management/admin -> supervisor -> teacher.
+ * Priority: management/admin -> supervisor -> teacher -> /portal (guardian/student coming-soon).
  */
 export function resolvePortalPath(permissionCodes: readonly string[]): PortalPath {
   if (ADMIN_PERMISSIONS.some((code) => permissionCodes.includes(code))) {
@@ -26,5 +26,5 @@ export function resolvePortalPath(permissionCodes: readonly string[]): PortalPat
   if (permissionCodes.some((code) => code === 'teacher.portal' || code.startsWith('teacher.'))) {
     return '/teacher'
   }
-  return '/management'
+  return '/portal'
 }
