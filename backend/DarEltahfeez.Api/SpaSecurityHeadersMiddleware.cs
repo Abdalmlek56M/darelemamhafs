@@ -16,7 +16,7 @@ public sealed class SpaSecurityHeadersMiddleware(RequestDelegate next)
         "font-src 'self' https://fonts.gstatic.com data:;",
         "img-src 'self' data: blob:;",
         "media-src 'self' blob:;",
-        "connect-src 'self' https://challenges.cloudflare.com https://cloudflareinsights.com;",
+        "connect-src 'self' wss: https://*.livekit.cloud https://challenges.cloudflare.com https://cloudflareinsights.com;",
         "frame-src https://challenges.cloudflare.com;",
         "worker-src 'self';",
         "manifest-src 'self';",
@@ -42,7 +42,13 @@ public sealed class SpaSecurityHeadersMiddleware(RequestDelegate next)
     };
 
     /// <summary>The only client routes that may receive the SPA shell; everything else is a real 404.</summary>
-    public static bool IsSpaEntry(PathString path) => SpaEntryPaths.Contains(path.Value ?? string.Empty);
+    public static bool IsSpaEntry(PathString path)
+    {
+        var value = path.Value ?? string.Empty;
+        return SpaEntryPaths.Contains(value)
+            || value.Equals("/room", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("/room/", StringComparison.OrdinalIgnoreCase);
+    }
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -52,7 +58,10 @@ public sealed class SpaSecurityHeadersMiddleware(RequestDelegate next)
             headers["X-Content-Type-Options"] = "nosniff";
             headers["X-Frame-Options"] = "DENY";
             headers["Referrer-Policy"] = "no-referrer";
-            headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
+            var isRoomPath = context.Request.Path.StartsWithSegments("/room", StringComparison.OrdinalIgnoreCase);
+            headers["Permissions-Policy"] = isRoomPath
+                ? "camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=(), usb=()"
+                : "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
             headers["Content-Security-Policy"] = ContentSecurityPolicy;
             if (context.Request.IsHttps)
                 headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";

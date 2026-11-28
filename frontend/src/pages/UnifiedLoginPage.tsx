@@ -5,7 +5,7 @@ import { defaultBranding } from '../domain/defaults'
 import type { Branding, LoginCredentials, Notice, Session, SetupCredentials } from '../domain/types'
 import { request } from '../services/apiClient'
 import { ApiError, loginErrorMessage } from '../lib/userMessages'
-import { resolvePortalPath } from '../lib/roleRedirect'
+import { resolvePortalPath, resolvePostLoginPath } from '../lib/roleRedirect'
 
 type V1Session = {
   id: string
@@ -28,6 +28,10 @@ export default function UnifiedLoginPage() {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<Notice | null>(null)
 
+  const nextTarget = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('next')
+    : null
+
   useEffect(() => {
     let mounted = true
     const boot = async () => {
@@ -44,7 +48,7 @@ export default function UnifiedLoginPage() {
         }
         try {
           const me = await request<V1Session>('/api/v1/auth/me')
-          if (mounted) window.location.replace(resolvePortalPath(readPermissions(me)))
+          if (mounted) window.location.replace(resolvePostLoginPath(readPermissions(me), nextTarget))
         } catch {
           if (mounted) setGate('login')
         }
@@ -54,7 +58,7 @@ export default function UnifiedLoginPage() {
     }
     void boot()
     return () => { mounted = false }
-  }, [])
+  }, [nextTarget])
 
   const signInAndRedirect = async (credentials: LoginCredentials) => {
     setSaving(true)
@@ -63,14 +67,14 @@ export default function UnifiedLoginPage() {
         method: 'POST',
         body: JSON.stringify(credentials),
       })
-      const target = resolvePortalPath(readPermissions(signedIn))
-      if (target === '/management') {
+      const perms = readPermissions(signedIn)
+      if (resolvePortalPath(perms) === '/management') {
         await request<Session>('/api/auth/login', {
           method: 'POST',
           body: JSON.stringify({ username: credentials.username, password: credentials.password, rememberMe: credentials.rememberMe }),
         })
       }
-      window.location.replace(target)
+      window.location.replace(resolvePostLoginPath(perms, nextTarget))
       return true
     } catch (error) {
       const message = error instanceof ApiError && error.status === 401

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { resolvePortalPath } from './roleRedirect'
+import { resolvePortalPath, resolvePostLoginPath } from './roleRedirect'
 import HomePage from '../home/HomePage'
 
 describe('resolvePortalPath', () => {
@@ -21,6 +21,12 @@ describe('resolvePortalPath', () => {
   it('routes guardian/student accounts (only account.password.self) to /portal', () => {
     expect(resolvePortalPath(['account.password.self'])).toBe('/portal')
     expect(resolvePortalPath([])).toBe('/portal')
+  })
+
+  it('honors safe relative /room/ next redirects and rejects external or non-room redirects', () => {
+    expect(resolvePostLoginPath(['account.password.self'], '/room/abc123')).toBe('/room/abc123')
+    expect(resolvePostLoginPath(['account.password.self'], '//evil.com/room/1')).toBe('/portal')
+    expect(resolvePostLoginPath(['teacher.portal'], 'https://evil.com')).toBe('/teacher')
   })
 })
 

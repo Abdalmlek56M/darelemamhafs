@@ -53,6 +53,7 @@ public static class MeetModule
         var internalGroup = app.MapGroup("/internal/meet").WithTags("meet-internal");
         internalGroup.MapMeetBotJobs();
         app.MapLiveKitRoomEndpoints();
+        app.MapLiveKitAccessEndpoints();
 
         return app;
     }

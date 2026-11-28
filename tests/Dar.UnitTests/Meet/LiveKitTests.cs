@@ -72,6 +72,33 @@ public sealed class LiveKitTests
         Assert.False(LiveKitRoomPolicy.IsHostUser(studentPrincipal, teacherId, null));
     }
 
+    [Fact]
+    public void ResolveSettings_allows_public_link_and_screenshare_for_non_children_circles_when_requested()
+    {
+        var settings = LiveKitRoomPolicy.ResolveSettings(
+            isChildrenCircle: false,
+            requestedAccessMode: "public",
+            requestedWaitingRoom: true,
+            requestedAllowStudentScreenshare: true);
+
+        Assert.Equal("public", settings.AccessMode);
+        Assert.True(settings.WaitingRoomEnabled);
+        Assert.True(settings.AllowStudentScreenshare);
+        Assert.False(settings.OnlyHostCanUnmute);
+    }
+
+    [Fact]
+    public void ResolvePublishSources_blocks_all_publishing_when_muted_by_host()
+    {
+        var mutedSources = LiveKitRoomPolicy.ResolvePublishSources(
+            isHost: false,
+            isChildrenCircle: false,
+            allowStudentScreenshare: true,
+            mutedByHost: true);
+
+        Assert.Empty(mutedSources);
+    }
+
     private static JsonElement DecodeJwtPayload(string jwt)
     {
         var parts = jwt.Split('.');

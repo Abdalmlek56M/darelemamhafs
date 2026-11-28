@@ -28,3 +28,12 @@ export function resolvePortalPath(permissionCodes: readonly string[]): PortalPat
   }
   return '/portal'
 }
+
+/** Validates an optional ?next= redirect path so open redirects are never allowed. */
+export function resolvePostLoginPath(permissionCodes: readonly string[], nextParam?: string | null): string {
+  const candidate = nextParam?.trim() ?? ''
+  if (candidate.startsWith('/room/') && !candidate.startsWith('//') && !candidate.includes('\\')) {
+    return candidate
+  }
+  return resolvePortalPath(permissionCodes)
+}

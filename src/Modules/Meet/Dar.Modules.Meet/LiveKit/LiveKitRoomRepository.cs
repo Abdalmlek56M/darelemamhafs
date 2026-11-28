@@ -210,6 +210,37 @@ public sealed class LiveKitRoomRepository(NpgsqlDataSource db)
         return await reader.ReadAsync(ct) ? ReadParticipant(reader) : null;
     }
 
+    public async Task<IReadOnlyList<ParticipantStateRecord>> ListParticipantsAsync(Guid roomId, CancellationToken ct)
+    {
+        await using var cmd = db.CreateCommand(ParticipantSelect + " WHERE p.room_id = @rid ORDER BY CASE p.role WHEN 'host' THEN 0 ELSE 1 END, u.display_name;");
+        cmd.Parameters.AddWithValue("rid", roomId);
+        var list = new List<ParticipantStateRecord>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct)) list.Add(ReadParticipant(reader));
+        return list;
+    }
+
+    public async Task<LiveKitRoomRecord?> UpdateAccessSettingsAsync(
+        Guid roomId,
+        string inviteCode,
+        EffectiveRoomSettings settings,
+        CancellationToken ct)
+    {
+        await using var cmd = db.CreateCommand("""
+            UPDATE livekit_rooms
+            SET access_mode = @accessMode,
+                waiting_room_enabled = @waitingRoom,
+                allow_student_screenshare = @allowScreenshare
+            WHERE id = @rid AND status = 'open';
+            """);
+        cmd.Parameters.AddWithValue("rid", roomId);
+        cmd.Parameters.AddWithValue("accessMode", settings.AccessMode);
+        cmd.Parameters.AddWithValue("waitingRoom", settings.WaitingRoomEnabled);
+        cmd.Parameters.AddWithValue("allowScreenshare", settings.AllowStudentScreenshare);
+        await cmd.ExecuteNonQueryAsync(ct);
+        return await GetRoomByInviteCodeAsync(inviteCode, ct);
+    }
+
     private const string RoomSelect = """
         SELECT r.id, r.room_name, r.invite_code, r.circle_id, c.name, c.teacher_id, c.is_children,
                r.session_id, r.title, r.access_mode, r.waiting_room_enabled, r.allow_student_screenshare,
