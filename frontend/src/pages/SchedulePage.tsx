@@ -16,6 +16,7 @@ import StudentAttendanceDialog from '../components/dialogs/StudentAttendanceDial
 import TeacherSubstitutionDialog from '../components/dialogs/TeacherSubstitutionDialog'
 import PayrollLockPanel from '../components/PayrollLockPanel'
 import Pager from '../components/common/Pager'
+import WeeklyScheduleView from '../components/WeeklyScheduleView'
 
 const SCHEDULE_PAGE_SIZE = 25
 
@@ -254,6 +255,7 @@ export default function SchedulePage({ ctx }: Props) {
 </form>
 </div>}
           {(ctx.has('schedule.read')||ctx.has('schedule.edit'))&&<>
+<WeeklyScheduleView slots={visibleSlots} />
 <div className="table-card glass">
 <div className="table-heading">
 <div>
