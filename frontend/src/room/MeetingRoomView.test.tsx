@@ -138,4 +138,39 @@ describe('MeetingRoomView (Mission 3)', () => {
     fireEvent.click(screen.getByRole('button', { name: /إنهاء للجميع/ }))
     expect(onEndRoom).toHaveBeenCalledTimes(1)
   })
+
+  it('shows host-mute notice and muted mic state for LK-3', () => {
+    render(
+      <MeetingRoomView
+        room={{ ...baseRoom, isChildren: false, onlyHostCanUnmute: false }}
+        role="participant"
+        tiles={[]}
+        dbParticipants={[]}
+        micOn={false}
+        cameraOn={false}
+        screenOn={false}
+        handRaised={false}
+        canUnmuteMic={false}
+        canUseCamera={true}
+        canShareScreen={false}
+        raisedHands={{}}
+        chat={[]}
+        reactions={[]}
+        hostMuted={true}
+        notice="المعلمة كتمت صوتك"
+        onToggleMic={vi.fn()}
+        onToggleCamera={vi.fn()}
+        onToggleScreenShare={vi.fn()}
+        onToggleHand={vi.fn()}
+        onSendReaction={vi.fn()}
+        onSendChat={vi.fn(async () => {})}
+        onLeave={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('status').textContent).toContain('المعلمة كتمت صوتك')
+    const micButton = screen.getByRole('button', { name: /الميكروفون \(مكتوم\)/ }) as HTMLButtonElement
+    expect(micButton.disabled).toBe(true)
+    expect(micButton.dataset.mutedByHost).toBe('true')
+  })
 })

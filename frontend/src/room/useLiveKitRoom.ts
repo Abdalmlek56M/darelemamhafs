@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ConnectionState, Room, RoomEvent, Track, type Participant } from 'livekit-client'
-import type {
-  LiveParticipantTile,
-  RoomChatMessage,
-  RoomDataPacket,
-  RoomReaction,
-  RoomRole,
-  WhiteboardStroke,
-} from './roomTypes'
+import { ConnectionState, DisconnectReason, Room, RoomEvent, Track } from 'livekit-client'
+import type { LiveParticipantTile, RoomChatMessage, RoomDataPacket, RoomReaction, RoomRole, WhiteboardStroke } from './roomTypes'
 import { roomApi } from './roomApi'
+import { buildTile, formatPublishError, HOST_MUTED_NOTICE, resolveDisconnectOutcome } from './roomHelpers'
 
 type Options = {
   inviteCode: string
@@ -23,34 +17,19 @@ type Options = {
   onRemoved: (message: string) => void
 }
 
-function buildTile(p: Participant, isLocal: boolean): LiveParticipantTile {
-  let metaRole = 'participant'
-  try {
-    if (p.metadata) metaRole = JSON.parse(p.metadata).role ?? 'participant'
-  } catch { /* ignore invalid metadata */ }
-  const camPub = p.getTrackPublication(Track.Source.Camera)
-  const micPub = p.getTrackPublication(Track.Source.Microphone)
-  const screenPub = p.getTrackPublication(Track.Source.ScreenShare)
-  const audioPub = p.getTrackPublication(Track.Source.Microphone)
-  return {
-    identity: p.identity,
-    name: p.name || p.identity,
-    isLocal,
-    isHost: metaRole === 'host',
-    micEnabled: Boolean(micPub && !micPub.isMuted),
-    cameraEnabled: Boolean(camPub && !camPub.isMuted),
-    screenEnabled: Boolean(screenPub && !screenPub.isMuted),
-    videoTrack: camPub?.track && !camPub.isMuted ? camPub.track : null,
-    screenTrack: screenPub?.track && !screenPub.isMuted ? screenPub.track : null,
-    audioTrack: !isLocal && audioPub?.track && !audioPub.isMuted ? audioPub.track : null,
-  }
-}
-
 export function useLiveKitRoom(options: Options) {
   const roomRef = useRef<Room | null>(null)
+  const localMutePendingRef = useRef(false)
+  const onRoomEndedRef = useRef(options.onRoomEnded)
+  const onRemovedRef = useRef(options.onRemoved)
+  onRoomEndedRef.current = options.onRoomEnded
+  onRemovedRef.current = options.onRemoved
+
   const [connected, setConnected] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mediaNotice, setMediaNotice] = useState<string | null>(options.mutedByHost ? HOST_MUTED_NOTICE : null)
+  const [hostMuted, setHostMuted] = useState(options.mutedByHost)
   const [tiles, setTiles] = useState<LiveParticipantTile[]>([])
   const [micOn, setMicOn] = useState(false)
   const [cameraOn, setCameraOn] = useState(false)
@@ -61,15 +40,21 @@ export function useLiveKitRoom(options: Options) {
   const [reactions, setReactions] = useState<RoomReaction[]>([])
   const [strokes, setStrokes] = useState<WhiteboardStroke[]>([])
 
-  const canUnmuteMic = options.role === 'host' || (!options.onlyHostCanUnmute && !options.mutedByHost)
+  const canUnmuteMic = options.role === 'host' || (!options.onlyHostCanUnmute && !hostMuted)
   const canShareScreen = options.role === 'host' || (!options.isChildren && options.allowStudentScreenshare)
   const canUseCamera = options.role === 'host' || !options.isChildren
+
+  useEffect(() => {
+    setHostMuted(options.mutedByHost)
+    if (options.mutedByHost) setMediaNotice(HOST_MUTED_NOTICE)
+  }, [options.mutedByHost])
 
   useEffect(() => {
     const room = roomRef.current
     if (!room || room.state !== ConnectionState.Connected) return
     if (!canUnmuteMic && micOn) {
-      void room.localParticipant.setMicrophoneEnabled(false)
+      localMutePendingRef.current = true
+      void room.localParticipant.setMicrophoneEnabled(false).catch(() => undefined)
     }
   }, [canUnmuteMic, micOn])
 
@@ -94,6 +79,18 @@ export function useLiveKitRoom(options: Options) {
     await room.localParticipant.publishData(bytes, { reliable: true })
   }, [])
 
+  const applyHostMuteState = useCallback((room: Room, muted: boolean) => {
+    setHostMuted(muted)
+    if (muted) {
+      setMediaNotice(HOST_MUTED_NOTICE)
+      setMicOn(false)
+      void room.localParticipant.setMicrophoneEnabled(false).catch(() => undefined)
+    } else {
+      setMediaNotice((prev) => (prev === HOST_MUTED_NOTICE ? null : prev))
+    }
+    syncParticipants(room)
+  }, [syncParticipants])
+
   useEffect(() => {
     if (!options.url || !options.token) return
     let active = true
@@ -108,11 +105,32 @@ export function useLiveKitRoom(options: Options) {
     })
     room.on(RoomEvent.TrackSubscribed, refresh)
     room.on(RoomEvent.TrackUnsubscribed, refresh)
-    room.on(RoomEvent.TrackMuted, refresh)
+    room.on(RoomEvent.TrackMuted, (pub, participant) => {
+      if (!active) return
+      if (participant.identity === room.localParticipant.identity && pub.source === Track.Source.Microphone) {
+        if (localMutePendingRef.current) {
+          localMutePendingRef.current = false
+        } else if (options.role !== 'host') {
+          setHostMuted(true)
+          setMicOn(false)
+          setMediaNotice(HOST_MUTED_NOTICE)
+        }
+      }
+      refresh()
+    })
     room.on(RoomEvent.TrackUnmuted, refresh)
     room.on(RoomEvent.LocalTrackPublished, refresh)
     room.on(RoomEvent.LocalTrackUnpublished, refresh)
     room.on(RoomEvent.TrackSubscriptionPermissionChanged, refresh)
+    room.on(RoomEvent.ParticipantPermissionsChanged, (permissions, participant) => {
+      if (!active || options.role === 'host') return
+      if (participant.identity !== room.localParticipant.identity) return
+      if (permissions && permissions.canPublish === false) {
+        applyHostMuteState(room, true)
+      } else if (permissions && permissions.canPublish === true) {
+        applyHostMuteState(room, false)
+      }
+    })
     room.on(RoomEvent.DataReceived, (payload, participant) => {
       try {
         const packet = JSON.parse(new TextDecoder().decode(payload)) as RoomDataPacket
@@ -129,15 +147,27 @@ export function useLiveKitRoom(options: Options) {
           setStrokes((prev) => [...prev.slice(-300), packet.stroke])
         } else if (packet.type === 'wb-clear') {
           setStrokes([])
+        } else if (packet.type === 'host-mute' && packet.targetIdentity === room.localParticipant.identity) {
+          applyHostMuteState(room, packet.muted)
         }
       } catch { /* ignore malformed data packets */ }
     })
-    room.on(RoomEvent.Disconnected, (reason) => {
+    room.on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
       if (!active) return
       setConnected(false)
+      setMicOn(false)
+      setCameraOn(false)
+      setScreenOn(false)
+      setTiles([])
       void roomApi.attendanceEvent(options.inviteCode, 'leave').catch(() => undefined)
-      if (String(reason ?? '').toLowerCase().includes('deleted')) options.onRoomEnded()
-      else if (String(reason ?? '').toLowerCase().includes('removed')) options.onRemoved('تمت إزالتك من الغرفة بواسطة المضيف.')
+      const outcome = resolveDisconnectOutcome(reason)
+      if (outcome.kind === 'ended') {
+        void room.disconnect().catch(() => undefined)
+        onRoomEndedRef.current()
+      } else if (outcome.kind === 'removed') {
+        void room.disconnect().catch(() => undefined)
+        onRemovedRef.current(outcome.message)
+      }
     })
 
     const connect = async () => {
@@ -146,9 +176,11 @@ export function useLiveKitRoom(options: Options) {
       try {
         await room.connect(options.url!, options.token!)
         if (!active) { await room.disconnect(); return }
+        localMutePendingRef.current = true
         // Rules: camera and microphone are always auto-muted on join.
         await room.localParticipant.setMicrophoneEnabled(false).catch(() => undefined)
         await room.localParticipant.setCameraEnabled(false).catch(() => undefined)
+        localMutePendingRef.current = false
         setConnected(true)
         syncParticipants(room)
         await roomApi.attendanceEvent(options.inviteCode, 'join').catch(() => undefined)
@@ -175,31 +207,57 @@ export function useLiveKitRoom(options: Options) {
       void room.disconnect()
       roomRef.current = null
     }
-  }, [options.inviteCode, options.url, options.token, syncParticipants])
+  }, [options.inviteCode, options.url, options.token, options.role, applyHostMuteState, syncParticipants])
 
-  const toggleMic = async () => {
+  const toggleMedia = async (
+    kind: 'microphone' | 'camera' | 'screen',
+    currentOn: boolean,
+    canEnable: boolean,
+    blockedNotice: string,
+    apply: (next: boolean) => Promise<unknown>,
+  ) => {
     const room = roomRef.current
     if (!room) return
-    if (!micOn && !canUnmuteMic) return
-    await room.localParticipant.setMicrophoneEnabled(!micOn)
-    syncParticipants(room)
+    if (!currentOn && !canEnable) {
+      setMediaNotice(blockedNotice)
+      return
+    }
+    const next = !currentOn
+    if (kind === 'microphone' && !next) localMutePendingRef.current = true
+    try {
+      await apply(next)
+      if (next) setMediaNotice(null)
+    } catch (err) {
+      setMediaNotice(formatPublishError(kind, err, hostMuted))
+    } finally {
+      if (kind === 'microphone' && !next) localMutePendingRef.current = false
+      syncParticipants(room)
+    }
   }
 
-  const toggleCamera = async () => {
-    const room = roomRef.current
-    if (!room) return
-    if (!cameraOn && !canUseCamera) return
-    await room.localParticipant.setCameraEnabled(!cameraOn)
-    syncParticipants(room)
-  }
+  const toggleMic = () => toggleMedia(
+    'microphone',
+    micOn,
+    canUnmuteMic,
+    hostMuted ? HOST_MUTED_NOTICE : 'فقط المعلمة أو المشرفة يمكنها السماح بالصوت',
+    (next) => roomRef.current!.localParticipant.setMicrophoneEnabled(next),
+  )
 
-  const toggleScreenShare = async () => {
-    const room = roomRef.current
-    if (!room) return
-    if (!screenOn && !canShareScreen) return
-    await room.localParticipant.setScreenShareEnabled(!screenOn)
-    syncParticipants(room)
-  }
+  const toggleCamera = () => toggleMedia(
+    'camera',
+    cameraOn,
+    canUseCamera,
+    'الكاميرا غير متاحة للمشاركين في هذه الحلقة.',
+    (next) => roomRef.current!.localParticipant.setCameraEnabled(next),
+  )
+
+  const toggleScreenShare = () => toggleMedia(
+    'screen',
+    screenOn,
+    canShareScreen,
+    'مشاركة الشاشة غير متاحة للمشاركين في هذه الحلقة.',
+    (next) => roomRef.current!.localParticipant.setScreenShareEnabled(next),
+  )
 
   const toggleHandRaise = async () => {
     const room = roomRef.current
@@ -207,7 +265,7 @@ export function useLiveKitRoom(options: Options) {
     const next = !handRaised
     setHandRaised(next)
     setRaisedHands((prev) => ({ ...prev, [room.localParticipant.identity]: next }))
-    await publishPacket({ type: 'hand', raised: next })
+    await publishPacket({ type: 'hand', raised: next }).catch(() => undefined)
   }
 
   const sendReaction = async (emoji: string) => {
@@ -217,7 +275,7 @@ export function useLiveKitRoom(options: Options) {
     const senderName = room.localParticipant.name || 'أنا'
     setReactions((prev) => [...prev.slice(-4), { id, senderName, emoji }])
     window.setTimeout(() => setReactions((prev) => prev.filter((item) => item.id !== id)), 3000)
-    await publishPacket({ type: 'reaction', id, senderName, emoji })
+    await publishPacket({ type: 'reaction', id, senderName, emoji }).catch(() => undefined)
   }
 
   const sendChat = async (text: string) => {
@@ -232,17 +290,20 @@ export function useLiveKitRoom(options: Options) {
       sentAt: new Date().toISOString(),
     }
     setChat((prev) => [...prev.slice(-99), msg])
-    await publishPacket({ type: 'chat', id: msg.id, senderName: msg.senderName, text: msg.text, sentAt: msg.sentAt })
+    await publishPacket({ type: 'chat', id: msg.id, senderName: msg.senderName, text: msg.text, sentAt: msg.sentAt }).catch(() => undefined)
   }
+
+  const notifyHostMute = (targetIdentity: string, muted: boolean) =>
+    publishPacket({ type: 'host-mute', targetIdentity, muted }).catch(() => undefined)
 
   const addStroke = async (stroke: WhiteboardStroke) => {
     setStrokes((prev) => [...prev.slice(-300), stroke])
-    await publishPacket({ type: 'wb-stroke', stroke })
+    await publishPacket({ type: 'wb-stroke', stroke }).catch(() => undefined)
   }
 
   const clearWhiteboard = async () => {
     setStrokes([])
-    await publishPacket({ type: 'wb-clear' })
+    await publishPacket({ type: 'wb-clear' }).catch(() => undefined)
   }
 
   const leaveRoom = async () => {
@@ -254,12 +315,12 @@ export function useLiveKitRoom(options: Options) {
   }
 
   return {
-    connected, connecting, error, tiles,
+    connected, connecting, error, mediaNotice, hostMuted, tiles,
     micOn, cameraOn, screenOn, handRaised,
     canUnmuteMic, canUseCamera, canShareScreen,
     raisedHands, chat, reactions, strokes,
     toggleMic, toggleCamera, toggleScreenShare,
-    toggleHandRaise, sendReaction, sendChat,
+    toggleHandRaise, sendReaction, sendChat, notifyHostMute,
     addStroke, clearWhiteboard, leaveRoom,
   }
 }

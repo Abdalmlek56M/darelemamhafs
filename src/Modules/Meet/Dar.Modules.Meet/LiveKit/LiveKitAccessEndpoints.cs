@@ -17,6 +17,7 @@ public static class LiveKitAccessEndpoints
             string inviteCode,
             ClaimsPrincipal principal,
             LiveKitRoomRepository repo,
+            LiveKitParticipantRepository participants,
             CancellationToken ct) =>
         {
             var room = await repo.GetRoomByInviteCodeAsync(inviteCode, ct);
@@ -26,7 +27,7 @@ public static class LiveKitAccessEndpoints
             if (!LiveKitRoomPolicy.IsHostUser(principal, room.CircleTeacherId, teacherId))
                 return Results.Json(new { message = "عرض قائمة المشاركين متاح للمضيف فقط." }, statusCode: StatusCodes.Status403Forbidden);
 
-            var all = await repo.ListParticipantsAsync(room.Id, ct);
+            var all = await participants.ListParticipantsAsync(room.Id, ct);
             return Results.Ok(new
             {
                 participants = all.Select(ToParticipantDto),

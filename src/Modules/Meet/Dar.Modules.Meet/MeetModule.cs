@@ -34,6 +34,7 @@ public static class MeetModule
         services.AddSingleton<LiveKitTokenService>();
         services.AddSingleton<LiveKitServerClient>();
         services.AddScoped<LiveKitRoomRepository>();
+        services.AddScoped<LiveKitParticipantRepository>();
 
 
         return services;

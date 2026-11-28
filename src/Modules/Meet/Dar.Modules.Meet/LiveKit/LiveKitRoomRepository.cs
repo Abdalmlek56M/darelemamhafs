@@ -2,43 +2,9 @@ using Npgsql;
 
 namespace Dar.Modules.Meet.LiveKit;
 
-public sealed record CircleMeta(
-    Guid Id,
-    string Name,
-    Guid? TeacherId,
-    bool IsChildren);
-
-public sealed record LiveKitRoomRecord(
-    Guid Id,
-    string RoomName,
-    string InviteCode,
-    Guid CircleId,
-    string CircleName,
-    Guid? CircleTeacherId,
-    bool IsChildren,
-    Guid? SessionId,
-    string Title,
-    string AccessMode,
-    bool WaitingRoomEnabled,
-    bool AllowStudentScreenshare,
-    string Status,
-    DateTimeOffset CreatedAt);
-
-public sealed record ParticipantStateRecord(
-    Guid Id,
-    Guid RoomId,
-    Guid UserId,
-    string Username,
-    string DisplayName,
-    string Role,
-    string AdmissionStatus,
-    bool MutedByHost,
-    DateTimeOffset? FirstJoinedAt,
-    DateTimeOffset? LastJoinedAt,
-    DateTimeOffset? LastLeftAt,
-    int AttendedSeconds,
-    bool IsConnected);
-
+/// <summary>
+/// Manages LiveKit room metadata, circle links, access policy updates, and room teardown.
+/// </summary>
 public sealed class LiveKitRoomRepository(NpgsqlDataSource db)
 {
     public async Task<CircleMeta?> GetCircleAsync(Guid circleId, CancellationToken ct)
@@ -89,18 +55,18 @@ public sealed class LiveKitRoomRepository(NpgsqlDataSource db)
 
     public async Task<LiveKitRoomRecord?> GetOpenRoomByCircleAsync(Guid circleId, CancellationToken ct)
     {
-        await using var cmd = db.CreateCommand(RoomSelect + " WHERE r.circle_id = @cid AND r.status = 'open' ORDER BY r.created_at DESC LIMIT 1;");
+        await using var cmd = db.CreateCommand(LiveKitRoomSql.RoomSelect + " WHERE r.circle_id = @cid AND r.status = 'open' ORDER BY r.created_at DESC LIMIT 1;");
         cmd.Parameters.AddWithValue("cid", circleId);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
-        return await reader.ReadAsync(ct) ? ReadRoom(reader) : null;
+        return await reader.ReadAsync(ct) ? LiveKitRoomSql.ReadRoom(reader) : null;
     }
 
     public async Task<LiveKitRoomRecord?> GetRoomByInviteCodeAsync(string inviteCode, CancellationToken ct)
     {
-        await using var cmd = db.CreateCommand(RoomSelect + " WHERE r.invite_code = @code LIMIT 1;");
+        await using var cmd = db.CreateCommand(LiveKitRoomSql.RoomSelect + " WHERE r.invite_code = @code LIMIT 1;");
         cmd.Parameters.AddWithValue("code", inviteCode.Trim());
         await using var reader = await cmd.ExecuteReaderAsync(ct);
-        return await reader.ReadAsync(ct) ? ReadRoom(reader) : null;
+        return await reader.ReadAsync(ct) ? LiveKitRoomSql.ReadRoom(reader) : null;
     }
 
     public async Task<LiveKitRoomRecord> CreateRoomAsync(
@@ -170,56 +136,6 @@ public sealed class LiveKitRoomRepository(NpgsqlDataSource db)
         return (bool)(await cmd.ExecuteScalarAsync(ct) ?? false);
     }
 
-    public async Task<ParticipantStateRecord> UpsertParticipantOnTokenRequestAsync(
-        Guid roomId,
-        Guid userId,
-        string role,
-        bool waitingRoomEnabled,
-        CancellationToken ct)
-    {
-        var defaultStatus = role == "host" || !waitingRoomEnabled ? "admitted" : "pending";
-        await using var cmd = db.CreateCommand("""
-            INSERT INTO livekit_room_participants(room_id, user_id, role, admission_status)
-            VALUES (@roomId, @userId, @role, @status)
-            ON CONFLICT (room_id, user_id) DO UPDATE
-            SET role = EXCLUDED.role,
-                admission_status = CASE
-                    WHEN livekit_room_participants.admission_status IN ('banned', 'denied') THEN livekit_room_participants.admission_status
-                    WHEN EXCLUDED.role = 'host' THEN 'admitted'
-                    WHEN NOT @waitingRoom THEN 'admitted'
-                    ELSE livekit_room_participants.admission_status
-                END,
-                updated_at = now();
-            """);
-        cmd.Parameters.AddWithValue("roomId", roomId);
-        cmd.Parameters.AddWithValue("userId", userId);
-        cmd.Parameters.AddWithValue("role", role);
-        cmd.Parameters.AddWithValue("status", defaultStatus);
-        cmd.Parameters.AddWithValue("waitingRoom", waitingRoomEnabled);
-        await cmd.ExecuteNonQueryAsync(ct);
-
-        return (await GetParticipantAsync(roomId, userId, ct))!;
-    }
-
-    public async Task<ParticipantStateRecord?> GetParticipantAsync(Guid roomId, Guid userId, CancellationToken ct)
-    {
-        await using var cmd = db.CreateCommand(ParticipantSelect + " WHERE p.room_id = @rid AND p.user_id = @uid LIMIT 1;");
-        cmd.Parameters.AddWithValue("rid", roomId);
-        cmd.Parameters.AddWithValue("uid", userId);
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        return await reader.ReadAsync(ct) ? ReadParticipant(reader) : null;
-    }
-
-    public async Task<IReadOnlyList<ParticipantStateRecord>> ListParticipantsAsync(Guid roomId, CancellationToken ct)
-    {
-        await using var cmd = db.CreateCommand(ParticipantSelect + " WHERE p.room_id = @rid ORDER BY CASE p.role WHEN 'host' THEN 0 ELSE 1 END, u.display_name;");
-        cmd.Parameters.AddWithValue("rid", roomId);
-        var list = new List<ParticipantStateRecord>();
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct)) list.Add(ReadParticipant(reader));
-        return list;
-    }
-
     public async Task<LiveKitRoomRecord?> UpdateAccessSettingsAsync(
         Guid roomId,
         string inviteCode,
@@ -241,40 +157,19 @@ public sealed class LiveKitRoomRepository(NpgsqlDataSource db)
         return await GetRoomByInviteCodeAsync(inviteCode, ct);
     }
 
-    public async Task ModerateParticipantAsync(Guid roomId, Guid targetUserId, string action, CancellationToken ct)
-    {
-        var sql = action switch
-        {
-            "mute" => "UPDATE livekit_room_participants SET muted_by_host = TRUE, updated_at = now() WHERE room_id = @rid AND user_id = @uid;",
-            "unmute" => "UPDATE livekit_room_participants SET muted_by_host = FALSE, updated_at = now() WHERE room_id = @rid AND user_id = @uid;",
-            "admit" => "UPDATE livekit_room_participants SET admission_status = 'admitted', updated_at = now() WHERE room_id = @rid AND user_id = @uid;",
-            "deny" => "UPDATE livekit_room_participants SET admission_status = 'denied', is_connected = FALSE, updated_at = now() WHERE room_id = @rid AND user_id = @uid;",
-            "remove" => "UPDATE livekit_room_participants SET is_connected = FALSE, updated_at = now() WHERE room_id = @rid AND user_id = @uid;",
-            "ban" => "UPDATE livekit_room_participants SET admission_status = 'banned', is_connected = FALSE, updated_at = now() WHERE room_id = @rid AND user_id = @uid;",
-            _ => throw new ArgumentOutOfRangeException(nameof(action)),
-        };
-        await using var cmd = db.CreateCommand(sql);
-        cmd.Parameters.AddWithValue("rid", roomId);
-        cmd.Parameters.AddWithValue("uid", targetUserId);
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
-
     public async Task EndRoomAsync(Guid roomId, CancellationToken ct)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
-        await using (var closeParts = new NpgsqlCommand("""
+        var closeSql = $"""
             UPDATE livekit_room_participants
-            SET attended_seconds = attended_seconds + CASE
-                    WHEN is_connected AND last_joined_at IS NOT NULL
-                    THEN GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - last_joined_at)))::int)
-                    ELSE 0
-                END,
+            SET attended_seconds = attended_seconds + {LiveKitRoomSql.ElapsedSecondsExpr()},
                 is_connected = FALSE,
                 last_left_at = CASE WHEN is_connected THEN now() ELSE last_left_at END,
                 updated_at = now()
             WHERE room_id = @rid;
-            """, conn, tx))
+            """;
+        await using (var closeParts = new NpgsqlCommand(closeSql, conn, tx))
         {
             closeParts.Parameters.AddWithValue("rid", roomId);
             await closeParts.ExecuteNonQueryAsync(ct);
@@ -290,152 +185,4 @@ public sealed class LiveKitRoomRepository(NpgsqlDataSource db)
         }
         await tx.CommitAsync(ct);
     }
-
-    public async Task<int> RecordAttendanceEventAsync(Guid roomId, Guid userId, string kind, CancellationToken ct)
-    {
-        var sql = kind switch
-        {
-            "join" => """
-                UPDATE livekit_room_participants
-                SET first_joined_at = COALESCE(first_joined_at, now()),
-                    last_joined_at = now(),
-                    is_connected = TRUE,
-                    updated_at = now()
-                WHERE room_id = @rid AND user_id = @uid AND admission_status = 'admitted'
-                RETURNING attended_seconds;
-                """,
-            "heartbeat" => """
-                UPDATE livekit_room_participants
-                SET attended_seconds = attended_seconds + CASE
-                        WHEN is_connected AND last_joined_at IS NOT NULL
-                        THEN GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - last_joined_at)))::int)
-                        ELSE 0
-                    END,
-                    last_joined_at = now(),
-                    is_connected = TRUE,
-                    updated_at = now()
-                WHERE room_id = @rid AND user_id = @uid AND admission_status = 'admitted'
-                RETURNING attended_seconds;
-                """,
-            "leave" => """
-                UPDATE livekit_room_participants
-                SET attended_seconds = attended_seconds + CASE
-                        WHEN is_connected AND last_joined_at IS NOT NULL
-                        THEN GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - last_joined_at)))::int)
-                        ELSE 0
-                    END,
-                    last_left_at = now(),
-                    is_connected = FALSE,
-                    updated_at = now()
-                WHERE room_id = @rid AND user_id = @uid
-                RETURNING attended_seconds;
-                """,
-            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
-        };
-
-        await using var cmd = db.CreateCommand(sql);
-        cmd.Parameters.AddWithValue("rid", roomId);
-        cmd.Parameters.AddWithValue("uid", userId);
-        var result = await cmd.ExecuteScalarAsync(ct);
-        return result is int seconds ? seconds : 0;
-    }
-
-    public async Task<(Guid? RoomId, int TeacherAttendedMinutes, IReadOnlyList<(Guid StudentId, Guid UserId, int AttendedMinutes, string SuggestedStatus)> Students)>
-        GetSessionAttendanceSuggestionsAsync(Guid sessionId, CancellationToken ct)
-    {
-        await using var roomCmd = db.CreateCommand("""
-            SELECT r.id
-            FROM livekit_rooms r
-            WHERE r.session_id = @sid
-            ORDER BY r.created_at DESC
-            LIMIT 1;
-            """);
-        roomCmd.Parameters.AddWithValue("sid", sessionId);
-        var roomObj = await roomCmd.ExecuteScalarAsync(ct);
-        if (roomObj is not Guid roomId)
-            return (null, 0, []);
-
-        var teacherSeconds = 0;
-        var students = new List<(Guid, Guid, int, string)>();
-        await using var partCmd = db.CreateCommand("""
-            SELECT p.role, p.user_id, u.student_id,
-                   p.attended_seconds + CASE
-                       WHEN p.is_connected AND p.last_joined_at IS NOT NULL
-                       THEN GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - p.last_joined_at)))::int)
-                       ELSE 0
-                   END AS effective_seconds
-            FROM livekit_room_participants p
-            JOIN app_users u ON u.id = p.user_id
-            WHERE p.room_id = @rid;
-            """);
-        partCmd.Parameters.AddWithValue("rid", roomId);
-        await using var reader = await partCmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
-        {
-            var role = reader.GetString(0);
-            var userId = reader.GetGuid(1);
-            var studentId = reader.IsDBNull(2) ? (Guid?)null : reader.GetGuid(2);
-            var seconds = reader.GetInt32(3);
-            var minutes = (int)Math.Round(seconds / 60.0, MidpointRounding.AwayFromZero);
-
-            if (role == "host")
-            {
-                teacherSeconds = Math.Max(teacherSeconds, seconds);
-            }
-            else if (studentId.HasValue)
-            {
-                students.Add((studentId.Value, userId, minutes, LiveKitRoomPolicy.SuggestAttendanceStatus(seconds)));
-            }
-        }
-
-        var teacherMinutes = (int)Math.Round(teacherSeconds / 60.0, MidpointRounding.AwayFromZero);
-        return (roomId, teacherMinutes, students);
-    }
-
-    private const string RoomSelect = """
-        SELECT r.id, r.room_name, r.invite_code, r.circle_id, c.name, c.teacher_id, c.is_children,
-               r.session_id, r.title, r.access_mode, r.waiting_room_enabled, r.allow_student_screenshare,
-               r.status, r.created_at
-        FROM livekit_rooms r
-        JOIN circles c ON c.id = r.circle_id
-        """;
-
-    private static LiveKitRoomRecord ReadRoom(NpgsqlDataReader r) => new(
-        r.GetGuid(0),
-        r.GetString(1),
-        r.GetString(2),
-        r.GetGuid(3),
-        r.GetString(4),
-        r.IsDBNull(5) ? null : r.GetGuid(5),
-        r.GetBoolean(6),
-        r.IsDBNull(7) ? null : r.GetGuid(7),
-        r.GetString(8),
-        r.GetString(9),
-        r.GetBoolean(10),
-        r.GetBoolean(11),
-        r.GetString(12),
-        r.GetFieldValue<DateTimeOffset>(13));
-
-    private const string ParticipantSelect = """
-        SELECT p.id, p.room_id, p.user_id, u.username, u.display_name, p.role, p.admission_status,
-               p.muted_by_host, p.first_joined_at, p.last_joined_at, p.last_left_at,
-               p.attended_seconds, p.is_connected
-        FROM livekit_room_participants p
-        JOIN app_users u ON u.id = p.user_id
-        """;
-
-    private static ParticipantStateRecord ReadParticipant(NpgsqlDataReader r) => new(
-        r.GetGuid(0),
-        r.GetGuid(1),
-        r.GetGuid(2),
-        r.GetString(3),
-        r.GetString(4),
-        r.GetString(5),
-        r.GetString(6),
-        r.GetBoolean(7),
-        r.IsDBNull(8) ? null : r.GetFieldValue<DateTimeOffset>(8),
-        r.IsDBNull(9) ? null : r.GetFieldValue<DateTimeOffset>(9),
-        r.IsDBNull(10) ? null : r.GetFieldValue<DateTimeOffset>(10),
-        r.GetInt32(11),
-        r.GetBoolean(12));
 }

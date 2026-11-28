@@ -39,6 +39,8 @@ type Props = {
   whiteboardOpen?: boolean
   onToggleWhiteboard?: () => void
   whiteboardSlot?: React.ReactNode
+  hostMuted?: boolean
+  notice?: string | null
 }
 
 function MediaElement({ track, kind }: { track: Track; kind: 'video' | 'audio' }) {
@@ -61,7 +63,7 @@ export default function MeetingRoomView({
   canUnmuteMic, canUseCamera, canShareScreen, raisedHands, chat, reactions,
   onToggleMic, onToggleCamera, onToggleScreenShare, onToggleHand,
   onSendReaction, onSendChat, onLeave, onEndRoom, onModerate, onUpdateAccess,
-  whiteboardOpen, onToggleWhiteboard, whiteboardSlot,
+  whiteboardOpen, onToggleWhiteboard, whiteboardSlot, hostMuted = false, notice = null,
 }: Props) {
   const [panelTab, setPanelTab] = useState<'participants' | 'chat' | null>('participants')
   const [copied, setCopied] = useState(false)
@@ -139,6 +141,12 @@ export default function MeetingRoomView({
         </div>
       )}
 
+      {(hostMuted || notice) && (
+        <div className="room-notice-banner" role="status" aria-live="polite">
+          {notice ?? 'المعلمة كتمت صوتك'}
+        </div>
+      )}
+
       {reactions.length > 0 && (
         <div className="room-reaction-toast-row" aria-live="polite">
           {reactions.map((r) => (
@@ -187,12 +195,19 @@ export default function MeetingRoomView({
       <footer className="room-controls">
         <button
           type="button"
-          className={micOn ? 'primary-button compact-button' : 'secondary-button compact-button'}
+          className={
+            micOn
+              ? 'primary-button compact-button'
+              : `secondary-button compact-button${hostMuted ? ' room-mic-muted-host' : ''}`
+          }
           disabled={!micOn && !canUnmuteMic}
-          title={!canUnmuteMic ? 'فقط المعلمة أو المشرفة يمكنها السماح بالصوت' : micOn ? 'كتم الميكروفون' : 'فتح الميكروفون'}
+          aria-pressed={micOn}
+          data-muted-by-host={hostMuted ? 'true' : 'false'}
+          title={hostMuted ? 'المعلمة كتمت صوتك' : !canUnmuteMic ? 'فقط المعلمة أو المشرفة يمكنها السماح بالصوت' : micOn ? 'كتم الميكروفون' : 'فتح الميكروفون'}
           onClick={onToggleMic}
         >
-          {micOn ? <Mic size={16} /> : <MicOff size={16} />} {micOn ? 'كتم' : 'الميكروفون'}
+          {micOn ? <Mic size={16} /> : <MicOff size={16} />}{' '}
+          {micOn ? 'كتم' : hostMuted ? 'الميكروفون (مكتوم)' : 'الميكروفون'}
         </button>
 
         <button

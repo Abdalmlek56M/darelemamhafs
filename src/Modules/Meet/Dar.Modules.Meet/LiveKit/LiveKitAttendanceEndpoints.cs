@@ -20,6 +20,7 @@ public static class LiveKitAttendanceEndpoints
             string kind,
             ClaimsPrincipal principal,
             LiveKitRoomRepository repo,
+            LiveKitParticipantRepository participants,
             CancellationToken ct) =>
         {
             var normalized = kind.Trim().ToLowerInvariant();
@@ -30,14 +31,14 @@ public static class LiveKitAttendanceEndpoints
             if (room is null) return Results.NotFound(new { message = "الغرفة غير موجودة." });
 
             var (userId, _) = LiveKitRoomEndpoints.ReadCaller(principal);
-            var seconds = await repo.RecordAttendanceEventAsync(room.Id, userId, normalized, ct);
+            var seconds = await participants.RecordAttendanceEventAsync(room.Id, userId, normalized, ct);
             return Results.Ok(new { ok = true, attendedSeconds = seconds });
         }).RequireAuthorization();
 
         group.MapGet("/session/{sessionId:guid}/attendance-suggestions", async Task<IResult> (
             Guid sessionId,
             ClaimsPrincipal principal,
-            LiveKitRoomRepository repo,
+            LiveKitParticipantRepository participants,
             CancellationToken ct) =>
         {
             var canRead = principal.HasClaim("permission", "teacher.attendance")
@@ -45,7 +46,7 @@ public static class LiveKitAttendanceEndpoints
                 || principal.HasClaim("permission", "supervisor.attendance.correct");
             if (!canRead) return Results.Forbid();
 
-            var (roomId, teacherMinutes, students) = await repo.GetSessionAttendanceSuggestionsAsync(sessionId, ct);
+            var (roomId, teacherMinutes, students) = await participants.GetSessionAttendanceSuggestionsAsync(sessionId, ct);
             return Results.Ok(new
             {
                 roomId,

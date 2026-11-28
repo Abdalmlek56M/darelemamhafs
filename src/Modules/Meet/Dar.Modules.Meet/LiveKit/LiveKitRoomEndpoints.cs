@@ -72,6 +72,7 @@ public static class LiveKitRoomEndpoints
             ClaimsPrincipal principal,
             LiveKitOptions options,
             LiveKitRoomRepository repo,
+            LiveKitParticipantRepository participants,
             CancellationToken ct) =>
         {
             var room = await repo.GetRoomByInviteCodeAsync(inviteCode, ct);
@@ -83,7 +84,7 @@ public static class LiveKitRoomEndpoints
             if (!isHost && room.AccessMode == "private" && !await repo.IsCircleMemberAsync(userId, room.CircleId, ct))
                 return Results.Json(new { message = "هذه الغرفة خاصة بأعضاء الحلقة المسجلين فقط." }, statusCode: StatusCodes.Status403Forbidden);
 
-            var participant = await repo.GetParticipantAsync(room.Id, userId, ct);
+            var participant = await participants.GetParticipantAsync(room.Id, userId, ct);
             return Results.Ok(new
             {
                 enabled = options.IsConfigured,
@@ -100,6 +101,7 @@ public static class LiveKitRoomEndpoints
             LiveKitOptions options,
             LiveKitTokenService tokens,
             LiveKitRoomRepository repo,
+            LiveKitParticipantRepository participants,
             CancellationToken ct) =>
         {
             if (!options.IsConfigured)
@@ -118,7 +120,7 @@ public static class LiveKitRoomEndpoints
                 return Results.Json(new { message = "هذه الغرفة خاصة بأعضاء الحلقة المسجلين فقط." }, statusCode: StatusCodes.Status403Forbidden);
 
             var role = isHost ? "host" : "participant";
-            var participant = await repo.UpsertParticipantOnTokenRequestAsync(room.Id, userId, role, room.WaitingRoomEnabled, ct);
+            var participant = await participants.UpsertParticipantOnTokenRequestAsync(room.Id, userId, role, room.WaitingRoomEnabled, ct);
 
             if (participant.AdmissionStatus == "banned")
                 return Results.Json(new { message = "تم حظرك من دخول هذه الغرفة." }, statusCode: StatusCodes.Status403Forbidden);

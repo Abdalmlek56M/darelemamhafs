@@ -25,6 +25,7 @@ public static class LiveKitHostControlEndpoints
             ModerateParticipantRequest request,
             ClaimsPrincipal principal,
             LiveKitRoomRepository repo,
+            LiveKitParticipantRepository participants,
             LiveKitServerClient serverClient,
             CancellationToken ct) =>
         {
@@ -40,13 +41,13 @@ public static class LiveKitHostControlEndpoints
             if (!LiveKitRoomPolicy.IsHostUser(principal, room.CircleTeacherId, teacherId))
                 return Results.Json(new { message = "إدارة المشاركين متاحة للمضيف فقط." }, statusCode: StatusCodes.Status403Forbidden);
 
-            var target = await repo.GetParticipantAsync(room.Id, request.TargetUserId, ct);
+            var target = await participants.GetParticipantAsync(room.Id, request.TargetUserId, ct);
             if (target is null)
                 return Results.NotFound(new { message = "المشارك غير موجود في الغرفة." });
             if (target.Role == "host")
                 return Results.Conflict(new { message = "لا يمكن تطبيق هذا الإجراء على المضيف." });
 
-            await repo.ModerateParticipantAsync(room.Id, request.TargetUserId, action, ct);
+            await participants.ModerateParticipantAsync(room.Id, request.TargetUserId, action, ct);
 
             var identity = request.TargetUserId.ToString();
             if (action == "mute")

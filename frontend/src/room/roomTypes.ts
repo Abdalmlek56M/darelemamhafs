@@ -98,3 +98,4 @@ export type RoomDataPacket =
   | { type: 'reaction'; id: string; senderName: string; emoji: string }
   | { type: 'wb-stroke'; stroke: WhiteboardStroke }
   | { type: 'wb-clear' }
+  | { type: 'host-mute'; targetIdentity: string; muted: boolean }

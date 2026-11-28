@@ -162,13 +162,20 @@ export default function MeetingRoomPage() {
         void roomApi.endRoom(inviteCode).then(() => setEndedNotice('تم إنهاء الاجتماع للجميع.')).catch(() => undefined)
       } : undefined}
       onModerate={role === 'host' ? (action, targetUserId) => {
-        void roomApi.hostAction(inviteCode, action, targetUserId).then(() => refreshParticipants()).catch(() => undefined)
+        void roomApi.hostAction(inviteCode, action, targetUserId).then(() => {
+          if (action === 'mute' || action === 'unmute') {
+            void live.notifyHostMute(targetUserId, action === 'mute')
+          }
+          return refreshParticipants()
+        }).catch(() => undefined)
       } : undefined}
       onUpdateAccess={(patch: { accessMode: RoomAccessMode; waitingRoomEnabled: boolean; allowStudentScreenshare: boolean }) => {
         void roomApi.updateAccess(inviteCode, patch).then(setRoom).catch(() => undefined)
       }}
       whiteboardOpen={whiteboardOpen}
       onToggleWhiteboard={() => setWhiteboardOpen((v) => !v)}
+      hostMuted={live.hostMuted}
+      notice={live.mediaNotice}
       whiteboardSlot={
         <RoomWhiteboard
           role={role}
