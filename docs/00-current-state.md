@@ -1,9 +1,9 @@
 # RIGX Dar — Current State (Snapshot)
 
-**Date:** 27 Nov 2026 (hardening batch).
+**Date:** 28 Nov 2026 (Phase 2 — LiveKit meetings on staging).
 **Rule:** هذا الملف هو **مصدر الحقيقة الواحد للحالة الحالية**. أي وثيقة تخالفه فهي إمّا هدف مستقبلي أو تاريخي. يتم تحديثه في نهاية كل مرحلة.
-**Git:** `main` يحمل دفعات التحصين (Tier 0/1، Z1 splits، Z2، Tier 2، B7/B10/UI) حتى `4166fd0`+؛ سجل التنفيذ الكامل في `docs/OVERNIGHT-REPORT.md`.
-**Production:** آخر نشر مسجل `a823b32` (deploy stamp `20261122-215854`، ledger **26/26**) — **لم يُنشر أي شيء من دفعات التحصين إلى الإنتاج بعد**.
+**Git:** `main` يحمل المرحلة 1 + المرحلة 2 (LiveKit + إصلاحات الواجهة `/health` و`/portal`).
+**Production:** آخر نشر على الإنتاج `17db30d` (المرحلة 1، ledger **45/45**) — **المرحلة 2 (LiveKit + هجرة 045) مخصصة للـstaging فقط ولم تُنشر للإنتاج بعد**.
 
 ---
 
@@ -24,7 +24,7 @@
 | Backend (جديد) | `Dar.slnx`: `src/Host/Dar.Api` على 5081 — `/api/v1/*` (Identity + Secretariat + Teaching + Meet) |
 | قاعدة البيانات | PostgreSQL 17 — `public` schema — **46 migration في المستودع (001→045؛ 039 مقسمة 039a/039b؛ 045 أحدث ملف)** |
 | النشر | Ubuntu 24.04 + Nginx + Certbot + systemd + منافذ داخلية 5080/5081؛ staging منفصل على نفس الـhost (`docs/staging-environment.md`) |
-| الاختبارات | backend unit + integration (Testcontainers) + 48 suite في `tests/run-regression.sh`؛ frontend **47 ملف / 155 اختبار Vitest** (Testing Library + jsdom) |
+| الاختبارات | backend unit (`Dar.UnitTests` على Linux/CI) + integration (Testcontainers) + 48 suite في `tests/run-regression.sh`؛ frontend **61 ملف / 177 اختبار Vitest** (Testing Library + jsdom) |
 | اللغة | العربية فقط الآن — الإنجليزية مؤجلة (ADR-0004) |
 
 ---
@@ -37,6 +37,7 @@
 | `/management` | لوحة الإدارة (SPA) | legacy 5080 |
 | `/teacher` | بوابة المعلمة (PWA) | legacy 5080 (static) + `/api/v1/teacher/*` → 5081 |
 | `/supervisor` | مساحة المشرفة | legacy 5080 (static) + `/api/v1/supervisor/*` → 5081 |
+| `/room/*` | غرفة الحلقة المباشرة (LiveKit WebRTC + سبورة + شات) | legacy 5080 (static + `Permissions-Policy`/`connect-src`) + `/api/v1/rooms/*` → 5081 |
 | `/api/v1/*` | API الجديد | 5081 |
 | `/api/*` (غيره) | API القديم (كل الدومين + الإدارة) | 5080 |
 | `/health/*` | فحوصات صحة (5080) | 5080 |
@@ -343,12 +344,6 @@
 ### باك لوج صغير بعد P1-1 (من مراجعة P0 المستقلة)
 1. **قفل مرتبات شهر:** سباق ضيق بين قفل الشهر وتعديل/اعتماد في نفس اللحظة — إضافة advisory lock/صف معاملة عند القفل والاعتماد.
 2. **صلاحية «التسجيلات» بدون نطاق:** حساب عنده الصلاحية بدون scope يرى كل التسجيلات — تقرير: منع/تحديد نطاق افتراضي.
-
-
-
-
-
-
 ### 24 Nov 2026 — P1-2: عزل جلسة بوابة المعلمة عن جلسة الأدمن بنفس المتصفح (منشور، غير Done)
 - المشكلة: الـnew API كان يفحص كوكي الأدمن DarEltahfeez.Admin أولًا لكل /api/v1، فبوابة المعلمة ترى هوية الأدمن لما الكوكيان موجودين، وlogout المعلمة لا يمسح كوكي الأدمن.
 - الحل: header اختياري X-Dar-Portal: teacher من كل طلبات بوابة المعلمة. DarSessionHandler لو الـheader موجود يستخدم dar_session فقط ولا يرجع لكوكي الأدمن؛ بدون header السلوك القديم كما هو (admin أولًا ثم teacher fallback) لحماية مسارات الأدمن المقصودة مثل /api/v1/supervisor/scopes و/notifications.
@@ -362,4 +357,10 @@
 - النشر: API فقط + واجهة. commit الكود b7b00e1 (بعد test fix 34b4146). Backup DB /var/lib/dar/backups/db/predeploy-P12-20261124-125145.dump (270K)، API backup /opt/dar/app/api.old.20261124-125145، frontend backup /opt/dar/app/legacy/wwwroot.bak.20261124-125145. بدأ 12:51:45 والخدمات Active 12:52:42. بصمات: Dar.Api.dll=e96a3057cec8fe7aab2b5928a271d91e00497066f7a261f39d75b3b7052582ef، legacy DLL بلا تغيير 75210b1541d6018a3ac9d8c2eb055b13ac12bf3fa8926aa05bea2c5714de0c0a، TeacherApp-BoIQkPNg.js=df0c4704ac92a19016ee3cdf885ec3a913df89f0fc48c0a6c977df3b22243aad. legacy DLL/DB/Nginx/legacy env لم تتغير. smoke: API health 200، legacy health 200، الصفحات العامة 200، MGMT Turnstile enabled=true، TEACHER Turnstile enabled=false.
 - الرجوع: استعادة /opt/dar/app/api.old.20261124-125145 إلى api، وwwwroot.bak.20261124-125145 إلى wwwroot، ثم restart dar-api/dar-legacy. لا آثار DB.
 - غير متحقق: اختبار المالك الخارجي على متصفح حقيقي بحساب ZZ-TEST؛ الاختبارات هنا على disposable DB وباينريات منشورة. P1-2 ليس Done.
+
+### 28 Nov 2026 — Phase 2: غرف الحلقات المباشرة LiveKit (staging فقط)
+- **الجداول (migration `045_livekit_rooms.sql`):** `livekit_rooms` و`livekit_room_participants` لربط الحلقات/الحصص بغرف LiveKit، سياسات الوصول (`private`/`dar_only`/`public_link`)، غرفة الانتظار، دقائق الحضور التلقائي، واستبعاد/حظر المشاركين.
+- **الـAPI (`/api/v1/rooms/*` عبر `Dar.Modules.Meet`):** قراءة متغيرات `LIVEKIT_URL` و`LIVEKIT_API_KEY` و`LIVEKIT_API_SECRET` من البيئة؛ تعطيل آمن مع تحذير واضح عند النقص؛ توليد JWT HS256 قصير العمر (~ساعة) بصلاحيات متدرجة؛ فرض قواعد حلقات الأطفال (`circles.is_children`: غرفة انتظار ON، بدون رابط عام أو مشاركة شاشة للطالب، فك كتم الميكروفون للمضيفة/المشرفة فقط).
+- **التحكم والحضور والسبورة:** كتم/إخراج/حظر/قبول/رفض المشاركين، إنهاء الغرفة للجميع، تتبّع دقائق التواجد (`join`/`heartbeat`/`leave`) واقتراحات الحضور في `TeacherRoster` مع الحفاظ على التسجيل اليدوي، وصفحة `/room/{inviteCode}` عربية RTL مع سبورة تشاركية عبر LiveKit Data Channel (`Dar.Whiteboard.v1`).
+- **متبقي قبل الإنتاج:** مراجعة نتائج staging (اختبار عملي من الهاتف والحاسوب لغرفة LiveKit + السبورة)، ثم قرار المالك بالنشر.
 
