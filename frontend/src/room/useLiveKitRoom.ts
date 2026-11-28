@@ -4,6 +4,7 @@ import type { LiveParticipantTile, RoomChatMessage, RoomDataPacket, RoomReaction
 import { roomApi } from './roomApi'
 import { buildTile, HOST_MUTED_NOTICE, resolveDisconnectOutcome } from './roomHelpers'
 import { useLocalMediaControls } from './useLocalMediaControls'
+import { useAudioUnlock } from './useAudioUnlock'
 
 type Options = {
   inviteCode: string
@@ -44,7 +45,7 @@ export function useLiveKitRoom(options: Options) {
   const [strokes, setStrokes] = useState<WhiteboardStroke[]>([])
   const [whiteboardOpen, setWhiteboardOpen] = useState(false)
   const [whiteboardHostActive, setWhiteboardHostActive] = useState(false)
-  const [audioBlocked, setAudioBlocked] = useState(false)
+  const { audioBlocked, watchAudio, startAudio } = useAudioUnlock(roomRef)
 
   strokesRef.current = strokes
   whiteboardOpenRef.current = whiteboardOpen
@@ -138,9 +139,7 @@ export function useLiveKitRoom(options: Options) {
     room.on(RoomEvent.LocalTrackPublished, refresh)
     room.on(RoomEvent.LocalTrackUnpublished, refresh)
     room.on(RoomEvent.TrackSubscriptionPermissionChanged, refresh)
-    room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
-      if (active) setAudioBlocked(!room.canPlaybackAudio)
-    })
+    const unwatchAudio = watchAudio(room)
     room.on(RoomEvent.ParticipantPermissionsChanged, (permissions, participant) => {
       if (!active || options.role === 'host') return
       if (participant.identity !== room.localParticipant.identity) return
@@ -188,7 +187,6 @@ export function useLiveKitRoom(options: Options) {
       setMicOn(false)
       setCameraOn(false)
       setScreenOn(false)
-      setAudioBlocked(false)
       setTiles([])
       void roomApi.attendanceEvent(options.inviteCode, 'leave').catch(() => undefined)
       const outcome = resolveDisconnectOutcome(reason)
@@ -235,27 +233,20 @@ export function useLiveKitRoom(options: Options) {
     return () => {
       active = false
       window.clearInterval(heartbeat)
+      unwatchAudio()
       if (room.state === ConnectionState.Connected) {
         void roomApi.attendanceEvent(options.inviteCode, 'leave').catch(() => undefined)
       }
       void room.disconnect()
       roomRef.current = null
     }
-  }, [options.inviteCode, options.url, options.token, options.role, applyHostMuteState, publishPacket, syncParticipants])
+  }, [options.inviteCode, options.url, options.token, options.role, applyHostMuteState, publishPacket, syncParticipants, watchAudio])
 
   const { toggleMic, toggleCamera, toggleScreenShare } = useLocalMediaControls({
     roomRef, localMutePendingRef, micOn, cameraOn, screenOn,
     canUnmuteMic, canUseCamera, canShareScreen, hostMuted,
     setMediaNotice, syncParticipants,
   })
-
-  // Browsers may block remote audio until a user gesture; this resumes playback on demand.
-  const startAudio = async () => {
-    const room = roomRef.current
-    if (!room) return
-    try { await room.startAudio() } catch { /* still blocked: the banner stays visible */ }
-    setAudioBlocked(!room.canPlaybackAudio)
-  }
 
   const toggleHandRaise = async () => {
     const room = roomRef.current

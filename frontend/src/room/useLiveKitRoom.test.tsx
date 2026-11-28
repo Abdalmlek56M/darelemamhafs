@@ -38,6 +38,7 @@ vi.mock('livekit-client', async (importOriginal) => {
       mockState.listeners.set(event, list)
       return this
     }
+    off() { return this }
     connect = mockState.connectMock
     disconnect = mockState.disconnectMock
   }
@@ -271,6 +272,17 @@ describe('useLiveKitRoom', () => {
       Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })
       delete (navigator as unknown as Record<string, unknown>).mediaDevices
     }
+  })
+
+  it('keeps a "blocked" status that the SDK reports while still connecting', async () => {
+    mockState.connectMock.mockImplementationOnce(async () => {
+      mockState.canPlayback = false
+      emitRoomEvent(RoomEvent.AudioPlaybackStatusChanged, false)
+    })
+    const { result } = renderHook(() => useLiveKitRoom({ ...baseOptions, role: 'participant' }))
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(result.current.connected).toBe(true)
+    expect(result.current.audioBlocked).toBe(true)
   })
 
   it('flags blocked audio playback and resumes it through startAudio', async () => {

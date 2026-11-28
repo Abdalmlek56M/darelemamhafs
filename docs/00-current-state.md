@@ -24,7 +24,7 @@
 | Backend (جديد) | `Dar.slnx`: `src/Host/Dar.Api` على 5081 — `/api/v1/*` (Identity + Secretariat + Teaching + Meet) |
 | قاعدة البيانات | PostgreSQL 17 — `public` schema — **46 migration في المستودع (001→045؛ 039 مقسمة 039a/039b؛ 045 أحدث ملف)** |
 | النشر | Ubuntu 24.04 + Nginx + Certbot + systemd + منافذ داخلية 5080/5081؛ staging منفصل على نفس الـhost (`docs/staging-environment.md`) |
-| الاختبارات | backend unit (`Dar.UnitTests` على Linux/CI) + integration (Testcontainers) + 48 suite في `tests/run-regression.sh`؛ frontend **61 ملف / 177 اختبار Vitest** (Testing Library + jsdom) |
+| الاختبارات | backend unit (`Dar.UnitTests` على Linux/CI) + integration (Testcontainers) + 48 suite في `tests/run-regression.sh`؛ frontend **64 ملف / 200 اختبار Vitest** (Testing Library + jsdom) |
 | اللغة | العربية فقط الآن — الإنجليزية مؤجلة (ADR-0004) |
 
 ---
