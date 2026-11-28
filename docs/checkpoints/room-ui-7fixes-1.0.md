@@ -25,9 +25,18 @@ Date: 28 Nov 2026
 - Repeatable proof and how to write the staging test: `tests/diagnostics/room-audio-autoplay/`.
 - Local checks: Vitest `64` files / `200` tests, typecheck, vite build, `dotnet build` (solution + legacy), `docs-migration-count` (46) passed. `dotnet test` could **not** run on the Windows dev machine (test host aborts with `Access is denied`); no .NET code changed.
 
+## Staging verification (28 Nov 2026)
+- `30301d2` deployed to **staging only** (frontend only; previous `wwwroot` kept under the staging `backups/` folder). Health, `/management`, rooms config `200`; `/internal/` `404`.
+- Corrected two-browser run passed (all 7 fixes). #7 at `390x844`, `360x640`, `1280x720`: no prior user activation, banner shown with the `audio` element paused, click resumed playback and hid the banner. Screenshots `01`-`17` are on the staging server in `/tmp/room_ui_shots3`.
+- Temporary test accounts/room removed by the script (0 leftover rows). Production unchanged at `23a1cac`.
+
+## Stage tiles overlap (found in the staging screenshots)
+- On phones, 3+ participants made tiles overlap (grid auto rows shrank inside the fixed-height stage). Fixed in `room.css` with `grid-auto-rows: max-content`.
+- `tests/diagnostics/room-stage-layout/` failed before the fix (7 of 18 cases) and passes after.
+
 ## Remaining
-1. Deploy to **staging only** and verify #7 with two browsers following the diagnostic README (screenshots `16` and `17`), ideally also on a real phone (iOS Safari was not tested).
-2. Clean up temporary `/tmp/stg_pw_room_e2e_v2.mjs`, `/tmp/stg_audio_diag.mjs`, and `/tmp/room_ui_shots2` on the staging server.
+1. Try #7 on a real phone (iOS Safari and Android Chrome not tested).
+2. Clean up `/tmp/stg_pw_room_e2e_v2.mjs`, `/tmp/stg_audio_diag.mjs`, `/tmp/room_ui_shots2` (and `room_ui_shots3` once reviewed) on the staging server.
 
 ## Decisions
 - Production stays untouched at `23a1cac`; the room overhaul is staging-only until verification finishes.
