@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { BookOpen, Eye, GraduationCap, Pencil, Plus, Search, Trash2, Users, Wallet } from 'lucide-react'
+import { BookOpen, Eye, GraduationCap, Pencil, Plus, Search, Trash2, Users, Video, Wallet } from 'lucide-react'
 import { money } from '../lib/formatters'
 import { circleTypeLabels } from '../domain/labels'
 import type { Circle } from '../domain/types'
+import { roomApi } from '../room/roomApi'
 import Empty from '../components/common/EmptyState'
 import Pager from '../components/common/Pager'
 import { requestPage } from '../services/apiClient'
@@ -57,6 +58,16 @@ export default function CirclesPage({ ctx }: Props) {
         {circle.scheduleText&&<p className="circle-schedule">{circle.scheduleText}</p>}
         <div className="circle-card-actions">
           <button className="secondary-button" onClick={()=>void ctx.openCircleDetails(circle)}><Eye size={15}/> تفاصيل الحلقة</button>
+          <button
+            className="secondary-button"
+            onClick={() => {
+              void roomApi.openCircleRoom({ circleId: circle.id })
+                .then((room) => window.location.assign(`/room/${room.inviteCode}`))
+                .catch((err) => ctx.notifySystem('error', err instanceof Error ? err.message : 'تعذر فتح غرفة الحلقة.'))
+            }}
+          >
+            <Video size={15}/> غرفة الحلقة
+          </button>
           {ctx.has('circles.edit')&&<button className="small-icon-button" onClick={()=>ctx.openCircleEdit(circle)} title="تعديل"><Pencil size={15}/></button>}
           {ctx.has('circles.delete')&&<button className="small-icon-button danger-action" onClick={()=>void ctx.deleteCircle(circle)} title="حذف"><Trash2 size={15}/></button>}
         </div>

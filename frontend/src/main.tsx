@@ -9,12 +9,14 @@ const AdminApp = lazy(() => import('./App'))
 const HomePage = lazy(() => import('./home/HomePage'))
 const UnifiedLoginPage = lazy(() => import('./pages/UnifiedLoginPage'))
 const MemberPortalComingSoonPage = lazy(() => import('./pages/MemberPortalComingSoonPage'))
+const MeetingRoomPage = lazy(() => import('./room/MeetingRoomPage'))
 const TeacherApp = lazy(() => import('./teacher/TeacherApp'))
 const ZZErrorBomb = import.meta.env.VITE_ZZ_TEST_ERRORS === '1' ? lazy(() => import('./test/ErrorBomb')) : null
 const path = window.location.pathname
 const isHome = path === '/' || path === '/home'
 const isLogin = path === '/login' || path === '/login/'
 const isPortal = path === '/portal' || path.startsWith('/portal/')
+const isRoom = path === '/room' || path.startsWith('/room/')
 const isSupervisor = path === '/supervisor' || path.startsWith('/supervisor/')
 const isTeacher = path === '/teacher' || path.startsWith('/teacher/')
 
@@ -37,6 +39,13 @@ if (isHome) {
     <React.StrictMode><RootErrorBoundary page="بوابتك قريبًا" homeHref="/portal">
       {ZZErrorBomb && <ZZErrorBomb scope="app" />}
       <LazyBoundary page="بوابتك قريبًا" label="جارٍ تحميل البوابة…"><MemberPortalComingSoonPage /></LazyBoundary>
+    </RootErrorBoundary></React.StrictMode>,
+  )
+} else if (isRoom) {
+  createRoot(document.getElementById('root')!).render(
+    <React.StrictMode><RootErrorBoundary page="غرفة الحلقة" homeHref="/login">
+      {ZZErrorBomb && <ZZErrorBomb scope="app" />}
+      <LazyBoundary page="غرفة الحلقة" label="جارٍ تحميل غرفة الحلقة…"><MeetingRoomPage /></LazyBoundary>
     </RootErrorBoundary></React.StrictMode>,
   )
 } else if (isTeacher || isSupervisor) {
@@ -65,6 +74,7 @@ function currentPageName() {
   if (isHome) return 'الرئيسية'
   if (isLogin) return 'تسجيل الدخول'
   if (isPortal) return 'بوابتك قريبًا'
+  if (isRoom) return 'غرفة الحلقة'
   if (isSupervisor) return 'بوابة المشرفة'
   if (isTeacher) return 'بوابة المعلمة'
   return 'لوحة الإدارة'

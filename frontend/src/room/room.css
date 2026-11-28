@@ -1,0 +1,123 @@
+.room-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-page, #0b1118);
+  color: var(--text-primary, #f4f7fb);
+  direction: rtl;
+}
+
+.room-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.room-title-group { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.room-title-group h1 { font-size: 1.05rem; margin: 0; }
+.room-top-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+.room-body {
+  flex: 1;
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  min-height: 0;
+}
+
+.room-stage {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.room-tile {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  aspect-ratio: 16 / 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.room-tile video { width: 100%; height: 100%; object-fit: cover; }
+.room-tile-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.18);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.room-tile-footer {
+  position: absolute;
+  inset-inline: 0.5rem;
+  bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(11, 17, 24, 0.72);
+  padding: 0.25rem 0.55rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.room-side-panel {
+  width: 310px;
+  max-width: 100%;
+  border-radius: 14px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.room-side-tabs { display: flex; gap: 0.4rem; align-items: center; }
+.room-side-tabs button { flex: 1; padding: 0.4rem 0.5rem; border-radius: 8px; background: rgba(255, 255, 255, 0.05); color: inherit; border: 0; cursor: pointer; }
+.room-side-tabs button.active { background: rgba(56, 189, 248, 0.22); font-weight: 600; }
+.room-side-tabs .icon-button { flex: 0 0 auto; }
+
+.room-participants-list, .room-chat-messages { display: flex; flex-direction: column; gap: 0.45rem; overflow-y: auto; max-height: 60vh; }
+.room-participant-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.45rem 0.55rem; border-radius: 10px; background: rgba(255, 255, 255, 0.04); }
+.room-participant-info small { display: flex; align-items: center; gap: 0.35rem; opacity: 0.8; }
+.room-row-actions { display: flex; gap: 0.25rem; }
+.room-waiting-box { padding: 0.5rem; border-radius: 10px; border: 1px solid rgba(251, 191, 36, 0.35); background: rgba(251, 191, 36, 0.08); display: flex; flex-direction: column; gap: 0.4rem; }
+
+.room-chat-wrap { display: flex; flex-direction: column; gap: 0.5rem; flex: 1; }
+.room-chat-item { padding: 0.45rem 0.6rem; border-radius: 10px; background: rgba(255, 255, 255, 0.05); }
+.room-chat-item p { margin: 0.15rem 0 0; font-size: 0.88rem; }
+.room-chat-form { display: flex; gap: 0.4rem; margin-top: auto; }
+.room-chat-form input { flex: 1; }
+
+.room-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.room-reactions-bar { display: flex; gap: 0.25rem; }
+.room-reaction-toast-row { display: flex; justify-content: center; gap: 0.5rem; padding: 0.3rem; flex-wrap: wrap; }
+.room-reaction-pill { padding: 0.25rem 0.65rem; border-radius: 999px; background: rgba(56, 189, 248, 0.2); font-size: 0.85rem; }
+.room-hand-icon { color: #fbbf24; }
+.room-access-bar { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; padding: 0.5rem 1rem; background: rgba(255, 255, 255, 0.03); border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+
+@media (max-width: 768px) {
+  .room-body { flex-direction: column; }
+  .room-side-panel { width: 100%; }
+}
