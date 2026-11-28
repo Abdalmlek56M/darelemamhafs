@@ -131,7 +131,7 @@ export function useTeacherAppState(mode: 'teacher' | 'supervisor') {
   }, [mode])
 
   useEffect(() => {
-    if (!session || !canTeacher || todayRequested.current) return
+    if (!session || !canTeacher || !session.teacherId || todayRequested.current) return
     todayRequested.current = true
     void loadToday()
   }, [session, canTeacher, loadToday])

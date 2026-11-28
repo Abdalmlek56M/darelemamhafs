@@ -69,6 +69,20 @@ export default function TeacherAppView(props: TeacherAppState) {
     return <div className="teacher-app"><div className="t-login"><div className="t-login-card"><h1>لا يوجد وصول</h1><p className="t-muted">هذا الحساب غير مرتبط بصلاحية معلمة أو مشرفة. راجع المدير.</p><button className="t-secondary" onClick={() => void logout()}><LogOut size={16} /> خروج</button></div></div></div>
   }
 
+  if (canTeacher && !session.teacherId && page !== 'supervisor') {
+    return (
+      <div className="teacher-app">
+        <div className="t-login">
+          <div className="t-login-card" role="alert">
+            <h1>الحساب غير مرتبط بمعلمة</h1>
+            <p className="t-muted">هذا الحساب غير مرتبط بسجل معلمة بعد. اطلب من الإدارة ربط الحساب بسجل المعلمة ثم أعد المحاولة.</p>
+            <button className="t-secondary" onClick={() => void logout()}><LogOut size={16} /> تسجيل الخروج</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (page === 'supervisor' && canSupervisor) {
     return (
       <LazyBoundary key="supervisor" label="جارٍ تحميل مساحة الإشراف…" page="مساحة الإشراف" onHome={() => setPage(canTeacher ? 'home' : 'supervisor')}>
