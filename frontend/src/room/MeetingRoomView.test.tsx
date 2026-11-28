@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import type { Track } from 'livekit-client'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import MeetingRoomView from './MeetingRoomView'
 import type { LiveKitRoomInfo } from './roomTypes'
+
+afterEach(() => { cleanup() })
 
 const baseRoom: LiveKitRoomInfo = {
   id: 'r-1',
@@ -22,8 +25,8 @@ const baseRoom: LiveKitRoomInfo = {
   createdAt: '2026-11-28T10:00:00Z',
 }
 
-describe('MeetingRoomView (Mission 3)', () => {
-  it('enforces child-circle restrictions for student participants and supports hand raise, reactions, and chat', () => {
+describe('MeetingRoomView', () => {
+  it('enforces child-circle restrictions and supports hand raise, More reactions, and chat drawer', () => {
     const onToggleHand = vi.fn()
     const onSendReaction = vi.fn()
     const onSendChat = vi.fn(async () => {})
@@ -73,16 +76,17 @@ describe('MeetingRoomView (Mission 3)', () => {
     fireEvent.click(screen.getByRole('button', { name: /رفع اليد/ }))
     expect(onToggleHand).toHaveBeenCalledTimes(1)
 
+    fireEvent.click(screen.getByRole('button', { name: /المزيد/ }))
     fireEvent.click(screen.getByRole('button', { name: '👍' }))
     expect(onSendReaction).toHaveBeenCalledWith('👍')
 
-    fireEvent.click(screen.getByRole('button', { name: 'المحادثة' }))
+    fireEvent.click(screen.getByRole('button', { name: /المحادثة/ }))
     fireEvent.change(screen.getByPlaceholderText('اكتب رسالة…'), { target: { value: 'السلام عليكم' } })
     fireEvent.click(screen.getByRole('button', { name: 'إرسال' }))
     expect(onSendChat).toHaveBeenCalledWith('السلام عليكم')
   })
 
-  it('renders host controls for waiting room admit/deny, mute, remove, ban, and end meeting', () => {
+  it('renders host controls in Participants sheet for admit/deny, mute, remove, ban, and end meeting', () => {
     const onModerate = vi.fn()
     const onEndRoom = vi.fn()
 
@@ -120,6 +124,8 @@ describe('MeetingRoomView (Mission 3)', () => {
       />,
     )
 
+    fireEvent.click(screen.getByRole('button', { name: /المشاركون/ }))
+
     fireEvent.click(screen.getByTitle('قبول'))
     expect(onModerate).toHaveBeenCalledWith('admit', 'w-1')
 
@@ -135,16 +141,22 @@ describe('MeetingRoomView (Mission 3)', () => {
     fireEvent.click(screen.getByTitle('حظر'))
     expect(onModerate).toHaveBeenCalledWith('ban', 's-1')
 
-    fireEvent.click(screen.getByRole('button', { name: /إنهاء للجميع/ }))
+    fireEvent.click(screen.getByRole('button', { name: /إنهاء/ }))
     expect(onEndRoom).toHaveBeenCalledTimes(1)
   })
 
-  it('shows host-mute notice and muted mic state for LK-3', () => {
-    render(
+  it('shows host-mute notice, active whiteboard prompt, and screen-share spotlight with fullscreen toggle', () => {
+    const fakeScreenTrack = { attach: vi.fn(), detach: vi.fn() } as unknown as Track
+    const onToggleWhiteboard = vi.fn()
+
+    const { rerender } = render(
       <MeetingRoomView
         room={{ ...baseRoom, isChildren: false, onlyHostCanUnmute: false }}
         role="participant"
-        tiles={[]}
+        tiles={[
+          { identity: 'h-1', name: 'المعلمة', isLocal: false, isHost: true, micEnabled: true, cameraEnabled: false, screenEnabled: true, videoTrack: null, screenTrack: fakeScreenTrack, audioTrack: null },
+          { identity: 'u-1', name: 'مريم', isLocal: true, isHost: false, micEnabled: false, cameraEnabled: false, screenEnabled: false, videoTrack: null, screenTrack: null, audioTrack: null },
+        ]}
         dbParticipants={[]}
         micOn={false}
         cameraOn={false}
@@ -158,6 +170,9 @@ describe('MeetingRoomView (Mission 3)', () => {
         reactions={[]}
         hostMuted={true}
         notice="المعلمة كتمت صوتك"
+        whiteboardOpen={false}
+        whiteboardHostActive={true}
+        onToggleWhiteboard={onToggleWhiteboard}
         onToggleMic={vi.fn()}
         onToggleCamera={vi.fn()}
         onToggleScreenShare={vi.fn()}
@@ -168,9 +183,44 @@ describe('MeetingRoomView (Mission 3)', () => {
       />,
     )
 
-    expect(screen.getByRole('status').textContent).toContain('المعلمة كتمت صوتك')
+    expect(screen.getByText('المعلمة كتمت صوتك')).toBeTruthy()
     const micButton = screen.getByRole('button', { name: /الميكروفون \(مكتوم\)/ }) as HTMLButtonElement
     expect(micButton.disabled).toBe(true)
     expect(micButton.dataset.mutedByHost).toBe('true')
+
+    fireEvent.click(screen.getByRole('button', { name: 'فتح السبورة' }))
+    expect(onToggleWhiteboard).toHaveBeenCalledTimes(1)
+
+    expect(screen.getByText('شاشة المعلمة')).toBeTruthy()
+    const fsBtn = screen.getByRole('button', { name: 'ملء الشاشة' })
+    fireEvent.click(fsBtn)
+    expect(screen.getByRole('button', { name: 'إنهاء ملء الشاشة' })).toBeTruthy()
+
+    rerender(
+      <MeetingRoomView
+        room={{ ...baseRoom, isChildren: false, onlyHostCanUnmute: false }}
+        role="participant"
+        tiles={[{ identity: 'u-1', name: 'مريم', isLocal: true, isHost: false, micEnabled: false, cameraEnabled: false, screenEnabled: false, videoTrack: null, screenTrack: null, audioTrack: null }]}
+        dbParticipants={[]}
+        micOn={false}
+        cameraOn={false}
+        screenOn={false}
+        handRaised={false}
+        canUnmuteMic={true}
+        canUseCamera={true}
+        canShareScreen={false}
+        raisedHands={{}}
+        chat={[]}
+        reactions={[]}
+        onToggleMic={vi.fn()}
+        onToggleCamera={vi.fn()}
+        onToggleScreenShare={vi.fn()}
+        onToggleHand={vi.fn()}
+        onSendReaction={vi.fn()}
+        onSendChat={vi.fn(async () => {})}
+        onLeave={vi.fn()}
+      />,
+    )
+    expect(screen.queryByText('شاشة المعلمة')).toBeNull()
   })
 })

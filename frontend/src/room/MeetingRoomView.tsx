@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  Copy, Hand, LogOut, MessageSquare, Mic, MicOff, MonitorUp,
-  PencilLine, PhoneOff, ShieldAlert, Users, Video, VideoOff,
-} from 'lucide-react'
-import type { Track } from 'livekit-client'
+import { LogOut, Maximize2, Minimize2, PhoneOff, ShieldAlert } from 'lucide-react'
 import type {
   LiveKitRoomInfo, LiveParticipantTile, RoomAccessMode,
   RoomChatMessage, RoomParticipantRecord, RoomReaction, RoomRole,
 } from './roomTypes'
 import RoomSidePanel from './RoomSidePanel'
+import RoomTile, { MediaElement } from './RoomTile'
+import RoomControlsBar from './RoomControlsBar'
 import './room.css'
 
 type Props = {
@@ -37,36 +35,56 @@ type Props = {
   onModerate?: (action: 'mute' | 'unmute' | 'remove' | 'ban' | 'admit' | 'deny', userId: string) => void
   onUpdateAccess?: (patch: { accessMode: RoomAccessMode; waitingRoomEnabled: boolean; allowStudentScreenshare: boolean }) => void
   whiteboardOpen?: boolean
+  whiteboardHostActive?: boolean
   onToggleWhiteboard?: () => void
   whiteboardSlot?: React.ReactNode
   hostMuted?: boolean
   notice?: string | null
 }
 
-function MediaElement({ track, kind }: { track: Track; kind: 'video' | 'audio' }) {
-  const ref = useRef<HTMLMediaElement | null>(null)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    track.attach(el)
-    return () => { track.detach(el) }
-  }, [track])
-  return kind === 'video'
-    ? <video ref={(el) => { ref.current = el }} autoPlay playsInline muted />
-    : <audio ref={(el) => { ref.current = el }} autoPlay />
-}
-
-const REACTIONS = ['👍', '❤️', '🤲', '👏']
-
 export default function MeetingRoomView({
   room, role, tiles, dbParticipants, micOn, cameraOn, screenOn, handRaised,
   canUnmuteMic, canUseCamera, canShareScreen, raisedHands, chat, reactions,
   onToggleMic, onToggleCamera, onToggleScreenShare, onToggleHand,
   onSendReaction, onSendChat, onLeave, onEndRoom, onModerate, onUpdateAccess,
-  whiteboardOpen, onToggleWhiteboard, whiteboardSlot, hostMuted = false, notice = null,
+  whiteboardOpen = false, whiteboardHostActive = false, onToggleWhiteboard, whiteboardSlot,
+  hostMuted = false, notice = null,
 }: Props) {
-  const [panelTab, setPanelTab] = useState<'participants' | 'chat' | null>('participants')
+  const [panelTab, setPanelTab] = useState<'participants' | 'chat' | null>(null)
+  const [moreOpen, setMoreOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
+  const spotlightRef = useRef<HTMLDivElement | null>(null)
+
+  const screenTile = tiles.find((t) => Boolean(t.screenTrack)) ?? null
+
+  useEffect(() => {
+    if (!screenTile && fullscreen) {
+      setFullscreen(false)
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
+    }
+  }, [screenTile, fullscreen])
+
+  useEffect(() => {
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setFullscreen(false)
+    }
+    document.addEventListener('fullscreenchange', onFsChange)
+    return () => document.removeEventListener('fullscreenchange', onFsChange)
+  }, [])
+
+  const toggleFullscreen = async () => {
+    if (fullscreen) {
+      if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined)
+      setFullscreen(false)
+      return
+    }
+    setFullscreen(true)
+    const el = spotlightRef.current
+    if (el?.requestFullscreen) {
+      await el.requestFullscreen().catch(() => undefined)
+    }
+  }
 
   const copyInvite = () => {
     const url = `${window.location.origin}/room/${room.inviteCode}`
@@ -80,70 +98,34 @@ export default function MeetingRoomView({
       <header className="room-topbar">
         <div className="room-title-group">
           <h1>{room.title}</h1>
-          {room.isChildren && <span className="status-pill"><ShieldAlert size={13} /> حلقة أطفال (وضع آمن)</span>}
-          <span className="status-pill">{room.accessMode === 'public' ? 'رابط عام بحساب' : 'أعضاء الحلقة فقط'}</span>
+          {room.isChildren && (
+            <span className="status-pill"><ShieldAlert size={13} /> حلقة أطفال</span>
+          )}
         </div>
         <div className="room-top-actions">
-          <button type="button" className="secondary-button compact-button" onClick={copyInvite}>
-            <Copy size={14} /> {copied ? 'تم النسخ' : 'نسخ رابط الدعوة'}
-          </button>
           {role === 'host' && onEndRoom && (
             <button type="button" className="secondary-button compact-button danger-action" onClick={onEndRoom}>
-              <PhoneOff size={14} /> إنهاء للجميع
+              <PhoneOff size={15} /> إنهاء
             </button>
           )}
           <button type="button" className="secondary-button compact-button" onClick={onLeave}>
-            <LogOut size={14} /> مغادرة
+            <LogOut size={15} /> مغادرة
           </button>
         </div>
       </header>
 
-      {role === 'host' && !room.isChildren && onUpdateAccess && (
-        <div className="room-access-bar">
-          <label>
-            نوع الدخول:{' '}
-            <select
-              value={room.accessMode}
-              onChange={(e) => onUpdateAccess({
-                accessMode: e.target.value as RoomAccessMode,
-                waitingRoomEnabled: room.waitingRoomEnabled,
-                allowStudentScreenshare: room.allowStudentScreenshare,
-              })}
-            >
-              <option value="private">أعضاء الحلقة فقط</option>
-              <option value="public">عام (يتطلب حسابًا)</option>
-            </select>
-          </label>
-          <label className="lock-toggle-row">
-            <input
-              type="checkbox"
-              checked={room.waitingRoomEnabled}
-              onChange={(e) => onUpdateAccess({
-                accessMode: room.accessMode,
-                waitingRoomEnabled: e.target.checked,
-                allowStudentScreenshare: room.allowStudentScreenshare,
-              })}
-            />
-            <span>غرفة الانتظار</span>
-          </label>
-          <label className="lock-toggle-row">
-            <input
-              type="checkbox"
-              checked={room.allowStudentScreenshare}
-              onChange={(e) => onUpdateAccess({
-                accessMode: room.accessMode,
-                waitingRoomEnabled: room.waitingRoomEnabled,
-                allowStudentScreenshare: e.target.checked,
-              })}
-            />
-            <span>السماح بمشاركة الشاشة للطلاب</span>
-          </label>
-        </div>
-      )}
-
       {(hostMuted || notice) && (
         <div className="room-notice-banner" role="status" aria-live="polite">
           {notice ?? 'المعلمة كتمت صوتك'}
+        </div>
+      )}
+
+      {whiteboardHostActive && !whiteboardOpen && onToggleWhiteboard && (
+        <div className="room-wb-prompt" role="status">
+          <span>السبورة المشتركة مفتوحة الآن</span>
+          <button type="button" className="primary-button compact-button" onClick={onToggleWhiteboard}>
+            فتح السبورة
+          </button>
         </div>
       )}
 
@@ -156,108 +138,95 @@ export default function MeetingRoomView({
       )}
 
       <div className="room-body">
-        <div className="room-stage">
-          {whiteboardOpen && whiteboardSlot}
-          {tiles.map((tile) => (
-            <article className="room-tile" key={tile.identity}>
-              {tile.screenTrack ? <MediaElement track={tile.screenTrack} kind="video" />
-                : tile.videoTrack ? <MediaElement track={tile.videoTrack} kind="video" />
-                : <div className="room-tile-avatar">{tile.name.slice(0, 1)}</div>}
-              {tile.audioTrack && <MediaElement track={tile.audioTrack} kind="audio" />}
-              <div className="room-tile-footer">
-                <span>
-                  {tile.name}{tile.isLocal ? ' (أنت)' : ''}
-                  {raisedHands[tile.identity] && <> <Hand size={13} className="room-hand-icon" /></>}
-                </span>
-                <span>{tile.micEnabled ? <Mic size={14} /> : <MicOff size={14} />}</span>
+        <div className="room-main-area">
+          {screenTile && screenTile.screenTrack ? (
+            <>
+              <div ref={spotlightRef} className={`room-spotlight${fullscreen ? ' is-fullscreen' : ''}`}>
+                <MediaElement track={screenTile.screenTrack} kind="video" fit="contain" />
+                <div className="room-spotlight-bar">
+                  <span>شاشة {screenTile.name}</span>
+                  <button
+                    type="button"
+                    className="secondary-button compact-button"
+                    aria-label={fullscreen ? 'إنهاء ملء الشاشة' : 'ملء الشاشة'}
+                    onClick={() => void toggleFullscreen()}
+                  >
+                    {fullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                    <span>{fullscreen ? 'تصغير' : 'ملء الشاشة'}</span>
+                  </button>
+                </div>
               </div>
-            </article>
-          ))}
+              <div className="room-strip" aria-label="المشاركون">
+                {tiles.map((tile) => (
+                  <RoomTile key={tile.identity} tile={tile} handRaised={Boolean(raisedHands[tile.identity])} compact />
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="room-stage">
+              {whiteboardOpen && whiteboardSlot}
+              {tiles.map((tile) => (
+                <RoomTile
+                  key={tile.identity}
+                  tile={tile}
+                  handRaised={Boolean(raisedHands[tile.identity])}
+                  compact={whiteboardOpen}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {panelTab && (
-          <RoomSidePanel
-            tab={panelTab}
-            onTabChange={setPanelTab}
-            onClose={() => setPanelTab(null)}
-            role={role}
-            onlyHostCanUnmute={room.onlyHostCanUnmute}
-            tiles={tiles}
-            dbParticipants={dbParticipants}
-            raisedHands={raisedHands}
-            chat={chat}
-            onSendChat={onSendChat}
-            onModerate={onModerate}
-          />
+          <>
+            <div className="room-side-overlay" onClick={() => setPanelTab(null)} aria-hidden="true" />
+            <RoomSidePanel
+              tab={panelTab}
+              onTabChange={setPanelTab}
+              onClose={() => setPanelTab(null)}
+              role={role}
+              onlyHostCanUnmute={room.onlyHostCanUnmute}
+              tiles={tiles}
+              dbParticipants={dbParticipants}
+              raisedHands={raisedHands}
+              chat={chat}
+              onSendChat={onSendChat}
+              onModerate={onModerate}
+            />
+          </>
         )}
       </div>
 
-      <footer className="room-controls">
-        <button
-          type="button"
-          className={
-            micOn
-              ? 'primary-button compact-button'
-              : `secondary-button compact-button${hostMuted ? ' room-mic-muted-host' : ''}`
-          }
-          disabled={!micOn && !canUnmuteMic}
-          aria-pressed={micOn}
-          data-muted-by-host={hostMuted ? 'true' : 'false'}
-          title={hostMuted ? 'المعلمة كتمت صوتك' : !canUnmuteMic ? 'فقط المعلمة أو المشرفة يمكنها السماح بالصوت' : micOn ? 'كتم الميكروفون' : 'فتح الميكروفون'}
-          onClick={onToggleMic}
-        >
-          {micOn ? <Mic size={16} /> : <MicOff size={16} />}{' '}
-          {micOn ? 'كتم' : hostMuted ? 'الميكروفون (مكتوم)' : 'الميكروفون'}
-        </button>
-
-        <button
-          type="button"
-          className={cameraOn ? 'primary-button compact-button' : 'secondary-button compact-button'}
-          disabled={!cameraOn && !canUseCamera}
-          onClick={onToggleCamera}
-        >
-          {cameraOn ? <Video size={16} /> : <VideoOff size={16} />} {cameraOn ? 'إيقاف الكاميرا' : 'الكاميرا'}
-        </button>
-
-        {canShareScreen && (
-          <button
-            type="button"
-            className={screenOn ? 'primary-button compact-button' : 'secondary-button compact-button'}
-            onClick={onToggleScreenShare}
-          >
-            <MonitorUp size={16} /> {screenOn ? 'إيقاف الشاشة' : 'مشاركة الشاشة'}
-          </button>
-        )}
-
-        <button
-          type="button"
-          className={handRaised ? 'primary-button compact-button' : 'secondary-button compact-button'}
-          onClick={onToggleHand}
-        >
-          <Hand size={16} /> {handRaised ? 'خفض اليد' : 'رفع اليد'}
-        </button>
-
-        <div className="room-reactions-bar" aria-label="تفاعلات سريعة">
-          {REACTIONS.map((emoji) => (
-            <button key={emoji} type="button" className="secondary-button compact-button" onClick={() => onSendReaction(emoji)}>
-              {emoji}
-            </button>
-          ))}
-        </div>
-
-        {onToggleWhiteboard && (
-          <button type="button" className={whiteboardOpen ? 'primary-button compact-button' : 'secondary-button compact-button'} onClick={onToggleWhiteboard}>
-            <PencilLine size={16} /> السبورة
-          </button>
-        )}
-
-        <button type="button" className="secondary-button compact-button" onClick={() => setPanelTab(panelTab === 'participants' ? null : 'participants')}>
-          <Users size={16} /> المشاركون
-        </button>
-        <button type="button" className="secondary-button compact-button" onClick={() => setPanelTab(panelTab === 'chat' ? null : 'chat')}>
-          <MessageSquare size={16} /> المحادثة
-        </button>
-      </footer>
+      <RoomControlsBar
+        room={room}
+        role={role}
+        micOn={micOn}
+        cameraOn={cameraOn}
+        screenOn={screenOn}
+        handRaised={handRaised}
+        hostMuted={hostMuted}
+        canUnmuteMic={canUnmuteMic}
+        canUseCamera={canUseCamera}
+        canShareScreen={canShareScreen}
+        whiteboardOpen={whiteboardOpen}
+        whiteboardHostActive={whiteboardHostActive}
+        panelTab={panelTab}
+        participantCount={tiles.length}
+        chatCount={chat.length}
+        moreOpen={moreOpen}
+        copied={copied}
+        onToggleMic={onToggleMic}
+        onToggleCamera={onToggleCamera}
+        onToggleScreenShare={onToggleScreenShare}
+        onToggleHand={onToggleHand}
+        onToggleWhiteboard={onToggleWhiteboard}
+        onTogglePanel={(tab) => setPanelTab((cur) => (cur === tab ? null : tab))}
+        onToggleMore={() => setMoreOpen((v) => !v)}
+        onCloseMore={() => setMoreOpen(false)}
+        onSendReaction={onSendReaction}
+        onCopyInvite={copyInvite}
+        onUpdateAccess={onUpdateAccess}
+      />
     </div>
   )
 }

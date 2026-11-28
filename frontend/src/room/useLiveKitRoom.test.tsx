@@ -7,6 +7,7 @@ type Listener = (...args: unknown[]) => void
 const mockState = vi.hoisted(() => ({
   listeners: new Map<string, Listener[]>(),
   setMicMock: vi.fn(async () => undefined),
+  publishDataMock: vi.fn(async (_bytes: Uint8Array) => undefined),
   disconnectMock: vi.fn(async () => undefined),
   connectMock: vi.fn(async () => undefined),
 }))
@@ -24,7 +25,7 @@ vi.mock('livekit-client', async (importOriginal) => {
       setMicrophoneEnabled: mockState.setMicMock,
       setCameraEnabled: vi.fn(async () => undefined),
       setScreenShareEnabled: vi.fn(async () => undefined),
-      publishData: vi.fn(async () => undefined),
+      publishData: mockState.publishDataMock,
     }
     on(event: string, fn: Listener) {
       const list = mockState.listeners.get(event) ?? []
@@ -51,10 +52,11 @@ function emitRoomEvent(event: string, ...args: unknown[]) {
   }
 }
 
-describe('useLiveKitRoom (LK-1, LK-2, LK-3)', () => {
+describe('useLiveKitRoom', () => {
   beforeEach(() => {
     mockState.listeners.clear()
     mockState.setMicMock.mockReset().mockResolvedValue(undefined)
+    mockState.publishDataMock.mockReset().mockResolvedValue(undefined)
     mockState.disconnectMock.mockReset().mockResolvedValue(undefined)
     mockState.connectMock.mockReset().mockResolvedValue(undefined)
   })
@@ -130,7 +132,6 @@ describe('useLiveKitRoom (LK-1, LK-2, LK-3)', () => {
 
     expect(result.current.mediaNotice).toContain('تعذر تشغيل الميكروفون')
 
-    // Host server-side TrackMuted should also surface the notice when local user did not trigger mute.
     await act(async () => {
       emitRoomEvent(RoomEvent.TrackMuted, { source: Track.Source.Microphone }, { identity: 'u-student' })
     })
@@ -168,5 +169,56 @@ describe('useLiveKitRoom (LK-1, LK-2, LK-3)', () => {
     expect(onRemoved).not.toHaveBeenCalled()
     expect(result.current.connected).toBe(false)
     expect(result.current.tiles).toEqual([])
+  })
+
+  it('broadcasts whiteboard state from host and auto-opens/syncs strokes for participants', async () => {
+    const { result: host } = renderHook(() => useLiveKitRoom({
+      inviteCode: 'abc',
+      url: 'wss://example.livekit.cloud',
+      token: 'tok-h',
+      role: 'host',
+      onlyHostCanUnmute: false,
+      allowStudentScreenshare: false,
+      isChildren: false,
+      mutedByHost: false,
+      onRoomEnded: vi.fn(),
+      onRemoved: vi.fn(),
+    }))
+
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+
+    act(() => { host.current.toggleWhiteboard() })
+    expect(host.current.whiteboardOpen).toBe(true)
+    const sent = mockState.publishDataMock.mock.calls.map(([bytes]) => JSON.parse(new TextDecoder().decode(bytes as Uint8Array)))
+    expect(sent).toContainEqual({ type: 'wb-state', open: true })
+
+    // Participant receives wb-state and wb-stroke
+    const { result: stud } = renderHook(() => useLiveKitRoom({
+      inviteCode: 'abc',
+      url: 'wss://example.livekit.cloud',
+      token: 'tok-s',
+      role: 'participant',
+      onlyHostCanUnmute: false,
+      allowStudentScreenshare: false,
+      isChildren: false,
+      mutedByHost: false,
+      onRoomEnded: vi.fn(),
+      onRemoved: vi.fn(),
+    }))
+
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+
+    await act(async () => {
+      emitRoomEvent(RoomEvent.DataReceived, new TextEncoder().encode(JSON.stringify({ type: 'wb-state', open: true })), { identity: 'h-1' })
+      emitRoomEvent(
+        RoomEvent.DataReceived,
+        new TextEncoder().encode(JSON.stringify({ type: 'wb-stroke', stroke: { id: 's-1', points: [10, 10, 80, 80], color: '#38bdf8', width: 3 } })),
+        { identity: 'h-1' },
+      )
+    })
+
+    expect(stud.current.whiteboardOpen).toBe(true)
+    expect(stud.current.whiteboardHostActive).toBe(true)
+    expect(stud.current.strokes).toHaveLength(1)
   })
 })

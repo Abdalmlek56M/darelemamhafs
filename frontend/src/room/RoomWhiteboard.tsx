@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Trash2, X } from 'lucide-react'
 import type { RoomRole, WhiteboardStroke } from './roomTypes'
 
 type Props = {
@@ -7,11 +7,12 @@ type Props = {
   strokes: WhiteboardStroke[]
   onAddStroke: (stroke: WhiteboardStroke) => void
   onClear: () => void
+  onClose?: () => void
 }
 
 const COLORS = ['#38bdf8', '#facc15', '#4ade80', '#f87171', '#ffffff']
 
-export default function RoomWhiteboard({ role, strokes, onAddStroke, onClear }: Props) {
+export default function RoomWhiteboard({ role, strokes, onAddStroke, onClear, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const draftRef = useRef<number[]>([])
   const [drawing, setDrawing] = useState(false)
@@ -47,6 +48,7 @@ export default function RoomWhiteboard({ role, strokes, onAddStroke, onClear }: 
 
   const onPointerDown = (e: PointerEvent<HTMLCanvasElement>) => {
     if (role !== 'host') return
+    e.currentTarget.setPointerCapture?.(e.pointerId)
     const [x, y] = toCanvasPoint(e)
     draftRef.current = [x, y]
     setDrawing(true)
@@ -63,6 +65,8 @@ export default function RoomWhiteboard({ role, strokes, onAddStroke, onClear }: 
     pts.push(x, y)
     const ctx = canvasRef.current?.getContext('2d')
     if (ctx) {
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
       ctx.strokeStyle = color
       ctx.lineWidth = 3
       ctx.beginPath()
@@ -90,23 +94,30 @@ export default function RoomWhiteboard({ role, strokes, onAddStroke, onClear }: 
     <section className="room-whiteboard-card" aria-label="السبورة المشتركة">
       <div className="room-whiteboard-head">
         <strong>السبورة المشتركة</strong>
-        {role === 'host' && (
-          <div className="room-wb-tools">
-            {COLORS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                aria-label={`لون ${c}`}
-                className={`room-wb-color ${color === c ? 'active' : ''}`}
-                style={{ backgroundColor: c }}
-                onClick={() => setColor(c)}
-              />
-            ))}
-            <button type="button" className="secondary-button compact-button" onClick={onClear}>
-              <Trash2 size={14} /> مسح السبورة
+        <div className="room-wb-tools">
+          {role === 'host' && (
+            <>
+              {COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-label={`لون ${c}`}
+                  className={`room-wb-color ${color === c ? 'active' : ''}`}
+                  style={{ backgroundColor: c }}
+                  onClick={() => setColor(c)}
+                />
+              ))}
+              <button type="button" className="secondary-button compact-button" onClick={onClear}>
+                <Trash2 size={14} /> مسح السبورة
+              </button>
+            </>
+          )}
+          {onClose && (
+            <button type="button" className="icon-button" aria-label="إغلاق السبورة" onClick={onClose}>
+              <X size={16} />
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       <canvas
         ref={canvasRef}
@@ -116,6 +127,7 @@ export default function RoomWhiteboard({ role, strokes, onAddStroke, onClear }: 
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={finishStroke}
+        onPointerCancel={finishStroke}
         onPointerLeave={finishStroke}
       />
     </section>

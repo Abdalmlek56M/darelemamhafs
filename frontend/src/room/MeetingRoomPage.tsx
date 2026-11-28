@@ -21,7 +21,6 @@ export default function MeetingRoomPage() {
   const [livekitUrl, setLivekitUrl] = useState<string | null>(null)
   const [dbParticipants, setDbParticipants] = useState<RoomParticipantRecord[]>([])
   const [endedNotice, setEndedNotice] = useState<string | null>(null)
-  const [whiteboardOpen, setWhiteboardOpen] = useState(false)
 
   const requestJoinToken = useCallback(async () => {
     if (!inviteCode) return
@@ -151,6 +150,8 @@ export default function MeetingRoomPage() {
       raisedHands={live.raisedHands}
       chat={live.chat}
       reactions={live.reactions}
+      hostMuted={live.hostMuted}
+      notice={live.mediaNotice}
       onToggleMic={() => void live.toggleMic()}
       onToggleCamera={() => void live.toggleCamera()}
       onToggleScreenShare={() => void live.toggleScreenShare()}
@@ -172,16 +173,16 @@ export default function MeetingRoomPage() {
       onUpdateAccess={(patch: { accessMode: RoomAccessMode; waitingRoomEnabled: boolean; allowStudentScreenshare: boolean }) => {
         void roomApi.updateAccess(inviteCode, patch).then(setRoom).catch(() => undefined)
       }}
-      whiteboardOpen={whiteboardOpen}
-      onToggleWhiteboard={() => setWhiteboardOpen((v) => !v)}
-      hostMuted={live.hostMuted}
-      notice={live.mediaNotice}
+      whiteboardOpen={live.whiteboardOpen}
+      whiteboardHostActive={live.whiteboardHostActive}
+      onToggleWhiteboard={live.toggleWhiteboard}
       whiteboardSlot={
         <RoomWhiteboard
           role={role}
           strokes={live.strokes}
           onAddStroke={(stroke) => void live.addStroke(stroke)}
           onClear={() => void live.clearWhiteboard()}
+          onClose={() => (role === 'host' ? live.toggleWhiteboard() : live.setWhiteboardOpen(false))}
         />
       }
     />

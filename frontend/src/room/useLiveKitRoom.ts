@@ -20,6 +20,8 @@ type Options = {
 export function useLiveKitRoom(options: Options) {
   const roomRef = useRef<Room | null>(null)
   const localMutePendingRef = useRef(false)
+  const strokesRef = useRef<WhiteboardStroke[]>([])
+  const whiteboardOpenRef = useRef(false)
   const onRoomEndedRef = useRef(options.onRoomEnded)
   const onRemovedRef = useRef(options.onRemoved)
   onRoomEndedRef.current = options.onRoomEnded
@@ -39,6 +41,11 @@ export function useLiveKitRoom(options: Options) {
   const [chat, setChat] = useState<RoomChatMessage[]>([])
   const [reactions, setReactions] = useState<RoomReaction[]>([])
   const [strokes, setStrokes] = useState<WhiteboardStroke[]>([])
+  const [whiteboardOpen, setWhiteboardOpen] = useState(false)
+  const [whiteboardHostActive, setWhiteboardHostActive] = useState(false)
+
+  strokesRef.current = strokes
+  whiteboardOpenRef.current = whiteboardOpen
 
   const canUnmuteMic = options.role === 'host' || (!options.onlyHostCanUnmute && !hostMuted)
   const canShareScreen = options.role === 'host' || (!options.isChildren && options.allowStudentScreenshare)
@@ -98,7 +105,12 @@ export function useLiveKitRoom(options: Options) {
     roomRef.current = room
 
     const refresh = () => { if (active) syncParticipants(room) }
-    room.on(RoomEvent.ParticipantConnected, refresh)
+    room.on(RoomEvent.ParticipantConnected, () => {
+      refresh()
+      if (options.role === 'host' && (whiteboardOpenRef.current || strokesRef.current.length > 0)) {
+        void publishPacket({ type: 'wb-sync', open: whiteboardOpenRef.current, strokes: strokesRef.current }).catch(() => undefined)
+      }
+    })
     room.on(RoomEvent.ParticipantDisconnected, (p) => {
       refresh()
       setRaisedHands((prev) => { const copy = { ...prev }; delete copy[p.identity]; return copy })
@@ -145,8 +157,19 @@ export function useLiveKitRoom(options: Options) {
           window.setTimeout(() => setReactions((prev) => prev.filter((item) => item.id !== r.id)), 3000)
         } else if (packet.type === 'wb-stroke') {
           setStrokes((prev) => [...prev.slice(-300), packet.stroke])
+          setWhiteboardHostActive(true)
+          setWhiteboardOpen(true)
         } else if (packet.type === 'wb-clear') {
           setStrokes([])
+        } else if (packet.type === 'wb-state') {
+          setWhiteboardHostActive(packet.open)
+          setWhiteboardOpen(packet.open)
+        } else if (packet.type === 'wb-sync-request' && options.role === 'host') {
+          void publishPacket({ type: 'wb-sync', open: whiteboardOpenRef.current, strokes: strokesRef.current }).catch(() => undefined)
+        } else if (packet.type === 'wb-sync') {
+          setStrokes(packet.strokes.slice(-300))
+          setWhiteboardHostActive(packet.open)
+          if (packet.open) setWhiteboardOpen(true)
         } else if (packet.type === 'host-mute' && packet.targetIdentity === room.localParticipant.identity) {
           applyHostMuteState(room, packet.muted)
         }
@@ -183,6 +206,9 @@ export function useLiveKitRoom(options: Options) {
         localMutePendingRef.current = false
         setConnected(true)
         syncParticipants(room)
+        if (options.role !== 'host') {
+          void publishPacket({ type: 'wb-sync-request' }).catch(() => undefined)
+        }
         await roomApi.attendanceEvent(options.inviteCode, 'join').catch(() => undefined)
       } catch (err) {
         if (active) setError(err instanceof Error ? err.message : 'تعذر الاتصال بغرفة الاجتماع.')
@@ -207,7 +233,7 @@ export function useLiveKitRoom(options: Options) {
       void room.disconnect()
       roomRef.current = null
     }
-  }, [options.inviteCode, options.url, options.token, options.role, applyHostMuteState, syncParticipants])
+  }, [options.inviteCode, options.url, options.token, options.role, applyHostMuteState, publishPacket, syncParticipants])
 
   const toggleMedia = async (
     kind: 'microphone' | 'camera' | 'screen',
@@ -296,6 +322,18 @@ export function useLiveKitRoom(options: Options) {
   const notifyHostMute = (targetIdentity: string, muted: boolean) =>
     publishPacket({ type: 'host-mute', targetIdentity, muted }).catch(() => undefined)
 
+  const toggleWhiteboard = () => {
+    const next = !whiteboardOpenRef.current
+    setWhiteboardOpen(next)
+    if (options.role === 'host') {
+      setWhiteboardHostActive(next)
+      void publishPacket({ type: 'wb-state', open: next }).catch(() => undefined)
+      if (next && strokesRef.current.length > 0) {
+        void publishPacket({ type: 'wb-sync', open: true, strokes: strokesRef.current }).catch(() => undefined)
+      }
+    }
+  }
+
   const addStroke = async (stroke: WhiteboardStroke) => {
     setStrokes((prev) => [...prev.slice(-300), stroke])
     await publishPacket({ type: 'wb-stroke', stroke }).catch(() => undefined)
@@ -319,6 +357,7 @@ export function useLiveKitRoom(options: Options) {
     micOn, cameraOn, screenOn, handRaised,
     canUnmuteMic, canUseCamera, canShareScreen,
     raisedHands, chat, reactions, strokes,
+    whiteboardOpen, whiteboardHostActive, setWhiteboardOpen, toggleWhiteboard,
     toggleMic, toggleCamera, toggleScreenShare,
     toggleHandRaise, sendReaction, sendChat, notifyHostMute,
     addStroke, clearWhiteboard, leaveRoom,
