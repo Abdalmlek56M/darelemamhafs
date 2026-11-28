@@ -4,6 +4,7 @@ import type { Branding, Gate, HistoryData, LoginCredentials, Notice, Page, Sessi
 import { request } from '../services/apiClient'
 import { ApiError, USER_MESSAGES, loginErrorMessage } from '../lib/userMessages'
 import { setSessionExpiryListener } from '../lib/sessionExpiry'
+import { resolvePortalPath } from '../lib/roleRedirect'
 
 type SelectedStudentPreview = { id: string; fullName: string; studentCode: string }
 
@@ -83,11 +84,27 @@ export default function useDarAuth({
         try {
           const me = await request<Session>('/api/auth/me')
           if (!mounted) return
+          const target = resolvePortalPath(me.permissionCodes)
+          if (target !== '/management') {
+            window.location.replace(target)
+            return
+          }
           setSession(me)
           activeSessionRef.current = true
           setFirstPage(me)
           setGate('ready')
-        } catch { if (mounted) setGate('login') }
+        } catch {
+          try {
+            const v1 = await request<{ permissions?: string[]; permissionCodes?: string[] }>('/api/v1/auth/me')
+            if (!mounted) return
+            const target = resolvePortalPath(v1.permissions ?? v1.permissionCodes ?? [])
+            if (target !== '/management') {
+              window.location.replace(target)
+              return
+            }
+          } catch { /* no v1 session */ }
+          if (mounted) setGate('login')
+        }
       } catch {
         if (mounted) {
           setGate('login')
@@ -155,7 +172,12 @@ export default function useDarAuth({
   const quickLogin = async (credentials: LoginCredentials) => loginWithCredentials({ ...credentials, rememberMe: true })
   const logout = async () => {
     activeSessionRef.current = false
-    try { await request('/api/auth/logout', { method: 'POST' }) } catch { /* local state is still cleared */ }
+    try {
+      await Promise.allSettled([
+        request('/api/auth/logout', { method: 'POST' }),
+        fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' }),
+      ])
+    } catch { /* local state is still cleared */ }
     setSession(null)
     setGate('login')
     setPage('dashboard')

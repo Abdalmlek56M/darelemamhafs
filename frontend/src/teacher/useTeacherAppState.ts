@@ -191,7 +191,12 @@ export function useTeacherAppState(mode: 'teacher' | 'supervisor') {
   }
 
   const logout = async () => {
-    try { await teacherApi.logout() } catch { /* clear local state anyway */ }
+    try {
+      await Promise.allSettled([
+        teacherApi.logout(),
+        fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }),
+      ])
+    } catch { /* clear local state anyway */ }
     setSession(null)
     setPage('home')
     setToday(null)
@@ -202,6 +207,7 @@ export function useTeacherAppState(mode: 'teacher' | 'supervisor') {
     setRoster(null)
     todayRequested.current = false
     notificationsRequested.current = false
+    window.location.replace('/login')
   }
 
   const start = async (slot: Slot) => {
