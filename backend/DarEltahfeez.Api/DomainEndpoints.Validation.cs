@@ -43,15 +43,9 @@ public static partial class DomainEndpoints
         return e.Count==0?null:e;
     }
 
-    private static bool IsInvalidGender(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return false;
-        var normalized = value.Trim().ToLowerInvariant();
-        return normalized is not ("male" or "female");
-    }
+    private static bool IsInvalidGender(string? value) => Dar.Common.Domain.MemberGender.IsInvalid(value);
 
-    private static string? NormalizeGender(string? value)
-        => string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToLowerInvariant();
+    private static string? NormalizeGender(string? value) => Dar.Common.Domain.MemberGender.NormalizeOrNull(value);
 
     private static string NormalizeCircleType(string? value)
         => string.IsNullOrWhiteSpace(value) ? "group" : value.Trim().ToLowerInvariant();

@@ -26,9 +26,8 @@ public static partial class AuthEndpoints
             if (linkError is not null) return linkError;
             if (request.IsLocked && string.IsNullOrWhiteSpace(request.LockReason))
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["lockReason"] = ["اكتب سبب قفل الحساب."] });
-            var normalizedGender = string.IsNullOrWhiteSpace(request.Gender) ? null : request.Gender.Trim().ToLowerInvariant();
-            if (normalizedGender is not null && normalizedGender is not ("male" or "female"))
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["gender"] = ["اختر جنسًا صحيحًا."] });
+            if (!Dar.Common.Domain.MemberGender.TryNormalize(request.Gender, out var normalizedGender))
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["gender"] = [Dar.Common.Domain.MemberGender.InvalidMessage] });
             var id = Guid.NewGuid();
             await using var connection = await db.OpenConnectionAsync(ct);
             await using var transaction = await connection.BeginTransactionAsync(ct);
@@ -83,9 +82,8 @@ public static partial class AuthEndpoints
                 return Results.Conflict(new { message = "لا يمكن تعطيل آخر حساب مدير أو إزالة صلاحية إدارة الحسابات منه. أضف مديرًا آخر أولًا." });
             if (!string.IsNullOrEmpty(request.Password) && request.Password.Length < 6)
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["password"] = ["كلمة المرور الجديدة يجب ألا تقل عن 6 أحرف."] });
-            var normalizedGender = string.IsNullOrWhiteSpace(request.Gender) ? null : request.Gender.Trim().ToLowerInvariant();
-            if (normalizedGender is not null && normalizedGender is not ("male" or "female"))
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["gender"] = ["اختر جنسًا صحيحًا."] });
+            if (!Dar.Common.Domain.MemberGender.TryNormalize(request.Gender, out var normalizedGender))
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["gender"] = [Dar.Common.Domain.MemberGender.InvalidMessage] });
 
             await using var connection = await db.OpenConnectionAsync(ct);
             await using var transaction = await connection.BeginTransactionAsync(ct);
