@@ -68,8 +68,8 @@ export default function useDarDataLoaders({
 }: DarDataLoadersOptions) {
   const checkHealth = useCallback(async () => {
     try {
-      const result = await request<{ status: string; database: string }>('/health')
-      setHealth(result.database === 'connected' ? 'connected' : 'down')
+      const result = await request<{ status?: string; database?: string }>('/health')
+      setHealth(result.status === 'ok' || result.database === 'connected' ? 'connected' : 'down')
     } catch { setHealth('down') }
   }, [setHealth])
 

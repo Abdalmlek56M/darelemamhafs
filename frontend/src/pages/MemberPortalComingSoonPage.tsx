@@ -14,6 +14,10 @@ export default function MemberPortalComingSoonPage() {
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
+    document.title = 'بوابة الطالب وولي الأمر — دار الإمام حفص'
+  }, [])
+
+  useEffect(() => {
     let mounted = true
     request<V1Session>('/api/v1/auth/me')
       .then((me) => {

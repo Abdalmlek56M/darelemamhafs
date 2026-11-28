@@ -28,6 +28,7 @@ if (isHome) {
     </RootErrorBoundary></React.StrictMode>,
   )
 } else if (isLogin) {
+  document.title = 'تسجيل الدخول — دار الإمام حفص'
   createRoot(document.getElementById('root')!).render(
     <React.StrictMode><RootErrorBoundary page="تسجيل الدخول" homeHref="/login">
       {ZZErrorBomb && <ZZErrorBomb scope="app" />}
@@ -35,6 +36,7 @@ if (isHome) {
     </RootErrorBoundary></React.StrictMode>,
   )
 } else if (isPortal) {
+  document.title = 'بوابة الطالب وولي الأمر — دار الإمام حفص'
   createRoot(document.getElementById('root')!).render(
     <React.StrictMode><RootErrorBoundary page="بوابتك قريبًا" homeHref="/portal">
       {ZZErrorBomb && <ZZErrorBomb scope="app" />}
@@ -42,6 +44,7 @@ if (isHome) {
     </RootErrorBoundary></React.StrictMode>,
   )
 } else if (isRoom) {
+  document.title = 'غرفة الحلقة — دار الإمام حفص'
   createRoot(document.getElementById('root')!).render(
     <React.StrictMode><RootErrorBoundary page="غرفة الحلقة" homeHref="/login">
       {ZZErrorBomb && <ZZErrorBomb scope="app" />}

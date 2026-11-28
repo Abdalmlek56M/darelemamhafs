@@ -34,6 +34,7 @@ describe('MemberPortalComingSoonPage (F5)', () => {
     await waitFor(() => {
       expect(screen.getByText('بوابتك قريبًا')).toBeTruthy()
     })
+    expect(document.title).toContain('بوابة الطالب وولي الأمر')
 
     fireEvent.click(screen.getByRole('button', { name: /تسجيل الخروج/ }))
 
