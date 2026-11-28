@@ -182,9 +182,10 @@ export default function RoomControlsBar({
             {role === 'host' && !room.isChildren && onUpdateAccess && (
               <div className="room-more-access">
                 <strong>إعدادات الدخول</strong>
-                <label>
-                  نوع الدخول:{' '}
+                <label className="room-field">
+                  <span>نوع الدخول</span>
                   <select
+                    className="room-select"
                     value={room.accessMode}
                     onChange={(e) => onUpdateAccess({
                       accessMode: e.target.value as RoomAccessMode,
@@ -196,7 +197,7 @@ export default function RoomControlsBar({
                     <option value="public">عام (يتطلب حسابًا)</option>
                   </select>
                 </label>
-                <label className="lock-toggle-row">
+                <label className="room-toggle-row">
                   <input
                     type="checkbox"
                     checked={room.waitingRoomEnabled}
@@ -208,7 +209,7 @@ export default function RoomControlsBar({
                   />
                   <span>غرفة الانتظار</span>
                 </label>
-                <label className="lock-toggle-row">
+                <label className="room-toggle-row">
                   <input
                     type="checkbox"
                     checked={room.allowStudentScreenshare}

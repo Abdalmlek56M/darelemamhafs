@@ -28,14 +28,33 @@
 }
 
 .room-title-group { display: flex; align-items: center; gap: 0.5rem; min-width: 0; flex: 1 1 auto; }
-.room-title-group h1 { font-size: 1rem; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room-title-group h1 { font-size: 1rem; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .room-top-actions { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+.room-top-divider { width: 1px; align-self: stretch; margin-inline: 0.45rem; background: rgba(255, 255, 255, 0.2); }
 
-.room-notice-banner, .room-wb-prompt {
+.room-end-btn {
+  min-height: 38px;
+  padding: 0.35rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid #ef4444;
+  background: rgba(239, 68, 68, 0.14);
+  color: #fecaca;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.room-end-btn.is-solid { background: #dc2626; color: #ffffff; min-height: 46px; padding-inline: 1rem; }
+
+.room-notice-banner, .room-wb-prompt, .room-audio-banner {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 0.65rem;
   padding: 0.45rem 0.85rem;
   font-size: 0.88rem;
@@ -43,17 +62,9 @@
   text-align: center;
 }
 
-.room-notice-banner {
-  background: rgba(245, 158, 11, 0.16);
-  border-bottom: 1px solid rgba(245, 158, 11, 0.4);
-  color: #fde68a;
-}
-
-.room-wb-prompt {
-  background: rgba(56, 189, 248, 0.14);
-  border-bottom: 1px solid rgba(56, 189, 248, 0.35);
-  color: #bae6fd;
-}
+.room-notice-banner { background: rgba(245, 158, 11, 0.16); border-bottom: 1px solid rgba(245, 158, 11, 0.4); color: #fde68a; }
+.room-audio-banner { background: rgba(250, 204, 21, 0.14); border-bottom: 1px solid rgba(250, 204, 21, 0.45); color: #fef08a; }
+.room-wb-prompt { background: rgba(56, 189, 248, 0.14); border-bottom: 1px solid rgba(56, 189, 248, 0.35); color: #bae6fd; }
 
 .room-body {
   flex: 1 1 auto;
@@ -75,6 +86,10 @@
   overflow: hidden;
 }
 
+.room-view-switch { flex-shrink: 0; display: flex; gap: 0.4rem; padding: 0.25rem; border-radius: 12px; background: rgba(255, 255, 255, 0.05); }
+.room-view-switch button { flex: 1; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; border: 0; border-radius: 9px; background: transparent; color: inherit; font-size: 0.88rem; cursor: pointer; }
+.room-view-switch button.active { background: #38bdf8; color: #06131f; font-weight: 700; }
+
 .room-stage {
   flex: 1 1 auto;
   min-width: 0;
@@ -85,6 +100,8 @@
   gap: 0.75rem;
   align-content: start;
 }
+
+.room-board-stage { flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; }
 
 .room-spotlight {
   position: relative;
@@ -116,13 +133,7 @@
   font-size: 0.85rem;
 }
 
-.room-strip {
-  flex-shrink: 0;
-  display: flex;
-  gap: 0.55rem;
-  overflow-x: auto;
-  padding-bottom: 0.15rem;
-}
+.room-strip { flex-shrink: 0; display: flex; gap: 0.55rem; overflow-x: auto; padding-bottom: 0.15rem; }
 
 .room-tile {
   position: relative;
@@ -139,11 +150,16 @@
   justify-content: center;
 }
 
-.room-tile.is-compact { flex: 0 0 156px; min-height: 92px; max-height: 96px; aspect-ratio: 16 / 10; }
+.room-tile.is-compact { flex: 0 0 172px; width: 172px; height: 104px; min-height: 104px; max-height: 104px; aspect-ratio: auto; }
 .room-tile video { width: 100%; height: 100%; object-fit: cover; }
 .room-tile-avatar { width: 50px; height: 50px; border-radius: 50%; background: rgba(56, 189, 248, 0.18); display: grid; place-items: center; font-weight: 700; font-size: 1.15rem; }
-.room-tile-footer { position: absolute; inset-inline: 0.45rem; bottom: 0.4rem; display: flex; align-items: center; justify-content: space-between; gap: 0.25rem; background: rgba(11, 17, 24, 0.75); padding: 0.2rem 0.45rem; border-radius: 8px; font-size: 0.78rem; }
-.room-tile-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 0.25rem; }
+.room-tile.is-compact .room-tile-avatar { width: 36px; height: 36px; font-size: 0.95rem; margin-bottom: 26px; }
+
+.room-tile-footer { position: absolute; inset-inline: 0.4rem; bottom: 0.35rem; display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; min-width: 0; background: rgba(11, 17, 24, 0.78); padding: 0.2rem 0.45rem; border-radius: 8px; font-size: 0.78rem; }
+.room-tile-name { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 0.25rem; }
+.room-tile-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-tile-mic { flex: 0 0 auto; display: inline-flex; align-items: center; }
+.room-hand-icon { flex: 0 0 auto; color: #fbbf24; }
 
 .room-side-panel { width: 310px; max-width: 100%; min-height: 0; overflow: hidden; border-radius: 14px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.65rem; flex-shrink: 0; }
 .room-side-tabs { display: flex; gap: 0.4rem; align-items: center; flex-shrink: 0; }
@@ -163,42 +179,63 @@
 .room-chat-form { display: flex; gap: 0.4rem; margin-top: auto; flex-shrink: 0; }
 .room-chat-form input { flex: 1; min-width: 0; }
 
-.room-controls {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(11, 17, 24, 0.92);
-}
-
+.room-controls { flex-shrink: 0; display: flex; justify-content: center; align-items: center; gap: 0.45rem; padding: 0.55rem 0.75rem; border-top: 1px solid rgba(255, 255, 255, 0.08); background: rgba(11, 17, 24, 0.92); }
 .room-ctrl-btn { position: relative; min-height: 44px; padding: 0.45rem 0.8rem; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.86rem; white-space: nowrap; }
 .room-ctrl-btn.primary-button, .room-more-sheet .primary-button { background: #38bdf8; color: #06131f; border-color: #38bdf8; font-weight: 600; }
 .room-dot-badge { width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; }
 .room-mic-muted-host { border-color: rgba(245, 158, 11, 0.5); color: #fde68a; }
 
 .room-sheet-backdrop { position: fixed; inset: 0; z-index: 45; background: rgba(4, 8, 15, 0.62); display: flex; align-items: flex-end; justify-content: center; }
-.room-more-sheet { width: min(460px, 100%); max-height: 82dvh; overflow-y: auto; border-radius: 18px 18px 0 0; padding: 1rem; padding-bottom: max(1rem, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 0.85rem; }
+.room-dialog-backdrop { z-index: 70; align-items: center; padding: 1rem; }
+.room-confirm-dialog { width: min(420px, 100%); border-radius: 18px; padding: 1.25rem; background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.14); display: flex; flex-direction: column; gap: 0.75rem; }
+.room-confirm-dialog h2 { margin: 0; font-size: 1.1rem; }
+.room-confirm-dialog p { margin: 0; font-size: 0.95rem; line-height: 1.7; color: #cbd5e1; }
+.room-confirm-actions { display: flex; gap: 0.6rem; justify-content: flex-start; flex-wrap: wrap; margin-top: 0.25rem; }
+.room-confirm-actions .secondary-button { min-height: 46px; padding-inline: 1rem; }
+
+.room-more-sheet { width: min(460px, 100%); max-height: 82dvh; overflow-y: auto; border-radius: 18px 18px 0 0; padding: 1rem; padding-bottom: max(1rem, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 0.85rem; background: #0f172a; color: #e2e8f0; }
 .room-sheet-head { display: flex; align-items: center; justify-content: space-between; }
 .room-more-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
 .room-more-grid button { min-height: 46px; justify-content: center; font-size: 0.88rem; }
 .room-more-reactions { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
 .room-reaction-btn { min-width: 46px; min-height: 44px; font-size: 1.15rem; }
-.room-more-access { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+.room-more-access { display: flex; flex-direction: column; gap: 0.8rem; padding-top: 0.75rem; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+.room-more-access > strong { font-size: 0.95rem; color: #f1f5f9; }
+.room-field { display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.92rem; color: #cbd5e1; }
+.room-select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.55rem 0.9rem 0.55rem 2.4rem;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background-color: #0b1220;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: left 0.85rem center;
+  color: #f1f5f9;
+  font-size: 1rem;
+  font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  color-scheme: dark;
+}
+.room-select:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+.room-toggle-row { display: flex; align-items: center; gap: 0.7rem; min-height: 44px; font-size: 0.95rem; color: #e2e8f0; cursor: pointer; }
+.room-toggle-row input { width: 22px; height: 22px; flex: 0 0 auto; accent-color: #38bdf8; }
 
 .room-reactions-bar { display: flex; gap: 0.35rem; }
 .room-reaction-toast-row { flex-shrink: 0; display: flex; justify-content: center; gap: 0.4rem; padding: 0.25rem; flex-wrap: wrap; }
 .room-reaction-pill { padding: 0.2rem 0.6rem; border-radius: 999px; background: rgba(56, 189, 248, 0.2); font-size: 0.82rem; }
-.room-hand-icon { color: #fbbf24; }
 
-.room-whiteboard-card { grid-column: 1 / -1; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.14); background: #0f172a; padding: 0.6rem; display: flex; flex-direction: column; gap: 0.45rem; }
-.room-whiteboard-head { display: flex; justify-content: space-between; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
-.room-wb-tools { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
-.room-wb-color { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.room-whiteboard-card { flex: 1 1 auto; min-width: 0; min-height: 0; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.14); background: #0f172a; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; overflow: hidden; }
+.room-whiteboard-head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 0.4rem; min-width: 0; }
+.room-wb-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-wb-tools { flex: 0 0 auto; display: flex; align-items: center; gap: 0.4rem; }
+.room-wb-color { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
 .room-wb-color.active { border-color: #ffffff; transform: scale(1.1); }
-.room-whiteboard-canvas { width: 100%; height: auto; max-height: min(360px, 46dvh); border-radius: 10px; background: #09101d; touch-action: none; display: block; }
+.room-wb-close { min-width: 36px; min-height: 36px; }
+.room-wb-canvas-wrap { position: relative; flex: 1 1 auto; min-height: 0; }
+.room-whiteboard-canvas { position: absolute; inset: 0; margin: auto; display: block; max-width: 100%; max-height: 100%; border-radius: 10px; background: #09101d; touch-action: none; }
 
 @media (min-width: 769px) {
   .room-sheet-backdrop { align-items: center; }
@@ -209,6 +246,8 @@
   .room-desktop-only { display: none !important; }
   .room-topbar { padding: 0.45rem 0.65rem; }
   .room-title-group h1 { font-size: 0.94rem; }
+  .room-top-divider { margin-inline: 0.3rem; }
+  .room-end-btn { padding-inline: 0.6rem; font-size: 0.8rem; }
   .room-body { padding: 0.45rem; gap: 0.45rem; }
   .room-stage { grid-template-columns: 1fr; gap: 0.5rem; }
   .room-tile { min-height: 150px; max-height: calc(100dvh - 170px); }
@@ -216,5 +255,8 @@
   .room-ctrl-btn { min-height: 50px; padding: 0.35rem 0.25rem; flex-direction: column; gap: 0.18rem; font-size: 0.72rem; }
   .room-side-panel { position: fixed; inset-inline: 0; bottom: 0; top: auto; width: 100%; height: 78dvh; max-height: 78dvh; z-index: 50; border-radius: 18px 18px 0 0; background: #0f172a; border-top: 1px solid rgba(255, 255, 255, 0.15); padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
   .room-side-overlay { position: fixed; inset: 0; z-index: 49; background: rgba(4, 8, 15, 0.58); }
-  .room-whiteboard-card { min-height: 240px; }
+  .room-wb-color { width: 24px; height: 24px; }
+  .room-wb-tools { gap: 0.3rem; }
+  .room-wb-clear-text { display: none; }
+  .room-tile.is-compact { flex-basis: 156px; width: 156px; }
 }

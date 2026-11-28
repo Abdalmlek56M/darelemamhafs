@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { Track } from 'livekit-client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import MeetingRoomView from './MeetingRoomView'
@@ -141,8 +141,20 @@ describe('MeetingRoomView', () => {
     fireEvent.click(screen.getByTitle('حظر'))
     expect(onModerate).toHaveBeenCalledWith('ban', 's-1')
 
-    fireEvent.click(screen.getByRole('button', { name: /إنهاء/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'إنهاء للجميع' }))
+    const dialog = screen.getByRole('alertdialog')
+    expect(onEndRoom).not.toHaveBeenCalled()
+
+    // Cancelling keeps the meeting running.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'إلغاء' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(onEndRoom).not.toHaveBeenCalled()
+
+    // Confirming ends it for everyone.
+    fireEvent.click(screen.getByRole('button', { name: 'إنهاء للجميع' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'إنهاء للجميع' }))
     expect(onEndRoom).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 
   it('shows host-mute notice, active whiteboard prompt, and screen-share spotlight with fullscreen toggle', () => {
@@ -222,5 +234,90 @@ describe('MeetingRoomView', () => {
       />,
     )
     expect(screen.queryByText('شاشة المعلمة')).toBeNull()
+  })
+
+  const commonProps = {
+    dbParticipants: [],
+    micOn: false,
+    cameraOn: false,
+    screenOn: false,
+    handRaised: false,
+    canUnmuteMic: true,
+    canUseCamera: true,
+    canShareScreen: false,
+    raisedHands: {},
+    chat: [],
+    reactions: [],
+    onToggleMic: vi.fn(),
+    onToggleCamera: vi.fn(),
+    onToggleScreenShare: vi.fn(),
+    onToggleHand: vi.fn(),
+    onSendReaction: vi.fn(),
+    onSendChat: vi.fn(async () => {}),
+    onLeave: vi.fn(),
+  }
+
+  it('lets viewers switch between the shared screen and the whiteboard while both are active', () => {
+    const fakeScreenTrack = { attach: vi.fn(), detach: vi.fn() } as unknown as Track
+    render(
+      <MeetingRoomView
+        {...commonProps}
+        room={{ ...baseRoom, isChildren: false, onlyHostCanUnmute: false }}
+        role="participant"
+        tiles={[
+          { identity: 'h-1', name: 'المعلمة', isLocal: false, isHost: true, micEnabled: true, cameraEnabled: false, screenEnabled: true, videoTrack: null, screenTrack: fakeScreenTrack, audioTrack: null },
+          { identity: 'u-1', name: 'مريم', isLocal: true, isHost: false, micEnabled: false, cameraEnabled: false, screenEnabled: false, videoTrack: null, screenTrack: null, audioTrack: null },
+        ]}
+        whiteboardOpen
+        whiteboardHostActive
+        onToggleWhiteboard={vi.fn()}
+        whiteboardSlot={<div data-testid="wb-slot">السبورة</div>}
+      />,
+    )
+
+    expect(screen.getByRole('tablist', { name: 'عرض المحتوى' })).toBeTruthy()
+    expect(screen.getByTestId('wb-slot')).toBeTruthy()
+    expect(screen.queryByText('شاشة المعلمة')).toBeNull()
+
+    fireEvent.click(screen.getByRole('tab', { name: /الشاشة المشتركة/ }))
+    expect(screen.getByText('شاشة المعلمة')).toBeTruthy()
+    expect(screen.queryByTestId('wb-slot')).toBeNull()
+
+    fireEvent.click(screen.getByRole('tab', { name: /السبورة/ }))
+    expect(screen.getByTestId('wb-slot')).toBeTruthy()
+    expect(screen.queryByText('شاشة المعلمة')).toBeNull()
+  })
+
+  it('shows an Arabic enable-audio button when playback is blocked and calls onStartAudio', () => {
+    const onStartAudio = vi.fn()
+    render(
+      <MeetingRoomView
+        {...commonProps}
+        room={{ ...baseRoom, isChildren: false, onlyHostCanUnmute: false }}
+        role="participant"
+        tiles={[]}
+        audioBlocked
+        onStartAudio={onStartAudio}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'اضغط لتفعيل الصوت' }))
+    expect(onStartAudio).toHaveBeenCalledTimes(1)
+  })
+
+  it('truncates long participant names inside a dedicated label so the mic icon never overlaps', () => {
+    render(
+      <MeetingRoomView
+        {...commonProps}
+        room={{ ...baseRoom, isChildren: false, onlyHostCanUnmute: false }}
+        role="participant"
+        tiles={[{ identity: 'u-1', name: 'مريم أحمد عبد الرحمن السيد المحمدي الأنصاري', isLocal: false, isHost: false, micEnabled: false, cameraEnabled: false, screenEnabled: false, videoTrack: null, screenTrack: null, audioTrack: null }]}
+      />,
+    )
+
+    const label = document.querySelector('.room-tile-label')
+    expect(label?.getAttribute('title')).toContain('الأنصاري')
+    expect(label?.closest('.room-tile-name')).toBeTruthy()
+    expect(document.querySelector('.room-tile-mic')).toBeTruthy()
   })
 })

@@ -16,4 +16,19 @@ describe('RoomWhiteboard (Mission 6)', () => {
     rerender(<RoomWhiteboard role="participant" strokes={[]} onAddStroke={vi.fn()} onClear={onClear} />)
     expect(screen.queryByRole('button', { name: /مسح السبورة/ })).toBeNull()
   })
+
+  it('keeps the close button in the same tools row as the colors and clear action', () => {
+    const onClose = vi.fn()
+    render(<RoomWhiteboard role="host" strokes={[]} onAddStroke={vi.fn()} onClear={vi.fn()} onClose={onClose} />)
+
+    const close = screen.getByRole('button', { name: 'إغلاق السبورة' })
+    const tools = close.closest('.room-wb-tools')
+    expect(tools).toBeTruthy()
+    expect(tools?.querySelectorAll('.room-wb-color').length).toBe(5)
+    expect(tools?.querySelector('.room-wb-clear')).toBeTruthy()
+    expect(tools?.closest('.room-whiteboard-head')).toBeTruthy()
+
+    fireEvent.click(close)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
 })

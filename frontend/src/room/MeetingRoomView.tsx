@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { LogOut, Maximize2, Minimize2, PhoneOff, ShieldAlert } from 'lucide-react'
+import {
+  LogOut, Maximize2, Minimize2, MonitorUp, PencilLine, PhoneOff, ShieldAlert, Volume2,
+} from 'lucide-react'
 import type {
   LiveKitRoomInfo, LiveParticipantTile, RoomAccessMode,
   RoomChatMessage, RoomParticipantRecord, RoomReaction, RoomRole,
@@ -7,6 +9,7 @@ import type {
 import RoomSidePanel from './RoomSidePanel'
 import RoomTile, { MediaElement } from './RoomTile'
 import RoomControlsBar from './RoomControlsBar'
+import RoomConfirmDialog from './RoomConfirmDialog'
 import './room.css'
 
 type Props = {
@@ -40,7 +43,11 @@ type Props = {
   whiteboardSlot?: React.ReactNode
   hostMuted?: boolean
   notice?: string | null
+  audioBlocked?: boolean
+  onStartAudio?: () => void
 }
+
+type MainView = 'screen' | 'whiteboard'
 
 export default function MeetingRoomView({
   room, role, tiles, dbParticipants, micOn, cameraOn, screenOn, handRaised,
@@ -48,22 +55,35 @@ export default function MeetingRoomView({
   onToggleMic, onToggleCamera, onToggleScreenShare, onToggleHand,
   onSendReaction, onSendChat, onLeave, onEndRoom, onModerate, onUpdateAccess,
   whiteboardOpen = false, whiteboardHostActive = false, onToggleWhiteboard, whiteboardSlot,
-  hostMuted = false, notice = null,
+  hostMuted = false, notice = null, audioBlocked = false, onStartAudio,
 }: Props) {
   const [panelTab, setPanelTab] = useState<'participants' | 'chat' | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
+  const [mainView, setMainView] = useState<MainView>('screen')
+  const [confirmEnd, setConfirmEnd] = useState(false)
   const spotlightRef = useRef<HTMLDivElement | null>(null)
 
   const screenTile = tiles.find((t) => Boolean(t.screenTrack)) ?? null
+  const screenTrack = screenTile?.screenTrack ?? null
+  const hasScreen = Boolean(screenTrack)
+  const hasBoard = whiteboardOpen
+  const screenKey = screenTile?.identity ?? null
+
+  // A new screen share takes the stage; opening the whiteboard takes it back (board effect runs last).
+  useEffect(() => { if (screenKey) setMainView('screen') }, [screenKey])
+  useEffect(() => { if (hasBoard) setMainView('whiteboard') }, [hasBoard])
+
+  const showBoard = hasBoard && (!hasScreen || mainView === 'whiteboard')
+  const showScreen = hasScreen && !showBoard
 
   useEffect(() => {
-    if (!screenTile && fullscreen) {
+    if (!showScreen && fullscreen) {
       setFullscreen(false)
       if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
     }
-  }, [screenTile, fullscreen])
+  }, [showScreen, fullscreen])
 
   useEffect(() => {
     const onFsChange = () => {
@@ -93,6 +113,14 @@ export default function MeetingRoomView({
     window.setTimeout(() => setCopied(false), 2000)
   }
 
+  const strip = (
+    <div className="room-strip" aria-label="المشاركون">
+      {tiles.map((tile) => (
+        <RoomTile key={tile.identity} tile={tile} handRaised={Boolean(raisedHands[tile.identity])} compact />
+      ))}
+    </div>
+  )
+
   return (
     <div className="room-shell">
       <header className="room-topbar">
@@ -103,16 +131,28 @@ export default function MeetingRoomView({
           )}
         </div>
         <div className="room-top-actions">
-          {role === 'host' && onEndRoom && (
-            <button type="button" className="secondary-button compact-button danger-action" onClick={onEndRoom}>
-              <PhoneOff size={15} /> إنهاء
-            </button>
-          )}
           <button type="button" className="secondary-button compact-button" onClick={onLeave}>
             <LogOut size={15} /> مغادرة
           </button>
+          {role === 'host' && onEndRoom && (
+            <>
+              <span className="room-top-divider" aria-hidden="true" />
+              <button type="button" className="room-end-btn" onClick={() => setConfirmEnd(true)}>
+                <PhoneOff size={15} /> إنهاء للجميع
+              </button>
+            </>
+          )}
         </div>
       </header>
+
+      {audioBlocked && onStartAudio && (
+        <div className="room-audio-banner" role="alert">
+          <span>المتصفح منع تشغيل الصوت تلقائيًا.</span>
+          <button type="button" className="primary-button compact-button" onClick={onStartAudio}>
+            <Volume2 size={15} /> اضغط لتفعيل الصوت
+          </button>
+        </div>
+      )}
 
       {(hostMuted || notice) && (
         <div className="room-notice-banner" role="status" aria-live="polite">
@@ -139,10 +179,26 @@ export default function MeetingRoomView({
 
       <div className="room-body">
         <div className="room-main-area">
-          {screenTile && screenTile.screenTrack ? (
+          {hasScreen && hasBoard && (
+            <div className="room-view-switch" role="tablist" aria-label="عرض المحتوى">
+              <button type="button" role="tab" aria-selected={showScreen} className={showScreen ? 'active' : ''} onClick={() => setMainView('screen')}>
+                <MonitorUp size={15} /> الشاشة المشتركة
+              </button>
+              <button type="button" role="tab" aria-selected={showBoard} className={showBoard ? 'active' : ''} onClick={() => setMainView('whiteboard')}>
+                <PencilLine size={15} /> السبورة
+              </button>
+            </div>
+          )}
+
+          {showBoard ? (
+            <>
+              <div className="room-board-stage">{whiteboardSlot}</div>
+              {strip}
+            </>
+          ) : showScreen && screenTile && screenTrack ? (
             <>
               <div ref={spotlightRef} className={`room-spotlight${fullscreen ? ' is-fullscreen' : ''}`}>
-                <MediaElement track={screenTile.screenTrack} kind="video" fit="contain" />
+                <MediaElement track={screenTrack} kind="video" fit="contain" />
                 <div className="room-spotlight-bar">
                   <span>شاشة {screenTile.name}</span>
                   <button
@@ -156,22 +212,12 @@ export default function MeetingRoomView({
                   </button>
                 </div>
               </div>
-              <div className="room-strip" aria-label="المشاركون">
-                {tiles.map((tile) => (
-                  <RoomTile key={tile.identity} tile={tile} handRaised={Boolean(raisedHands[tile.identity])} compact />
-                ))}
-              </div>
+              {strip}
             </>
           ) : (
             <div className="room-stage">
-              {whiteboardOpen && whiteboardSlot}
               {tiles.map((tile) => (
-                <RoomTile
-                  key={tile.identity}
-                  tile={tile}
-                  handRaised={Boolean(raisedHands[tile.identity])}
-                  compact={whiteboardOpen}
-                />
+                <RoomTile key={tile.identity} tile={tile} handRaised={Boolean(raisedHands[tile.identity])} />
               ))}
             </div>
           )}
@@ -227,6 +273,16 @@ export default function MeetingRoomView({
         onCopyInvite={copyInvite}
         onUpdateAccess={onUpdateAccess}
       />
+
+      {confirmEnd && (
+        <RoomConfirmDialog
+          title="إنهاء الاجتماع للجميع؟"
+          message="سيتم إخراج جميع المشاركين وإغلاق الغرفة نهائيًا. لا يمكن التراجع عن هذا الإجراء."
+          confirmLabel="إنهاء للجميع"
+          onCancel={() => setConfirmEnd(false)}
+          onConfirm={() => { setConfirmEnd(false); onEndRoom?.() }}
+        />
+      )}
     </div>
   )
 }

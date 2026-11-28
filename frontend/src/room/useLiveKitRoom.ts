@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ConnectionState, DisconnectReason, Room, RoomEvent, Track } from 'livekit-client'
 import type { LiveParticipantTile, RoomChatMessage, RoomDataPacket, RoomReaction, RoomRole, WhiteboardStroke } from './roomTypes'
 import { roomApi } from './roomApi'
-import { buildTile, formatPublishError, HOST_MUTED_NOTICE, resolveDisconnectOutcome } from './roomHelpers'
+import { buildTile, HOST_MUTED_NOTICE, resolveDisconnectOutcome } from './roomHelpers'
+import { useLocalMediaControls } from './useLocalMediaControls'
 
 type Options = {
   inviteCode: string
@@ -43,6 +44,7 @@ export function useLiveKitRoom(options: Options) {
   const [strokes, setStrokes] = useState<WhiteboardStroke[]>([])
   const [whiteboardOpen, setWhiteboardOpen] = useState(false)
   const [whiteboardHostActive, setWhiteboardHostActive] = useState(false)
+  const [audioBlocked, setAudioBlocked] = useState(false)
 
   strokesRef.current = strokes
   whiteboardOpenRef.current = whiteboardOpen
@@ -136,6 +138,9 @@ export function useLiveKitRoom(options: Options) {
     room.on(RoomEvent.LocalTrackPublished, refresh)
     room.on(RoomEvent.LocalTrackUnpublished, refresh)
     room.on(RoomEvent.TrackSubscriptionPermissionChanged, refresh)
+    room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+      if (active) setAudioBlocked(!room.canPlaybackAudio)
+    })
     room.on(RoomEvent.ParticipantPermissionsChanged, (permissions, participant) => {
       if (!active || options.role === 'host') return
       if (participant.identity !== room.localParticipant.identity) return
@@ -183,6 +188,7 @@ export function useLiveKitRoom(options: Options) {
       setMicOn(false)
       setCameraOn(false)
       setScreenOn(false)
+      setAudioBlocked(false)
       setTiles([])
       void roomApi.attendanceEvent(options.inviteCode, 'leave').catch(() => undefined)
       const outcome = resolveDisconnectOutcome(reason)
@@ -237,55 +243,19 @@ export function useLiveKitRoom(options: Options) {
     }
   }, [options.inviteCode, options.url, options.token, options.role, applyHostMuteState, publishPacket, syncParticipants])
 
-  const toggleMedia = async (
-    kind: 'microphone' | 'camera' | 'screen',
-    currentOn: boolean,
-    canEnable: boolean,
-    blockedNotice: string,
-    apply: (next: boolean) => Promise<unknown>,
-  ) => {
+  const { toggleMic, toggleCamera, toggleScreenShare } = useLocalMediaControls({
+    roomRef, localMutePendingRef, micOn, cameraOn, screenOn,
+    canUnmuteMic, canUseCamera, canShareScreen, hostMuted,
+    setMediaNotice, syncParticipants,
+  })
+
+  // Browsers may block remote audio until a user gesture; this resumes playback on demand.
+  const startAudio = async () => {
     const room = roomRef.current
     if (!room) return
-    if (!currentOn && !canEnable) {
-      setMediaNotice(blockedNotice)
-      return
-    }
-    const next = !currentOn
-    if (kind === 'microphone' && !next) localMutePendingRef.current = true
-    try {
-      await apply(next)
-      if (next) setMediaNotice(null)
-    } catch (err) {
-      setMediaNotice(formatPublishError(kind, err, hostMuted))
-    } finally {
-      if (kind === 'microphone' && !next) localMutePendingRef.current = false
-      syncParticipants(room)
-    }
+    try { await room.startAudio() } catch { /* still blocked: the banner stays visible */ }
+    setAudioBlocked(!room.canPlaybackAudio)
   }
-
-  const toggleMic = () => toggleMedia(
-    'microphone',
-    micOn,
-    canUnmuteMic,
-    hostMuted ? HOST_MUTED_NOTICE : 'فقط المعلمة أو المشرفة يمكنها السماح بالصوت',
-    (next) => roomRef.current!.localParticipant.setMicrophoneEnabled(next),
-  )
-
-  const toggleCamera = () => toggleMedia(
-    'camera',
-    cameraOn,
-    canUseCamera,
-    'الكاميرا غير متاحة للمشاركين في هذه الحلقة.',
-    (next) => roomRef.current!.localParticipant.setCameraEnabled(next),
-  )
-
-  const toggleScreenShare = () => toggleMedia(
-    'screen',
-    screenOn,
-    canShareScreen,
-    'مشاركة الشاشة غير متاحة للمشاركين في هذه الحلقة.',
-    (next) => roomRef.current!.localParticipant.setScreenShareEnabled(next),
-  )
 
   const toggleHandRaise = async () => {
     const room = roomRef.current
@@ -355,7 +325,7 @@ export function useLiveKitRoom(options: Options) {
   }
 
   return {
-    connected, connecting, error, mediaNotice, hostMuted, tiles,
+    connected, connecting, error, mediaNotice, hostMuted, tiles, audioBlocked, startAudio,
     micOn, cameraOn, screenOn, handRaised,
     canUnmuteMic, canUseCamera, canShareScreen,
     raisedHands, chat, reactions, strokes,

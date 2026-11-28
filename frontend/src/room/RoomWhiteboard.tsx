@@ -93,7 +93,7 @@ export default function RoomWhiteboard({ role, strokes, onAddStroke, onClear, on
   return (
     <section className="room-whiteboard-card" aria-label="السبورة المشتركة">
       <div className="room-whiteboard-head">
-        <strong>السبورة المشتركة</strong>
+        <strong className="room-wb-title">السبورة المشتركة</strong>
         <div className="room-wb-tools">
           {role === 'host' && (
             <>
@@ -102,34 +102,43 @@ export default function RoomWhiteboard({ role, strokes, onAddStroke, onClear, on
                   key={c}
                   type="button"
                   aria-label={`لون ${c}`}
+                  aria-pressed={color === c}
                   className={`room-wb-color ${color === c ? 'active' : ''}`}
                   style={{ backgroundColor: c }}
                   onClick={() => setColor(c)}
                 />
               ))}
-              <button type="button" className="secondary-button compact-button" onClick={onClear}>
-                <Trash2 size={14} /> مسح السبورة
+              <button
+                type="button"
+                className="secondary-button compact-button room-wb-clear"
+                aria-label="مسح السبورة"
+                title="مسح السبورة"
+                onClick={onClear}
+              >
+                <Trash2 size={14} /> <span className="room-wb-clear-text">مسح السبورة</span>
               </button>
             </>
           )}
           {onClose && (
-            <button type="button" className="icon-button" aria-label="إغلاق السبورة" onClick={onClose}>
+            <button type="button" className="icon-button room-wb-close" aria-label="إغلاق السبورة" onClick={onClose}>
               <X size={16} />
             </button>
           )}
         </div>
       </div>
-      <canvas
-        ref={canvasRef}
-        width={900}
-        height={450}
-        className="room-whiteboard-canvas"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={finishStroke}
-        onPointerCancel={finishStroke}
-        onPointerLeave={finishStroke}
-      />
+      <div className="room-wb-canvas-wrap">
+        <canvas
+          ref={canvasRef}
+          width={900}
+          height={450}
+          className="room-whiteboard-canvas"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={finishStroke}
+          onPointerCancel={finishStroke}
+          onPointerLeave={finishStroke}
+        />
+      </div>
     </section>
   )
 }

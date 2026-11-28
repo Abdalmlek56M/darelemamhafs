@@ -7,6 +7,9 @@ type Listener = (...args: unknown[]) => void
 const mockState = vi.hoisted(() => ({
   listeners: new Map<string, Listener[]>(),
   setMicMock: vi.fn(async () => undefined),
+  setScreenMock: vi.fn(async () => undefined),
+  startAudioMock: vi.fn(async () => undefined),
+  canPlayback: true,
   publishDataMock: vi.fn(async (_bytes: Uint8Array) => undefined),
   disconnectMock: vi.fn(async () => undefined),
   connectMock: vi.fn(async () => undefined),
@@ -24,9 +27,11 @@ vi.mock('livekit-client', async (importOriginal) => {
       getTrackPublication: () => undefined,
       setMicrophoneEnabled: mockState.setMicMock,
       setCameraEnabled: vi.fn(async () => undefined),
-      setScreenShareEnabled: vi.fn(async () => undefined),
+      setScreenShareEnabled: mockState.setScreenMock,
       publishData: mockState.publishDataMock,
     }
+    get canPlaybackAudio() { return mockState.canPlayback }
+    startAudio = mockState.startAudioMock
     on(event: string, fn: Listener) {
       const list = mockState.listeners.get(event) ?? []
       list.push(fn)
@@ -44,7 +49,7 @@ vi.mock('./roomApi', () => ({
 }))
 
 import { useLiveKitRoom } from './useLiveKitRoom'
-import { resolveDisconnectOutcome } from './roomHelpers'
+import { resolveDisconnectOutcome, SCREEN_SHARE_INSECURE_NOTICE } from './roomHelpers'
 
 function emitRoomEvent(event: string, ...args: unknown[]) {
   for (const fn of mockState.listeners.get(event) ?? []) {
@@ -56,6 +61,9 @@ describe('useLiveKitRoom', () => {
   beforeEach(() => {
     mockState.listeners.clear()
     mockState.setMicMock.mockReset().mockResolvedValue(undefined)
+    mockState.setScreenMock.mockReset().mockResolvedValue(undefined)
+    mockState.startAudioMock.mockReset().mockResolvedValue(undefined)
+    mockState.canPlayback = true
     mockState.publishDataMock.mockReset().mockResolvedValue(undefined)
     mockState.disconnectMock.mockReset().mockResolvedValue(undefined)
     mockState.connectMock.mockReset().mockResolvedValue(undefined)
@@ -224,5 +232,59 @@ describe('useLiveKitRoom', () => {
     // Verify TrackUnpublished triggers participant/spotlight re-sync cleanly
     const mockTrackListeners = mockState.listeners.get(RoomEvent.TrackUnpublished) ?? []
     expect(mockTrackListeners.length).toBeGreaterThan(0)
+  })
+
+  const baseOptions = {
+    inviteCode: 'abc',
+    url: 'wss://example.livekit.cloud',
+    token: 'tok',
+    onlyHostCanUnmute: false,
+    allowStudentScreenshare: false,
+    isChildren: false,
+    mutedByHost: false,
+    onRoomEnded: vi.fn(),
+    onRemoved: vi.fn(),
+  }
+
+  it('shows friendly Arabic screen-share errors and stays silent when the picker is cancelled', async () => {
+    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })
+    Object.defineProperty(navigator, 'mediaDevices', { value: { getDisplayMedia: vi.fn() }, configurable: true })
+    try {
+      const { result } = renderHook(() => useLiveKitRoom({ ...baseOptions, role: 'host' }))
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+
+      mockState.setScreenMock.mockRejectedValueOnce(Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' }))
+      await act(async () => { await result.current.toggleScreenShare() })
+      expect(result.current.mediaNotice).toBeNull()
+
+      mockState.setScreenMock.mockRejectedValueOnce(Object.assign(new Error('Could not start video source'), { name: 'NotReadableError' }))
+      await act(async () => { await result.current.toggleScreenShare() })
+      expect(result.current.mediaNotice).toMatch(/[\u0600-\u06FF]/)
+      expect(result.current.mediaNotice).not.toMatch(/Could not start/)
+
+      Object.defineProperty(window, 'isSecureContext', { value: false, configurable: true })
+      const callsBefore = mockState.setScreenMock.mock.calls.length
+      await act(async () => { await result.current.toggleScreenShare() })
+      expect(result.current.mediaNotice).toBe(SCREEN_SHARE_INSECURE_NOTICE)
+      expect(mockState.setScreenMock.mock.calls.length).toBe(callsBefore)
+    } finally {
+      Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })
+      delete (navigator as unknown as Record<string, unknown>).mediaDevices
+    }
+  })
+
+  it('flags blocked audio playback and resumes it through startAudio', async () => {
+    const { result } = renderHook(() => useLiveKitRoom({ ...baseOptions, role: 'participant' }))
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(result.current.audioBlocked).toBe(false)
+
+    mockState.canPlayback = false
+    await act(async () => { emitRoomEvent(RoomEvent.AudioPlaybackStatusChanged, false) })
+    expect(result.current.audioBlocked).toBe(true)
+
+    mockState.startAudioMock.mockImplementation(async () => { mockState.canPlayback = true })
+    await act(async () => { await result.current.startAudio() })
+    expect(mockState.startAudioMock).toHaveBeenCalledTimes(1)
+    expect(result.current.audioBlocked).toBe(false)
   })
 })

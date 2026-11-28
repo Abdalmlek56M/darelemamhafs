@@ -152,6 +152,8 @@ export default function MeetingRoomPage() {
       reactions={live.reactions}
       hostMuted={live.hostMuted}
       notice={live.mediaNotice}
+      audioBlocked={live.audioBlocked}
+      onStartAudio={() => void live.startAudio()}
       onToggleMic={() => void live.toggleMic()}
       onToggleCamera={() => void live.toggleCamera()}
       onToggleScreenShare={() => void live.toggleScreenShare()}

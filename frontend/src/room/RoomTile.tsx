@@ -31,6 +31,7 @@ type TileProps = {
 }
 
 export default function RoomTile({ tile, handRaised, compact = false }: TileProps) {
+  const label = `${tile.name}${tile.isLocal ? ' (أنت)' : ''}`
   return (
     <article className={`room-tile${compact ? ' is-compact' : ''}`}>
       {tile.videoTrack
@@ -39,10 +40,12 @@ export default function RoomTile({ tile, handRaised, compact = false }: TileProp
       {tile.audioTrack && <MediaElement track={tile.audioTrack} kind="audio" />}
       <div className="room-tile-footer">
         <span className="room-tile-name">
-          {tile.name}{tile.isLocal ? ' (أنت)' : ''}
+          <span className="room-tile-label" title={label}>{label}</span>
           {handRaised && <Hand size={13} className="room-hand-icon" aria-label="يد مرفوعة" />}
         </span>
-        <span aria-hidden="true">{tile.micEnabled ? <Mic size={14} /> : <MicOff size={14} />}</span>
+        <span className="room-tile-mic" aria-hidden="true">
+          {tile.micEnabled ? <Mic size={14} /> : <MicOff size={14} />}
+        </span>
       </div>
     </article>
   )
