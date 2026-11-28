@@ -115,6 +115,8 @@ export function useLiveKitRoom(options: Options) {
       refresh()
       setRaisedHands((prev) => { const copy = { ...prev }; delete copy[p.identity]; return copy })
     })
+    room.on(RoomEvent.TrackPublished, refresh)
+    room.on(RoomEvent.TrackUnpublished, refresh)
     room.on(RoomEvent.TrackSubscribed, refresh)
     room.on(RoomEvent.TrackUnsubscribed, refresh)
     room.on(RoomEvent.TrackMuted, (pub, participant) => {

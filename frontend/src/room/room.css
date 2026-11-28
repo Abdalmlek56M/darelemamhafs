@@ -175,6 +175,7 @@
 }
 
 .room-ctrl-btn { position: relative; min-height: 44px; padding: 0.45rem 0.8rem; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.86rem; white-space: nowrap; }
+.room-ctrl-btn.primary-button, .room-more-sheet .primary-button { background: #38bdf8; color: #06131f; border-color: #38bdf8; font-weight: 600; }
 .room-dot-badge { width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; }
 .room-mic-muted-host { border-color: rgba(245, 158, 11, 0.5); color: #fde68a; }
 

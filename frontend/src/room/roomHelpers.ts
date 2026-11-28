@@ -26,7 +26,9 @@ export function buildTile(p: Participant, isLocal: boolean): LiveParticipantTile
     cameraEnabled: Boolean(camPub && !camPub.isMuted),
     screenEnabled: Boolean(screenPub && !screenPub.isMuted),
     videoTrack: camPub?.track && !camPub.isMuted ? camPub.track : null,
-    screenTrack: screenPub?.track && !screenPub.isMuted ? screenPub.track : null,
+    screenTrack: screenPub?.track && !screenPub.isMuted && screenPub.track.mediaStreamTrack?.readyState !== 'ended'
+      ? screenPub.track
+      : null,
     audioTrack: !isLocal && micPub?.track && !micPub.isMuted ? micPub.track : null,
   }
 }

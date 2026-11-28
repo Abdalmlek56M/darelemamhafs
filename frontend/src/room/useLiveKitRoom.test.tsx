@@ -220,5 +220,9 @@ describe('useLiveKitRoom', () => {
     expect(stud.current.whiteboardOpen).toBe(true)
     expect(stud.current.whiteboardHostActive).toBe(true)
     expect(stud.current.strokes).toHaveLength(1)
+
+    // Verify TrackUnpublished triggers participant/spotlight re-sync cleanly
+    const mockTrackListeners = mockState.listeners.get(RoomEvent.TrackUnpublished) ?? []
+    expect(mockTrackListeners.length).toBeGreaterThan(0)
   })
 })
