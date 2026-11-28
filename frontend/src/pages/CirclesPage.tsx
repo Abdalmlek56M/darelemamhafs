@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { BookOpen, Eye, GraduationCap, Pencil, Plus, Search, Trash2, Users, Wallet } from 'lucide-react'
 import { money } from '../lib/formatters'
@@ -27,6 +27,13 @@ export default function CirclesPage({ ctx }: Props) {
     deps: [appliedSearch],
     pageSize: ADMIN_PAGE_SIZE,
   })
+  const prevCirclesRef = useRef(ctx.circles)
+  useEffect(() => {
+    if (prevCirclesRef.current !== ctx.circles) {
+      prevCirclesRef.current = ctx.circles
+      circlesPage.reload()
+    }
+  }, [ctx.circles, circlesPage.reload])
 
   return <motion.section key="circles" className="students-page" initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-5}}>
     <div className="page-toolbar">
