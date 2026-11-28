@@ -151,12 +151,17 @@ public static class AdminSessionBridge
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
         var fresh = user.Permissions.OrderBy(value => value, StringComparer.Ordinal).ToArray();
-        if (current.SequenceEqual(fresh, StringComparer.Ordinal)) return;
+        var currentTeacherId = principal.FindFirstValue("teacher_id");
+        var freshTeacherId = user.TeacherId?.ToString();
+        if (current.SequenceEqual(fresh, StringComparer.Ordinal)
+            && string.Equals(currentTeacherId, freshTeacherId, StringComparison.Ordinal)) return;
 
-        // Permissions moved: use the fresh set for this request without rewriting the legacy cookie.
-        logger.LogInformation("Legacy admin cookie refreshed in memory for {UserId}: permissions changed.", userId);
-        var claims = principal.Claims.Where(claim => claim.Type != "permission").ToList();
+        // Permissions or teacher link moved: use the fresh set for this request without rewriting the legacy cookie.
+        logger.LogInformation("Legacy admin cookie refreshed in memory for {UserId}: claims changed.", userId);
+        var claims = principal.Claims.Where(claim => claim.Type is not "permission" and not "teacher_id").ToList();
         claims.AddRange(fresh.Select(permission => new Claim("permission", permission)));
+        if (!string.IsNullOrWhiteSpace(freshTeacherId))
+            claims.Add(new Claim("teacher_id", freshTeacherId));
         context.ReplacePrincipal(new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme)));
     }
 }

@@ -7,6 +7,19 @@ import { request } from '../services/apiClient'
 import { ApiError, loginErrorMessage } from '../lib/userMessages'
 import { resolvePortalPath } from '../lib/roleRedirect'
 
+type V1Session = {
+  id: string
+  username: string
+  displayName: string
+  permissions?: string[]
+  permissionCodes?: string[]
+  teacherId?: string | null
+}
+
+function readPermissions(session: V1Session): string[] {
+  return session.permissions ?? session.permissionCodes ?? []
+}
+
 export default function UnifiedLoginPage() {
   const [gate, setGate] = useState<'checking' | 'setup' | 'login'>('checking')
   const [branding, setBranding] = useState<Branding>(defaultBranding)
@@ -30,8 +43,8 @@ export default function UnifiedLoginPage() {
           return
         }
         try {
-          const me = await request<Session>('/api/auth/me')
-          if (mounted) window.location.replace(resolvePortalPath(me.permissionCodes))
+          const me = await request<V1Session>('/api/v1/auth/me')
+          if (mounted) window.location.replace(resolvePortalPath(readPermissions(me)))
         } catch {
           if (mounted) setGate('login')
         }
@@ -46,11 +59,18 @@ export default function UnifiedLoginPage() {
   const signInAndRedirect = async (credentials: LoginCredentials) => {
     setSaving(true)
     try {
-      const signedIn = await request<Session>('/api/auth/login', {
+      const signedIn = await request<V1Session>('/api/v1/auth/password', {
         method: 'POST',
         body: JSON.stringify(credentials),
       })
-      window.location.replace(resolvePortalPath(signedIn.permissionCodes))
+      const target = resolvePortalPath(readPermissions(signedIn))
+      if (target === '/management') {
+        await request<Session>('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ username: credentials.username, password: credentials.password, rememberMe: credentials.rememberMe }),
+        })
+      }
+      window.location.replace(target)
       return true
     } catch (error) {
       const message = error instanceof ApiError && error.status === 401
