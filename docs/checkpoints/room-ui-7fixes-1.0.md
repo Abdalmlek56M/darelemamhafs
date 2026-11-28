@@ -33,10 +33,11 @@ Date: 28 Nov 2026
 ## Stage tiles overlap (found in the staging screenshots)
 - On phones, 3+ participants made tiles overlap (grid auto rows shrank inside the fixed-height stage). Fixed in `room.css` with `grid-auto-rows: max-content`.
 - `tests/diagnostics/room-stage-layout/` failed before the fix (7 of 18 cases) and passes after.
+- Deployed `8f54cde` to **staging only** and re-ran the two-browser test with overlap checks: passed at `390x844`, `360x640`, `1280x720` (3 participants), with and without the banner.
 
 ## Remaining
 1. Try #7 on a real phone (iOS Safari and Android Chrome not tested).
-2. Clean up `/tmp/stg_pw_room_e2e_v2.mjs`, `/tmp/stg_audio_diag.mjs`, `/tmp/room_ui_shots2` (and `room_ui_shots3` once reviewed) on the staging server.
+2. Clean up `/tmp/stg_pw_room_e2e_v2.mjs`, `/tmp/stg_audio_diag.mjs`, `/tmp/room_ui_shots2` (and `room_ui_shots3`/`room_ui_shots4` once reviewed) on the staging server.
 
 ## Decisions
 - Production stays untouched at `23a1cac`; the room overhaul is staging-only until verification finishes.
