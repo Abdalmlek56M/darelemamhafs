@@ -121,3 +121,20 @@
   .room-body { flex-direction: column; }
   .room-side-panel { width: 100%; }
 }
+
+.room-whiteboard-card {
+  grid-column: 1 / -1;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #0f172a;
+  padding: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.room-whiteboard-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.room-wb-tools { display: flex; align-items: center; gap: 0.4rem; }
+.room-wb-color { width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.room-wb-color.active { border-color: #ffffff; transform: scale(1.1); }
+.room-whiteboard-canvas { width: 100%; max-height: 420px; border-radius: 10px; background: #09101d; touch-action: none; }

@@ -5,6 +5,7 @@ import { roomApi } from './roomApi'
 import type { LiveKitRoomInfo, RoomAccessMode, RoomParticipantRecord, RoomRole } from './roomTypes'
 import { useLiveKitRoom } from './useLiveKitRoom'
 import MeetingRoomView from './MeetingRoomView'
+import RoomWhiteboard from './RoomWhiteboard'
 
 export default function MeetingRoomPage() {
   const pathParts = window.location.pathname.split('/').filter(Boolean)
@@ -20,6 +21,7 @@ export default function MeetingRoomPage() {
   const [livekitUrl, setLivekitUrl] = useState<string | null>(null)
   const [dbParticipants, setDbParticipants] = useState<RoomParticipantRecord[]>([])
   const [endedNotice, setEndedNotice] = useState<string | null>(null)
+  const [whiteboardOpen, setWhiteboardOpen] = useState(false)
 
   const requestJoinToken = useCallback(async () => {
     if (!inviteCode) return
@@ -165,6 +167,16 @@ export default function MeetingRoomPage() {
       onUpdateAccess={(patch: { accessMode: RoomAccessMode; waitingRoomEnabled: boolean; allowStudentScreenshare: boolean }) => {
         void roomApi.updateAccess(inviteCode, patch).then(setRoom).catch(() => undefined)
       }}
+      whiteboardOpen={whiteboardOpen}
+      onToggleWhiteboard={() => setWhiteboardOpen((v) => !v)}
+      whiteboardSlot={
+        <RoomWhiteboard
+          role={role}
+          strokes={live.strokes}
+          onAddStroke={(stroke) => void live.addStroke(stroke)}
+          onClear={() => void live.clearWhiteboard()}
+        />
+      }
     />
   )
 }
